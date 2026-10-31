@@ -32,7 +32,7 @@ canvas{display:block;touch-action:none}
 <body>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
-    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.5.0</small></div>
+    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.5.1</small></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
@@ -100,7 +100,7 @@ const W=18,D=9;
 const base=new THREE.Mesh(new THREE.BoxGeometry(W+.5,.25,D+.5),new THREE.MeshStandardMaterial({color:0x182b31,metalness:.15,roughness:.83}));
 base.position.y=-.16;root.add(base);
 const tileGeo=new THREE.PlaneGeometry(.986,.986);
-const tileMat=new THREE.MeshStandardMaterial({roughness:1,metalness:0,vertexColors:true,side:THREE.DoubleSide});
+const tileMat=new THREE.MeshStandardMaterial({roughness:1,metalness:0,vertexColors:false,side:THREE.DoubleSide});
 const tiles=new THREE.InstancedMesh(tileGeo,tileMat,W*D);tiles.rotation.x=-Math.PI/2;tiles.position.y=.014;
 const dummy=new THREE.Object3D(),color=new THREE.Color();
 for(let row=0;row<D;row++)for(let col=0;col<W;col++){
@@ -167,7 +167,7 @@ const down=new THREE.Vector3(0,-1,0);
 function initLamp(c){
   c.lamp=findLantern(c.model);
   if(!c.lamp){c.pend=null;return;}
-  c.model.updateMatrixWorld(true);
+  c.model.updateWorldMatrix(true,true);
   const originalQ=new THREE.Quaternion();c.lamp.getWorldQuaternion(originalQ);
   const lampDown=down.clone().applyQuaternion(originalQ).normalize();
   const corr=new THREE.Quaternion().setFromUnitVectors(lampDown,down);
@@ -178,7 +178,7 @@ function initLamp(c){
 }
 function updateLamp(c,dt){
   if(!c.lamp||!c.pend||dt<=0)return;
-  c.model.updateMatrixWorld(true);
+  c.model.updateWorldMatrix(true,true);
   const pos=c.lamp.getWorldPosition(new THREE.Vector3());
   const vel=pos.clone().sub(c.prev).divideScalar(dt);
   const accel=vel.clone().sub(c.vPrev).divideScalar(dt);
