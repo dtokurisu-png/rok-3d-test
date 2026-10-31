@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a1420">
+<title>R.O.K. | Prueba de arena 2.5D</title>
+<style>
+:root{color-scheme:dark;--mint:#00ffe4;--panel:rgba(8,20,30,.94)}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;height:100dvh;overflow:hidden;background:#08121d;color:#eaffff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+canvas{display:block;touch-action:none}
+#top{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 8px);z-index:15;width:min(410px,94vw);background:var(--panel);border:1px solid #278d85;border-radius:12px;box-shadow:0 6px 18px #0008;overflow:hidden}
+#head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;cursor:pointer;min-height:42px}
+#head strong{font-size:13px;letter-spacing:.02em;color:var(--mint)}
+#head small{font-size:10px;color:#e9c87b}
+#head button{border:1px solid #3c8d8d;border-radius:7px;background:#19333e;color:#fff;padding:6px 9px;font-size:11px;flex:none}
+#details{display:none;max-height:min(60dvh,360px);overflow-y:auto;padding:0 12px 12px;font-size:12px;color:#bbd5d8;line-height:1.5}
+#top.open #details{display:block}
+#details p{margin:7px 0}
+#sceneStatus{font-weight:700;color:#ebf8f8}
+#bottom{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);left:50%;transform:translateX(-50%);z-index:12;display:flex;gap:7px;align-items:center;justify-content:center;background:#091b29d9;border:1px solid #2b6e73;border-radius:40px;padding:6px;max-width:98vw}
+#bottom button{background:#17434b;border:1px solid #299d9c;color:#f5ffff;border-radius:22px;padding:10px 12px;font-size:12px;white-space:nowrap;min-height:39px}
+#bottom button.primary{background:#007b75;border-color:var(--mint);font-weight:700}
+#bottom button:disabled{opacity:.5}
+#phase{position:fixed;z-index:9;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);padding:6px 10px;border:1px solid #277b78;border-radius:9px;background:#081925d9;font-size:11px;font-weight:700;color:#ccf7ee}
+#hint{position:fixed;z-index:9;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);font-size:10px;max-width:42vw;color:#d0dfe0;text-align:right;background:#09192599;padding:6px;border-radius:6px}
+@media(min-width:760px){#top{left:16px;transform:none;top:16px}#bottom{bottom:20px}#phase{bottom:20px}#hint{bottom:20px}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
+</head>
+<body>
+<section id="top">
+  <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
+    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.5.0</small></div>
+    <button type="button" id="expand">Opciones ▾</button>
+  </div>
+  <div id="details">
+    <p id="sceneStatus">Iniciando escenario…</p>
+    <p>18 columnas × 9 filas. Tus unidades abajo, de espaldas; el rival arriba, de frente. Perspectiva desde el lado aliado.</p>
+    <p id="modelStatus">Modelos: cargando…</p>
+    <p id="textureStatus">Textura R.O.K.: comprobando…</p>
+    <p id="fps">FPS: —</p>
+    <p><b>Secuencia:</b> materialización → avance → intercambio de golpes → restauración. Demostración visual sin cambiar las reglas reales.</p>
+    <p><a href="./index.html" style="color:#00ffe4">Volver al visor de Farolera</a></p>
+  </div>
+</section>
+<div id="phase">Preparando combate…</div>
+<div id="hint">1 dedo: girar · 2 dedos: zoom<br>Arriba: rival · Abajo: aliado</div>
+<div id="bottom">
+  <button class="primary" id="repeat" disabled>↻ Repetir</button>
+  <button id="pause" disabled>Ⅱ Pausar</button>
+  <button id="camera">⌖ Cámara</button>
+  <button id="full">▦ Arena</button>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
+
+const qs=s=>document.querySelector(s);
+const hud=qs('#top'), head=qs('#head');
+const expand=()=>{hud.classList.toggle('open');const open=hud.classList.contains('open');qs('#expand').textContent=open?'Cerrar ▴':'Opciones ▾';head.setAttribute('aria-expanded',String(open));};
+head.addEventListener('click',expand);head.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();expand();}});
+qs('#expand').addEventListener('click',e=>e.stopPropagation());
+qs('#expand').addEventListener('click',expand);
+
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,window.innerWidth<700?1.5:2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.28;
+document.body.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x091722);scene.fog=new THREE.FogExp2(0x091722,0.012);
+const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,130);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.dampingFactor=.075;controls.enablePan=true;
+controls.minDistance=4.5;controls.maxDistance=52;controls.maxPolarAngle=THREE.MathUtils.degToRad(76);controls.minPolarAngle=THREE.MathUtils.degToRad(36);
+const focus=new THREE.Vector3(0,0.4,0);
+const setCamera=(full=false)=>{
+  const mobile=innerWidth<700;
+  controls.target.copy(focus);
+  camera.position.set(0,full?(mobile?22:14):(mobile?10.2:9.3),full?(mobile?31:23):(mobile?15.3:16.0));
+  camera.fov=mobile?53:47;
+  camera.updateProjectionMatrix();controls.update();
+};
+setCamera(false);
+qs('#camera').onclick=()=>setCamera(false);
+qs('#full').onclick=()=>setCamera(true);
+
+scene.add(new THREE.HemisphereLight(0xdffaff,0x264156,2.0));
+const key=new THREE.DirectionalLight(0xffffff,2.2);key.position.set(-5,13,7);scene.add(key);
+const fill=new THREE.DirectionalLight(0x00ccb8,.65);fill.position.set(4,5,-6);scene.add(fill);
+
+const root=new THREE.Group();scene.add(root);
+const W=18,D=9;
+const base=new THREE.Mesh(new THREE.BoxGeometry(W+.5,.25,D+.5),new THREE.MeshStandardMaterial({color:0x182b31,metalness:.15,roughness:.83}));
+base.position.y=-.16;root.add(base);
+const tileGeo=new THREE.PlaneGeometry(.986,.986);
+const tileMat=new THREE.MeshStandardMaterial({roughness:1,metalness:0,vertexColors:true,side:THREE.DoubleSide});
+const tiles=new THREE.InstancedMesh(tileGeo,tileMat,W*D);tiles.rotation.x=-Math.PI/2;tiles.position.y=.014;
+const dummy=new THREE.Object3D(),color=new THREE.Color();
+for(let row=0;row<D;row++)for(let col=0;col<W;col++){
+  const idx=row*W+col;
+  dummy.position.set(col-(W-1)/2,(D-1)/2-row,0);
+  dummy.updateMatrix();tiles.setMatrixAt(idx,dummy.matrix);
+  const side=row<4?'enemy':row>4?'ally':'neutral';
+  const hex=side==='enemy'?(idx%2?0x29404e:0x263947):side==='ally'?(idx%2?0x214945:0x203e3e):(idx%2?0x394846:0x33413e);
+  color.setHex(hex);tiles.setColorAt(idx,color);
+}
+tiles.instanceMatrix.needsUpdate=true;if(tiles.instanceColor)tiles.instanceColor.needsUpdate=true;root.add(tiles);
+// Imagen 2D auténtica de R.O.K., proyectada suavemente sobre el suelo 3D.
+const arenaTextureUrl='https://dtokurisu-png.github.io/rok-lirte-html/assets/arena.webp';
+new THREE.TextureLoader().load(arenaTextureUrl,tex=>{
+  tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+  const art=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide}));
+  art.rotation.x=-Math.PI/2;art.position.y=.020;root.add(art);
+  qs('#textureStatus').textContent='Textura R.O.K.: cargada como capa 2D sobre el suelo 3D';
+},undefined,()=>{qs('#textureStatus').textContent='Textura R.O.K.: no disponible; usando baldosas 3D';});
+const points=[];
+for(let x=-9;x<=9;x++){points.push(x,.042,-4.5,x,.042,4.5);}
+for(let z=-4.5;z<=4.5;z++){points.push(-9,.042,z,9,.042,z);}
+const lineGeo=new THREE.BufferGeometry();lineGeo.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
+root.add(new THREE.LineSegments(lineGeo,new THREE.LineBasicMaterial({color:0x5baea9,transparent:true,opacity:.61})));
+const middle=new THREE.Mesh(new THREE.BoxGeometry(W,.028,.045),new THREE.MeshBasicMaterial({color:0xc9e2cc,transparent:true,opacity:.85}));middle.position.set(0,.055,0);root.add(middle);
+const borderMat=new THREE.MeshBasicMaterial({color:0x4a9b9f});
+for(const z of [-4.53,4.53]){const rail=new THREE.Mesh(new THREE.BoxGeometry(W+.14,.075,.07),borderMat);rail.position.set(0,.025,z);root.add(rail);}
+for(const x of [-9.03,9.03]){const rail=new THREE.Mesh(new THREE.BoxGeometry(.07,.075,D+.14),borderMat);rail.position.set(x,.025,0);root.add(rail);}
+function marker(z,color){
+  const m=new THREE.Mesh(new THREE.RingGeometry(.55,.65,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.68,depthWrite:false,side:THREE.DoubleSide}));
+  m.rotation.x=-Math.PI/2;m.position.set(0,.057,z);root.add(m);return m;
+}
+marker(3.22,0x00ffe4);marker(-3.22,0xff8f9b);
+
+const ease=x=>{x=THREE.MathUtils.clamp(x,0,1);return x*x*(3-2*x)};
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const combatants=[];
+const sphereGeo=new THREE.SphereGeometry(1,10,8);
+function makeFx(color){
+  const g=new THREE.Group();root.add(g);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(.55,.035,6,42),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,depthWrite:false}));
+  ring.rotation.x=Math.PI/2;g.add(ring);
+  const disc=new THREE.Mesh(new THREE.CircleGeometry(.35,32),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));
+  disc.rotation.x=-Math.PI/2;disc.position.y=.04;g.add(disc);
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(.38,.62,2.25,24,1,true),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));
+  beam.position.y=1.12;g.add(beam);
+  const sparks=[];
+  for(let j=0;j<12;j++){
+    const p=new THREE.Mesh(sphereGeo,new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,depthWrite:false}));
+    const a=(j/12)*Math.PI*2;const rad=.22+(j%4)*.12;
+    p.scale.setScalar(.025+(j%3)*.009);p.position.set(Math.cos(a)*rad,.18+(j%4)*.24,Math.sin(a)*rad);
+    g.add(p);sparks.push(p);
+  }
+  return {g,ring,disc,beam,sparks};
+}
+function findLantern(model){
+  let hand=null;model.traverse(o=>{if(o.isBone && /(?:^|:)RightHand$/i.test(o.name))hand=o;});
+  const list=[];
+  if(hand)hand.traverse(o=>{if(o.isMesh&&!o.isSkinnedMesh)list.push(o);});
+  return list[0]||null;
+}
+const quatParent=new THREE.Quaternion(),quatTarget=new THREE.Quaternion(),quatTilt=new THREE.Quaternion();
+const down=new THREE.Vector3(0,-1,0);
+function initLamp(c){
+  c.lamp=findLantern(c.model);
+  if(!c.lamp){c.pend=null;return;}
+  c.model.updateMatrixWorld(true);
+  const originalQ=new THREE.Quaternion();c.lamp.getWorldQuaternion(originalQ);
+  const lampDown=down.clone().applyQuaternion(originalQ).normalize();
+  const corr=new THREE.Quaternion().setFromUnitVectors(lampDown,down);
+  c.restQ=originalQ.premultiply(corr).normalize();
+  c.prev=c.lamp.getWorldPosition(new THREE.Vector3());
+  c.vPrev=new THREE.Vector3();
+  c.pend=new THREE.Vector2();c.pendV=new THREE.Vector2();
+}
+function updateLamp(c,dt){
+  if(!c.lamp||!c.pend||dt<=0)return;
+  c.model.updateMatrixWorld(true);
+  const pos=c.lamp.getWorldPosition(new THREE.Vector3());
+  const vel=pos.clone().sub(c.prev).divideScalar(dt);
+  const accel=vel.clone().sub(c.vPrev).divideScalar(dt);
+  c.prev.copy(pos);c.vPrev.copy(vel);
+  const stiff=47,damping=5.5,force=.60;
+  c.pendV.x+=(-stiff*c.pend.x-damping*c.pendV.x-clamp(accel.x,-35,35)*force)*dt;
+  c.pendV.y+=(-stiff*c.pend.y-damping*c.pendV.y-clamp(accel.z,-35,35)*force)*dt;
+  c.pend.addScaledVector(c.pendV,dt);c.pend.clampLength(0,.46);
+  const tiltDir=new THREE.Vector3(Math.sin(c.pend.x),-Math.cos(c.pend.length()),Math.sin(c.pend.y)).normalize();
+  quatTilt.setFromUnitVectors(down,tiltDir);quatTarget.copy(quatTilt).multiply(c.restQ);
+  c.lamp.parent.getWorldQuaternion(quatParent);
+  c.lamp.quaternion.copy(quatParent.invert().multiply(quatTarget));
+}
+function createFighter(baseScene,clip,side){
+  const model=cloneSkinned(baseScene);
+  const outer=new THREE.Group();root.add(outer);outer.add(model);
+  outer.rotation.y=side==='ally'?Math.PI:0;
+  const startZ=side==='ally'?3.22:-3.22;
+  outer.position.z=startZ;
+  const size=new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
+  const factor=1.65/Math.max(.2,size.y);
+  model.scale.setScalar(factor);
+  const mats=[];
+  model.traverse(o=>{
+    if(o.isMesh){
+      o.frustumCulled=false;
+      const arr=Array.isArray(o.material)?o.material:[o.material];
+      const copied=arr.map(m=>{const n=m.clone();n.transparent=true;n.depthWrite=true;n.userData.baseOpacity=m.opacity??1;mats.push(n);return n});
+      o.material=Array.isArray(o.material)?copied:copied[0];
+    }
+  });
+  const mixer=new THREE.AnimationMixer(model);mixer.clipAction(clip).play();
+  const fx=makeFx(side==='ally'?0x00ffe4:0xff869c);
+  const c={side,outer,model,startZ,endZ:side==='ally'?.85:-.85,mixer,mats,fx,lamp:null,pend:null};
+  combatants.push(c);initLamp(c);return c;
+}
+let loaded=false,playing=true,tm=0,prevTime=performance.now();
+const DURATION=10;
+const eventTimes=[4.76,5.39,5.98];
+function bump(t,at,width){return Math.exp(-Math.pow((t-at)/width,2));}
+function setOpacity(c,a){for(const m of c.mats)m.opacity=m.userData.baseOpacity*a;}
+function animateFighter(c,t){
+  const u=ease((t-1.4)/3);
+  const move=u*(c.endZ-c.startZ);
+  const combat=t>=4.4&&t<6.8;
+  let knock=0;
+  if(combat){for(const h of eventTimes){const b=bump(t,h,.13);knock+=b*(c.side==='ally'? .12:-.12);}}
+  c.outer.position.z=c.startZ+move+knock;
+  let fade=1,spawn=0;
+  if(t<1.4){fade=ease(t/.95);spawn=1-fade;}
+  else if(t<6.8){fade=1;spawn=0;}
+  else if(t<7.48){fade=1-ease((t-6.8)/.66);spawn=1-fade;}
+  else {c.outer.position.z=c.startZ;fade=ease((t-7.48)/.95);spawn=1-fade;}
+  // El modelo completo emerge al materializarse; la animación Idle sigue reproduciéndose.
+  c.model.position.y=-(1-fade)*.38;
+  const scale=fade*.15+.85;c.model.scale.setScalar(c.model.userData.baseScale*scale);
+  setOpacity(c,Math.max(0,fade));
+  c.fx.g.position.set(0,.08,c.outer.position.z);
+  const matPulse=t<1.4?1-ease(t/1.4):t>6.7&&t<8.6?1-Math.abs((t-7.65)/.95):0;
+  const amount=clamp(matPulse,0,1);
+  c.fx.ring.scale.setScalar(.75+(1-amount)*1.9);c.fx.ring.material.opacity=.80*amount;
+  c.fx.disc.material.opacity=.42*amount;
+  c.fx.beam.material.opacity=.24*amount;
+  c.fx.sparks.forEach((p,j)=>{p.material.opacity=.8*amount;p.position.y=.1+(j%4)*.2+(1-amount)*.62;});
+}
+const hits=new THREE.Group();root.add(hits);
+const hitA=new THREE.Mesh(new THREE.RingGeometry(.14,.23,48),new THREE.MeshBasicMaterial({color:0xe7ffff,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));hits.add(hitA);
+const hitB=new THREE.Mesh(new THREE.RingGeometry(.18,.24,48),new THREE.MeshBasicMaterial({color:0x00ffe4,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));hits.add(hitB);
+const hitFlash=new THREE.Mesh(new THREE.SphereGeometry(.26,16,12),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0,depthWrite:false}));hits.add(hitFlash);
+hits.position.set(0,.9,0);
+function hitEffects(t){
+  let max=0,which=0;
+  eventTimes.forEach((at,i)=>{const v=bump(t,at,.12);if(v>max){max=v;which=i;}});
+  hits.visible=max>.005;
+  hitA.scale.setScalar(1+(1-max)*4.4);hitA.material.opacity=.8*max;
+  hitB.scale.setScalar(.5+(1-max)*3.4);hitB.material.opacity=.7*max;
+  hitFlash.scale.setScalar(.35+max*1.7);hitFlash.material.opacity=.72*max;
+  hits.rotation.set(.4,(which+1)*.9,which%2?1.2:-.9);
+  if(max>.3)qs('#phase').textContent='⚔ Intercambio de golpes · demostración';
+}
+function updateStage(t){
+  let msg='Preparando combate…';
+  if(t<1.4)msg='✦ Materializando ambas Faroleras';
+  else if(t<4.4)msg='➜ Avanzando por la arena';
+  else if(t<6.8)msg='⚔ Encuentro · combate de prueba';
+  else if(t<8.6)msg='✧ Restaurando ambas unidades';
+  else msg='✓ Listas para otra ronda';
+  qs('#phase').textContent=msg;
+}
+new GLTFLoader().load('./chiara_idle.glb',g=>{
+  if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
+  const a=createFighter(g.scene,g.animations[0],'ally');
+  const b=createFighter(g.scene,g.animations[0],'enemy');
+  for(const c of [a,b])c.model.userData.baseScale=c.model.scale.x;
+  loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · demostración automática';
+  qs('#modelStatus').textContent='2 instancias de Farolera del Umbral · '+g.animations.length+' Idle · '+combatants.filter(c=>c.lamp).length+'/2 lámparas detectadas';
+  qs('#repeat').disabled=false;qs('#pause').disabled=false;
+},e=>{if(e.total)qs('#sceneStatus').textContent='Cargando modelo '+Math.round(e.loaded/e.total*100)+'%';},err=>{
+  qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
+  console.error(err);
+});
+qs('#repeat').onclick=()=>{tm=0;playing=true;qs('#pause').textContent='Ⅱ Pausar';for(const c of combatants){c.prev=c.lamp?.getWorldPosition(new THREE.Vector3())||null;c.vPrev?.set(0,0,0);c.pend?.set(0,0);c.pendV?.set(0,0);}};
+qs('#pause').onclick=()=>{playing=!playing;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';};
+let fpsTime=0,fpsCount=0;
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
+  if(loaded&&playing){
+    tm+=dt;if(tm>=DURATION)tm=0;
+    for(const c of combatants)c.mixer.update(dt);
+    for(const c of combatants)animateFighter(c,tm);
+    for(const c of combatants)updateLamp(c,dt);
+    hitEffects(tm);updateStage(tm);
+  }
+  controls.update();renderer.render(scene,camera);
+  fpsTime+=dt;fpsCount++;if(fpsTime>=1){qs('#fps').textContent='FPS: '+Math.round(fpsCount/fpsTime);fpsTime=0;fpsCount=0;}
+}
+requestAnimationFrame(loop);
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,innerWidth<700?1.5:2));renderer.setSize(innerWidth,innerHeight);});
+</script>
+</body>
+</html>
