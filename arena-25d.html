@@ -32,12 +32,12 @@ canvas{display:block;touch-action:none}
 <body>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
-    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.5.1</small></div>
+    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.5.2</small></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
     <p id="sceneStatus">Iniciando escenario…</p>
-    <p>18 columnas × 9 filas. Tus unidades abajo, de espaldas; el rival arriba, de frente. Perspectiva desde el lado aliado.</p>
+    <p>9 columnas × 18 filas (9 × 9 por jugador). Tu campo ocupa filas 9–17; rival 0–8. Ambos aparecen en columna 4, al fondo de sus campos.</p>
     <p id="modelStatus">Modelos: cargando…</p>
     <p id="textureStatus">Textura R.O.K.: comprobando…</p>
     <p id="fps">FPS: —</p>
@@ -79,11 +79,12 @@ const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,130);
 const controls=new OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;controls.dampingFactor=.075;controls.enablePan=true;
 controls.minDistance=4.5;controls.maxDistance=52;controls.maxPolarAngle=THREE.MathUtils.degToRad(76);controls.minPolarAngle=THREE.MathUtils.degToRad(36);
-const focus=new THREE.Vector3(0,0.4,0);
+const focus=new THREE.Vector3(0,0.4,-0.7);
 const setCamera=(full=false)=>{
   const mobile=innerWidth<700;
   controls.target.copy(focus);
-  camera.position.set(0,full?(mobile?22:14):(mobile?10.2:9.3),full?(mobile?31:23):(mobile?15.3:16.0));
+  // Cámara detrás del caster aliado, elevada y dirigida al campo rival.
+  camera.position.set(0,full?(mobile?23:20):(mobile?16:14),full?(mobile?35:31):(mobile?24:22));
   camera.fov=mobile?53:47;
   camera.updateProjectionMatrix();controls.update();
 };
@@ -96,7 +97,9 @@ const key=new THREE.DirectionalLight(0xffffff,2.2);key.position.set(-5,13,7);sce
 const fill=new THREE.DirectionalLight(0x00ccb8,.65);fill.position.set(4,5,-6);scene.add(fill);
 
 const root=new THREE.Group();scene.add(root);
-const W=18,D=9;
+// R.O.K. auténtico: 9 columnas X (0–8) y 18 filas de profundidad Z (0–17).
+// J2: filas 0–8 (arriba); J1: filas 9–17 (abajo).
+const W=9,D=18;
 const base=new THREE.Mesh(new THREE.BoxGeometry(W+.5,.25,D+.5),new THREE.MeshStandardMaterial({color:0x182b31,metalness:.15,roughness:.83}));
 base.position.y=-.16;root.add(base);
 const tileGeo=new THREE.PlaneGeometry(.986,.986);
@@ -133,7 +136,8 @@ function marker(z,color){
   const m=new THREE.Mesh(new THREE.RingGeometry(.55,.65,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.68,depthWrite:false,side:THREE.DoubleSide}));
   m.rotation.x=-Math.PI/2;m.position.set(0,.057,z);root.add(m);return m;
 }
-marker(3.22,0x00ffe4);marker(-3.22,0xff8f9b);
+// Aparición en extremos: aliado fila 17, rival fila 0, ambos columna 4.
+marker(8.5,0x00ffe4);marker(-8.5,0xff8f9b);
 
 const ease=x=>{x=THREE.MathUtils.clamp(x,0,1);return x*x*(3-2*x)};
 const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
@@ -196,7 +200,8 @@ function createFighter(baseScene,clip,side){
   const model=cloneSkinned(baseScene);
   const outer=new THREE.Group();root.add(outer);outer.add(model);
   outer.rotation.y=side==='ally'?Math.PI:0;
-  const startZ=side==='ally'?3.22:-3.22;
+  // X = 0 representa exactamente la columna central 4, con cuatro a cada lado.
+  const startZ=side==='ally'?8.5:-8.5;
   outer.position.z=startZ;
   const size=new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
   const factor=1.65/Math.max(.2,size.y);
@@ -212,32 +217,32 @@ function createFighter(baseScene,clip,side){
   });
   const mixer=new THREE.AnimationMixer(model);mixer.clipAction(clip).play();
   const fx=makeFx(side==='ally'?0x00ffe4:0xff869c);
-  const c={side,outer,model,startZ,endZ:side==='ally'?.85:-.85,mixer,mats,fx,lamp:null,pend:null};
+  const c={side,outer,model,startZ,endZ:side==='ally'?.72:-.72,mixer,mats,fx,lamp:null,pend:null};
   combatants.push(c);initLamp(c);return c;
 }
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
-const DURATION=10;
-const eventTimes=[4.76,5.39,5.98];
+const DURATION=12;
+const eventTimes=[6.08,6.76,7.42];
 function bump(t,at,width){return Math.exp(-Math.pow((t-at)/width,2));}
 function setOpacity(c,a){for(const m of c.mats)m.opacity=m.userData.baseOpacity*a;}
 function animateFighter(c,t){
-  const u=ease((t-1.4)/3);
+  const u=ease((t-1.4)/4.45);
   const move=u*(c.endZ-c.startZ);
-  const combat=t>=4.4&&t<6.8;
+  const combat=t>=5.85&&t<8.2;
   let knock=0;
   if(combat){for(const h of eventTimes){const b=bump(t,h,.13);knock+=b*(c.side==='ally'? .12:-.12);}}
   c.outer.position.z=c.startZ+move+knock;
   let fade=1,spawn=0;
   if(t<1.4){fade=ease(t/.95);spawn=1-fade;}
-  else if(t<6.8){fade=1;spawn=0;}
-  else if(t<7.48){fade=1-ease((t-6.8)/.66);spawn=1-fade;}
-  else {c.outer.position.z=c.startZ;fade=ease((t-7.48)/.95);spawn=1-fade;}
+  else if(t<8.2){fade=1;spawn=0;}
+  else if(t<8.9){fade=1-ease((t-8.2)/.66);spawn=1-fade;}
+  else {c.outer.position.z=c.startZ;fade=ease((t-8.9)/.95);spawn=1-fade;}
   // El modelo completo emerge al materializarse; la animación Idle sigue reproduciéndose.
   c.model.position.y=-(1-fade)*.38;
   const scale=fade*.15+.85;c.model.scale.setScalar(c.model.userData.baseScale*scale);
   setOpacity(c,Math.max(0,fade));
   c.fx.g.position.set(0,.08,c.outer.position.z);
-  const matPulse=t<1.4?1-ease(t/1.4):t>6.7&&t<8.6?1-Math.abs((t-7.65)/.95):0;
+  const matPulse=t<1.4?1-ease(t/1.4):t>8.1&&t<10.0?1-Math.abs((t-9.05)/.95):0;
   const amount=clamp(matPulse,0,1);
   c.fx.ring.scale.setScalar(.75+(1-amount)*1.9);c.fx.ring.material.opacity=.80*amount;
   c.fx.disc.material.opacity=.42*amount;
@@ -262,9 +267,9 @@ function hitEffects(t){
 function updateStage(t){
   let msg='Preparando combate…';
   if(t<1.4)msg='✦ Materializando ambas Faroleras';
-  else if(t<4.4)msg='➜ Avanzando por la arena';
-  else if(t<6.8)msg='⚔ Encuentro · combate de prueba';
-  else if(t<8.6)msg='✧ Restaurando ambas unidades';
+  else if(t<5.85)msg='➜ Avanzando por las 9 filas propias hacia el rival';
+  else if(t<8.2)msg='⚔ Encuentro · combate de prueba';
+  else if(t<9.9)msg='✧ Restaurando ambas unidades';
   else msg='✓ Listas para otra ronda';
   qs('#phase').textContent=msg;
 }
