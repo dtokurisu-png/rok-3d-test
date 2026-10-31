@@ -26,13 +26,24 @@ canvas{display:block;touch-action:none}
 #phase{position:fixed;z-index:9;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);padding:6px 10px;border:1px solid #277b78;border-radius:9px;background:#081925d9;font-size:11px;font-weight:700;color:#ccf7ee}
 #hint{position:fixed;z-index:9;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);font-size:10px;max-width:42vw;color:#d0dfe0;text-align:right;background:#09192599;padding:6px;border-radius:6px}
 @media(min-width:760px){#top{left:16px;transform:none;top:16px}#bottom{bottom:20px}#phase{bottom:20px}#hint{bottom:20px}}
+
+#versionProof{position:fixed;z-index:16;left:10px;top:calc(env(safe-area-inset-top,0px) + 58px);pointer-events:none;display:flex;flex-direction:column;gap:3px;max-width:min(240px,63vw);padding:8px 10px;border:1px solid #8b9970;border-radius:9px;background:#0a1726e8;box-shadow:0 4px 16px #0009}
+#versionProof strong{font-size:12px;color:#ffe59b;letter-spacing:.03em}
+#versionProof span{font-size:11px;color:#e9ffff;font-weight:700}
+#versionProof small{font-size:10px;color:#a4c5c8}
+@media(min-width:760px){#versionProof{top:74px;left:16px}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
+<aside id="versionProof" aria-label="Versión y dimensiones de la arena">
+<strong>ARENA v0.5.3</strong>
+<span id="gridProof">Verificando casillas…</span>
+<small>Prueba 2.5D · 31/10/2026</small>
+</aside>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
-    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.5.2</small></div>
+    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.5.3</small></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
@@ -100,6 +111,7 @@ const root=new THREE.Group();scene.add(root);
 // R.O.K. auténtico: 9 columnas X (0–8) y 18 filas de profundidad Z (0–17).
 // J2: filas 0–8 (arriba); J1: filas 9–17 (abajo).
 const W=9,D=18;
+qs('#gridProof').textContent=`${W} columnas × ${D} filas · ${W*D} casillas`;
 const base=new THREE.Mesh(new THREE.BoxGeometry(W+.5,.25,D+.5),new THREE.MeshStandardMaterial({color:0x182b31,metalness:.15,roughness:.83}));
 base.position.y=-.16;root.add(base);
 const tileGeo=new THREE.PlaneGeometry(.986,.986);
