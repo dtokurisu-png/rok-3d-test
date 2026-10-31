@@ -19,10 +19,22 @@ const downWorld=new THREE.Vector3(0,-1,0), downLocal=new THREE.Vector3(0,-1,0);
 const vTmp=new THREE.Vector3(), vPrev=new THREE.Vector3(), vAccel=new THREE.Vector3();
 const lampInfo=document.querySelector('#lampInfo');
 function setupLantern(){
-  lantern=model.getObjectByName('tripo_node_ea36d9b9.001');
-  if(!lantern || !lantern.parent || !lantern.parent.isBone){
-    lampInfo.textContent='Lámpara independiente no localizada; no se han alterado las demás mallas.';return;
+  // El exportador glTF normaliza los nombres (.001 puede convertirse en _001).
+  // Encontramos la malla por su parentesco con la mano, sin depender del nombre.
+  let hand=null;
+  model.traverse(o=>{if(o.isBone && /(?:^|:)RightHand$/i.test(o.name))hand=o;});
+  const candidates=[];
+  if(hand)hand.traverse(o=>{if(o.isMesh && !o.isSkinnedMesh)candidates.push(o);});
+  if(!candidates.length)model.traverse(o=>{
+    if(o.isMesh && !o.isSkinnedMesh && /tripo_node.*(?:001|lantern|lamp)/i.test(o.name))candidates.push(o);
+  });
+  lantern=candidates[0]||null;
+  if(!lantern){
+    lampInfo.textContent='No se encontró la malla rígida de la lámpara en el GLB.';
+    console.warn('Diagnóstico lámpara:', [...model.children].map(o=>o.name));
+    return;
   }
+  lampInfo.textContent='Lámpara encontrada: '+lantern.name+' · preparando física…';
   model.updateMatrixWorld(true);
   lantern.getWorldQuaternion(lanternBaseWorldQ);
   // Orientar el eje que atraviesa la cadena hacia abajo en el mundo, manteniendo el giro original.
