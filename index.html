@@ -1,0 +1,78 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R.O.K. — Prueba Chiara 3D</title><style>html,body{margin:0;height:100%;background:#0b1119;color:#efffff;font-family:Arial,sans-serif}canvas{display:block}.hud{position:fixed;left:16px;top:16px;background:#101d2ae8;padding:16px;border:1px solid #18bca9;border-radius:12px;max-width:330px;box-sizing:border-box}.hud h2{font-size:18px;margin:0 0 8px;color:#00ffe4}.hud p{font-size:13px;line-height:1.5;margin:7px 0}.buttons{display:flex;gap:6px;flex-wrap:wrap}button{background:#123b43;color:white;border:1px solid #00bdaa;border-radius:7px;padding:9px;cursor:pointer}.meta{color:#b4ced0}#status{font-weight:bold}.help{position:fixed;right:12px;bottom:12px;color:#b6cccc;background:#101d2acc;padding:9px;border-radius:8px;font-size:12px}@media(max-width:580px){.hud{max-width:calc(100% - 30px);padding:10px}.hud h2{font-size:15px}.help{display:none}}</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud"><h2>R.O.K. · Chiara 3D</h2><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><p class="meta" id="fps">FPS: —</p><p class="meta" id="lampInfo">Lámpara: esperando GLB…</p><p class="meta" id="error"></p></div><div class="help">Arrastra para girar · Rueda para zoom · Botón derecho para desplazar</div><script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const status=document.querySelector('#status'), details=document.querySelector('#details'),error=document.querySelector('#error'),fps=document.querySelector('#fps'),toggle=document.querySelector('#toggle');
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x101b27);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.01,1000); camera.position.set(2.6,1.9,4.8);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xdffaff,0x334c54,2.1));const light=new THREE.DirectionalLight(0xffffff,2.6);light.position.set(3,6,5);scene.add(light);
+const grid=new THREE.GridHelper(12,24,0x26736f,0x27404c);scene.add(grid);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.target.set(0,1,0);
+let model,mixer,playing=true, wire=false, originalMaterials=new Map(), bounds;
+// Lámpara exportada de Blender como malla independiente, hija de mixamorig:RightHand.
+let lantern=null, lanternBaseWorldQ=new THREE.Quaternion(), lanternUpCorrection=new THREE.Quaternion();
+let prevAnchor=null, prevAnchorVelocity=new THREE.Vector3(), pendulum=new THREE.Vector2(), pendulumVelocity=new THREE.Vector2();
+let physicsEnabled=true, pausedPoseInitialized=false;
+const qParent=new THREE.Quaternion(), qTarget=new THREE.Quaternion(), qTilt=new THREE.Quaternion();
+const downWorld=new THREE.Vector3(0,-1,0), downLocal=new THREE.Vector3(0,-1,0);
+const vTmp=new THREE.Vector3(), vPrev=new THREE.Vector3(), vAccel=new THREE.Vector3();
+const lampInfo=document.querySelector('#lampInfo');
+function setupLantern(){
+  lantern=model.getObjectByName('tripo_node_ea36d9b9.001');
+  if(!lantern || !lantern.parent || !lantern.parent.isBone){
+    lampInfo.textContent='Lámpara independiente no localizada; no se han alterado las demás mallas.';return;
+  }
+  model.updateMatrixWorld(true);
+  lantern.getWorldQuaternion(lanternBaseWorldQ);
+  // Orientar el eje que atraviesa la cadena hacia abajo en el mundo, manteniendo el giro original.
+  vTmp.copy(downLocal).applyQuaternion(lanternBaseWorldQ).normalize();
+  lanternUpCorrection.setFromUnitVectors(vTmp,downWorld);
+  lanternBaseWorldQ.premultiply(lanternUpCorrection).normalize();
+  lantern.getWorldPosition(vTmp);prevAnchor=vTmp.clone();
+  lampInfo.textContent='Lámpara detectada · péndulo con gravedad e inercia activo';
+}
+function updateLantern(dt){
+  if(!lantern || !lantern.parent)return;
+  model.updateMatrixWorld(true);
+  lantern.parent.updateWorldMatrix(true,false);
+  lantern.getWorldPosition(vTmp);
+  // El centro superior de la lámpara está muy cerca del origen exportado de su malla.
+  if(!prevAnchor)prevAnchor=vTmp.clone();
+  const fixedDt=Math.min(dt,.033);
+  if(fixedDt<=0)return;
+  const velocity=vPrev.copy(vTmp).sub(prevAnchor).divideScalar(fixedDt);
+  const accel=vAccel.copy(velocity).sub(prevAnchorVelocity).divideScalar(fixedDt);
+  prevAnchor.copy(vTmp);prevAnchorVelocity.copy(velocity);
+  // Ángulos pequeños: aceleración opuesta al movimiento del punto de suspensión.
+  const gravity=15.5, chainLength=.28, damping=4.1;
+  const desiredAx=-Math.max(-35,Math.min(35,accel.x))/chainLength;
+  const desiredAz=-Math.max(-35,Math.min(35,accel.z))/chainLength;
+  pendulumVelocity.x += (-gravity/chainLength*pendulum.x-damping*pendulumVelocity.x+desiredAx)*fixedDt;
+  pendulumVelocity.y += (-gravity/chainLength*pendulum.y-damping*pendulumVelocity.y+desiredAz)*fixedDt;
+  pendulum.x+=pendulumVelocity.x*fixedDt;
+  pendulum.y+=pendulumVelocity.y*fixedDt;
+  // Evitar saltos visuales de la lámpara en cambios repentinos de animación.
+  const maxTilt=.38;pendulum.clampLength(0,maxTilt);
+  if(!physicsEnabled){pendulum.set(0,0);pendulumVelocity.set(0,0);}
+  const direction=new THREE.Vector3(Math.sin(pendulum.x),-Math.cos(pendulum.length()),Math.sin(pendulum.y)).normalize();
+  qTilt.setFromUnitVectors(downWorld,direction);
+  qTarget.copy(qTilt).multiply(lanternBaseWorldQ);
+  lantern.parent.getWorldQuaternion(qParent);
+  lantern.quaternion.copy(qParent.invert().multiply(qTarget));
+  lantern.updateMatrixWorld(true);
+}
+document.querySelector('#physics').onclick=()=>{
+  physicsEnabled=!physicsEnabled;
+  document.querySelector('#physics').textContent='Física lámpara: '+(physicsEnabled?'ACTIVADA':'DESACTIVADA');
+};
+document.querySelector('#lampReset').onclick=()=>{
+  pendulum.set(0,0);pendulumVelocity.set(0,0);prevAnchor=null;prevAnchorVelocity.set(0,0);
+};
+function frame(){if(!model)return;const box=new THREE.Box3().setFromObject(model);if(box.isEmpty())return;const center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());const h=Math.max(size.y,size.x,size.z,.01);controls.target.copy(center);camera.position.copy(center).add(new THREE.Vector3(h*.8,h*.36,h*1.5));camera.near=Math.max(.001,h/1000);camera.far=h*300;camera.updateProjectionMatrix();controls.update();}
+new GLTFLoader().load('./chiara_idle.glb',g=>{model=g.scene;scene.add(model);let meshes=0,bones=0;model.traverse(o=>{if(o.isMesh){meshes++;originalMaterials.set(o,o.material);o.frustumCulled=false;}if(o.isBone)bones++;});if(g.animations.length){mixer=new THREE.AnimationMixer(model);mixer.clipAction(g.animations[0]).play();mixer.update(0);setupLantern();toggle.disabled=false;status.textContent='Modelo cargado · Idle en reproducción';}else {status.textContent='Modelo cargado SIN animación';setupLantern();}details.textContent=`${meshes} mallas · ${bones} huesos · ${g.animations.length} animación(es) · ${g.animations.map(a=>a.name).join(', ')}`;frame();},ev=>{if(ev.total)status.textContent=`Cargando modelo: ${Math.round(ev.loaded/ev.total*100)}%`;},e=>{status.textContent='Error cargando GLB';error.textContent=e.message+' — Abre el visor desde INICIAR_VISOR.bat, no directamente con doble clic sobre index.html.';console.error(e)});
+toggle.onclick=()=>{playing=!playing;toggle.textContent=playing?'Pausar':'Reproducir';};document.querySelector('#reset').onclick=frame;
+document.querySelector('#wire').onclick=()=>{wire=!wire;if(!model)return;model.traverse(o=>{if(!o.isMesh)return;if(wire){const m=o.material.clone();m.wireframe=true;o.material=m;}else{o.material.dispose();o.material=originalMaterials.get(o);}})};
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+let prev=performance.now(),t=0,n=0;function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-prev)/1000,.05);prev=now;if(mixer&&playing)mixer.update(dt);if(lantern&&playing)updateLantern(dt);controls.update();renderer.render(scene,camera);t+=dt;n++;if(t>1){fps.textContent='FPS: '+Math.round(n/t);t=0;n=0}}requestAnimationFrame(tick);
+</script></body></html>

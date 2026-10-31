@@ -1,0 +1,9 @@
+VISOR DE CHIARA CON FISICA DE LAMPARA
+
+1. Extrae completamente este ZIP.
+2. Abre INICIAR_VISOR.bat desde la carpeta extraida. NO dentro del ZIP.
+3. Deja abierta la ventana del servidor.
+4. En el navegador, usa los botones Fisica lampara y Estabilizar lampara.
+
+El modelo original GLB se conserva sin modificaciones. La fisica de pendulo es procedural en el navegador; no modifica el combate ni las telas.
+Necesita conexion a Internet para cargar Three.js.
