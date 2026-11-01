@@ -34,7 +34,7 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.15</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.15 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.15: botón para alternar Farolera / Arquera del Desierto. Panel desplazable mediante rueda y barra visible. Se conservan las 14 animaciones Mixamo para ambos modelos sin reemplazos. Arena 2.5D sigue en v0.9.7.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><span id="characterInfo">Farolera original · cargando animaciones…</span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.16</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.16 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.16: retargeting propio de Arquera desde su bind pose, con calibración de ejes y comprobación de jerarquía Mixamo; Farolera conserva su retarget GLB. Sigue el botón de alternancia, la barra de desplazamiento y el catálogo original de 14 animaciones. Arena 2.5D no cambia.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><span id="characterInfo">Farolera original · cargando animaciones…</span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -83,6 +83,7 @@ const characterSelect=document.querySelector('#characterSelect');
 const characterInfo=document.querySelector('#characterInfo');
 let currentCharacter='farolera',faroleraModel=null,faroleraIdle=null,archerModel=null,archerIdle=null;
 let animationArchive=null,characterSwitching=false;
+let archerRigReference=null; // Captura inmutable del rig en bind pose, antes de animar.
 const characterClips={farolera:null,archer:null};
 // Lámpara exportada de Blender como malla independiente, hija de mixamorig:RightHand.
 let lantern=null, lanternBaseWorldQ=new THREE.Quaternion(), lanternUpCorrection=new THREE.Quaternion();
@@ -399,6 +400,102 @@ function findRigSkeleton(root){
   if(bones.length<20)throw Error('No se encontró un esqueleto Mixamo válido en este FBX');
   return new THREE.Skeleton(bones);
 }
+// Adaptación exclusiva para la Arquera FBX, sin tocar el retarget GLB de Farolera.
+// El personaje no necesita un Idle incrustado: su bind pose es suficiente.
+// Guardar el esqueleto en reposo UNA vez, antes de activar el AnimationMixer.
+function captureArcherRigReference(root){
+  const skeleton=findRigSkeleton(root);
+  skeleton.pose();
+  root.updateMatrixWorld(true);
+  const result=new Map();
+  const rigParent=bone=>{
+    let parent=bone.parent;
+    while(parent&&!parent.isBone)parent=parent.parent;
+    return parent?normBone(parent.name):'';
+  };
+  for(const bone of skeleton.bones){
+    const key=normBone(bone.name);
+    if(!key||result.has(key))continue;
+    result.set(key,{
+      name:bone.name,
+      parent:rigParent(bone),
+      local:bone.quaternion.clone().normalize(),
+      world:bone.getWorldQuaternion(new THREE.Quaternion()).normalize()
+    });
+  }
+  return result;
+}
+function makeArcherAnimationClip(sourceRoot,sourceClip,displayName){
+  if(currentCharacter!=='archer'||!archerRigReference)
+    throw Error('El rig de la Arquera todavía no está preparado');
+  const skeleton=findRigSkeleton(sourceRoot);
+  skeleton.pose();
+  sourceRoot.updateMatrixWorld(true);
+  const bones=new Map();
+  for(const bone of skeleton.bones){
+    const name=normBone(bone.name);
+    if(name&&!bones.has(name))bones.set(name,bone);
+  }
+  const rigParent=bone=>{
+    let parent=bone.parent;
+    while(parent&&!parent.isBone)parent=parent.parent;
+    return parent?normBone(parent.name):'';
+  };
+  const mandatory=['hips','spine','head','leftarm','rightarm',
+    'leftforearm','rightforearm','leftupleg','rightupleg','leftleg','rightleg'];
+  const missing=mandatory.filter(name=>!bones.has(name)||!archerRigReference.has(name));
+  if(missing.length)throw Error('Rig no compatible; faltan huesos Mixamo: '+missing.join(', '));
+  const conflicts=mandatory.filter(name=>
+    rigParent(bones.get(name))!==archerRigReference.get(name).parent);
+  if(conflicts.length>2)
+    throw Error('La jerarquía ósea de la Arquera difiere de Mixamo en: '+conflicts.join(', '));
+  const tracks=[],seen=new Set();
+  let largestRestOffset=0;
+  for(const track of sourceClip.tracks){
+    const match=/^(.+)\.quaternion$/.exec(track.name);
+    if(!match||!track.times?.length||track.values.length!==track.times.length*4)continue;
+    const key=normBone(match[1].replace(/^\.bones\[(.+)\]$/,'$1'));
+    const sourceBone=bones.get(key),target=archerRigReference.get(key);
+    if(!sourceBone||!target||seen.has(key))continue;
+    seen.add(key);
+    // Cada rig tiene un descanso local diferente. Es incorrecto copiar
+    // la rotación absoluta de un FBX de Mixamo sobre otro rig.
+    const sourceRestLocal=sourceBone.quaternion.clone().normalize();
+    const inverseSourceRest=sourceRestLocal.clone().invert();
+    // Convertir el DELTA en la orientación mundial de cada bind pose.
+    // Esto mantiene la dirección física de brazos y piernas aun si sus
+    // ejes locales difieren tras exportar el FBX desde Blender.
+    const sourceRestWorld=sourceBone.getWorldQuaternion(new THREE.Quaternion()).normalize();
+    const basis=target.world.clone().invert().multiply(sourceRestWorld).normalize();
+    const inverseBasis=basis.clone().invert();
+    largestRestOffset=Math.max(largestRestOffset,
+      THREE.MathUtils.radToDeg(sourceRestWorld.angleTo(target.world)));
+    const out=new Float32Array(track.values.length);
+    const sourceQ=new THREE.Quaternion(),delta=new THREE.Quaternion();
+    const aligned=new THREE.Quaternion(),output=new THREE.Quaternion();
+    for(let i=0;i<track.times.length;i++){
+      sourceQ.fromArray(track.values,i*4).normalize();
+      delta.copy(inverseSourceRest).multiply(sourceQ);
+      aligned.copy(basis).multiply(delta).multiply(inverseBasis);
+      output.copy(target.local).multiply(aligned).normalize();
+      output.toArray(out,i*4);
+    }
+    tracks.push(new THREE.QuaternionKeyframeTrack(
+      target.name+'.quaternion',track.times.slice(),out));
+  }
+  if(tracks.length<20)
+    throw Error('Arquera: solo '+tracks.length+' huesos animados compatibles de '+bones.size+
+      '. Revisa el Armature y la exportación FBX de Blender.');
+  // El movimiento X/Z de Hips no se transfiere: el visor controla la raíz.
+  // El apoyo vertical se ajusta sin cambiar las pistas originales.
+  const clip=new THREE.AnimationClip(displayName,-1,tracks);
+  clip.optimize();
+  return {clip,matched:tracks.length,total:sourceClip.tracks.length,
+    hipMotion:false,
+    diagnostic:'retarget Mixamo calibrado por bind pose; diferencia máxima '+
+      largestRestOffset.toFixed(1)+'°; '+conflicts.length+' conflictos de jerarquía'};
+}
+
 function makeAnimationClip(sourceRoot,sourceClip,displayName){
   if(!model)throw Error('Primero debe cargarse el GLB de la Farolera');
   // Trabajar sobre una copia de rig; no alterar el Idle ni el esqueleto real.
@@ -597,6 +694,7 @@ async function loadArcherModel(){
   loaded.position.x-=center.x;
   loaded.position.y-=scaledBox.min.y;
   loaded.position.z-=center.z;
+  archerRigReference=captureArcherRigReference(loaded);
   archerModel=loaded;
   archerIdle=loaded.animations?.[0]||null;
   return loaded;
@@ -828,10 +926,14 @@ async function importAnimation(name,buffer){
   try{
     const source=fbxLoader.parse(buffer,'');
     if(!source.animations?.length)throw Error('FBX sin clip de animación');
-    const adapted=makeAnimationClip(source,source.animations[0],row.name.replace(/\.fbx$/i,''));
+    const adapted=currentCharacter==='archer'?
+      makeArcherAnimationClip(source,source.animations[0],row.name.replace(/\.fbx$/i,'')):
+      makeAnimationClip(source,source.animations[0],row.name.replace(/\.fbx$/i,''));
     if(row.clip&&mixer)mixer.uncacheClip(row.clip);
     row.clip=adapted.clip;row.status='ok';
-    row.details=adapted.matched+' huesos adaptados · '+row.clip.duration.toFixed(2)+' s · '+(adapted.hipMotion?'cadera vertical':'sin curva vertical');
+    row.details=adapted.matched+' huesos adaptados · '+row.clip.duration.toFixed(2)+
+      ' s · '+(adapted.hipMotion?'cadera vertical':'sin curva vertical')+
+      (adapted.diagnostic?' · '+adapted.diagnostic:'');
     await saveAnimToCache(row);
     // No conservar modelos, texturas ni geometría FBX: solo clips de huesos.
     source.traverse(o=>{
