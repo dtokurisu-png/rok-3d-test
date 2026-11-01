@@ -34,7 +34,7 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.17</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.17 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.17: corrección de Arquera acostada en Idle: comprueba la vertical de Hips a Head y corrige rotaciones iniciales erróneas desde su propia bind pose. Botón para inspeccionar la pose original sin animación. Farolera, el catálogo Mixamo y Arena 2.5D permanecen intactos.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><span id="characterInfo">Farolera original · cargando animaciones…</span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.18</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.18 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.18: anclaje independiente del arco a LeftHand y flecha a RightHand de Arquera; conserva pivotes, mallas y equipamiento dorsal. El retargeting, las animaciones Mixamo de Farolera y Arena 2.5D permanecen intactos.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><span id="characterInfo">Farolera original · cargando animaciones…</span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -84,6 +84,7 @@ const characterInfo=document.querySelector('#characterInfo');
 let currentCharacter='farolera',faroleraModel=null,faroleraIdle=null,archerModel=null,archerIdle=null;
 let animationArchive=null,characterSwitching=false;
 let archerRigReference=null; // Captura inmutable del rig en bind pose, antes de animar.
+let archerEquipmentStatus='accesorios sin comprobar';
 const characterClips={farolera:null,archer:null};
 // Lámpara exportada de Blender como malla independiente, hija de mixamorig:RightHand.
 let lantern=null, lanternBaseWorldQ=new THREE.Quaternion(), lanternUpCorrection=new THREE.Quaternion();
@@ -755,6 +756,150 @@ function restoreCharacterClips(character){
   }
   renderAnimList();
 }
+
+// Equipo rígido de Arquera: vínculo independiente de las animaciones.
+// Se identifica arco/flecha por nombre; en FBX sin nombres se utiliza forma
+// alargada + separación del cuerpo. Nunca modificar carcaj, ropa ni SkinnedMesh.
+function bindArcherEquipment(root){
+  const skeleton=findRigSkeleton(root);
+  const getBone=name=>skeleton.bones.find(b=>normBone(b.name)===name);
+  const left=getBone('lefthand'),right=getBone('righthand');
+  if(!left||!right)return 'sin unión: faltan LeftHand o RightHand';
+  root.updateMatrixWorld(true);
+  const leftPoint=left.getWorldPosition(new THREE.Vector3());
+  const rightPoint=right.getWorldPosition(new THREE.Vector3());
+  const hips=getBone('hips'),head=getBone('head');
+  const hipsPoint=hips?.getWorldPosition(new THREE.Vector3())||leftPoint;
+  const headPoint=head?.getWorldPosition(new THREE.Vector3())||rightPoint;
+  const height=Math.max(.5,headPoint.distanceTo(hipsPoint)*1.65);
+  const bodyCenter=hipsPoint.clone().lerp(headPoint,.45);
+  const candidates=[],safeName=o=>{
+    const names=[];
+    for(let p=o;p&&p!==root;p=p.parent)names.push(p.name||'');
+    return names.join(' ');
+  };
+  const bowPattern=/(?:^|[^a-z])(bow|arco|longbow|recurve)(?:[^a-z]|$)/i;
+  const arrowPattern=/(?:^|[^a-z])(arrow|flecha|bolt)(?:[^a-z]|$)/i;
+  const excludePattern=/(quiver|carcaj|aljaba|arrow.?bag|armadura|armor|cape|cloak)/i;
+  const allRigid=[];
+  root.traverse(o=>{
+    if(!o.isMesh||o.isSkinnedMesh)return;
+    // Los objetos ligados a una mano se verifican también; un offset
+    // exportado desde Blender puede dejarlos lejos del hueso.
+    const box=new THREE.Box3().setFromObject(o);
+    if(box.isEmpty())return;
+    allRigid.push({object:o,box});
+  });
+  for(const {object,box} of allRigid){
+    const label=safeName(object);
+    if(excludePattern.test(label))continue;
+    const size=box.getSize(new THREE.Vector3());
+    const dimensions=[size.x,size.y,size.z].sort((a,b)=>b-a);
+    const length=dimensions[0],aspect=length/Math.max(.0001,dimensions[1]);
+    const center=box.getCenter(new THREE.Vector3());
+    const distance=center.distanceTo(bodyCenter);
+    const nearestHand=Math.min(center.distanceTo(leftPoint),center.distanceTo(rightPoint));
+    const namedBow=bowPattern.test(label),namedArrow=arrowPattern.test(label);
+    const longIsolated=length>height*.25&&aspect>1.75&&
+      distance>height*.30&&nearestHand>height*.20;
+    if(!namedBow&&!namedArrow&&!longIsolated)continue;
+    // Nunca desplazar equipamiento que ya esté razonablemente sujeto a
+    // un hueso: moverlo otra vez introduciría un error nuevo.
+    const alreadyBoneParent=(()=>{
+      for(let p=object.parent;p&&p!==root;p=p.parent){
+        if(p.isBone)return true;
+      }
+      return false;
+    })();
+    if(alreadyBoneParent&&nearestHand<height*.15)continue;
+    const bowShape=size.y/Math.max(.001,length);
+    const value=(namedBow||namedArrow?100:0)+
+      length/height*3+distance/height*2+aspect*.12;
+    candidates.push({object,label,box,center,length,aspect,bowShape,
+      namedBow,namedArrow,score:value});
+  }
+  // Priorizar el contenedor semántico del accesorio cuando exista:
+  // permite desplazar todas las piezas (cuerda, plumas, punta) juntas.
+  function semanticRoot(entry,kind){
+    const test=kind==='bow'?bowPattern:arrowPattern;
+    let node=entry.object;
+    for(let p=node.parent;p&&p!==root&&!p.isBone;p=p.parent){
+      if(test.test(p.name||''))node=p;
+    }
+    return node;
+  }
+  function select(kind,used){
+    const named=candidates.filter(c=>
+      !used.has(c.object)&&(kind==='bow'?c.namedBow:c.namedArrow));
+    if(named.length)return named.sort((a,b)=>b.score-a.score)[0];
+    const shape=candidates.filter(c=>!used.has(c.object)&&
+      !c.namedBow&&!c.namedArrow);
+    // La silueta de un arco suele ser vertical, la flecha muy fina y larga.
+    shape.sort((a,b)=>{
+      const aKind=kind==='bow'?a.bowShape:a.aspect;
+      const bKind=kind==='bow'?b.bowShape:b.aspect;
+      return (bKind*1.2+b.score)-(aKind*1.2+a.score);
+    });
+    return shape[0]||null;
+  }
+  const used=new Set();
+  const bow=select('bow',used);if(bow)used.add(bow.object);
+  const arrow=select('arrow',used);
+  const bound=[];
+  function moveToHand(choice,kind,hand,handPoint){
+    if(!choice)return;
+    const object=semanticRoot(choice,kind);
+    if(object===root||object.isSkinnedMesh)return;
+    // No cambiar la orientación del equipo en la pose original.
+    root.updateMatrixWorld(true);
+    const bounds=new THREE.Box3().setFromObject(object);
+    const grip=bounds.getCenter(new THREE.Vector3());
+    const label=safeName(object);
+    const gripMesh=[];
+    object.traverse(o=>{
+      if(o.isMesh&&!o.isSkinnedMesh&&
+         (kind==='bow'?/(grip|handle|mango|empuñ)/i:/(feather|fletch|pluma)/i)
+           .test(o.name||''))gripMesh.push(o);
+    });
+    if(gripMesh.length){
+      new THREE.Box3().setFromObject(gripMesh[0]).getCenter(grip);
+    }else if(kind==='arrow'){
+      // Sin plumas etiquetadas: aproximar el extremo posterior cercano
+      // a la mano, en vez de agarrar la flecha por su centro.
+      const size=bounds.getSize(new THREE.Vector3());
+      const axis=size.x>=size.y&&size.x>=size.z?'x':
+        size.y>=size.z?'y':'z';
+      const a=grip.clone(),b=grip.clone();
+      a[axis]=bounds.min[axis];b[axis]=bounds.max[axis];
+      grip.copy(a.distanceTo(handPoint)<b.distanceTo(handPoint)?a:b);
+      const center=bounds.getCenter(new THREE.Vector3());
+      grip.lerp(center,.08);
+    }
+    // Un pivote situado en la empuñadura conserva la forma y orientación
+    // mundial de la malla mientras establece el vínculo óseo auténtico.
+    const pivot=new THREE.Group();
+    pivot.name='ROK_Archer_'+(kind==='bow'?'BowLeftHand':'ArrowRightHand');
+    root.add(pivot);
+    pivot.position.copy(root.worldToLocal(grip.clone()));
+    root.updateMatrixWorld(true);
+    pivot.attach(object);
+    hand.attach(pivot);
+    pivot.position.set(0,0,0); // La empuñadura coincide con la mano.
+    root.updateMatrixWorld(true);
+    bound.push((kind==='bow'?'arco → mano izquierda':'flecha → mano derecha')+
+      ' ('+(object.name||label||'sin nombre')+')');
+  }
+  moveToHand(bow,'bow',left,leftPoint);
+  moveToHand(arrow,'arrow',right,rightPoint);
+  if(!bound.length){
+    const sample=allRigid.slice(0,8).map(x=>x.object.name||'?').join(', ');
+    console.warn('[R.O.K.] No se identificaron accesorios rígidos de Arquera:',sample);
+    return 'no se identificaron arco/flecha rígidos; revisar nombres del FBX';
+  }
+  return bound.join(' · ')+
+    (bound.length<2?' · falta identificar un accesorio':'');
+}
+
 async function loadArcherModel(){
   if(archerModel)return archerModel;
   const loaded=await new Promise((resolve,reject)=>{
@@ -777,6 +922,8 @@ async function loadArcherModel(){
   loaded.position.y-=scaledBox.min.y;
   loaded.position.z-=center.z;
   archerRigReference=captureArcherRigReference(loaded);
+  archerEquipmentStatus=bindArcherEquipment(loaded);
+  console.info('[R.O.K.] Equipamiento Arquera:',archerEquipmentStatus);
   archerModel=loaded;
   archerIdle=loaded.animations?.[0]||null;
   return loaded;
@@ -859,7 +1006,8 @@ async function switchCharacter(character){
     }else document.querySelector('#animIdle').textContent='↺ Idle original';
     playing=true;toggle.disabled=false;toggle.textContent='Pausar / Reproducir';
     characterInfo.textContent=(character==='archer'?'Arquera del Desierto':'Farolera original')+
-      ' · '+animationRows.filter(r=>r.clip).length+' animaciones disponibles';
+      ' · '+animationRows.filter(r=>r.clip).length+' animaciones disponibles'+
+      (character==='archer'?' · '+archerEquipmentStatus:'');
     status.textContent=(character==='archer'?'Arquera del Desierto':'Farolera')+
       ' · visor listo';
     let meshes=0,bones=0;
