@@ -99,14 +99,14 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.2</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.3</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><strong>Notas de versión · Arena v0.9.2 (01/11/2026):</strong> el tamaño del fondo ahora se ajusta con dos controles independientes: ancho y largo (100–220 %). No cambia la cuadrícula ni la lógica del combate. v0.9.1: defensa prioritaria del caster y selección dinámica de objetivos.</p>
+    <p><strong>Notas de versión · Arena v0.9.3 (01/11/2026):</strong> los controles independientes de ancho y largo del fondo (100–220 %) ahora guardan automáticamente los valores en este navegador y los restauran al reiniciar o volver a abrir la arena. No cambia la cuadrícula ni la lógica del combate. v0.9.1: defensa prioritaria del caster y selección dinámica de objetivos.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas. Invocaciones de escudo/maná: columnas 3 y 5, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
@@ -211,6 +211,7 @@ const arenaTextureUrl='https://dtokurisu-png.github.io/rok-lirte-html/assets/are
 // malla, casillas, movimiento y límites de juego, sin clipping del tablero.
 let arenaArt=null;
 let arenaSpriteWidth=1,arenaSpriteLength=1;
+const ARENA_SPRITE_SETTINGS_KEY='rok-arena-25d-background-size-v1';
 const widthControl=qs('#arenaSpriteWidth');
 const lengthControl=qs('#arenaSpriteLength');
 function setArenaSpriteAxis(axis,percent){
@@ -227,10 +228,30 @@ function setArenaSpriteAxis(axis,percent){
   }
   if(arenaArt)arenaArt.scale.set(arenaSpriteWidth,arenaSpriteLength,1);
 }
-widthControl.addEventListener('input',()=>setArenaSpriteAxis('width',widthControl.value));
-lengthControl.addEventListener('input',()=>setArenaSpriteAxis('length',lengthControl.value));
-setArenaSpriteAxis('width',100);
-setArenaSpriteAxis('length',100);
+function saveArenaSpriteSettings(){
+  try{
+    localStorage.setItem(ARENA_SPRITE_SETTINGS_KEY,JSON.stringify({
+      width:Math.round(arenaSpriteWidth*100),
+      length:Math.round(arenaSpriteLength*100)
+    }));
+  }catch(error){console.warn('No se pudieron guardar los ajustes del fondo:',error);}
+}
+function restoreArenaSpriteSettings(){
+  let saved=null;
+  try{saved=JSON.parse(localStorage.getItem(ARENA_SPRITE_SETTINGS_KEY)||'null');}
+  catch(error){console.warn('No se pudieron leer los ajustes del fondo:',error);}
+  setArenaSpriteAxis('width',saved?.width??100);
+  setArenaSpriteAxis('length',saved?.length??100);
+}
+widthControl.addEventListener('input',()=>{
+  setArenaSpriteAxis('width',widthControl.value);
+  saveArenaSpriteSettings();
+});
+lengthControl.addEventListener('input',()=>{
+  setArenaSpriteAxis('length',lengthControl.value);
+  saveArenaSpriteSettings();
+});
+restoreArenaSpriteSettings();
 new THREE.TextureLoader().load(arenaTextureUrl,tex=>{
   tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
   arenaArt=new THREE.Mesh(new THREE.PlaneGeometry(W,D),
@@ -1136,7 +1157,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.9.2. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.9.3. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
