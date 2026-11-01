@@ -18,6 +18,10 @@ canvas{display:block;touch-action:none}
 #details{display:none;max-height:min(60dvh,360px);overflow-y:auto;padding:0 12px 12px;font-size:12px;color:#bbd5d8;line-height:1.5}
 #top.open #details{display:block}
 #details p{margin:7px 0}
+#arenaSpriteScale{width:min(240px,100%);accent-color:#00ffe4;vertical-align:middle;cursor:pointer}
+#arenaSpriteScaleValue{display:inline-block;min-width:44px;color:#f1fffb;font-weight:800;text-align:right}
+.spriteScaleSettings{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:9px 0 5px}
+.spriteScaleSettings label{font-weight:700;color:#d8f7f5}
 #sceneStatus{font-weight:700;color:#ebf8f8}
 /* Barra de controles anclada: integrada al borde inferior, sin flotación. */
 #bottom{position:fixed;left:0;right:0;bottom:0;transform:none;z-index:12;
@@ -60,6 +64,12 @@ canvas{display:block;touch-action:none}
 .unitMana{height:11px;border-color:#70a9ff;background:#122148ea}
 .unitMana .unitBarFill{background:linear-gradient(180deg,#75ceff,#226be9 75%,#1941ad)}
 .unitTag [hidden]{display:none!important}
+.unitTag.caster{width:131px;gap:0}
+.casterHealthRow{display:flex;align-items:center;gap:5px;width:100%}
+.casterHealthRow .unitHealth{flex:1;min-width:0}
+.casterStar{color:#ffe17c;font-size:24px;line-height:.8;text-shadow:0 1px 3px #000,0 0 9px #f3af31;flex:none}
+.unitTag.caster.defeated .unitHealth{opacity:.6}
+.unitTag.caster.defeated .casterStar{opacity:.5}
 /* Cuenta atrás del casteo de sustitución, independiente del HUD de vida. */
 #summonCastLayer{position:fixed;inset:0;pointer-events:none;z-index:10}
 .summonCast{position:absolute;transform:translate(-50%,-100%);
@@ -89,7 +99,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.8.8</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.8.9</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -97,10 +107,16 @@ canvas{display:block;touch-action:none}
   </div>
   <div id="details">
     <p id="sceneStatus">Iniciando escenario…</p>
-    <p>9 columnas × 18 filas (9 × 9 por jugador). Tu campo ocupa filas 9–17; rival 0–8. Ambos aparecen en columna 4, al fondo de sus campos.</p>
+    <p>9 columnas × 18 filas (9 × 9 por jugador). Tu campo ocupa filas 9–17; rival 0–8. Invocaciones: columna 4, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella; pueden recibir ataques aunque la invocación esté recasteándose.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
     <p id="modelStatus">Modelos: cargando…</p>
     <p id="textureStatus">Textura R.O.K.: comprobando…</p>
+    <div class="spriteScaleSettings">
+      <label for="arenaSpriteScale">Tamaño del sprite (fondo)</label>
+      <input type="range" id="arenaSpriteScale" min="100" max="220" step="5" value="100" aria-label="Escalar imagen decorativa de arena sin cambiar la cuadrícula">
+      <output id="arenaSpriteScaleValue" for="arenaSpriteScale">100 %</output>
+    </div>
+    <p>La imagen puede sobresalir de los bordes; la cuadrícula de 9 × 18 permanece fija.</p>
     <p id="fps">FPS: —</p>
     <p><b>Combate experimental:</b> aliada 7 PV, alcance 3, escudo de 2. Rival 5 PV, alcance 5, onda 3×3 y PDA de aturdimiento 50 % por impacto; 5 estrellas orbitando durante 2,5 s. La rival dispone de 10 PM y evade un impacto si tiene 6 PM y su habilidad (10 s) está lista, desplazándose a una casilla a distancia 2–5 de la aliada. Recupera 1 PM cada 3 s. Botón para cambiar el modo de ataque. No modifica R.O.K. principal.</p>
     <p><a href="./index.html" style="color:#00ffe4">Volver al visor de Farolera</a></p>
@@ -185,11 +201,27 @@ for(let row=0;row<D;row++)for(let col=0;col<W;col++){
 tiles.instanceMatrix.needsUpdate=true;if(tiles.instanceColor)tiles.instanceColor.needsUpdate=true;root.add(tiles);
 // Imagen 2D auténtica de R.O.K., proyectada suavemente sobre el suelo 3D.
 const arenaTextureUrl='https://dtokurisu-png.github.io/rok-lirte-html/assets/arena.webp';
+// La imagen decorativa es una capa distinta: escalado independiente de la
+// malla, casillas, movimiento y límites de juego, sin clipping del tablero.
+let arenaArt=null;
+let arenaSpriteScale=1;
+const scaleControl=qs('#arenaSpriteScale');
+function setArenaSpriteScale(percent){
+  arenaSpriteScale=THREE.MathUtils.clamp(Number(percent)||100,100,220)/100;
+  scaleControl.value=String(Math.round(arenaSpriteScale*100));
+  qs('#arenaSpriteScaleValue').textContent=Math.round(arenaSpriteScale*100)+' %';
+  if(arenaArt)arenaArt.scale.set(arenaSpriteScale,arenaSpriteScale,1);
+}
+scaleControl.addEventListener('input',()=>setArenaSpriteScale(scaleControl.value));
+setArenaSpriteScale(100);
 new THREE.TextureLoader().load(arenaTextureUrl,tex=>{
   tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
-  const art=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide}));
-  art.rotation.x=-Math.PI/2;art.position.y=.020;root.add(art);
-  qs('#textureStatus').textContent='Textura R.O.K.: cargada como capa 2D sobre el suelo 3D';
+  arenaArt=new THREE.Mesh(new THREE.PlaneGeometry(W,D),
+    new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:.22,
+      depthWrite:false,side:THREE.DoubleSide}));
+  arenaArt.rotation.x=-Math.PI/2;arenaArt.position.y=.020;root.add(arenaArt);
+  arenaArt.scale.set(arenaSpriteScale,arenaSpriteScale,1);
+  qs('#textureStatus').textContent='Textura R.O.K.: capa decorativa independiente; escala ajustable hasta 220 %';
 },undefined,()=>{qs('#textureStatus').textContent='Textura R.O.K.: no disponible; usando baldosas 3D';});
 // Cuadrícula exacta: límites X = -4.5..4.5 (10 líneas),
 // límites Z = -9..9 (19 líneas). Cada celda mide 1 × 1.
@@ -224,6 +256,7 @@ marker(8.5,0x00ffe4);marker(-8.5,0xff8f9b);
 const ease=x=>{x=THREE.MathUtils.clamp(x,0,1);return x*x*(3-2*x)};
 const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
 const combatants=[];
+const casters=[]; // Los casters no son invocaciones: no se mueven ni se recastean.
 const combatAnimations=new Map();
 const animationNeeds=[2,8,9,12,13,14]; // Frisbee Throw (03) sigue candidata, no activa.
 const animationNames={2:'Magic Heal',3:'Frisbee Throw',8:'Sword And Shield Death',9:'Standing React Small From Headshot',12:'Walk W_ Briefcase',13:'Standing',14:'Standing 2H Magic Area Attack 01'};
@@ -885,6 +918,68 @@ function createFighter(baseScene,clip,side){
     glowColor:new THREE.Color(color),shieldShell,shieldPulse:0,lamp:null,pend:null,deathFx,deathMatSnapshot:null};
   combatants.push(c);setUpAnimationRig(c,clip);initLamp(c);createStunHalo(c);return c;
 }
+// Caster inmóvil: clon del mismo GLB, sin escudo, sin hechizos y sin recasteo.
+// Posición: columna 4; fila 16 (aliado, z=+7.5), fila 1 (rival, z=-7.5).
+function createCaster(baseScene,clip,side){
+  const model=cloneSkinned(baseScene);
+  const outer=new THREE.Group();root.add(outer);outer.add(model);
+  const startZ=side==='ally'?7.5:-7.5;
+  outer.position.set(0,0,startZ);
+  outer.rotation.y=side==='ally'?Math.PI:0;
+  const size=new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
+  model.scale.setScalar(1.65/Math.max(.2,size.y));
+  model.userData.baseScale=model.scale.x;
+  // Crear materiales independientes por instancia, sin afectar la Farolera
+  // invocada ni cambiar la apariencia del GLB original.
+  model.traverse(o=>{
+    if(!o.isMesh)return;
+    o.frustumCulled=false;
+    const src=Array.isArray(o.material)?o.material:[o.material];
+    const copies=src.map(m=>m.clone());
+    o.material=Array.isArray(o.material)?copies:copies[0];
+  });
+  const mixer=new THREE.AnimationMixer(model);
+  mixer.clipAction(clip).play();mixer.update(0);
+  const c={role:'caster',side,outer,model,mixer,idleClip:clip,
+    startZ,hp:12,maxHp:12,stage:'active'};
+  casters.push(c);
+  return c;
+}
+function resetCaster(c){
+  c.hp=12;c.maxHp=12;c.stage='active';c.model.visible=true;
+  c.outer.position.set(0,0,c.startZ);
+  c.outer.rotation.y=c.side==='ally'?Math.PI:0;
+  c.model.position.y=0;
+  c.model.scale.setScalar(c.model.userData.baseScale);
+  c.mixer.timeScale=1;c.mixer.stopAllAction();
+  c.mixer.clipAction(c.idleClip).reset().play();
+  const label=nameplates.get(c);
+  if(label)label.classList.remove('defeated');
+}
+const canDamageTarget=c=>(c?.role==='caster'?
+  c.hp>0&&c.stage==='active':
+  !!c&&c.hp>0&&(c.stage==='active'||c.stage==='stunned'||c.stage==='casting'));
+const casterLost=()=>casters.some(c=>c.stage==='defeated');
+function selectCombatTarget(c){
+  const opponent= combatants.find(other=>other.side!==c.side);
+  const enemyCaster=casters.find(other=>other.side!==c.side);
+  if(!enemyCaster||enemyCaster.stage!=='active')return null;
+  if(!canDamageTarget(opponent))return enemyCaster;
+  const px=c.outer.position.x,pz=c.outer.position.z;
+  const ox=opponent.outer.position.x,oz=opponent.outer.position.z;
+  const cx=enemyCaster.outer.position.x,cz=enemyCaster.outer.position.z;
+  const opponentDist=Math.hypot(ox-px,oz-pz);
+  // Si la invocación rival está a 3 casillas puede interceptar el ataque.
+  if(opponentDist<=3.1)return opponent;
+  // También intercepta si ocupa el corredor por el que se va al caster.
+  const vx=cx-px,vz=cz-pz,distSq=vx*vx+vz*vz;
+  if(distSq>.0001){
+    const fraction=((ox-px)*vx+(oz-pz)*vz)/distSq;
+    const offset=Math.abs((ox-px)*vz-(oz-pz)*vx)/Math.sqrt(distSq);
+    if(fraction>0&&fraction<1&&offset<=1.15&&opponentDist<=5.5)return opponent;
+  }
+  return enemyCaster;
+}
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
 const DURATION=10.25;
 const LOOP_RESTART_AT=1.4; // La aparición inicial solo ocurre en la primera vuelta.
@@ -989,7 +1084,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.8.8. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.8.9. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -1082,11 +1177,13 @@ function clearFloatingWords(){
 }
 function makeNameplate(c){
   const el=document.createElement('div');
-  el.className='unitTag '+(c.side==='enemy'?'enemy':'ally');
-  // No etiquetas ni iconos adicionales: las tres barras usan solo valores.
-  el.innerHTML=
-    '<div class="unitBar unitHealth"><div class="unitBarFill"></div><div class="unitBarText"></div></div>'+
-    '<div class="unitBar unitShield"><div class="unitBarFill"></div><div class="unitBarText"></div></div>'+
+  const caster=c.role==='caster';
+  el.className='unitTag '+(c.side==='enemy'?'enemy':'ally')+(caster?' caster':'');
+  const life='<div class="unitBar unitHealth"><div class="unitBarFill"></div><div class="unitBarText"></div></div>';
+  // La estrella del caster acompaña únicamente su barra de 12 PV.
+  el.innerHTML=caster?
+    '<div class="casterHealthRow"><span class="casterStar" title="Caster principal">★</span>'+life+'</div>':
+    life+'<div class="unitBar unitShield"><div class="unitBarFill"></div><div class="unitBarText"></div></div>'+
     '<div class="unitBar unitMana"><div class="unitBarFill"></div><div class="unitBarText"></div></div>';
   qs('#nameplateLayer').appendChild(el);
   nameplates.set(c,el);
@@ -1098,6 +1195,9 @@ function updateNameplate(c){
   const health=el.querySelector('.unitHealth');
   health.querySelector('.unitBarFill').style.width=(THREE.MathUtils.clamp(c.hp/c.maxHp,0,1)*100)+'%';
   health.querySelector('.unitBarText').textContent=c.hp+' / '+c.maxHp;
+  if(c.role==='caster'){
+    el.classList.toggle('defeated',c.stage==='defeated');
+  }else{
   const shield=el.querySelector('.unitShield');
   shield.hidden=c.shieldMax<=0;
   if(c.shieldMax>0){
@@ -1110,6 +1210,7 @@ function updateNameplate(c){
   if(c.maxMana>0){
     mana.querySelector('.unitBarFill').style.width=(THREE.MathUtils.clamp(c.mana/c.maxMana,0,1)*100)+'%';
     mana.querySelector('.unitBarText').textContent=Math.floor(c.mana)+' / '+c.maxMana;
+  }
   }
   const pos=new THREE.Vector3(0,1.94*Math.max(.5,c.model.scale.x/c.model.userData.baseScale)+c.model.position.y,0);
   c.outer.localToWorld(pos);
@@ -1411,7 +1512,8 @@ function resetDemoCombat(){
   for(const p of magicImpacts){root.remove(p.group);}
   magicImpacts.length=0;
   combatants.forEach(resetCombatant);
-  qs('#phase').textContent='✦ Materializando ambas Faroleras';
+  casters.forEach(resetCaster);
+  qs('#phase').textContent='✦ Materializando las invocaciones y los dos casters';
 }
 // El mundo sigue la topología real del tablero R.O.K.: 9 X × 18 Z.
 // Las casillas tienen centros en x=col-4 y z=row-8.5.
@@ -1739,7 +1841,7 @@ function updateTeleportation(c,dt){
     c.model.scale.setScalar(c.model.userData.baseScale*(.08+.92*a));
     c.model.position.y=-.18*(1-a);
   }
-  const opponent=combatants.find(o=>o!==c);
+  const opponent=selectCombatTarget(c);
   faceTarget(c,opponent);
   if(c.teleportT>=.45){
     c.model.scale.setScalar(c.model.userData.baseScale);
@@ -1759,8 +1861,8 @@ function tryEvasion(target,attacker,impactCell){
     const cell={col,row};
     const dist=cellRadius(cell,origin);
     if(dist<2||dist>target.range||cellRadius(cell,impactCell)<=1)continue;
-    const occupied=combatants.some(other=>other!==target&&
-      other.stage!=='restoring'&&
+    const occupied=[...combatants,...casters].some(other=>other!==target&&
+      (other.role==='caster'?other.stage==='active':canDamageTarget(other))&&
       worldToCell(other.outer.position.x,other.outer.position.z).col===col&&
       worldToCell(other.outer.position.x,other.outer.position.z).row===row);
     if(!occupied)candidates.push(cell);
@@ -1789,7 +1891,18 @@ function tryEvasion(target,attacker,impactCell){
 // La tirada PDA es independiente por cada impacto efectivo del enemigo.
 // Estar protegido por escudo no convierte el impacto en una restauración.
 function damage(target,value,source){
-  if(target.stage!=='active'&&target.stage!=='stunned'&&target.stage!=='casting')return false;
+  if(!canDamageTarget(target))return false;
+  if(target.role==='caster'){
+    target.hp=Math.max(0,target.hp-value);
+    if(target.hp===0){
+      target.stage='defeated';
+      target.mixer.timeScale=0;
+      const label=nameplates.get(target);
+      if(label)label.classList.add('defeated');
+      qs('#phase').textContent='★ Caster '+(target.side==='enemy'?'rival':'aliado')+' derrotado · '+(target.side==='enemy'?'victoria':'derrota');
+    }
+    return true;
+  }
   const absorbed=Math.min(target.shield,value);
   target.shield-=absorbed;
   if(absorbed>0)target.shieldPulse=.8;
@@ -1905,7 +2018,7 @@ function updateMagic(dt){
     const a=THREE.MathUtils.clamp(m.age/m.duration,0,1);
     // Seguimiento limitado antes del último tramo; al impactar, la celda
     // queda fijada para que la evasión pueda esquivar el proyectil.
-    if(a<.85&&(m.target.stage==='active'||m.target.stage==='stunned'||m.target.stage==='casting')){
+    if(a<.85&&canDamageTarget(m.target)){
       m.impactCell=worldToCell(m.target.outer.position.x,m.target.outer.position.z);
       const aim=cellToWorld(m.impactCell.col,m.impactCell.row);
       m.aimX=aim.x;m.aimZ=aim.z;
@@ -1916,17 +2029,17 @@ function updateMagic(dt){
     m.core.scale.setScalar(1+.18*Math.sin(m.age*21));
     if(a>=1){
       // La evasión sucede justo antes del contacto, nunca después del daño.
-      if(m.target.stage==='active')tryEvasion(m.target,m.attacker,m.impactCell);
+      if(m.target.role!=='caster'&&m.target.stage==='active')
+        tryEvasion(m.target,m.attacker,m.impactCell);
       spawnImpact(m.aimX,m.aimZ,m.area,m.attacker.side==='enemy');
       if(m.area){
         // Nueve casillas tácticas reales, con comprobación de cada unidad.
-        for(const c of combatants){
-          if(c.side===m.attacker.side)continue;
-          if(c.stage!=='active'&&c.stage!=='stunned'&&c.stage!=='casting')continue;
+        for(const c of [...combatants,...casters]){
+          if(c.side===m.attacker.side||!canDamageTarget(c))continue;
           const current=worldToCell(c.outer.position.x,c.outer.position.z);
           if(cellRadius(current,m.impactCell)<=1)damage(c,m.attacker.attackDamage,m.attacker);
         }
-      }else if(m.target.stage==='active'||m.target.stage==='stunned'||m.target.stage==='casting'){
+      }else if(canDamageTarget(m.target)){
         const current=worldToCell(m.target.outer.position.x,m.target.outer.position.z);
         if(current.row===m.impactCell.row&&current.col===m.impactCell.col){
           damage(m.target,m.attacker.attackDamage,m.attacker);
@@ -2053,15 +2166,13 @@ function updateDuel(dt){
   const ally=combatants.find(c=>c.side==='ally');
   const enemy=combatants.find(c=>c.side==='enemy');
   if(!ally||!enemy)return;
-  for(const c of combatants){
+  if(!casterLost())for(const c of combatants){
     if(c.stage!=='active')continue;
-    const target=c.side==='ally'?enemy:ally;
-    // Un objetivo aturdido permanece vulnerable. La reacción de daño
-    // del atacante no debe bloquear la oportunidad de castigarlo.
+    const target=selectCombatTarget(c);
+    if(!target){setAnim(c,'idle',{fade:.15});continue;}
+    // La Farolera aturdida sigue siendo un objetivo legal, incluso si el
+    // enemigo está en su ciclo de reacción al golpe.
     if(c.hitLeft>0&&target.stage!=='stunned')continue;
-    if(target.stage==='restoring'||target.stage==='dying'||target.stage==='vanishing'||target.stage==='dead'||target.stage==='summonCasting'||target.stage==='summonEmerging'||target.stage==='summonStanding'||target.stage==='summonBlend') {
-      setAnim(c,'idle',{fade:.15});continue;
-    }
     const dx=target.outer.position.x-c.outer.position.x;
     const dz=target.outer.position.z-c.outer.position.z;
     const distance=Math.hypot(dx,dz);
@@ -2070,7 +2181,7 @@ function updateDuel(dt){
       c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/distance*step,-4,4);
       c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-8.5,8.5);
       setAnim(c,12,{fade:.16});
-    }else if((target.stage==='active'||target.stage==='stunned'||target.stage==='casting')&&c.cooldown<=0){
+    }else if(canDamageTarget(target)&&c.cooldown<=0){
       startCast(c,target);
       c.cooldown=c.side==='ally'?1.35:1.75;
     }else{
@@ -2079,14 +2190,22 @@ function updateDuel(dt){
   }
   updateMagic(dt);
   updatePortalEffects(dt);
+  for(const caster of casters){
+    if(caster.stage==='active')caster.mixer.update(dt);
+  }
   for(const c of combatants){
-    const opponent=c.side==='ally'?enemy:ally;
+    const opponent=c.stage==='casting'&&canDamageTarget(c.castTarget)?
+      c.castTarget:selectCombatTarget(c);
     if(c.stage!=='restoring'&&c.stage!=='intro'&&c.stage!=='dying')faceTarget(c,opponent);
   }
   for(const c of combatants)updateStunHalo(c,dt);
   updateFloatingWords(dt);
   const stunned=combatants.find(c=>c.stage==='stunned');
-  if(stunned){
+  if(casterLost()){
+    const lost=casters.find(c=>c.stage==='defeated');
+    qs('#phase').textContent='★ Caster '+(lost.side==='enemy'?'rival':'aliado')+
+      ' derrotado · '+(lost.side==='enemy'?'VICTORIA':'DERROTA');
+  }else if(stunned){
     const count=Math.min(5,Math.ceil((stunned.stunLeft-1e-5)/.5));
     qs('#phase').textContent='★ ATURDIDO · '+count+' estrellas · '+stunned.stunLeft.toFixed(1)+' s';
   }else if(combatants.some(c=>c.stage==='dying')){
@@ -2116,19 +2235,22 @@ function updateDuel(dt){
   }else if(combatants.every(c=>c.stage==='active')){
     qs('#phase').textContent='➜ Avance según alcance: 3 / 5 casillas';
   }
-  for(const c of combatants)updateNameplate(c);
+  for(const c of [...combatants,...casters])updateNameplate(c);
 }
 new GLTFLoader().load('./chiara_idle.glb',g=>{
   if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
   const a=createFighter(g.scene,g.animations[0],'ally');
   const b=createFighter(g.scene,g.animations[0],'enemy');
   for(const c of [a,b])c.model.userData.baseScale=c.model.scale.x;
+  createCaster(g.scene,g.animations[0],'ally');
+  createCaster(g.scene,g.animations[0],'enemy');
   for(const c of combatants){makeNameplate(c);makeSummonCountdown(c);resetCombatant(c);}
+  for(const c of casters){makeNameplate(c);resetCaster(c);}
   activateArenaAnimationPack(g.scene).catch(err=>console.warn('[R.O.K.] Paquete Mixamo no disponible:',err));
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
-  qs('#modelStatus').textContent='2 Faroleras · '+g.animations.length+' Idle · física de lámpara: '+combatants.filter(c=>c.lamp).length+'/2 detectadas. '+combatants.map(c=>c.side+': '+c.lampNode).join(' · ');
+  qs('#modelStatus').textContent='4 Faroleras: 2 invocaciones + 2 casters de 12 PV · '+g.animations.length+' Idle · lámpara: '+combatants.filter(c=>c.lamp).length+'/2 invocaciones.';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
 },e=>{if(e.total)qs('#sceneStatus').textContent='Cargando modelo '+Math.round(e.loaded/e.total*100)+'%';},err=>{
   qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
@@ -2141,7 +2263,10 @@ function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
   if(loaded&&playing){updateDuel(dt);}
-  if(loaded){for(const c of combatants){updateNameplate(c);updateSummonCountdown(c);}}
+  if(loaded){
+    for(const c of combatants){updateNameplate(c);updateSummonCountdown(c);}
+    for(const c of casters)updateNameplate(c);
+  }
   controls.update();renderer.render(scene,camera);
   fpsTime+=dt;fpsCount++;if(fpsTime>=1){qs('#fps').textContent='FPS: '+Math.round(fpsCount/fpsTime);fpsTime=0;fpsCount=0;}
 }
