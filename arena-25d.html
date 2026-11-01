@@ -411,11 +411,25 @@ function createFighter(baseScene,clip,side){
     }
   });
   const mixer=new THREE.AnimationMixer(model);mixer.clipAction(clip).play();
+  // Escudo independiente del GLB: no altera las texturas ni la opacidad del modelo.
+  let shieldShell=null;
+  if(side==='ally'){
+    shieldShell=new THREE.Mesh(
+      new THREE.SphereGeometry(1,20,14),
+      new THREE.MeshBasicMaterial({
+        color:0x51ffed,transparent:true,opacity:.11,
+        blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.BackSide
+      })
+    );
+    shieldShell.position.y=.85;
+    shieldShell.scale.set(1.0,1.12,1.0);
+    outer.add(shieldShell);
+  }
   const color=side==='ally'?0x00ffe4:0xff869c;
   const fx=makeFx(color);
   const restorationFx=makeRestorationFx(color);
   const c={side,outer,model,startZ,endZ:side==='ally'?.72:-.72,mixer,mats,fx,restorationFx,
-    glowColor:new THREE.Color(color),lamp:null,pend:null};
+    glowColor:new THREE.Color(color),shieldShell,shieldPulse:0,lamp:null,pend:null};
   combatants.push(c);initLamp(c);return c;
 }
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
@@ -554,7 +568,7 @@ function updateNameplate(c){
   const stars=c.stage==='stunned'?Math.min(5,Math.max(0,Math.ceil((c.stunLeft-1e-5)/.5))):0;
   el.querySelector('.unitStars').textContent=stars?'★'.repeat(stars):'';
   el.querySelector('.unitStars').title=stars?'Aturdimiento: '+c.stunLeft.toFixed(1)+' segundos':'';
-  const pos=new THREE.Vector3(0,2.18*Math.max(.5,c.model.scale.x/c.model.userData.baseScale)+c.model.position.y,c.outer.position.z);
+  const pos=new THREE.Vector3(0,2.18*Math.max(.5,c.model.scale.x/c.model.userData.baseScale)+c.model.position.y,0);
   // El movimiento real del modelo se proyecta encima de su cabeza.
   c.outer.localToWorld(pos);
   pos.project(camera);
@@ -578,6 +592,7 @@ function resetCombatant(c){
   c.cooldown=c.side==='enemy'?.20:.65;
   c.specialCooldown=0;
   c.baseEndZ=c.endZ;
+  c.shieldPulse=0;
   c.outer.position.z=c.startZ;
   c.model.position.y=0;
   c.model.scale.setScalar(c.model.userData.baseScale);
@@ -599,6 +614,7 @@ function startRestoration(c,stun=false){
   c.endZ=c.outer.position.z; // Restaurar desde el punto REAL del impacto.
   c.postRestoreStun=stun?2.5:0;
   c.cooldown=.6;
+  if(c.shieldShell)c.shieldShell.visible=false;
   resetRestorationFx(c);
   if(c.pendV)c.pendV.y+=(c.side==='ally'?-1:1)*1.8;
 }
@@ -606,6 +622,7 @@ function damage(target,value,withStun=false){
   if(target.stage!=='active')return;
   const absorbed=Math.min(target.shield,value);
   target.shield-=absorbed;
+  if(absorbed>0)target.shieldPulse=.8;
   target.hp=Math.max(0,target.hp-(value-absorbed));
   if(target.pendV){
     target.pendV.y+=(target.side==='ally'?-1:1)*2;
@@ -720,6 +737,16 @@ function updateDuel(dt){
       updateRestorationFx(c,dt,12);
       c.cooldown-=dt;
       c.specialCooldown=Math.max(0,c.specialCooldown-dt);
+    }
+    if(c.shieldShell){
+      c.shieldPulse=Math.max(0,c.shieldPulse-dt);
+      const activeShield=c.shield>0&&c.stage!=='restoring';
+      c.shieldShell.visible=activeShield;
+      if(activeShield){
+        c.shieldShell.material.opacity=.09+.17*c.shieldPulse+.025*Math.sin(performance.now()*.006);
+        c.shieldShell.scale.setScalar(.92+.14*c.shieldPulse);
+        c.shieldShell.scale.y=1.1+.1*c.shieldPulse;
+      }
     }
     updateLamp(c,dt,0);
   }
