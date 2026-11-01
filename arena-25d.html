@@ -26,27 +26,29 @@ canvas{display:block;touch-action:none}
 #bottom{flex-wrap:wrap;border-radius:17px}
 #bottom button{padding:8px 10px;min-height:35px}
 #nameplateLayer{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:8}
-.unitTag{position:absolute;width:128px;transform:translate(-50%,-100%);text-align:center;
-  text-shadow:0 1px 3px #000,0 1px 5px #000;will-change:left,top;
-  font-size:11px;color:#fff;font-weight:750}
-.unitName{background:#091720dc;border:1px solid #33797b;border-radius:6px 6px 0 0;padding:2px 4px;white-space:nowrap}
-.unitTag.enemy .unitName{border-color:#e58b9d}
-.unitHealth{height:12px;border:1px solid #d4dde7;border-radius:3px;background:#2c1722;position:relative;overflow:hidden}
-.unitHealthFill{position:absolute;inset:0 auto 0 0;width:100%;background:linear-gradient(90deg,#26bd67,#a9ed68)}
-.unitTag.enemy .unitHealthFill{background:linear-gradient(90deg,#e54d72,#f5a2a9)}
-.unitHealthText{position:relative;font-size:10px;line-height:10px;text-align:center;color:#fff}
-.unitShield{font-size:10px;color:#9feaff;min-height:12px}
-.unitMana{height:10px;border:1px solid #8ad0f8;border-radius:3px;background:#111f41;position:relative;overflow:hidden}
-.unitManaFill{position:absolute;inset:0 auto 0 0;width:100%;background:linear-gradient(90deg,#245bd9,#63d8ff)}
-.unitManaText{position:relative;line-height:9px;font-size:9px;font-weight:700;color:#fff}
-.unitManaInfo{font-size:9px;color:#a0d8ff;min-height:1px}
-#combatReadout{position:fixed;top:calc(env(safe-area-inset-top,0px) + 94px);right:9px;z-index:9;
-  border:1px solid #367f88;border-radius:9px;background:#081c2add;color:#e8fffe;
-  padding:6px 9px;font-size:10px;line-height:1.5;max-width:180px;text-align:right}
-@media(max-width:759px){#phase,#hint{bottom:calc(env(safe-area-inset-bottom,0px) + 130px)}
-#combatReadout{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 174px);right:8px;max-width:144px;font-size:9px}
-.unitTag{width:106px}}
-
+.unitTag{position:absolute;width:104px;transform:translate(-50%,-100%);
+  display:flex;flex-direction:column;gap:2px;text-align:center;pointer-events:none;
+  color:#fff;font-size:9px;font-weight:800;line-height:1;
+  text-shadow:0 1px 3px #000,0 0 4px #000;
+  will-change:left,top;filter:drop-shadow(0 2px 3px #000b)}
+.unitBar{position:relative;width:100%;height:12px;border:1px solid #b1c0c5;
+  border-radius:4px;background:#160d16dd;overflow:hidden}
+.unitBarFill{position:absolute;inset:0 auto 0 0;width:100%;transition:width .14s linear}
+.unitBarText{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-variant-numeric:tabular-nums;letter-spacing:.1px;color:#fff}
+.unitHealth{height:13px;border-color:#ff939c}
+.unitHealth .unitBarFill{background:linear-gradient(180deg,#ff686b 0%,#e9223f 75%,#a50a23 100%)}
+.unitShield{height:11px;border-color:#cdd8e2;background:#252b31e8}
+.unitShield .unitBarFill{background:linear-gradient(180deg,#f8fcff,#bfcbd6 58%,#7c8c99)}
+.unitShield .unitBarText{color:#091723;text-shadow:0 0 2px #fff}
+.unitShield[data-empty="true"] .unitBarText{color:#fff;text-shadow:0 1px 2px #000}
+.unitMana{height:11px;border-color:#70a9ff;background:#122148ea}
+.unitMana .unitBarFill{background:linear-gradient(180deg,#75ceff,#226be9 75%,#1941ad)}
+.unitTag [hidden]{display:none!important}
+@media(max-width:759px){
+  #phase,#hint{bottom:calc(env(safe-area-inset-bottom,0px) + 130px)}
+  .unitTag{width:90px}
+}
 #phase{position:fixed;z-index:9;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);padding:6px 10px;border:1px solid #277b78;border-radius:9px;background:#081925d9;font-size:11px;font-weight:700;color:#ccf7ee}
 #hint{position:fixed;z-index:9;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);font-size:10px;max-width:42vw;color:#d0dfe0;text-align:right;background:#09192599;padding:6px;border-radius:6px}
 @media(min-width:760px){#top{left:16px;transform:none;top:16px}#bottom{bottom:20px}#phase{bottom:20px}#hint{bottom:20px}}
@@ -61,13 +63,13 @@ canvas{display:block;touch-action:none}
 </head>
 <body>
 <aside id="versionProof" aria-label="Versión y dimensiones de la arena">
-<strong>ARENA v0.7.1</strong>
+<strong>ARENA v0.7.2</strong>
 <span id="gridProof">Verificando casillas…</span>
 <small>Prueba 2.5D · 31/10/2026</small>
 </aside>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
-    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.7.1</small></div>
+    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.7.2</small></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
@@ -81,7 +83,6 @@ canvas{display:block;touch-action:none}
   </div>
 </section>
 <div id="nameplateLayer" aria-hidden="true"></div>
-<div id="combatReadout">Aliada: ❤️ 7 · rango 3 · 🛡️ 2<br>Rival: ❤️ 5 · rango 5 · 💧 10/10 PM · PDA 32 %</div>
 <div id="phase">Preparando combate…</div>
 <div id="hint">1 dedo: girar · 2 dedos: zoom<br>Arriba: rival · Abajo: aliado</div>
 <div id="bottom">
@@ -539,7 +540,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.7.1. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.7.2. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -633,31 +634,40 @@ function clearFloatingWords(){
 function makeNameplate(c){
   const el=document.createElement('div');
   el.className='unitTag '+(c.side==='enemy'?'enemy':'ally');
-  el.innerHTML='<div class="unitName"></div><div class="unitHealth"><div class="unitHealthFill"></div><div class="unitHealthText"></div></div><div class="unitShield"></div><div class="unitMana" hidden><div class="unitManaFill"></div><div class="unitManaText"></div></div><div class="unitManaInfo"></div>';
-  qs('#nameplateLayer').appendChild(el);nameplates.set(c,el);
+  // No etiquetas ni iconos adicionales: las tres barras usan solo valores.
+  el.innerHTML=
+    '<div class="unitBar unitHealth"><div class="unitBarFill"></div><div class="unitBarText"></div></div>'+
+    '<div class="unitBar unitShield"><div class="unitBarFill"></div><div class="unitBarText"></div></div>'+
+    '<div class="unitBar unitMana"><div class="unitBarFill"></div><div class="unitBarText"></div></div>';
+  qs('#nameplateLayer').appendChild(el);
+  nameplates.set(c,el);
 }
 function updateNameplate(c){
-  const el=nameplates.get(c);if(!el)return;
-  el.querySelector('.unitName').textContent=c.side==='ally'?'Farolera aliada':'Farolera rival';
-  const pct=THREE.MathUtils.clamp(c.hp/c.maxHp,0,1)*100;
-  el.querySelector('.unitHealthFill').style.width=pct+'%';
-  el.querySelector('.unitHealthText').textContent=c.hp+' / '+c.maxHp+' PV';
-  el.querySelector('.unitShield').textContent=c.shield>0?'🛡️ Escudo: '+c.shield+' / '+c.shieldMax:(c.shieldMax?'Escudo agotado':'Rango '+c.range+' · área 1');
-  const mana=el.querySelector('.unitMana');
-  mana.hidden=c.side!=='enemy';
-  if(c.side==='enemy'){
-    el.querySelector('.unitManaFill').style.width=(c.mana/c.maxMana*100)+'%';
-    el.querySelector('.unitManaText').textContent=Math.floor(c.mana)+' / '+c.maxMana+' PM';
-    el.querySelector('.unitManaInfo').textContent='Evasión: '+(c.dodgeCooldown>0?c.dodgeCooldown.toFixed(1)+' s':c.mana>=6?'lista':'maná insuficiente');
+  const el=nameplates.get(c);
+  if(!el)return;
+  const health=el.querySelector('.unitHealth');
+  health.querySelector('.unitBarFill').style.width=(THREE.MathUtils.clamp(c.hp/c.maxHp,0,1)*100)+'%';
+  health.querySelector('.unitBarText').textContent=c.hp+' / '+c.maxHp;
+  const shield=el.querySelector('.unitShield');
+  shield.hidden=c.shieldMax<=0;
+  if(c.shieldMax>0){
+    shield.querySelector('.unitBarFill').style.width=(THREE.MathUtils.clamp(c.shield/c.shieldMax,0,1)*100)+'%';
+    shield.querySelector('.unitBarText').textContent=c.shield+' / '+c.shieldMax;
+    shield.dataset.empty=String(c.shield<=0);
   }
-  const pos=new THREE.Vector3(0,2.7*Math.max(.5,c.model.scale.x/c.model.userData.baseScale)+c.model.position.y,0);
-  // El movimiento real del modelo se proyecta encima de su cabeza.
+  const mana=el.querySelector('.unitMana');
+  mana.hidden=c.maxMana<=0;
+  if(c.maxMana>0){
+    mana.querySelector('.unitBarFill').style.width=(THREE.MathUtils.clamp(c.mana/c.maxMana,0,1)*100)+'%';
+    mana.querySelector('.unitBarText').textContent=Math.floor(c.mana)+' / '+c.maxMana;
+  }
+  const pos=new THREE.Vector3(0,2.6*Math.max(.5,c.model.scale.x/c.model.userData.baseScale)+c.model.position.y,0);
   c.outer.localToWorld(pos);
   pos.project(camera);
   if(pos.z<-1||pos.z>1||Math.abs(pos.x)>1.7||Math.abs(pos.y)>1.7){
     el.style.display='none';return;
   }
-  el.style.display='block';
+  el.style.display='flex';
   el.style.left=((pos.x*.5+.5)*innerWidth)+'px';
   el.style.top=((-pos.y*.5+.5)*innerHeight)+'px';
 }
@@ -989,8 +999,6 @@ function updateDuel(dt){
     qs('#phase').textContent='➜ Avance según alcance: 3 / 5 casillas';
   }
   for(const c of combatants)updateNameplate(c);
-  qs('#combatReadout').innerHTML='Aliada: ❤️ '+ally.hp+'/7 · 🛡️ '+ally.shield+'/2 · rango 3<br>'+
-    'Rival: ❤️ '+enemy.hp+'/5 · 💧 '+enemy.mana+'/10 · evasión '+enemy.dodgeCooldown.toFixed(0)+' s';
 }
 new GLTFLoader().load('./chiara_idle.glb',g=>{
   if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
