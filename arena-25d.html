@@ -78,7 +78,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.8.2</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.8.3</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -248,6 +248,104 @@ function makeRestorationFx(color){
     particles.push({sprite,age:0,life:1,base:0,size:0,vy:0,vz:0,active:false});
   }
   return {glow,particles,head:0,emission:0};
+}
+
+/* MUERTE, sistema independiente de restauración / aparición.
+   Pose de muerte 08 -> resplandor -> disolución -> partículas solas -> fuera.
+   Los materiales pertenecen a clones del combatiente; se restauran al reiniciar. */
+function makeDeathFx(color){
+  const glow=new THREE.Sprite(new THREE.SpriteMaterial({
+    map:glowTexture,color,transparent:true,opacity:0,
+    depthWrite:false,blending:THREE.AdditiveBlending
+  }));
+  glow.visible=false;glow.scale.set(1.5,2.2,1);root.add(glow);
+  const particles=Array.from({length:50},()=> {
+    const sprite=new THREE.Sprite(new THREE.SpriteMaterial({
+      map:glowTexture,color,transparent:true,opacity:0,
+      depthWrite:false,blending:THREE.AdditiveBlending
+    }));
+    sprite.visible=false;root.add(sprite);
+    return {sprite,age:0,life:1,velocity:new THREE.Vector3(),base:0,size:0,active:false};
+  });
+  return {glow,particles,head:0,emission:0,remaining:0};
+}
+function resetDeathFx(c){
+  const fx=c.deathFx;if(!fx)return;
+  fx.glow.visible=false;fx.glow.material.opacity=0;
+  fx.emission=0;fx.remaining=0;fx.head=0;
+  for(const p of fx.particles){
+    p.active=false;p.sprite.visible=false;p.sprite.material.opacity=0;
+  }
+}
+function emitDeathParticle(c,burst=false){
+  const fx=c.deathFx;if(!fx)return;
+  const p=fx.particles[fx.head];fx.head=(fx.head+1)%fx.particles.length;
+  const center=c.deathAnchor?
+    c.deathAnchor.getWorldPosition(new THREE.Vector3()):
+    new THREE.Vector3(c.outer.position.x,.82,c.outer.position.z);
+  const spread=burst?.68:.43;
+  p.sprite.position.set(center.x+(Math.random()-.5)*spread,
+    center.y+(Math.random()-.5)*(burst?.65:1.1),
+    center.z+(Math.random()-.5)*spread);
+  p.velocity.set((Math.random()-.5)*(burst?1.5:.6),
+    (burst?.35:.12)+Math.random()*(burst?1.2:.72),
+    (Math.random()-.5)*(burst?1.5:.6));
+  p.age=0;p.life=(burst?1.0:.75)+Math.random()*.85;
+  p.base=.55+Math.random()*.45;
+  p.size=.07+Math.random()*.13;
+  p.sprite.material.opacity=p.base;
+  p.sprite.scale.setScalar(p.size);
+  p.sprite.visible=true;p.active=true;
+}
+function updateDeathFx(c,dt,emission=0,glow=0){
+  const fx=c.deathFx;if(!fx)return;
+  if(emission>0){
+    fx.emission+=dt*emission;
+    let budget=10;
+    while(fx.emission>=1&&budget-->0){
+      fx.emission-=1;emitDeathParticle(c);
+    }
+  }else fx.emission=0;
+  if(glow>0&&c.model.visible){
+    const center=c.deathAnchor?
+      c.deathAnchor.getWorldPosition(new THREE.Vector3()):
+      new THREE.Vector3(c.outer.position.x,.82,c.outer.position.z);
+    fx.glow.position.copy(center);
+    fx.glow.material.opacity=.15+.55*glow;
+    fx.glow.scale.set(1.4+glow*.85,1.8+glow*.8,1);
+    fx.glow.visible=true;
+  }else fx.glow.visible=false;
+  for(const p of fx.particles){
+    if(!p.active)continue;
+    p.age+=dt;
+    const u=p.age/p.life;
+    if(u>=1){p.active=false;p.sprite.visible=false;continue}
+    p.sprite.position.addScaledVector(p.velocity,dt);
+    p.velocity.y-=.10*dt;
+    p.sprite.material.opacity=p.base*Math.pow(1-u,1.3);
+    const scale=p.size*(1+.45*u);
+    p.sprite.scale.set(scale,scale,1);
+  }
+}
+// Opacidad de desaparición transitoria. No se alteran materiales del GLB
+// original; los clones del combatiente vuelven a su estado inicial con Repetir.
+function setDeathOpacity(c,opacity){
+  if(!c.deathMatSnapshot){
+    c.deathMatSnapshot=c.mats.map(m=>({
+      opacity:m.opacity,transparent:m.transparent,depthWrite:m.depthWrite
+    }));
+  }
+  const visible=THREE.MathUtils.clamp(opacity,0,1);
+  c.mats.forEach((m,i)=>{
+    const original=c.deathMatSnapshot[i];
+    const fading=visible<.999;
+    const transparent=fading||original.transparent;
+    const depthWrite=fading?false:original.depthWrite;
+    if(m.transparent!==transparent||m.depthWrite!==depthWrite){
+      m.transparent=transparent;m.depthWrite=depthWrite;m.needsUpdate=true;
+    }
+    m.opacity=original.opacity*visible;
+  });
 }
 function resetRestorationFx(c){
   if(!c.restorationFx)return;
@@ -652,6 +750,7 @@ function setUpAnimationRig(c,idleClip){
 
   c.walkArm=findBone(c,'rightarm');
   c.walkForearm=findBone(c,'rightforearm');
+  c.deathAnchor=findBone(c,'hips');
   c.groundBones={
     feet:['leftfoot','rightfoot','lefttoebase','righttoebase'].map(x=>findBone(c,x)).filter(Boolean),
     knees:['leftleg','rightleg'].map(x=>findBone(c,x)).filter(Boolean),
@@ -743,8 +842,9 @@ function createFighter(baseScene,clip,side){
   const color=side==='ally'?0x00ffe4:0xff869c;
   const fx=makeFx(color);
   const restorationFx=makeRestorationFx(color);
+  const deathFx=makeDeathFx(color);
   const c={side,outer,model,startZ,endZ:side==='ally'?.72:-.72,mixer,mats,fx,restorationFx,
-    glowColor:new THREE.Color(color),shieldShell,shieldPulse:0,lamp:null,pend:null};
+    glowColor:new THREE.Color(color),shieldShell,shieldPulse:0,lamp:null,pend:null,deathFx,deathMatSnapshot:null};
   combatants.push(c);setUpAnimationRig(c,clip);initLamp(c);createStunHalo(c);return c;
 }
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
@@ -851,7 +951,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.8.2. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.8.3. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -956,6 +1056,7 @@ function makeNameplate(c){
 function updateNameplate(c){
   const el=nameplates.get(c);
   if(!el)return;
+  if(c.stage==='vanishing'||c.stage==='dead'){el.style.display='none';return;}
   const health=el.querySelector('.unitHealth');
   health.querySelector('.unitBarFill').style.width=(THREE.MathUtils.clamp(c.hp/c.maxHp,0,1)*100)+'%';
   health.querySelector('.unitBarText').textContent=c.hp+' / '+c.maxHp;
@@ -991,7 +1092,7 @@ function resetCombatant(c){
   c.attackDamage=c.side==='ally'?2:1;
   c.speed=c.side==='ally'?2.4:2.15;
   c.stage='intro';c.introT=0;
-  c.hitLeft=0;c.castT=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.standingPlayed=false;
+  c.hitLeft=0;c.castT=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
   c.restoringT=0;c.stunLeft=0;c.postRestoreStun=0;
   c.cooldown=c.side==='enemy'?.20:.65;
   c.specialCooldown=0;
@@ -1002,6 +1103,9 @@ function resetCombatant(c){
   c.mana=c.maxMana;c.manaTimer=0;c.dodgeCooldown=0;
   c.outer.position.x=0;
   c.outer.rotation.y=c.side==='ally'?Math.PI:0;
+  setDeathOpacity(c,1);
+  setAppearance(c,0);
+  resetDeathFx(c);
   c.model.visible=true;
   c.teleportT=0;c.teleportMoved=false;c.teleportTo=null;
   if(c.stunHalo){c.stunHalo.group.visible=false;c.stunHalo.phase=0;}
@@ -1086,13 +1190,50 @@ function updateCast(c,dt){
   }
 }
 function beginDeath(c){
-  if(c.stage==='dying'||c.stage==='restoring')return;
+  if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
   c.stage='dying';c.deathT=0;c.castTarget=null;c.castFired=true;
   c.deathDuration=Math.max(.65,combatAnimations.get(8)?.duration||1.25);
   c.hitLeft=0;c.stunLeft=0;c.mixer.timeScale=1;
+  if(c.castMarker)c.castMarker.marker.visible=false;
+  if(c.shieldShell)c.shieldShell.visible=false;
+  if(c.stunHalo)c.stunHalo.group.visible=false;
+  resetDeathFx(c);
+  setDeathOpacity(c,1);
   setAnim(c,8,{once:true,fade:.1,force:true});
   c.cooldown=Math.max(c.cooldown,.4);
-  qs('#phase').textContent='✝ Farolera derrotada · animación de muerte';
+  qs('#phase').textContent='✝ Muerte · caída y resplandor';
+}
+function updateDeathSequence(c,dt){
+  if(c.stage==='dying'){
+    c.deathT=Math.min(c.deathDuration,c.deathT+dt);
+    const fraction=c.deathT/c.deathDuration;
+    const brightness=ease(THREE.MathUtils.clamp((fraction-.14)/.86,0,1));
+    setAppearance(c,.85*brightness);
+    updateDeathFx(c,dt,2+brightness*21,brightness);
+    if(c.deathT>=c.deathDuration){
+      // El último cuadro de 08 queda congelado; solo entonces se desvanece.
+      c.stage='vanishing';c.vanishT=0;
+      for(let i=0;i<22;i++)emitDeathParticle(c,true);
+    }
+  }else if(c.stage==='vanishing'){
+    c.vanishT=Math.min(.72,c.vanishT+dt);
+    const vanish=ease(c.vanishT/.72);
+    setDeathOpacity(c,1-vanish);
+    setAppearance(c,.85+.15*(1-vanish));
+    updateDeathFx(c,dt,35+80*vanish,1-vanish*.45);
+    if(c.vanishT>=.72){
+      c.model.visible=false;
+      c.stage='dead';
+      c.deathParticlesT=1.8;
+      c.mixer.stopAllAction();
+      if(c.castMarker)c.castMarker.marker.visible=false;
+      if(c.shieldShell)c.shieldShell.visible=false;
+      if(c.stunHalo)c.stunHalo.group.visible=false;
+    }
+  }else if(c.stage==='dead'){
+    c.deathParticlesT=Math.max(0,c.deathParticlesT-dt);
+    updateDeathFx(c,dt,0,0);
+  }
 }
 function beginHit(c){
   if(c.stage==='dying'||c.stage==='restoring')return;
@@ -1481,9 +1622,9 @@ function updateDuel(dt){
       updateRestorationFx(c,dt,c.introT);
       if(c.introT>=1.4){c.stage='active';setAnim(c,'idle',{fade:.10})}
     }else if(c.stage==='dying'){
-      c.deathT+=dt;
-      updateRestorationFx(c,dt,12);
-      if(c.deathT>=c.deathDuration)startRestoration(c);
+      updateDeathSequence(c,dt);
+    }else if(c.stage==='vanishing'||c.stage==='dead'){
+      updateDeathSequence(c,dt);
     }else if(c.stage==='restoring'){
       c.restoringT=Math.min(1.75,c.restoringT+dt);
       const virtualT=8.2+c.restoringT;
@@ -1532,7 +1673,7 @@ function updateDuel(dt){
     }
     if(c.shieldShell){
       c.shieldPulse=Math.max(0,c.shieldPulse-dt);
-      const activeShield=c.shield>0&&c.stage!=='restoring'&&c.stage!=='dying';
+      const activeShield=c.shield>0&&c.stage!=='restoring'&&c.stage!=='dying'&&c.stage!=='vanishing'&&c.stage!=='dead';
       c.shieldShell.visible=activeShield;
       if(activeShield){
         c.shieldShell.material.opacity=.09+.17*c.shieldPulse+.025*Math.sin(performance.now()*.006);
@@ -1542,10 +1683,10 @@ function updateDuel(dt){
     }
     // Mantener el movimiento vertical de pies, rodillas y torso también
     // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
-    if(c.stage!=='casting')followGround(c,dt);
+    if(c.stage!=='casting'&&c.stage!=='vanishing'&&c.stage!=='dead')followGround(c,dt);
     updateCastMarker(c);
     if(c.animId===12)liftWalkArm(c);
-    updateLamp(c,dt,0);
+    if(c.stage!=='vanishing'&&c.stage!=='dead')updateLamp(c,dt,0);
   }
   const ally=combatants.find(c=>c.side==='ally');
   const enemy=combatants.find(c=>c.side==='enemy');
@@ -1553,7 +1694,7 @@ function updateDuel(dt){
   for(const c of combatants){
     if(c.stage!=='active'||c.hitLeft>0)continue;
     const target=c.side==='ally'?enemy:ally;
-    if(target.stage==='restoring'||target.stage==='dying') {
+    if(target.stage==='restoring'||target.stage==='dying'||target.stage==='vanishing'||target.stage==='dead') {
       setAnim(c,'idle',{fade:.15});continue;
     }
     const dx=target.outer.position.x-c.outer.position.x;
@@ -1584,7 +1725,11 @@ function updateDuel(dt){
     const count=Math.min(5,Math.ceil((stunned.stunLeft-1e-5)/.5));
     qs('#phase').textContent='★ ATURDIDO · '+count+' estrellas · '+stunned.stunLeft.toFixed(1)+' s';
   }else if(combatants.some(c=>c.stage==='dying')){
-    qs('#phase').textContent='✝ Muerte · animación completa antes de restaurarse';
+    qs('#phase').textContent='✝ Muerte · caída y resplandor';
+  }else if(combatants.some(c=>c.stage==='vanishing')){
+    qs('#phase').textContent='✝ Muerte · desintegración luminosa';
+  }else if(combatants.some(c=>c.stage==='dead')){
+    qs('#phase').textContent='✝ Invocación eliminada · esperando nueva invocación';
   }else if(combatants.some(c=>c.stage==='restoring')){
     qs('#phase').textContent='✧ Restauración · Standing → Idle';
   }else if(combatants.some(c=>c.stage==='casting')){
