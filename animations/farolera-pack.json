@@ -1,5 +1,5 @@
 {
-  "version": "0.2",
+  "version": "0.3",
   "character": "Farolera del Umbral",
   "rig": "mixamorig",
   "sourceModel": "chiara_idle.glb",
@@ -11,11 +11,23 @@
   "publishedAssetStatus": "FBX originals pending GitHub binary transfer; not yet accessible via public Pages",
   "playerRigCorrection": {
     "animation": 12,
-    "bone": "mixamorig:RightForeArm",
-    "method": "Small capped forearm rotation after mixer update; no edits to hand or finger keyframes",
-    "defaultDegrees": 6,
-    "maxDegrees": 12,
-    "raiseOnly": true,
+    "originalSource": "Walk W_ Briefcase.fbx",
+    "sourceSHA256": "c8e02be15cfb65a623faab6716266f15d534bd8f70103988b7e69585407c5463",
+    "sameAsPreviouslyProvided": true,
+    "mode": "interactive-preview-only",
+    "fileAndKeyframesModified": false,
+    "bonesForPreview": [
+      "mixamorig:RightArm",
+      "mixamorig:RightForeArm"
+    ],
+    "handAndFingerTracksUnchanged": true,
+    "rightArmDegreesDefault": 0,
+    "rightForearmDegreesDefault": 0,
+    "controlRangeDegrees": [
+      -20,
+      35
+    ],
+    "appliedOnlyDuringAnimation": 12,
     "codeFile": "index.html"
   },
   "roleMap": {
