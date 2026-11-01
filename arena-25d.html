@@ -78,7 +78,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.8.3</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.8.4</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -762,6 +762,8 @@ function setUpAnimationRig(c,idleClip){
   c.idleFootY=feet.length?Math.min(...feet):0;
 }
 function followGround(c,dt){
+  // La restauración mueve deliberadamente el modelo sobre y bajo el suelo:
+  // nunca se debe corregir esa altura con el anclaje habitual de los pies.
   if(!c.groundBones||c.stage==='intro'||c.stage==='restoring'||c.stage==='teleporting')return;
   if(c.animId==='idle'){c.groundDelta=THREE.MathUtils.damp(c.groundDelta,0,15,dt);c.model.position.y=c.groundDelta;return}
   c.model.updateMatrixWorld(true);
@@ -951,7 +953,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.8.3. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.8.4. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -1258,20 +1260,30 @@ function startRestoringStanding(c){
   setAnim(c,13,{once:true,fade:.1,force:true,speed});
 }
 
+// Restauración del VENCEDOR, sin relación con la animación de muerte.
+// Conserva el efecto original: destello -> retorno con estela -> reaparición.
+// Standing (13) pertenece exclusivamente a la FUTURA nueva invocación.
 function startRestoration(c){
-  if(c.stage==='restoring'||c.stage==='intro')return;
+  if(!c||c.hp<=0||c.stage==='restoring'||c.stage==='intro'||
+     c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead')return false;
   c.stage='restoring';
   c.standingPlayed=false;
-  c.stunLeft=0;
+  c.stunLeft=0;c.hitLeft=0;
+  c.castTarget=null;c.castFired=true;
+  if(c.castMarker)c.castMarker.marker.visible=false;
   c.mixer.timeScale=1;
   c.restoringT=0;
   c.endZ=c.outer.position.z;
   c.endX=c.outer.position.x;
   c.cooldown=.6;
+  // La restauración utiliza la postura Idle; no dispara ni ejecuta Standing.
+  setAnim(c,'idle',{fade:.12});
   if(c.shieldShell)c.shieldShell.visible=false;
   if(c.stunHalo)c.stunHalo.group.visible=false;
   resetRestorationFx(c);
   if(c.pendV)c.pendV.y+=(c.side==='ally'?-1:1)*1.8;
+  qs('#phase').textContent='✧ Victoria · restaurando a la Farolera vencedora';
+  return true;
 }
 function applyStun(c){
   if(c.stage!=='active'&&c.stage!=='stunned')return;
@@ -1435,8 +1447,12 @@ function damage(target,value,source){
     target.pendV.y+=(target.side==='ally'?-1:1)*2;
     target.pendV.x+=.6;
   }
-  if(target.hp<=0)beginDeath(target);
-  else {
+  if(target.hp<=0){
+    beginDeath(target);
+    // La derrotada sigue muriendo y desapareciendo. SOLO el responsable
+    // vivo de la eliminación recupera su estado mediante la restauración.
+    if(source&&source!==target&&source.hp>0)startRestoration(source);
+  }else {
     beginHit(target);
     if(source?.side==='enemy'&&Math.random()<.32)applyStun(target);
   }
@@ -1628,7 +1644,8 @@ function updateDuel(dt){
     }else if(c.stage==='restoring'){
       c.restoringT=Math.min(1.75,c.restoringT+dt);
       const virtualT=8.2+c.restoringT;
-      if(virtualT>=9.28)startRestoringStanding(c);
+      // El vencedor vuelve con el efecto existente. No ejecutar Standing:
+      // esa animación queda reservada para la aparición de una unidad NUEVA.
       animateFighter(c,virtualT);
       updateRestorationFx(c,dt,virtualT);
       if(c.restoringT>=1.75){
@@ -1639,7 +1656,8 @@ function updateDuel(dt){
         c.outer.position.set(0,0,c.startZ);
         c.stunLeft=0;c.hitLeft=0;c.groundDelta=0;
         c.stage='active';
-        setAnim(c,'idle',{fade:.18});
+        setAnim(c,'idle',{fade:.18,force:true});
+        setAppearance(c,0);
         resetLampDynamics(c);
       }
     }else if(c.stage==='teleporting'){
@@ -1731,7 +1749,7 @@ function updateDuel(dt){
   }else if(combatants.some(c=>c.stage==='dead')){
     qs('#phase').textContent='✝ Invocación eliminada · esperando nueva invocación';
   }else if(combatants.some(c=>c.stage==='restoring')){
-    qs('#phase').textContent='✧ Restauración · Standing → Idle';
+    qs('#phase').textContent='✧ Victoria · restauración de la Farolera vencedora';
   }else if(combatants.some(c=>c.stage==='casting')){
     qs('#phase').textContent='✦ Casteo · proyectil desde la palma al final de Magic Heal';
   }else if(missiles.length){
