@@ -7,6 +7,11 @@
 .animImport label{display:inline-block;background:#006c68;color:#fff;border:1px solid #00ffe4;border-radius:7px;padding:9px;font-size:12px;font-weight:bold;cursor:pointer}
 .animImport input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 #animList{display:grid;gap:5px;max-height:240px;overflow-y:auto;padding-right:3px}
+.characterPicker{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0;padding:9px;border:1px solid #237c78;border-radius:9px;background:#092832}
+.characterPicker label{font-size:12px;color:#00ffe4;font-weight:bold}
+.characterPicker select{flex:1;min-width:160px;max-width:100%;padding:9px;border:1px solid #00bdaa;border-radius:7px;background:#123b43;color:white;font-size:12px;cursor:pointer}
+.characterPicker select:disabled{opacity:.65;cursor:wait}
+#characterInfo{width:100%;font-size:11px;color:#bfd7d7;line-height:1.35;overflow-wrap:anywhere}
 .animRow.farolera{border-left:3px solid #00ffe4}
 .animRow.candidate{border-left:3px solid #ffce6b}
 .animRole{display:block;font-size:10px;margin-top:3px;color:#8bf4e0}
@@ -29,7 +34,7 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.13</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.13 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.13: notas actualizadas; las 14 animaciones del visor permanecen intactas. Arena 2.5D v0.9.7: enfrentamientos exclusivos entre invocaciones (1 contra 1), objetivos alternativos libres o caster, y liberación del duelo al morir, restaurarse o teleportarse. El modelo 3D y sus animaciones no se han alterado.</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.14</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.14 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.14: panel desplazable mediante rueda y barra visible. Selector Farolera / Arquera del Desierto; la Arquera reutiliza las 14 animaciones Mixamo con adaptación a su propio rig. La habilidad diferencial de Arquera aún no está definida. Arena 2.5D sigue en v0.9.7.</p><div class="characterPicker"><label for="characterSelect">Modelo 3D</label><select id="characterSelect" disabled><option value="farolera">Farolera (original)</option><option value="archer">Arquera del Desierto</option></select><span id="characterInfo">Farolera original · cargando animaciones…</span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -74,6 +79,11 @@ scene.add(new THREE.HemisphereLight(0xdffaff,0x334c54,2.1));const light=new THRE
 const grid=new THREE.GridHelper(12,24,0x26736f,0x27404c);scene.add(grid);
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.target.set(0,1,0);
 let model,mixer,playing=true, wire=false, originalMaterials=new Map(), bounds;
+const characterSelect=document.querySelector('#characterSelect');
+const characterInfo=document.querySelector('#characterInfo');
+let currentCharacter='farolera',faroleraModel=null,faroleraIdle=null,archerModel=null,archerIdle=null;
+let animationArchive=null,characterSwitching=false;
+const characterClips={farolera:null,archer:null};
 // Lámpara exportada de Blender como malla independiente, hija de mixamorig:RightHand.
 let lantern=null, lanternBaseWorldQ=new THREE.Quaternion(), lanternUpCorrection=new THREE.Quaternion();
 let prevAnchor=null, prevAnchorVelocity=new THREE.Vector3(), pendulum=new THREE.Vector2(), pendulumVelocity=new THREE.Vector2();
@@ -533,7 +543,12 @@ function playAnimation(index){
   renderAnimList();
 }
 function playIdleOriginal(){
-  if(!mixer||!idleOriginal)return;
+  if(!mixer)return;
+  if(!idleOriginal&&currentCharacter==='archer'){
+    if(animationRows[10]?.clip)playAnimation(11);
+    return;
+  }
+  if(!idleOriginal)return;
   const previous=activeAction;
   const action=mixer.clipAction(idleOriginal).reset();
   action.enabled=true;action.setEffectiveWeight(1);action.setEffectiveTimeScale(1);
@@ -542,9 +557,142 @@ function playIdleOriginal(){
   else action.setEffectiveWeight(1);
   activeAction=action;activeAnimation=null;playing=true;
   toggle.textContent='Pausar / Reproducir';
-  animMessage.textContent='Idle original del GLB · independiente del catálogo FBX.';
+  animMessage.textContent=currentCharacter==='archer'?
+    'Idle original de la Arquera del Desierto.':
+    'Idle original del GLB · independiente del catálogo FBX.';
   renderAnimList();
 }
+
+function snapshotCharacterClips(){
+  characterClips[currentCharacter]=animationRows.map(row=>({
+    clip:row.clip,status:row.status,details:row.details
+  }));
+}
+function restoreCharacterClips(character){
+  const stored=characterClips[character];
+  for(let i=0;i<animationRows.length;i++){
+    const snapshot=stored?.[i];
+    animationRows[i].clip=snapshot?.clip||null;
+    animationRows[i].status=snapshot?.status||'pending';
+    animationRows[i].details=snapshot?.details||'';
+  }
+  renderAnimList();
+}
+async function loadArcherModel(){
+  if(archerModel)return archerModel;
+  const loaded=await new Promise((resolve,reject)=>{
+    fbxLoader.load('./animations/ARQUERA%20DEL%20DECIERTO.fbx',resolve,
+      progress=>{
+        if(progress.total)characterInfo.textContent='Descargando Arquera: '+
+          Math.round(progress.loaded*100/progress.total)+' %';
+      },reject);
+  });
+  const box=new THREE.Box3().setFromObject(loaded);
+  if(box.isEmpty())throw Error('El archivo FBX no contiene mallas visibles');
+  // Normalizar la representación (sin modificar el modelo que está en GitHub).
+  loaded.scale.multiplyScalar(1.65/Math.max(.001,box.getSize(new THREE.Vector3()).y));
+  loaded.updateMatrixWorld(true);
+  const scaledBox=new THREE.Box3().setFromObject(loaded);
+  const center=scaledBox.getCenter(new THREE.Vector3());
+  loaded.position.x-=center.x;
+  loaded.position.y-=scaledBox.min.y;
+  loaded.position.z-=center.z;
+  archerModel=loaded;
+  archerIdle=loaded.animations?.[0]||null;
+  return loaded;
+}
+async function loadArcherSharedAnimations(){
+  if(characterClips.archer)return;
+  if(!animationArchive)await preloadRepoAnimations();
+  if(!animationArchive)throw Error('No se encontró el paquete Mixamo publicado en GitHub');
+  const entries=Object.values(animationArchive.files).filter(e=>!e.dir&&/\.fbx$/i.test(e.name));
+  let count=0;
+  for(const entry of entries){
+    const name=entry.name.split('/').pop();
+    const row=identifyAnimation(name);
+    if(row.clip)continue;
+    animMessage.textContent='Adaptando Arquera '+(++count)+'/'+entries.length+' · '+name;
+    await new Promise(resolve=>setTimeout(resolve,0));
+    await importAnimation(name,await entry.async('arraybuffer'));
+  }
+  snapshotCharacterClips();
+}
+async function switchCharacter(character){
+  if(characterSwitching||!model||character===currentCharacter)return;
+  if(loadingAnimations){
+    characterSelect.value=currentCharacter;
+    characterInfo.textContent='Termina la importación actual antes de cambiar.';
+    return;
+  }
+  characterSwitching=true;characterSelect.disabled=true;
+  try{
+    // No retirar Farolera hasta haber cargado correctamente el nuevo FBX.
+    const next=character==='archer'?await loadArcherModel():faroleraModel;
+    if(!next)throw Error('Modelo no disponible');
+    snapshotCharacterClips();
+    if(wire){
+      model.traverse(o=>{if(o.isMesh&&originalMaterials.has(o)){
+        o.material.dispose?.();o.material=originalMaterials.get(o);
+      }});
+      wire=false;
+    }
+    scene.remove(model);
+    model=next;currentCharacter=character;
+    scene.add(model);
+    mixer=new THREE.AnimationMixer(model);
+    idleOriginal=character==='farolera'?faroleraIdle:archerIdle;
+    activeAction=null;activeAnimation=null;
+    restoreCharacterClips(character);
+    originalMaterials=new Map();
+    model.traverse(o=>{if(o.isMesh){
+      originalMaterials.set(o,o.material);o.frustumCulled=false;
+    }});
+    modelBaseZ=model.position.z;shakeActive=false;
+    pendulum.set(0,0);pendulumVelocity.set(0,0);prevAnchor=null;
+    prevAnchorVelocity.set(0,0);
+    if(character==='farolera'){
+      document.querySelector('#rightArmTuning').style.display='';
+      document.querySelector('#physics').disabled=false;
+      document.querySelector('#lampReset').disabled=false;
+      setupArmTuning();setupLantern();
+    }else{
+      document.querySelector('#rightArmTuning').style.display='none';
+      document.querySelector('#physics').disabled=true;
+      document.querySelector('#lampReset').disabled=true;
+      lantern=null;
+      lampInfo.textContent='Arquera: no se aplica física de lámpara.';
+    }
+    setupGroundAnchor();
+    if(idleOriginal){
+      activeAction=mixer.clipAction(idleOriginal).play();
+      mixer.update(0);
+    }
+    document.querySelector('#animIdle').disabled=!idleOriginal&&character!=='archer';
+    if(character==='archer'&&!characterClips.archer)await loadArcherSharedAnimations();
+    if(character==='archer'&&!idleOriginal&&animationRows[10]?.clip){
+      playAnimation(11);
+      document.querySelector('#animIdle').textContent='↺ Idle (11)';
+    }else document.querySelector('#animIdle').textContent='↺ Idle original';
+    playing=true;toggle.disabled=false;toggle.textContent='Pausar / Reproducir';
+    characterInfo.textContent=(character==='archer'?'Arquera del Desierto':'Farolera original')+
+      ' · '+animationRows.filter(r=>r.clip).length+' animaciones disponibles';
+    status.textContent=(character==='archer'?'Arquera del Desierto':'Farolera')+
+      ' · visor listo';
+    let meshes=0,bones=0;
+    model.traverse(o=>{if(o.isMesh)meshes++;if(o.isBone)bones++;});
+    details.textContent=meshes+' mallas · '+bones+' huesos · modelo: '+
+      (character==='archer'?'Arquera del Desierto':'Farolera');
+    frame();renderAnimList();
+  }catch(e){
+    characterInfo.textContent='Error al preparar el modelo: '+(e?.message||String(e));
+    console.warn('[R.O.K.] Cambio de personaje:',e);
+  }finally{
+    characterSelect.value=currentCharacter;
+    characterSelect.disabled=false;characterSwitching=false;
+  }
+}
+characterSelect.addEventListener('change',()=>switchCharacter(characterSelect.value));
+
 document.querySelector('#animIdle').addEventListener('click',playIdleOriginal);
 document.querySelector('#animFilter').addEventListener('click',()=>{
   currentAnimFilter=currentAnimFilter==='all'?'pack':currentAnimFilter==='pack'?'other':'all';
@@ -596,7 +744,8 @@ function openAnimDB(){
   });
 }
 async function saveAnimToCache(row){
-  if(!row.clip)return;
+  // Conservar la caché anterior solo para el rig Farolera.
+  if(!row.clip||currentCharacter!=='farolera')return;
   let db;
   try{
     db=await openAnimDB();if(!db)return;
@@ -650,6 +799,7 @@ async function preloadRepoAnimations(){
         !entry.dir&&entry.name.split('/').pop()==='Farolera_Mixamo_14_animaciones.zip');
       const archive=nested?
         await window.JSZip.loadAsync(await nested.async('arraybuffer')):downloaded;
+      animationArchive=archive;
       const entries=Object.values(archive.files).filter(e=>!e.dir&&/\.fbx$/i.test(e.name));
       if(!entries.length)continue;
       let done=0;
@@ -734,14 +884,18 @@ document.querySelector('#animFiles').addEventListener('change',async e=>{
   }
 });
 renderAnimList();renderSelection();
-new GLTFLoader().load('./chiara_idle.glb',g=>{model=g.scene;scene.add(model);modelBaseZ=model.position.z;shakeButton.disabled=false;let meshes=0,bones=0;model.traverse(o=>{if(o.isMesh){meshes++;originalMaterials.set(o,o.material);o.frustumCulled=false;}if(o.isBone)bones++;});if(g.animations.length){mixer=new THREE.AnimationMixer(model);
-idleOriginal=g.animations[0];
+new GLTFLoader().load('./chiara_idle.glb',g=>{model=g.scene;faroleraModel=model;scene.add(model);modelBaseZ=model.position.z;shakeButton.disabled=false;let meshes=0,bones=0;model.traverse(o=>{if(o.isMesh){meshes++;originalMaterials.set(o,o.material);o.frustumCulled=false;}if(o.isBone)bones++;});if(g.animations.length){mixer=new THREE.AnimationMixer(model);
+idleOriginal=g.animations[0];faroleraIdle=idleOriginal;
 activeAction=mixer.clipAction(idleOriginal).play();
 mixer.update(0);setupArmTuning();setupLantern();setupGroundAnchor();toggle.disabled=false;
 document.querySelector('#animIdle').disabled=false;
 renderAnimList();
 status.textContent='Modelo cargado · Idle en reproducción · probador de animaciones listo';
-recoverAnimCache().then(()=>preloadRepoAnimations());}else {status.textContent='Modelo cargado SIN animación';setupLantern();}details.textContent=`${meshes} mallas · ${bones} huesos · ${g.animations.length} animación(es) · ${g.animations.map(a=>a.name).join(', ')}`;frame();},ev=>{if(ev.total)status.textContent=`Cargando modelo: ${Math.round(ev.loaded/ev.total*100)}%`;},e=>{status.textContent='Error cargando GLB';error.textContent=e.message+' — Comprueba la conexión a Internet y vuelve a cargar esta página.';console.error(e)});
+recoverAnimCache().then(()=>preloadRepoAnimations()).finally(()=>{
+    characterSelect.disabled=false;
+    characterInfo.textContent='Farolera original · '+
+      animationRows.filter(r=>r.clip).length+' animaciones · elige personaje';
+  });}else {status.textContent='Modelo cargado SIN animación';setupLantern();characterSelect.disabled=false;}details.textContent=`${meshes} mallas · ${bones} huesos · ${g.animations.length} animación(es) · ${g.animations.map(a=>a.name).join(', ')}`;frame();},ev=>{if(ev.total)status.textContent=`Cargando modelo: ${Math.round(ev.loaded/ev.total*100)}%`;},e=>{status.textContent='Error cargando GLB';error.textContent=e.message+' — Comprueba la conexión a Internet y vuelve a cargar esta página.';console.error(e)});
 toggle.onclick=()=>{playing=!playing;toggle.textContent=playing?'Pausar':'Reproducir';};document.querySelector('#reset').onclick=frame;
 document.querySelector('#wire').onclick=()=>{wire=!wire;if(!model)return;model.traverse(o=>{if(!o.isMesh)return;if(wire){const m=o.material.clone();m.wireframe=true;o.material=m;}else{o.material.dispose();o.material=originalMaterials.get(o);}})};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
