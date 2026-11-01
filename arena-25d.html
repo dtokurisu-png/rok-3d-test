@@ -78,7 +78,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.7.5</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.8.0</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -87,6 +87,7 @@ canvas{display:block;touch-action:none}
   <div id="details">
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas (9 × 9 por jugador). Tu campo ocupa filas 9–17; rival 0–8. Ambos aparecen en columna 4, al fondo de sus campos.</p>
+    <p id="animationStatus">Animaciones: comprobando las del probador…</p>
     <p id="modelStatus">Modelos: cargando…</p>
     <p id="textureStatus">Textura R.O.K.: comprobando…</p>
     <p id="fps">FPS: —</p>
@@ -104,11 +105,14 @@ canvas{display:block;touch-action:none}
   <button id="full">▦ Arena</button>
   <button id="attackMode" class="primary" disabled>✦ Ataque: mágico</button>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
+import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
+import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 
 const qs=s=>document.querySelector(s);
 const hud=qs('#top'), head=qs('#head');
@@ -208,6 +212,10 @@ marker(8.5,0x00ffe4);marker(-8.5,0xff8f9b);
 const ease=x=>{x=THREE.MathUtils.clamp(x,0,1);return x*x*(3-2*x)};
 const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
 const combatants=[];
+const combatAnimations=new Map();
+const animationNeeds=[2,3,8,9,12,13,14];
+const animationNames={2:'Magic Heal',3:'Frisbee Throw',8:'Sword And Shield Death',9:'Standing React Small From Headshot',12:'Walk W_ Briefcase',13:'Standing',14:'Standing 2H Magic Area Attack 01'};
+
 // Textura procedural circular para partículas. Se comparte entre ambos personajes
 // y evita cargar imágenes o crear geometrías en cada fotograma.
 function createGlowTexture(){
@@ -402,6 +410,199 @@ function updateLamp(c,dt,t){
   c.lamp.quaternion.copy(qParent.invert().multiply(qTarget));
   c.lamp.updateMatrixWorld(true);
 }
+
+/* R.O.K. · animaciones compartidas con el probador Farolera 3D.
+   IndexedDB conserva el pack adaptado que el usuario ya revisó en /index.html.
+   El respaldo remoto se usa únicamente cuando existe en el repositorio. */
+const boneKey=name=>String(name).replace(/^.*?mixamorig[:_]?/i,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
+async function readAnimationsFromViewerCache(){
+  if(!('indexedDB' in window))return 0;
+  return await new Promise(resolve=>{
+    let settled=false, db=null;
+    const done=n=>{if(settled)return;settled=true;try{db?.close()}catch{}resolve(n)};
+    try{
+      const request=indexedDB.open('rok-farolera-animation-lab',1);
+      request.onerror=()=>done(0);
+      request.onblocked=()=>done(0);
+      request.onupgradeneeded=()=>{ /* No había una caché previa; sin importaciones. */ };
+      request.onsuccess=()=>{
+        db=request.result;
+        if(!db.objectStoreNames.contains('clips')){done(0);return}
+        const q=db.transaction('clips','readonly').objectStore('clips').getAll();
+        q.onerror=()=>done(0);
+        q.onsuccess=()=>{
+          let count=0;
+          for(const entry of q.result){
+            if(!animationNeeds.includes(entry.index)||!entry.json)continue;
+            try{combatAnimations.set(entry.index,THREE.AnimationClip.parse(entry.json));count++}
+            catch(e){console.warn('[R.O.K.] Clip cache incompatible',entry.index,e)}
+          }
+          done(count);
+        };
+      };
+    }catch(e){done(0)}
+  });
+}
+function findSkeletonForAnimation(root){
+  let sk=null;
+  root.traverse(o=>{if(o.isSkinnedMesh&&o.skeleton&&(!sk||o.skeleton.bones.length>sk.bones.length))sk=o.skeleton});
+  if(sk)return sk;
+  const bones=[];root.traverse(o=>{if(o.isBone)bones.push(o)});
+  return bones.length>=20?new THREE.Skeleton(bones):null;
+}
+function adaptAnimationFBX(source,sourceClip,targetModel,name){
+  // Mismo retarget por poses de referencia del probador v0.5.7.
+  // Los GLB de arena comparten la nomenclatura y estructura del visor.
+  const copy=cloneSkinned(targetModel);
+  const src=findSkeletonForAnimation(source),dst=findSkeletonForAnimation(copy);
+  if(!src||!dst)throw Error('Huesos Mixamo insuficientes para adaptar '+name);
+  src.pose();dst.pose();source.updateMatrixWorld(true);copy.updateMatrixWorld(true);
+  const srcMap=new Map(src.bones.map(b=>[boneKey(b.name),b]));
+  const names={},localOffsets={};let n=0;
+  for(const b of dst.bones){
+    const original=srcMap.get(boneKey(b.name));if(!original)continue;
+    names[b.name]=original.name;
+    const sr=original.getWorldQuaternion(new THREE.Quaternion());
+    const dr=b.getWorldQuaternion(new THREE.Quaternion());
+    localOffsets[b.name]=new THREE.Matrix4().makeRotationFromQuaternion(sr.invert().multiply(dr));
+    n++;
+  }
+  if(n<20)throw Error('Coinciden pocos huesos ('+n+')');
+  source.skeleton=src;copy.skeleton=dst;
+  let baked;
+  try{baked=retargetClip(copy,source,sourceClip,{fps:30,names,localOffsets,preserveBonePositions:true,hip:'__NO_ROOT_TRANSLATION__'})}
+  finally{delete source.skeleton;delete copy.skeleton}
+  const tracks=baked.tracks.filter(t=>/^\.bones\[(.+)\]\.quaternion$/.test(t.name)).map(t=>{
+    const c=t.clone();c.name=t.name.replace(/^\.bones\[(.+)\]\.quaternion$/,'$1.quaternion');return c
+  });
+  const dstHips=dst.bones.find(b=>boneKey(b.name)==='hips');
+  const srcHips=srcMap.get('hips');
+  const srcFoot=srcMap.get('leftfoot')||srcMap.get('rightfoot');
+  const dstFoot=dst.bones.find(b=>boneKey(b.name)==='leftfoot')||dst.bones.find(b=>boneKey(b.name)==='rightfoot');
+  if(dstHips&&srcHips&&srcFoot&&dstFoot){
+    const wp=b=>b.getWorldPosition(new THREE.Vector3());
+    const scale=THREE.MathUtils.clamp(wp(dstHips).distanceTo(wp(dstFoot))/Math.max(.001,wp(srcHips).distanceTo(wp(srcFoot))),.0001,100);
+    const rest=dstHips.position.clone();
+    src.pose();source.updateMatrixWorld(true);
+    const temp=new THREE.AnimationMixer(source);
+    temp.clipAction(sourceClip).play();
+    const frames=Math.min(180,Math.max(2,Math.ceil(sourceClip.duration*30)+1));
+    const times=new Float32Array(frames),values=new Float32Array(frames*3);
+    let first=null;
+    for(let i=0;i<frames;i++){
+      const time=Math.max(0,Math.min(sourceClip.duration-.0001,sourceClip.duration*i/(frames-1)));
+      temp.setTime(time);source.updateMatrixWorld(true);
+      const y=srcHips.getWorldPosition(new THREE.Vector3()).y;
+      if(first===null)first=y;
+      times[i]=time;values[i*3]=rest.x;
+      values[i*3+1]=rest.y+THREE.MathUtils.clamp((y-first)*scale,-1.6,1.6);
+      values[i*3+2]=rest.z;
+    }
+    tracks.push(new THREE.VectorKeyframeTrack(dstHips.name+'.position',times,values));
+    temp.stopAllAction();
+  }
+  const clip=new THREE.AnimationClip(name,-1,tracks);clip.optimize();return clip;
+}
+async function preloadCombatAnimationsFromRepo(baseModel){
+  const candidates=['./animations/Farolera_Mixamo_14_animaciones.zip',
+    './assets/Farolera_Mixamo_14_animaciones.zip'];
+  for(const url of candidates){
+    let response;
+    try{response=await fetch(url)}catch{continue}
+    if(!response.ok||!window.JSZip)continue;
+    try{
+      const zip=await window.JSZip.loadAsync(await response.arrayBuffer());
+      const fbx=new FBXLoader();
+      for(const id of animationNeeds){
+        if(combatAnimations.has(id))continue;
+        const basename=animationNames[id];
+        const file=Object.values(zip.files).find(e=>!e.dir&&(e.name.replace(/.*[\/\\]/g,'').toLowerCase()===basename.toLowerCase()+'.fbx'));
+        if(!file)continue;
+        try{
+          const source=fbx.parse(await file.async('arraybuffer'),'');
+          combatAnimations.set(id,adaptAnimationFBX(source,source.animations[0],baseModel,basename));
+        }catch(err){console.warn('[R.O.K.] FBX '+id+' no se pudo adaptar',err)}
+      }
+      break;
+    }catch(err){console.warn('[R.O.K.] Paquete de animaciones inválido',err)}
+  }
+}
+function getAction(c,id){
+  const clip=id==='idle'?c.idleClip:combatAnimations.get(id);
+  return clip?c.mixer.clipAction(clip):null;
+}
+function setAnim(c,id,{once=false,speed=1,fade=.14,force=false}={}){
+  if(!force&&c.animId===id)return false;
+  let next=getAction(c,id);
+  if(!next&&id!=='idle')return setAnim(c,'idle',{fade,force});
+  if(!next)return false;
+  const prev=c.animAction;
+  // No se interrumpen muestras de ataque con reinicios en cada frame.
+  next.reset();next.enabled=true;next.setEffectiveWeight(1);
+  next.setEffectiveTimeScale(speed);
+  next.setLoop(once?THREE.LoopOnce:THREE.LoopRepeat,once?1:Infinity);
+  next.clampWhenFinished=once;
+  next.play();
+  if(prev&&prev!==next){
+    prev.fadeOut(fade);
+    next.fadeIn(fade);
+  }
+  c.animAction=next;c.animId=id;
+  return true;
+}
+function findBone(c,name){
+  let found=null;
+  c.model.traverse(o=>{if(o.isBone&&boneKey(o.name)===name)found=o});
+  return found;
+}
+function setUpAnimationRig(c,idleClip){
+  c.idleClip=idleClip;
+  c.animId='idle';
+  c.animAction=c.mixer.clipAction(idleClip);
+  c.castHand=findBone(c,'lefthand')||findBone(c,'righthand');
+  c.groundBones={
+    feet:['leftfoot','rightfoot','lefttoebase','righttoebase'].map(x=>findBone(c,x)).filter(Boolean),
+    knees:['leftleg','rightleg'].map(x=>findBone(c,x)).filter(Boolean),
+    torso:['hips','spine','spine1','spine2','head'].map(x=>findBone(c,x)).filter(Boolean)
+  };
+  c.groundDelta=0;
+  c.model.updateMatrixWorld(true);
+  const feet=c.groundBones.feet.map(b=>b.getWorldPosition(new THREE.Vector3()).y);
+  c.idleFootY=feet.length?Math.min(...feet):0;
+}
+function followGround(c,dt){
+  if(!c.groundBones||c.stage==='intro'||c.stage==='restoring'||c.stage==='teleporting')return;
+  if(c.animId==='idle'){c.groundDelta=THREE.MathUtils.damp(c.groundDelta,0,15,dt);c.model.position.y=c.groundDelta;return}
+  c.model.updateMatrixWorld(true);
+  // Normalmente los pies soportan el peso. Durante la muerte se amplía
+  // el soporte a torso y cabeza para no dejarla flotando tumbada.
+  let lowest=Infinity;
+  const take=(bones,radius=0)=>{
+    for(const bone of bones)lowest=Math.min(lowest,bone.getWorldPosition(new THREE.Vector3()).y-radius);
+  };
+  take(c.groundBones.feet);
+  if(c.stage==='dying'||c.animId===8){take(c.groundBones.knees,.07);take(c.groundBones.torso,.13)}
+  else if(c.animId===14){take(c.groundBones.knees,.07)}
+  if(!Number.isFinite(lowest))return;
+  const unshifted=lowest-c.groundDelta;
+  const target=THREE.MathUtils.clamp(c.idleFootY-unshifted,-1.1,1.1);
+  c.groundDelta=THREE.MathUtils.damp(c.groundDelta,target,17,dt);
+  c.model.position.y=c.groundDelta;
+}
+async function activateArenaAnimationPack(baseModel){
+  const fromCache=await readAnimationsFromViewerCache();
+  if(animationNeeds.some(id=>!combatAnimations.has(id)))await preloadCombatAnimationsFromRepo(baseModel);
+  const ready=animationNeeds.filter(id=>combatAnimations.has(id));
+  for(const c of combatants)setAnim(c,'idle',{force:true,fade:.08});
+  qs('#animationStatus').textContent='Animaciones: '+ready.length+'/'+animationNeeds.length+
+    ' · '+(ready.length?'Mixamo: '+ready.join(', '):'solo Idle (sin caché local ni FBX publicado)');
+  if(!ready.length){
+    qs('#sceneStatus').textContent='Arena activa · Idle disponible. Abre el probador en este mismo navegador para compartir sus animaciones guardadas.';
+  }else{
+    qs('#sceneStatus').textContent='Arena 2.5D lista · '+ready.length+' animaciones Mixamo conectadas'+(fromCache?' desde el probador':'');
+  }
+}
+
 function createFighter(baseScene,clip,side){
   const model=cloneSkinned(baseScene);
   const outer=new THREE.Group();root.add(outer);outer.add(model);
@@ -450,7 +651,7 @@ function createFighter(baseScene,clip,side){
   const restorationFx=makeRestorationFx(color);
   const c={side,outer,model,startZ,endZ:side==='ally'?.72:-.72,mixer,mats,fx,restorationFx,
     glowColor:new THREE.Color(color),shieldShell,shieldPulse:0,lamp:null,pend:null};
-  combatants.push(c);initLamp(c);createStunHalo(c);return c;
+  combatants.push(c);setUpAnimationRig(c,clip);initLamp(c);createStunHalo(c);return c;
 }
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
 const DURATION=10.25;
@@ -556,7 +757,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.7.5. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.8.0. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
