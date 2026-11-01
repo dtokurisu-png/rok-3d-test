@@ -237,14 +237,20 @@ const bgSaveStatus=qs('#backgroundSaveStatus');
 const bgCssPath='arena-background.css';
 const bgApiUrl='https://api.github.com/repos/dtokurisu-png/rok-3d-test/contents/'+bgCssPath;
 function backgroundCss(width,length){
-  return '/* R.O.K. Arena 2.5D — dimensiones oficiales del sprite de fondo.\\n'
-    +'   Modificadas por el botón Guardar en GitHub. Valores en porcentaje. */\\n'
-    +':root {\\n  --rok-arena-bg-width: '+width+';\\n'
-    +'  --rok-arena-bg-length: '+length+';\\n}\\n';
+  return [
+    '/* R.O.K. Arena 2.5D — dimensiones oficiales del sprite de fondo.',
+    '   Modificadas por el botón Guardar en GitHub. Valores en porcentaje. */',
+    ':root {',
+    '  --rok-arena-bg-width: '+width+';',
+    '  --rok-arena-bg-length: '+length+';',
+    '}',
+    ''
+  ].join(String.fromCharCode(10));
 }
 function cssDimension(css,name){
-  const found=css.match(new RegExp('--rok-arena-bg-'+name+'\\\\s*:\\\\s*(\\\\d+(?:\\\\.\\\\d+)?)\\\\s*;'));
-  return found?Number(found[1]):100;
+  const part=css.split('--rok-arena-bg-'+name+':')[1];
+  const value=part===undefined?NaN:Number.parseFloat(part);
+  return Number.isFinite(value)?value:100;
 }
 async function loadSharedArenaBackground(){
   try{
