@@ -1261,7 +1261,7 @@ function updateSummonCountdown(c){
   if(c.stage!=='summonCasting'){
     el.style.display='none';return;
   }
-  const position=new THREE.Vector3(0,.45,c.startZ).project(camera);
+  const position=new THREE.Vector3(c.startX,.45,c.startZ).project(camera);
   if(position.z< -1||position.z>1||
      Math.abs(position.x)>1.1||Math.abs(position.y)>1.15){
     el.style.display='none';return;
@@ -1289,7 +1289,7 @@ function updateSummonFx(c,progress){
   // El resplandor fuerte continúa mientras el modelo está saliendo.
   const remain=1-phase;
   const strength=.32+.68*Math.sin(Math.PI*(.18+.70*phase));
-  fx.g.position.set(0,.075,c.startZ);
+  fx.g.position.set(c.startX,.075,c.startZ);
   fx.ring.scale.setScalar(.75+1.1*phase);
   fx.ring.material.opacity=.75*remain;
   fx.disc.material.opacity=.38*remain;
@@ -1332,7 +1332,7 @@ function beginSummonEmergence(c){
   c.teleportT=0;c.teleportMoved=false;c.teleportTo=null;
   c.restoringT=0;c.standingPlayed=false;c.groundDelta=0;
   c.endZ=c.baseEndZ;c.endX=0;
-  c.outer.position.set(0,0,c.startZ);
+  c.outer.position.set(c.startX,0,c.startZ);
   c.outer.rotation.y=c.side==='ally'?Math.PI:0;
   c.model.position.y=0;
   c.model.scale.setScalar(c.model.userData.baseScale);
@@ -1369,7 +1369,7 @@ function beginSummonEmergence(c){
   c.stage=winner?'restoring':'summonEmerging';
   if(winner)c.restorationPhase='rise';
   if(c.summonBar)c.summonBar.style.display='none';
-  c.fx.g.position.set(0,.08,c.startZ);
+  c.fx.g.position.set(c.startX,.08,c.startZ);
   updateSummonFx(c,0);
   resetLampDynamics(c);
   qs('#phase').textContent=winner?
@@ -1732,7 +1732,7 @@ function updateVictoriousRestoration(c,dt){
     const fraction=ease(c.restorePhaseT/RESTORE_TRAVEL_SECONDS);
     // SOLO se mueve el foco de las partículas; el modelo permanece invisible
     // e inmóvil hasta aparecer directamente en su casilla de origen.
-    const x=THREE.MathUtils.lerp(c.restorationStartX,0,fraction);
+    const x=THREE.MathUtils.lerp(c.restorationStartX,c.startX,fraction);
     const z=THREE.MathUtils.lerp(c.restorationStartZ,c.startZ,fraction);
     updateRestorationStream(c,dt,x,z,.7+.3*Math.sin(Math.PI*fraction),72);
     if(c.restorePhaseT>=RESTORE_TRAVEL_SECONDS){
@@ -1755,8 +1755,9 @@ function applyStun(c){
   c.stage='stunned';c.stunLeft=2.5;c.cooldown=Math.max(c.cooldown,.4);
   // El rival puede golpear durante el aturdimiento. Reducir su espera
   // pendiente evita que se cumplan los 2,5 s sin un segundo ataque.
-  const opponent=combatants.find(other=>other!==c);
-  if(opponent&&(opponent.stage==='active'||opponent.stage==='casting')){
+  const opponents=combatants.filter(other=>other.side!==c.side&&
+    (other.stage==='active'||other.stage==='casting'));
+  for(const opponent of opponents){
     opponent.cooldown=Math.min(opponent.cooldown,.15);
   }
   makeFloatingWord(c,'ATURDIDO');
@@ -1872,7 +1873,7 @@ function updateTeleportation(c,dt){
   }
 }
 function tryEvasion(target,attacker,impactCell){
-  if(target.side!=='enemy'||target.stage!=='active'||target.mana<6||target.dodgeCooldown>0)return false;
+  if(target.kind!=='mana'||target.stage!=='active'||target.mana<6||target.dodgeCooldown>0)return false;
   const origin=worldToCell(attacker.outer.position.x,attacker.outer.position.z);
   const candidates=[];
   for(let row=0;row<18;row++)for(let col=0;col<9;col++){
@@ -1936,7 +1937,7 @@ function damage(target,value,source){
     if(source&&source!==target&&source.hp>0)startRestoration(source);
   }else {
     beginHit(target);
-    if(source?.side==='enemy'&&Math.random()<.50)applyStun(target);
+    if(source?.kind==='mana'&&Math.random()<.50)applyStun(target);
   }
   return true;
 }
@@ -2005,7 +2006,7 @@ function spawnImpact(x,z,aoe,enemySpell){
 function launchSpell(attacker,target){
   // Todas las descargas enemigas tienen daño y efecto de área 3×3.
   // La PDA del 50 % solo se evalúa para el aturdimiento al hacer daño.
-  const area=attacker.side==='enemy';
+  const area=attacker.kind==='mana';
   const group=new THREE.Group();root.add(group);
   // El proyectil aparece exactamente en RightHand, centro del círculo de carga.
   const hand=attacker.castHand;
@@ -2106,7 +2107,7 @@ function updateMagic(dt){
 }
 function updateDuel(dt){
   for(const c of combatants){
-    if(c.side==='enemy'){
+    if(c.kind==='mana'){
       c.dodgeCooldown=Math.max(0,c.dodgeCooldown-dt);
       if(c.mana<c.maxMana){
         c.manaTimer+=dt;
@@ -2181,9 +2182,7 @@ function updateDuel(dt){
     if(c.animId===12)liftWalkArm(c);
     if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
   }
-  const ally=combatants.find(c=>c.side==='ally');
-  const enemy=combatants.find(c=>c.side==='enemy');
-  if(!ally||!enemy)return;
+  if(combatants.length!==4||casters.length!==2)return;
   if(!casterLost())for(const c of combatants){
     if(c.stage!=='active')continue;
     const target=selectCombatTarget(c);
@@ -2201,7 +2200,7 @@ function updateDuel(dt){
       setAnim(c,12,{fade:.16});
     }else if(canDamageTarget(target)&&c.cooldown<=0){
       startCast(c,target);
-      c.cooldown=c.side==='ally'?1.35:1.75;
+      c.cooldown=c.kind==='shield'?1.35:1.75;
     }else{
       setAnim(c,'idle',{fade:.15});
     }
