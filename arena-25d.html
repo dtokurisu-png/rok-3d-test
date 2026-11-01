@@ -99,7 +99,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.8.9</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.0</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -107,7 +107,7 @@ canvas{display:block;touch-action:none}
   </div>
   <div id="details">
     <p id="sceneStatus">Iniciando escenario…</p>
-    <p>9 columnas × 18 filas (9 × 9 por jugador). Tu campo ocupa filas 9–17; rival 0–8. Invocaciones: columna 4, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella; pueden recibir ataques aunque la invocación esté recasteándose.</p>
+    <p>9 columnas × 18 filas. Invocaciones de escudo/maná: columnas 3 y 5, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
     <p id="modelStatus">Modelos: cargando…</p>
     <p id="textureStatus">Textura R.O.K.: comprobando…</p>
@@ -118,7 +118,7 @@ canvas{display:block;touch-action:none}
     </div>
     <p>La imagen puede sobresalir de los bordes; la cuadrícula de 9 × 18 permanece fija.</p>
     <p id="fps">FPS: —</p>
-    <p><b>Combate experimental:</b> aliada 7 PV, alcance 3, escudo de 2. Rival 5 PV, alcance 5, onda 3×3 y PDA de aturdimiento 50 % por impacto; 5 estrellas orbitando durante 2,5 s. La rival dispone de 10 PM y evade un impacto si tiene 6 PM y su habilidad (10 s) está lista, desplazándose a una casilla a distancia 2–5 de la aliada. Recupera 1 PM cada 3 s. Botón para cambiar el modo de ataque. No modifica R.O.K. principal.</p>
+    <p><b>Combate experimental:</b> ambos jugadores tienen una Farolera de escudo (7 PV, 2 escudo, alcance 3) y otra de maná (5 PV, 10 PM, alcance 5, onda 3×3, aturdimiento 50 %, evasión por 6 PM con 10 s de enfriamiento). Cada caster tiene 12 PV; el maná recupera 1 cada 3 s. No modifica R.O.K. principal.</p>
     <p><a href="./index.html" style="color:#00ffe4">Volver al visor de Farolera</a></p>
   </div>
 </section>
@@ -250,8 +250,17 @@ function marker(z,color){
   const m=new THREE.Mesh(new THREE.RingGeometry(.55,.65,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.68,depthWrite:false,side:THREE.DoubleSide}));
   m.rotation.x=-Math.PI/2;m.position.set(0,.057,z);root.add(m);return m;
 }
-// Aparición en extremos: aliado fila 17, rival fila 0, ambos columna 4.
-marker(8.5,0x00ffe4);marker(-8.5,0xff8f9b);
+// Posiciones de aparición: columna 3 escudo, columna 5 maná; fila 17/0.
+function spawnMark(x,z,color){
+  const m=new THREE.Mesh(new THREE.RingGeometry(.36,.44,48),
+    new THREE.MeshBasicMaterial({color,transparent:true,opacity:.68,
+      depthWrite:false,side:THREE.DoubleSide}));
+  m.rotation.x=-Math.PI/2;m.position.set(x,.057,z);root.add(m);
+}
+for(const z of [8.5,-8.5]){
+  spawnMark(-1,z,z>0?0x00ffe4:0xff8f9b);
+  spawnMark(1,z,z>0?0x00ffe4:0xff8f9b);
+}
 
 const ease=x=>{x=THREE.MathUtils.clamp(x,0,1);return x*x*(3-2*x)};
 const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
@@ -867,13 +876,14 @@ async function activateArenaAnimationPack(baseModel){
   }
 }
 
-function createFighter(baseScene,clip,side){
+function createFighter(baseScene,clip,side,kind){
   const model=cloneSkinned(baseScene);
   const outer=new THREE.Group();root.add(outer);outer.add(model);
   outer.rotation.y=side==='ally'?Math.PI:0;
-  // X = 0 representa exactamente la columna central 4, con cuatro a cada lado.
+  // Escudo = columna 3; maná = columna 5.
   const startZ=side==='ally'?8.5:-8.5;
-  outer.position.z=startZ;
+  const startX=kind==='shield'?-1:1;
+  outer.position.set(startX,0,startZ);
   const size=new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
   const factor=1.65/Math.max(.2,size.y);
   model.scale.setScalar(factor);
@@ -898,7 +908,7 @@ function createFighter(baseScene,clip,side){
   const mixer=new THREE.AnimationMixer(model);mixer.clipAction(clip).play();mixer.update(0);
   // Escudo independiente del GLB: no altera las texturas ni la opacidad del modelo.
   let shieldShell=null;
-  if(side==='ally'){
+  if(kind==='shield'){
     shieldShell=new THREE.Mesh(
       new THREE.SphereGeometry(1,20,14),
       new THREE.MeshBasicMaterial({
@@ -914,7 +924,8 @@ function createFighter(baseScene,clip,side){
   const fx=makeFx(color);
   const restorationFx=makeRestorationFx(color);
   const deathFx=makeDeathFx(color);
-  const c={side,outer,model,startZ,endZ:side==='ally'?.72:-.72,mixer,mats,fx,restorationFx,
+  const c={role:'summon',kind,side,outer,model,startX,startZ,
+    endZ:side==='ally'?.72:-.72,mixer,mats,fx,restorationFx,
     glowColor:new THREE.Color(color),shieldShell,shieldPulse:0,lamp:null,pend:null,deathFx,deathMatSnapshot:null};
   combatants.push(c);setUpAnimationRig(c,clip);initLamp(c);createStunHalo(c);return c;
 }
@@ -960,25 +971,31 @@ const canDamageTarget=c=>(c?.role==='caster'?
   c.hp>0&&c.stage==='active':
   !!c&&c.hp>0&&(c.stage==='active'||c.stage==='stunned'||c.stage==='casting'));
 const casterLost=()=>casters.some(c=>c.stage==='defeated');
+// Dos defensores por lado: una invocación viva intercepta al caster
+// si está cerca o se interpone en el corredor hacia él.
 function selectCombatTarget(c){
-  const opponent= combatants.find(other=>other.side!==c.side);
-  const enemyCaster=casters.find(other=>other.side!==c.side);
-  if(!enemyCaster||enemyCaster.stage!=='active')return null;
-  if(!canDamageTarget(opponent))return enemyCaster;
+  const enemyCaster=casters.find(o=>o.side!==c.side);
+  if(!enemyCaster||!canDamageTarget(enemyCaster))return null;
   const px=c.outer.position.x,pz=c.outer.position.z;
-  const ox=opponent.outer.position.x,oz=opponent.outer.position.z;
   const cx=enemyCaster.outer.position.x,cz=enemyCaster.outer.position.z;
-  const opponentDist=Math.hypot(ox-px,oz-pz);
-  // Si la invocación rival está a 3 casillas puede interceptar el ataque.
-  if(opponentDist<=3.1)return opponent;
-  // También intercepta si ocupa el corredor por el que se va al caster.
   const vx=cx-px,vz=cz-pz,distSq=vx*vx+vz*vz;
-  if(distSq>.0001){
-    const fraction=((ox-px)*vx+(oz-pz)*vz)/distSq;
-    const offset=Math.abs((ox-px)*vz-(oz-pz)*vx)/Math.sqrt(distSq);
-    if(fraction>0&&fraction<1&&offset<=1.15&&opponentDist<=5.5)return opponent;
+  const candidates=[];
+  for(const enemy of combatants){
+    if(enemy.side===c.side||!canDamageTarget(enemy))continue;
+    const ox=enemy.outer.position.x,oz=enemy.outer.position.z;
+    const dist=Math.hypot(ox-px,oz-pz);
+    const near=dist<=3.1;
+    let corridor=false;
+    if(distSq>.0001){
+      const advance=((ox-px)*vx+(oz-pz)*vz)/distSq;
+      const lateral=Math.abs((ox-px)*vz-(oz-pz)*vx)/Math.sqrt(distSq);
+      corridor=advance>0&&advance<1&&lateral<=1.15&&dist<=5.5;
+    }
+    if(near||corridor)candidates.push({enemy,dist,near});
   }
-  return enemyCaster;
+  if(!candidates.length)return enemyCaster;
+  candidates.sort((a,b)=>Number(b.near)-Number(a.near)||a.dist-b.dist);
+  return candidates[0].enemy;
 }
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
 const DURATION=10.25;
@@ -1084,7 +1101,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.8.9. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.9.0. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -1463,13 +1480,14 @@ function finishNewSummon(c,winner=false){
 }
 
 function resetCombatant(c){
-  c.maxHp=c.side==='ally'?7:5;
+  const shield=c.kind==='shield';
+  c.maxHp=shield?7:5;
   c.hp=c.maxHp;
-  c.shieldMax=c.side==='ally'?2:0;
+  c.shieldMax=shield?2:0;
   c.shield=c.shieldMax;
-  c.range=c.side==='ally'?3:5;
-  c.attackDamage=c.side==='ally'?2:1;
-  c.speed=c.side==='ally'?2.4:2.15;
+  c.range=shield?3:5;
+  c.attackDamage=shield?2:1;
+  c.speed=shield?2.4:2.15;
   c.stage='intro';c.introT=0;
   c.hitLeft=0;c.castT=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
   c.restoringT=0;c.stunLeft=0;c.postRestoreStun=0;
@@ -1478,14 +1496,14 @@ function resetCombatant(c){
   c.summonCastLeft=0;c.summonProgress=0;c.summonStandingLeft=0;c.summonBaseY=0;
   c.summonBlending=false;c.summonBlendLeft=0;c.summonBlendDuration=0;
   if(c.summonBar)c.summonBar.style.display='none';
-  c.cooldown=c.side==='enemy'?.20:.65;
+  c.cooldown=c.kind==='mana'?.20:.65;
   c.specialCooldown=0;
   c.baseEndZ=c.endZ;
   c.endX=0;
   c.shieldPulse=0;
-  c.maxMana=c.side==='enemy'?10:0;
+  c.maxMana=c.kind==='mana'?10:0;
   c.mana=c.maxMana;c.manaTimer=0;c.dodgeCooldown=0;
-  c.outer.position.x=0;
+  c.outer.position.x=c.startX;
   c.outer.rotation.y=c.side==='ally'?Math.PI:0;
   setDeathOpacity(c,1);
   setAppearance(c,0);
@@ -2239,18 +2257,19 @@ function updateDuel(dt){
 }
 new GLTFLoader().load('./chiara_idle.glb',g=>{
   if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
-  const a=createFighter(g.scene,g.animations[0],'ally');
-  const b=createFighter(g.scene,g.animations[0],'enemy');
-  for(const c of [a,b])c.model.userData.baseScale=c.model.scale.x;
-  createCaster(g.scene,g.animations[0],'ally');
-  createCaster(g.scene,g.animations[0],'enemy');
+  for(const side of ['ally','enemy']){
+    createFighter(g.scene,g.animations[0],side,'shield');
+    createFighter(g.scene,g.animations[0],side,'mana');
+    createCaster(g.scene,g.animations[0],side);
+  }
+  for(const c of combatants)c.model.userData.baseScale=c.model.scale.x;
   for(const c of combatants){makeNameplate(c);makeSummonCountdown(c);resetCombatant(c);}
   for(const c of casters){makeNameplate(c);resetCaster(c);}
   activateArenaAnimationPack(g.scene).catch(err=>console.warn('[R.O.K.] Paquete Mixamo no disponible:',err));
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
-  qs('#modelStatus').textContent='4 Faroleras: 2 invocaciones + 2 casters de 12 PV · '+g.animations.length+' Idle · lámpara: '+combatants.filter(c=>c.lamp).length+'/2 invocaciones.';
+  qs('#modelStatus').textContent='6 Faroleras: 4 invocaciones (2 escudo + 2 maná) y 2 casters de 12 PV · '+g.animations.length+' Idle · lámpara: '+combatants.filter(c=>c.lamp).length+'/4 invocaciones.';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
 },e=>{if(e.total)qs('#sceneStatus').textContent='Cargando modelo '+Math.round(e.loaded/e.total*100)+'%';},err=>{
   qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
