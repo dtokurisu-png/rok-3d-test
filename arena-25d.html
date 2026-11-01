@@ -18,8 +18,8 @@ canvas{display:block;touch-action:none}
 #details{display:none;max-height:min(60dvh,360px);overflow-y:auto;padding:0 12px 12px;font-size:12px;color:#bbd5d8;line-height:1.5}
 #top.open #details{display:block}
 #details p{margin:7px 0}
-#arenaSpriteScale{width:min(240px,100%);accent-color:#00ffe4;vertical-align:middle;cursor:pointer}
-#arenaSpriteScaleValue{display:inline-block;min-width:44px;color:#f1fffb;font-weight:800;text-align:right}
+#arenaSpriteWidth,#arenaSpriteLength{width:min(240px,100%);accent-color:#00ffe4;vertical-align:middle;cursor:pointer}
+#arenaSpriteWidthValue,#arenaSpriteLengthValue{display:inline-block;min-width:44px;color:#f1fffb;font-weight:800;text-align:right}
 .spriteScaleSettings{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:9px 0 5px}
 .spriteScaleSettings label{font-weight:700;color:#d8f7f5}
 #sceneStatus{font-weight:700;color:#ebf8f8}
@@ -112,9 +112,14 @@ canvas{display:block;touch-action:none}
     <p id="modelStatus">Modelos: cargando…</p>
     <p id="textureStatus">Textura R.O.K.: comprobando…</p>
     <div class="spriteScaleSettings">
-      <label for="arenaSpriteScale">Tamaño del sprite (fondo)</label>
-      <input type="range" id="arenaSpriteScale" min="100" max="220" step="5" value="100" aria-label="Escalar imagen decorativa de arena sin cambiar la cuadrícula">
-      <output id="arenaSpriteScaleValue" for="arenaSpriteScale">100 %</output>
+      <label for="arenaSpriteWidth">Ancho del sprite (fondo)</label>
+      <input type="range" id="arenaSpriteWidth" min="100" max="220" step="5" value="100" aria-label="Ajustar solo el ancho del fondo sin cambiar la cuadrícula">
+      <output id="arenaSpriteWidthValue" for="arenaSpriteWidth">100 %</output>
+    </div>
+    <div class="spriteScaleSettings">
+      <label for="arenaSpriteLength">Largo del sprite (fondo)</label>
+      <input type="range" id="arenaSpriteLength" min="100" max="220" step="5" value="100" aria-label="Ajustar solo el largo del fondo sin cambiar la cuadrícula">
+      <output id="arenaSpriteLengthValue" for="arenaSpriteLength">100 %</output>
     </div>
     <p>La imagen puede sobresalir de los bordes; la cuadrícula de 9 × 18 permanece fija.</p>
     <p id="fps">FPS: —</p>
@@ -204,23 +209,34 @@ const arenaTextureUrl='https://dtokurisu-png.github.io/rok-lirte-html/assets/are
 // La imagen decorativa es una capa distinta: escalado independiente de la
 // malla, casillas, movimiento y límites de juego, sin clipping del tablero.
 let arenaArt=null;
-let arenaSpriteScale=1;
-const scaleControl=qs('#arenaSpriteScale');
-function setArenaSpriteScale(percent){
-  arenaSpriteScale=THREE.MathUtils.clamp(Number(percent)||100,100,220)/100;
-  scaleControl.value=String(Math.round(arenaSpriteScale*100));
-  qs('#arenaSpriteScaleValue').textContent=Math.round(arenaSpriteScale*100)+' %';
-  if(arenaArt)arenaArt.scale.set(arenaSpriteScale,arenaSpriteScale,1);
+let arenaSpriteWidth=1,arenaSpriteLength=1;
+const widthControl=qs('#arenaSpriteWidth');
+const lengthControl=qs('#arenaSpriteLength');
+function setArenaSpriteAxis(axis,percent){
+  const parsed=Number(percent);
+  const value=THREE.MathUtils.clamp(Number.isFinite(parsed)?parsed:100,100,220);
+  if(axis==='width'){
+    arenaSpriteWidth=value/100;
+    widthControl.value=String(value);
+    qs('#arenaSpriteWidthValue').textContent=value+' %';
+  }else{
+    arenaSpriteLength=value/100;
+    lengthControl.value=String(value);
+    qs('#arenaSpriteLengthValue').textContent=value+' %';
+  }
+  if(arenaArt)arenaArt.scale.set(arenaSpriteWidth,arenaSpriteLength,1);
 }
-scaleControl.addEventListener('input',()=>setArenaSpriteScale(scaleControl.value));
-setArenaSpriteScale(100);
+widthControl.addEventListener('input',()=>setArenaSpriteAxis('width',widthControl.value));
+lengthControl.addEventListener('input',()=>setArenaSpriteAxis('length',lengthControl.value));
+setArenaSpriteAxis('width',100);
+setArenaSpriteAxis('length',100);
 new THREE.TextureLoader().load(arenaTextureUrl,tex=>{
   tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
   arenaArt=new THREE.Mesh(new THREE.PlaneGeometry(W,D),
     new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:.22,
       depthWrite:false,side:THREE.DoubleSide}));
   arenaArt.rotation.x=-Math.PI/2;arenaArt.position.y=.020;root.add(arenaArt);
-  arenaArt.scale.set(arenaSpriteScale,arenaSpriteScale,1);
+  arenaArt.scale.set(arenaSpriteWidth,arenaSpriteLength,1);
   qs('#textureStatus').textContent='Textura R.O.K.: capa decorativa independiente; escala ajustable hasta 220 %';
 },undefined,()=>{qs('#textureStatus').textContent='Textura R.O.K.: no disponible; usando baldosas 3D';});
 // Cuadrícula exacta: límites X = -4.5..4.5 (10 líneas),
