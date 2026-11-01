@@ -213,7 +213,7 @@ const ease=x=>{x=THREE.MathUtils.clamp(x,0,1);return x*x*(3-2*x)};
 const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
 const combatants=[];
 const combatAnimations=new Map();
-const animationNeeds=[2,3,8,9,12,13,14];
+const animationNeeds=[2,8,9,12,13,14]; // Frisbee Throw (03) sigue candidata, no activa.
 const animationNames={2:'Magic Heal',3:'Frisbee Throw',8:'Sword And Shield Death',9:'Standing React Small From Headshot',12:'Walk W_ Briefcase',13:'Standing',14:'Standing 2H Magic Area Attack 01'};
 
 // Textura procedural circular para partículas. Se comparte entre ambos personajes
@@ -424,7 +424,13 @@ async function readAnimationsFromViewerCache(){
       const request=indexedDB.open('rok-farolera-animation-lab',1);
       request.onerror=()=>done(0);
       request.onblocked=()=>done(0);
-      request.onupgradeneeded=()=>{ /* No había una caché previa; sin importaciones. */ };
+      request.onupgradeneeded=()=>{
+        // Compartir exactamente el esquema utilizado por el probador
+        // incluso si la arena se abre por primera vez antes del visor.
+        const db=request.result;
+        if(!db.objectStoreNames.contains('clips'))
+          db.createObjectStore('clips',{keyPath:'index'});
+      };
       request.onsuccess=()=>{
         db=request.result;
         if(!db.objectStoreNames.contains('clips')){done(0);return}
@@ -633,7 +639,7 @@ function createFighter(baseScene,clip,side){
       o.material=Array.isArray(o.material)?copied:copied[0];
     }
   });
-  const mixer=new THREE.AnimationMixer(model);mixer.clipAction(clip).play();
+  const mixer=new THREE.AnimationMixer(model);mixer.clipAction(clip).play();mixer.update(0);
   // Escudo independiente del GLB: no altera las texturas ni la opacidad del modelo.
   let shieldShell=null;
   if(side==='ally'){
@@ -1472,7 +1478,7 @@ function updateDuel(dt){
   updatePortalEffects(dt);
   for(const c of combatants){
     const opponent=c.side==='ally'?enemy:ally;
-    if(c.stage!=='restoring'&&c.stage!=='intro')faceTarget(c,opponent);
+    if(c.stage!=='restoring'&&c.stage!=='intro'&&c.stage!=='dying')faceTarget(c,opponent);
   }
   for(const c of combatants)updateStunHalo(c,dt);
   updateFloatingWords(dt);
