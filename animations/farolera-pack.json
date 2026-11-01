@@ -1,0 +1,48 @@
+{
+  "version": "0.1",
+  "character": "Farolera del Umbral",
+  "rig": "mixamorig",
+  "sourceModel": "chiara_idle.glb",
+  "idle": {
+    "source": "GLB",
+    "action": "Idle original",
+    "enabled": true
+  },
+  "publishedAssetStatus": "FBX originals pending GitHub binary transfer; not yet accessible via public Pages",
+  "playerRigCorrection": {
+    "animation": 12,
+    "bone": "mixamorig:RightArm",
+    "method": "Non-destructive world-space retarget on mixer tick",
+    "raisePercent": 75,
+    "spreadPercent": 52,
+    "codeFile": "index.html"
+  },
+  "roleMap": {
+    "2": "Ranged magical attack",
+    "8": "Death before restoration",
+    "9": "Hit reaction",
+    "12": "Lantern walk",
+    "13": "Rising from ground restoration",
+    "14": "Portal spell provisional"
+  },
+  "candidateMap": {
+    "3": "Lantern throw provisional"
+  },
+  "catalog": [
+    "Stable Sword Outward Slash.fbx",
+    "Magic Heal.fbx",
+    "Frisbee Throw.fbx",
+    "Running Backward Arc (1).fbx",
+    "Running Backward Arc.fbx",
+    "Running Backward.fbx",
+    "Running.fbx",
+    "Sword And Shield Death.fbx",
+    "Standing React Small From Headshot.fbx",
+    "Standing Aim Recoil.fbx",
+    "Idle.fbx",
+    "Walk W_ Briefcase.fbx",
+    "Standing.fbx",
+    "Standing 2H Magic Area Attack 01.fbx"
+  ],
+  "importRule": "Preserve all 14 catalog entries and file identity; never replace original GLB idle; no battle integration until confirmed."
+}
