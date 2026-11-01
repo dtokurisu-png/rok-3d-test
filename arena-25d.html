@@ -99,14 +99,14 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.4</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.5</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><strong>Notas de versión · Arena v0.9.4 (01/11/2026):</strong> el fondo carga las dimensiones oficiales desde arena-background.json en GitHub. Los controles de ancho y largo permiten previsualizar; para compartir cambios entre dispositivos es necesario publicar nuevos valores en el repositorio. No cambia la cuadrícula ni la lógica del combate. v0.9.1: defensa prioritaria del caster y selección dinámica de objetivos.</p>
+    <p><strong>Notas de versión · Arena v0.9.5 (01/11/2026):</strong> nuevo botón Guardar en GitHub: publica el ancho y largo del fondo en arena-background.css mediante una autorización de GitHub con permiso limitado. La arena carga esos valores compartidos al abrirse. No cambia la cuadrícula ni la lógica del combate. v0.9.1: defensa prioritaria del caster y selección dinámica de objetivos.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas. Invocaciones de escudo/maná: columnas 3 y 5, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
@@ -122,8 +122,9 @@ canvas{display:block;touch-action:none}
       <input type="range" id="arenaSpriteLength" min="100" max="220" step="5" value="100" aria-label="Ajustar solo el largo del fondo sin cambiar la cuadrícula">
       <output id="arenaSpriteLengthValue" for="arenaSpriteLength">100 %</output>
     </div>
+    <button id="saveArenaBackground" type="button" style="border:1px solid #00ffe4;background:#064d52;color:white;border-radius:8px;padding:9px 12px;font-weight:700;cursor:pointer">Guardar en GitHub</button>
     <p id="backgroundSaveStatus">Cargando dimensiones oficiales desde GitHub…</p>
-    <p>Para fijar nuevos valores en todos los dispositivos, edita <a href="https://github.com/dtokurisu-png/rok-3d-test/edit/main/arena-background.json" target="_blank" rel="noopener noreferrer" style="color:#00ffe4">arena-background.json en GitHub</a> (width y length, en porcentajes). Los sliders son vista previa. La cuadrícula permanece fija.</p>
+    <p>Guardar en GitHub pide un token de acceso de alcance limitado con permiso Contents: Read and write para este repositorio. El token no se almacena. El botón actualiza <a href="https://github.com/dtokurisu-png/rok-3d-test/blob/main/arena-background.css" target="_blank" rel="noopener noreferrer" style="color:#00ffe4">arena-background.css</a>. No compartas tu token. La cuadrícula permanece fija.</p>
     <p>La imagen puede sobresalir de los bordes; la cuadrícula de 9 × 18 permanece fija.</p>
     <p id="fps">FPS: —</p>
     <p><b>Combate experimental:</b> ambos jugadores tienen una Farolera de escudo (7 PV, 2 escudo, alcance 3) y otra de maná (5 PV, 10 PM, alcance 5, onda 3×3, aturdimiento 50 %, evasión por 6 PM con 10 s de enfriamiento). Cada caster tiene 12 PV; el maná recupera 1 cada 3 s. No modifica R.O.K. principal.</p>
@@ -231,24 +232,67 @@ function setArenaSpriteAxis(axis,percent){
 }
 widthControl.addEventListener('input',()=>setArenaSpriteAxis('width',widthControl.value));
 lengthControl.addEventListener('input',()=>setArenaSpriteAxis('length',lengthControl.value));
-// La configuración oficial se publica en GitHub y se carga al abrir la arena.
-// Los sliders permiten previsualización, pero GitHub Pages no puede escribir
-// al repositorio sin una autenticación de escritura en un backend.
+const bgSaveButton=qs('#saveArenaBackground');
+const bgSaveStatus=qs('#backgroundSaveStatus');
+const bgCssPath='arena-background.css';
+const bgApiUrl='https://api.github.com/repos/dtokurisu-png/rok-3d-test/contents/'+bgCssPath;
+function backgroundCss(width,length){
+  return '/* R.O.K. Arena 2.5D — dimensiones oficiales del sprite de fondo.\\n'
+    +'   Modificadas por el botón Guardar en GitHub. Valores en porcentaje. */\\n'
+    +':root {\\n  --rok-arena-bg-width: '+width+';\\n'
+    +'  --rok-arena-bg-length: '+length+';\\n}\\n';
+}
+function cssDimension(css,name){
+  const found=css.match(new RegExp('--rok-arena-bg-'+name+'\\\\s*:\\\\s*(\\\\d+(?:\\\\.\\\\d+)?)\\\\s*;'));
+  return found?Number(found[1]):100;
+}
 async function loadSharedArenaBackground(){
   try{
-    const response=await fetch('./arena-background.json',{cache:'no-store'});
+    const response=await fetch('./'+bgCssPath+'?v='+Date.now(),{cache:'no-store'});
     if(!response.ok)throw Error('HTTP '+response.status);
-    const settings=await response.json();
-    setArenaSpriteAxis('width',settings.width);
-    setArenaSpriteAxis('length',settings.length);
-    qs('#backgroundSaveStatus').textContent='Configuración oficial cargada desde GitHub. Los cambios con controles son una vista previa hasta publicar nuevos valores.';
+    const css=await response.text();
+    setArenaSpriteAxis('width',cssDimension(css,'width'));
+    setArenaSpriteAxis('length',cssDimension(css,'length'));
+    bgSaveStatus.textContent='Valores oficiales cargados desde GitHub. Para compartir cambios usa Guardar en GitHub.';
   }catch(error){
     setArenaSpriteAxis('width',100);
     setArenaSpriteAxis('length',100);
-    qs('#backgroundSaveStatus').textContent='No se pudo cargar la configuración compartida; usando 100 %.';
+    bgSaveStatus.textContent='No se pudo cargar el CSS oficial. Se muestra 100 %.';
     console.warn('Configuración compartida del fondo:',error);
   }
 }
+bgSaveButton.addEventListener('click',async()=>{
+  const token=prompt('Para guardar en GitHub, pega un token de acceso de alcance limitado (Contents: Read and write) SOLO para dtokurisu-png/rok-3d-test. No se guardará en el navegador.');
+  if(!token)return;
+  const originalLabel=bgSaveButton.textContent;
+  bgSaveButton.disabled=true;bgSaveButton.textContent='Guardando…';
+  bgSaveStatus.textContent='Enviando dimensiones a GitHub…';
+  try{
+    const headers={
+      'Accept':'application/vnd.github+json',
+      'Authorization':'Bearer '+token.trim(),
+      'X-GitHub-Api-Version':'2022-11-28'
+    };
+    const getResponse=await fetch(bgApiUrl,{headers,cache:'no-store'});
+    if(!getResponse.ok)throw Error('No se pudo leer el CSS de GitHub (HTTP '+getResponse.status+').');
+    const current=await getResponse.json();
+    const width=Math.round(arenaSpriteWidth*100),length=Math.round(arenaSpriteLength*100);
+    const content=btoa(backgroundCss(width,length));
+    const putResponse=await fetch(bgApiUrl,{
+      method:'PUT',headers:{...headers,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        message:'Arena: save background width '+width+'% and length '+length+'%',
+        content,sha:current.sha,branch:'main'
+      })
+    });
+    if(!putResponse.ok)throw Error('GitHub rechazó el guardado (HTTP '+putResponse.status+'). Comprueba permisos y acceso.');
+    bgSaveStatus.textContent='✓ Guardado en GitHub: ancho '+width+' %, largo '+length+' %. Otros dispositivos verán los cambios después de la publicación de GitHub Pages.';
+  }catch(error){
+    bgSaveStatus.textContent='No se guardó: '+error.message;
+  }finally{
+    bgSaveButton.disabled=false;bgSaveButton.textContent=originalLabel;
+  }
+});
 loadSharedArenaBackground();
 new THREE.TextureLoader().load(arenaTextureUrl,tex=>{
   tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
@@ -1155,7 +1199,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.9.4. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.9.5. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
