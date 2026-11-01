@@ -691,20 +691,70 @@ function resetDemoCombat(){
   combatants.forEach(resetCombatant);
   qs('#phase').textContent='✦ Materializando ambas Faroleras';
 }
-function startRestoration(c,stun=false){
+// El mundo sigue la topología real del tablero R.O.K.: 9 X × 18 Z.
+// Las casillas tienen centros en x=col-4 y z=row-8.5.
+function worldToCell(x,z){
+  return {col:THREE.MathUtils.clamp(Math.round(x+4),0,8),
+    row:THREE.MathUtils.clamp(Math.round(z+8.5),0,17)};
+}
+function cellToWorld(col,row){return {x:col-4,z:row-8.5};}
+function inBoard(col,row){return col>=0&&col<9&&row>=0&&row<18;}
+function cellRadius(a,b){return Math.max(Math.abs(a.col-b.col),Math.abs(a.row-b.row));}
+
+function startRestoration(c){
   if(c.stage==='restoring'||c.stage==='intro')return;
   c.stage='restoring';
+  c.stunLeft=0;
+  c.mixer.timeScale=1;
   c.restoringT=0;
-  c.endZ=c.outer.position.z; // Restaurar desde el punto REAL del impacto.
-  c.postRestoreStun=stun?2.5:0;
+  c.endZ=c.outer.position.z;
   c.cooldown=.6;
   if(c.shieldShell)c.shieldShell.visible=false;
   if(c.stunHalo)c.stunHalo.group.visible=false;
   resetRestorationFx(c);
   if(c.pendV)c.pendV.y+=(c.side==='ally'?-1:1)*1.8;
 }
-function damage(target,value,withStun=false){
-  if(target.stage!=='active')return;
+function applyStun(c){
+  if(c.stage!=='active'&&c.stage!=='stunned')return;
+  c.stage='stunned';c.stunLeft=2.5;c.cooldown=Math.max(c.cooldown,.4);
+  makeFloatingWord(c,'ATURDIDO');
+  qs('#phase').textContent='★ ATURDIDO · efecto aplicado (PDA 32 %)';
+}
+// La evasión se resuelve ANTES del daño y apunta al atacante. El radio
+// permitido es el alcance del defensor (5), excluyendo la corona adyacente.
+function tryEvasion(target,attacker,impactCell){
+  if(target.side!=='enemy'||target.stage!=='active'||target.mana<6||target.dodgeCooldown>0)return false;
+  const origin=worldToCell(attacker.outer.position.x,attacker.outer.position.z);
+  const candidates=[];
+  for(let row=0;row<18;row++)for(let col=0;col<9;col++){
+    const cell={col,row};
+    const dist=cellRadius(cell,origin);
+    if(dist<2||dist>target.range||cellRadius(cell,impactCell)<=1)continue;
+    const occupied=combatants.some(other=>other!==target&&
+      other.stage!=='restoring'&&
+      worldToCell(other.outer.position.x,other.outer.position.z).col===col&&
+      worldToCell(other.outer.position.x,other.outer.position.z).row===row);
+    if(!occupied)candidates.push(cell);
+  }
+  if(!candidates.length)return false;
+  const pick=candidates[Math.floor(Math.random()*candidates.length)];
+  const prevX=target.outer.position.x,prevZ=target.outer.position.z;
+  const next=cellToWorld(pick.col,pick.row);
+  target.mana-=6;
+  target.dodgeCooldown=10;
+  target.manaTimer=0;
+  spawnImpact(prevX,prevZ,false,false);
+  target.outer.position.x=next.x;
+  target.outer.position.z=next.z;
+  spawnImpact(next.x,next.z,false,false);
+  makeFloatingWord(target,'EVASIÓN');
+  qs('#phase').textContent='✦ EVASIÓN · -6 PM · enfriamiento 10 s';
+  return true;
+}
+// La tirada PDA es independiente por cada impacto efectivo del enemigo.
+// Estar protegido por escudo no convierte el impacto en una restauración.
+function damage(target,value,source){
+  if(target.stage!=='active'&&target.stage!=='stunned')return false;
   const absorbed=Math.min(target.shield,value);
   target.shield-=absorbed;
   if(absorbed>0)target.shieldPulse=.8;
@@ -713,32 +763,54 @@ function damage(target,value,withStun=false){
     target.pendV.y+=(target.side==='ally'?-1:1)*2;
     target.pendV.x+=.6;
   }
-  if(target.hp===0||withStun){
-    startRestoration(target,withStun);
-  }
+  if(target.hp<=0)startRestoration(target);
+  else if(source?.side==='enemy'&&Math.random()<.32)applyStun(target);
+  return true;
 }
-function spawnImpact(z,aoe,enemySpell){
+
+const squareTileGeometry=new THREE.PlaneGeometry(.96,.96);
+function spawnImpact(x,z,aoe,enemySpell){
+  const center=worldToCell(x,z);
+  const world=cellToWorld(center.col,center.row);
   const group=new THREE.Group();root.add(group);
-  group.position.set(0,.085,z);
-  const ring=new THREE.Mesh(aoe?impactGeo:new THREE.RingGeometry(.13,.2,36),
-    waveMaterial.clone());
-  ring.rotation.x=-Math.PI/2;
-  ring.material.color.setHex(enemySpell?0xd89bff:0x90f8ff);
-  group.add(ring);
+  group.position.set(world.x,.085,world.z);
+  const color=enemySpell?0xd89bff:0x90f8ff;
+  let ring;
+  const flashes=[];
+  if(aoe){
+    // Contorno de expansión cuadrado: centro + ocho celdas adyacentes.
+    ring=new THREE.LineSegments(impactGeo,new THREE.LineBasicMaterial({
+      color,transparent:true,opacity:.95,depthWrite:false
+    }));
+    ring.rotation.x=-Math.PI/2;ring.scale.setScalar(.05);group.add(ring);
+    for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){
+      if(!inBoard(center.col+dx,center.row+dz))continue;
+      const tile=new THREE.Mesh(squareTileGeometry,
+        new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,
+          depthWrite:false,side:THREE.DoubleSide}));
+      tile.rotation.x=-Math.PI/2;
+      tile.position.set(dx,.012,dz);
+      group.add(tile);flashes.push({tile,ringIndex:Math.max(Math.abs(dx),Math.abs(dz))});
+    }
+  }else{
+    ring=new THREE.Mesh(new THREE.RingGeometry(.13,.2,36),waveMaterial.clone());
+    ring.rotation.x=-Math.PI/2;ring.material.color.setHex(color);group.add(ring);
+  }
   const burst=new THREE.Sprite(new THREE.SpriteMaterial({
     map:glowTexture,color:enemySpell?0xdc9bff:0x68fff0,
     transparent:true,opacity:.7,blending:THREE.AdditiveBlending,depthWrite:false
   }));
   burst.position.y=.45;burst.scale.set(.9,.9,1);group.add(burst);
-  magicImpacts.push({group,ring,burst,t:0,aoe});
+  magicImpacts.push({group,ring,burst,t:0,aoe,flashes});
 }
 function launchSpell(attacker,target){
-  const isMagic=attackMode==='magic';
-  const area=attacker.side==='enemy'&&isMagic&&attacker.specialCooldown<=0;
-  // La magia rival tiene una descarga especial de área y restauración aturdida.
+  const area=attacker.side==='enemy'&&attackMode==='magic'&&attacker.specialCooldown<=0;
   if(area)attacker.specialCooldown=7.5;
   const group=new THREE.Group();root.add(group);
-  group.position.set(0,1.03,attacker.outer.position.z);
+  const fromX=attacker.outer.position.x,fromZ=attacker.outer.position.z;
+  const cell=worldToCell(target.outer.position.x,target.outer.position.z);
+  const impact=cellToWorld(cell.col,cell.row);
+  group.position.set(fromX,1.03,fromZ);
   const core=new THREE.Mesh(magicSphereGeo,magicSphereMaterial.clone());
   core.material.color.setHex(attacker.side==='ally'?0x8ffff1:(area?0xf7b4ff:0xffdbbf));
   group.add(core);
@@ -747,36 +819,62 @@ function launchSpell(attacker,target){
     opacity:.87,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false
   }));
   halo.scale.set(.64,.64,1);group.add(halo);
-  missiles.push({group,core,halo,target,attacker,age:0,duration:Math.max(.32,Math.abs(attacker.outer.position.z-target.outer.position.z)/9.5),area});
+  const distance=Math.hypot(fromX-impact.x,fromZ-impact.z);
+  missiles.push({group,core,halo,target,attacker,fromX,fromZ,
+    aimX:impact.x,aimZ:impact.z,impactCell:cell,age:0,
+    duration:Math.max(.32,distance/9.5),area});
   if(attacker.pendV)attacker.pendV.y+=(attacker.side==='ally'?1:-1)*.7;
 }
 function updateMagic(dt){
   for(let i=missiles.length-1;i>=0;i--){
     const m=missiles[i];m.age+=dt;
     const a=THREE.MathUtils.clamp(m.age/m.duration,0,1);
-    const startZ=m.attacker.outer.position.z;
-    m.group.position.z=THREE.MathUtils.lerp(startZ,m.target.outer.position.z,a);
+    m.group.position.x=THREE.MathUtils.lerp(m.fromX,m.aimX,a);
+    m.group.position.z=THREE.MathUtils.lerp(m.fromZ,m.aimZ,a);
     m.group.position.y=1.03+Math.sin(Math.PI*a)*.25;
     m.core.scale.setScalar(1+.18*Math.sin(m.age*21));
     if(a>=1){
-      if(m.target.stage==='active'){
-        spawnImpact(m.target.outer.position.z,m.area,m.attacker.side==='enemy');
-        damage(m.target,m.attacker.attackDamage,m.area);
-        if(m.area)qs('#phase').textContent='✦ Onda mágica radio 1 · restauración aturdida';
-      }else{
-        spawnImpact(m.group.position.z,false,false);
+      // La evasión sucede justo antes del contacto, nunca después del daño.
+      if(m.target.stage==='active')tryEvasion(m.target,m.attacker,m.impactCell);
+      spawnImpact(m.aimX,m.aimZ,m.area,m.attacker.side==='enemy');
+      if(m.area){
+        // Nueve casillas tácticas reales, con comprobación de cada unidad.
+        for(const c of combatants){
+          if(c.side===m.attacker.side)continue;
+          if(c.stage!=='active'&&c.stage!=='stunned')continue;
+          const current=worldToCell(c.outer.position.x,c.outer.position.z);
+          if(cellRadius(current,m.impactCell)<=1)damage(c,m.attacker.attackDamage,m.attacker);
+        }
+      }else if(m.target.stage==='active'||m.target.stage==='stunned'){
+        const current=worldToCell(m.target.outer.position.x,m.target.outer.position.z);
+        if(current.row===m.impactCell.row&&current.col===m.impactCell.col){
+          damage(m.target,m.attacker.attackDamage,m.attacker);
+        }
       }
-      root.remove(m.group);m.group.traverse(o=>{if(o.material)o.material.dispose?.()});
+      if(m.area)qs('#phase').textContent='✦ ONDA EXPANSIVA · 3×3 · PDA aturdimiento 32 %';
+      root.remove(m.group);
+      m.group.traverse(o=>{if(o.material)o.material.dispose?.()});
       missiles.splice(i,1);
     }
   }
   for(let i=magicImpacts.length-1;i>=0;i--){
     const fx=magicImpacts[i];fx.t+=dt;
-    const a=THREE.MathUtils.clamp(fx.t/.55,0,1);
-    fx.ring.scale.setScalar(fx.aoe?.35+.65*ease(a):.55+2*ease(a));
-    fx.ring.material.opacity=(1-a)*.80;
+    const a=THREE.MathUtils.clamp(fx.t/.65,0,1);
+    if(fx.aoe){
+      // La onda crece desde la casilla central hasta el límite de 3×3.
+      fx.ring.scale.setScalar(.04+.96*ease(a));
+      fx.ring.material.opacity=(1-a)*.95;
+      for(const f of fx.flashes){
+        const pulse=f.ringIndex===0?Math.min(1,a/.2):
+          THREE.MathUtils.clamp((a-.18)/.42,0,1);
+        f.tile.material.opacity=pulse*(1-a)*.42;
+      }
+    }else{
+      fx.ring.scale.setScalar(.55+2*ease(a));
+      fx.ring.material.opacity=(1-a)*.8;
+    }
     fx.burst.material.opacity=(1-a)*.7;
-    fx.burst.scale.setScalar(.55+1.6*a);
+    fx.burst.scale.setScalar(.65+1.5*a);
     if(a>=1){
       root.remove(fx.group);
       fx.group.traverse(o=>{if(o.material)o.material.dispose?.()});
@@ -785,9 +883,18 @@ function updateMagic(dt){
   }
 }
 function updateDuel(dt){
-  // Cada unidad tiene su propio ciclo: los proyectiles no alteran
-  // el esqueleto Idle ni se repite la animación de aparición inicial.
   for(const c of combatants){
+    // El maná y la recarga funcionan por reloj real del combate,
+    // independientemente del estado de ataque o restauración.
+    if(c.side==='enemy'){
+      c.dodgeCooldown=Math.max(0,c.dodgeCooldown-dt);
+      if(c.mana<c.maxMana){
+        c.manaTimer+=dt;
+        while(c.manaTimer>=3&&c.mana<c.maxMana){
+          c.manaTimer-=3;c.mana+=1;
+        }
+      }else c.manaTimer=0;
+    }
     c.mixer.update(dt);
     if(c.stage==='intro'){
       c.introT=Math.min(1.4,c.introT+dt);
@@ -804,8 +911,7 @@ function updateDuel(dt){
         c.endZ=c.baseEndZ;
         c.model.scale.setScalar(c.model.userData.baseScale);
         c.model.position.y=0;
-        c.outer.position.z=c.startZ;
-        c.outer.position.x=0;
+        c.outer.position.set(0,0,c.startZ);
         c.stunLeft=0;
         c.stage='active';
         resetLampDynamics(c);
@@ -821,6 +927,8 @@ function updateDuel(dt){
     }else{
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
+    }
+    if(c.stage==='active'){
       c.cooldown-=dt;
       c.specialCooldown=Math.max(0,c.specialCooldown-dt);
     }
@@ -842,25 +950,25 @@ function updateDuel(dt){
   for(const c of combatants){
     if(c.stage!=='active')continue;
     const target=c.side==='ally'?enemy:ally;
-    // Contra una unidad que se restaura o está aturdida, se sigue
-    // avanzando pero no se la golpea hasta que vuelva al combate.
-    const distance=Math.abs(c.outer.position.z-target.outer.position.z);
-    const sign=c.side==='ally'?-1:1;
+    const dx=target.outer.position.x-c.outer.position.x;
+    const dz=target.outer.position.z-c.outer.position.z;
+    const distance=Math.hypot(dx,dz);
     if(distance>c.range+.005){
-      const step=Math.min(c.speed*dt,Math.max(0,distance-c.range));
-      const cap=c.side==='ally'?-8.2:8.2;
-      const next=c.outer.position.z+sign*step;
-      c.outer.position.z=c.side==='ally'?Math.max(next,cap):Math.min(next,cap);
-    }else if(target.stage==='active'&&c.cooldown<=0){
+      const step=Math.min(c.speed*dt,distance-c.range);
+      c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/distance*step,-4,4);
+      c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-8.5,8.5);
+    }else if((target.stage==='active'||target.stage==='stunned')&&c.cooldown<=0){
       launchSpell(c,target);
       c.cooldown=c.side==='ally'?1.35:1.75;
     }
   }
   updateMagic(dt);
+  for(const c of combatants)updateStunHalo(c,dt);
+  updateFloatingWords(dt);
   const stunned=combatants.find(c=>c.stage==='stunned');
   if(stunned){
     const count=Math.min(5,Math.ceil((stunned.stunLeft-1e-5)/.5));
-    qs('#phase').textContent='★ Aturdimiento '+count+'/5 · '+stunned.stunLeft.toFixed(1)+' s';
+    qs('#phase').textContent='★ ATURDIDO · '+count+' estrellas · '+stunned.stunLeft.toFixed(1)+' s';
   }else if(combatants.some(c=>c.stage==='restoring')){
     qs('#phase').textContent='✧ Restauración luminosa y reaparición';
   }else if(missiles.length){
@@ -869,9 +977,9 @@ function updateDuel(dt){
     qs('#phase').textContent='➜ Avance según alcance: 3 / 5 casillas';
   }
   for(const c of combatants)updateNameplate(c);
-  qs('#combatReadout').innerHTML='Aliada: ❤️ '+ally.hp+'/7 · '+ally.range+' casillas · 🛡️ '+ally.shield+'/2<br>Rival: ❤️ '+enemy.hp+'/5 · '+enemy.range+' casillas · ✦ área 1';
+  qs('#combatReadout').innerHTML='Aliada: ❤️ '+ally.hp+'/7 · 🛡️ '+ally.shield+'/2 · rango 3<br>'+
+    'Rival: ❤️ '+enemy.hp+'/5 · 💧 '+enemy.mana+'/10 · evasión '+enemy.dodgeCooldown.toFixed(0)+' s';
 }
-
 new GLTFLoader().load('./chiara_idle.glb',g=>{
   if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
   const a=createFighter(g.scene,g.animations[0],'ally');
