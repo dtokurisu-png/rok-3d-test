@@ -897,6 +897,7 @@ function resetCombatant(c){
   c.attackDamage=c.side==='ally'?2:1;
   c.speed=c.side==='ally'?2.4:2.15;
   c.stage='intro';c.introT=0;
+  c.hitLeft=0;c.castT=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.standingPlayed=false;
   c.restoringT=0;c.stunLeft=0;c.postRestoreStun=0;
   c.cooldown=c.side==='enemy'?.20:.65;
   c.specialCooldown=0;
@@ -915,6 +916,9 @@ function resetCombatant(c){
   c.model.scale.setScalar(c.model.userData.baseScale);
   resetRestorationFx(c);
   resetLampDynamics(c);
+  c.mixer.timeScale=1;
+  c.mixer.stopAllAction();c.animId=null;c.animAction=null;
+  setAnim(c,'idle',{force:true,fade:0});
 }
 function resetDemoCombat(){
   clearFloatingWords();
@@ -936,9 +940,67 @@ function cellToWorld(col,row){return {x:col-4,z:row-8.5};}
 function inBoard(col,row){return col>=0&&col<9&&row>=0&&row<18;}
 function cellRadius(a,b){return Math.max(Math.abs(a.col-b.col),Math.abs(a.row-b.row));}
 
+
+/* Secuenciador de animaciones: el ataque NO crea magia al presionar/alcanzar.
+   El misil nace en la palma cuando la acción llega a su tramo final. */
+function startCast(c,target){
+  const clip=combatAnimations.get(2);
+  c.stage='casting';c.castT=0;
+  c.castDuration=clip?Math.max(.5,clip.duration):.65;
+  c.castRelease=c.castDuration*.84;
+  c.castFired=false;c.castTarget=target;
+  setAnim(c,2,{once:true,fade:.12,force:true});
+  qs('#phase').textContent='✦ Casteando hechizo · preparación';
+}
+function updateCast(c,dt){
+  c.castT+=dt;
+  if(!c.castFired&&c.castT>=c.castRelease){
+    c.castFired=true;
+    const target=c.castTarget;
+    if(target&&target.hp>0&&target.stage!=='restoring'&&target.stage!=='dying')
+      launchSpell(c,target);
+  }
+  if(c.castT>=c.castDuration){
+    c.stage='active';c.castTarget=null;
+    setAnim(c,'idle',{fade:.16});
+  }
+}
+function beginDeath(c){
+  if(c.stage==='dying'||c.stage==='restoring')return;
+  c.stage='dying';c.deathT=0;c.castTarget=null;c.castFired=true;
+  c.deathDuration=Math.max(.65,combatAnimations.get(8)?.duration||1.25);
+  c.hitLeft=0;c.stunLeft=0;c.mixer.timeScale=1;
+  setAnim(c,8,{once:true,fade:.1,force:true});
+  c.cooldown=Math.max(c.cooldown,.4);
+  qs('#phase').textContent='✝ Farolera derrotada · animación de muerte';
+}
+function beginHit(c){
+  if(c.stage==='dying'||c.stage==='restoring')return;
+  c.hitLeft=Math.max(.25,combatAnimations.get(9)?.duration||.45);
+  c.castTarget=null;c.castFired=true;
+  if(c.stage==='casting')c.stage='active';
+  setAnim(c,9,{once:true,fade:.08,force:true});
+}
+function updateHit(c,dt){
+  if(c.hitLeft<=0)return false;
+  c.hitLeft=Math.max(0,c.hitLeft-dt);
+  if(c.hitLeft===0&&c.stage==='active')setAnim(c,'idle',{fade:.1});
+  return c.hitLeft>0;
+}
+function startRestoringStanding(c){
+  if(c.standingPlayed)return;
+  c.standingPlayed=true;
+  const clip=combatAnimations.get(13);
+  // Animación completa durante la subida final de 0,67 s. El clip original
+  // NO se modifica; únicamente se adapta su velocidad en el mixer.
+  const speed=clip?Math.max(.2,clip.duration/.67):1;
+  setAnim(c,13,{once:true,fade:.1,force:true,speed});
+}
+
 function startRestoration(c){
   if(c.stage==='restoring'||c.stage==='intro')return;
   c.stage='restoring';
+  c.standingPlayed=false;
   c.stunLeft=0;
   c.mixer.timeScale=1;
   c.restoringT=0;
@@ -1099,7 +1161,7 @@ function tryEvasion(target,attacker,impactCell){
 // La tirada PDA es independiente por cada impacto efectivo del enemigo.
 // Estar protegido por escudo no convierte el impacto en una restauración.
 function damage(target,value,source){
-  if(target.stage!=='active'&&target.stage!=='stunned')return false;
+  if(target.stage!=='active'&&target.stage!=='stunned'&&target.stage!=='casting')return false;
   const absorbed=Math.min(target.shield,value);
   target.shield-=absorbed;
   if(absorbed>0)target.shieldPulse=.8;
@@ -1108,8 +1170,11 @@ function damage(target,value,source){
     target.pendV.y+=(target.side==='ally'?-1:1)*2;
     target.pendV.x+=.6;
   }
-  if(target.hp<=0)startRestoration(target);
-  else if(source?.side==='enemy'&&Math.random()<.32)applyStun(target);
+  if(target.hp<=0)beginDeath(target);
+  else {
+    beginHit(target);
+    if(source?.side==='enemy'&&Math.random()<.32)applyStun(target);
+  }
   return true;
 }
 
@@ -1179,10 +1244,15 @@ function launchSpell(attacker,target){
   // La PDA del 32 % solo se evalúa para el aturdimiento al hacer daño.
   const area=attacker.side==='enemy';
   const group=new THREE.Group();root.add(group);
-  const fromX=attacker.outer.position.x,fromZ=attacker.outer.position.z;
+  // La magia se materializa en la palma de la mano libre de la Farolera.
+  const hand=attacker.castHand;
+  attacker.model.updateMatrixWorld(true);
+  const palm=hand?hand.getWorldPosition(new THREE.Vector3()):
+    new THREE.Vector3(attacker.outer.position.x,1.03,attacker.outer.position.z);
+  const fromX=palm.x,fromZ=palm.z,fromY=palm.y;
   const cell=worldToCell(target.outer.position.x,target.outer.position.z);
   const impact=cellToWorld(cell.col,cell.row);
-  group.position.set(fromX,1.03,fromZ);
+  group.position.set(fromX,fromY,fromZ);
   const core=new THREE.Mesh(magicSphereGeo,magicSphereMaterial.clone());
   core.material.color.setHex(attacker.side==='ally'?0x8ffff1:(area?0xf7b4ff:0xffdbbf));
   group.add(core);
@@ -1192,7 +1262,7 @@ function launchSpell(attacker,target){
   }));
   halo.scale.set(.64,.64,1);group.add(halo);
   const distance=Math.hypot(fromX-impact.x,fromZ-impact.z);
-  missiles.push({group,core,halo,target,attacker,fromX,fromZ,
+  missiles.push({group,core,halo,target,attacker,fromX,fromY,fromZ,
     aimX:impact.x,aimZ:impact.z,impactCell:cell,age:0,
     duration:Math.max(.32,distance/9.5),area});
   if(attacker.pendV)attacker.pendV.y+=(attacker.side==='ally'?1:-1)*.7;
@@ -1203,14 +1273,14 @@ function updateMagic(dt){
     const a=THREE.MathUtils.clamp(m.age/m.duration,0,1);
     // Seguimiento limitado antes del último tramo; al impactar, la celda
     // queda fijada para que la evasión pueda esquivar el proyectil.
-    if(a<.85&&(m.target.stage==='active'||m.target.stage==='stunned')){
+    if(a<.85&&(m.target.stage==='active'||m.target.stage==='stunned'||m.target.stage==='casting')){
       m.impactCell=worldToCell(m.target.outer.position.x,m.target.outer.position.z);
       const aim=cellToWorld(m.impactCell.col,m.impactCell.row);
       m.aimX=aim.x;m.aimZ=aim.z;
     }
     m.group.position.x=THREE.MathUtils.lerp(m.fromX,m.aimX,a);
     m.group.position.z=THREE.MathUtils.lerp(m.fromZ,m.aimZ,a);
-    m.group.position.y=1.03+Math.sin(Math.PI*a)*.25;
+    m.group.position.y=THREE.MathUtils.lerp(m.fromY,.95,a)+Math.sin(Math.PI*a)*.25;
     m.core.scale.setScalar(1+.18*Math.sin(m.age*21));
     if(a>=1){
       // La evasión sucede justo antes del contacto, nunca después del daño.
@@ -1220,11 +1290,11 @@ function updateMagic(dt){
         // Nueve casillas tácticas reales, con comprobación de cada unidad.
         for(const c of combatants){
           if(c.side===m.attacker.side)continue;
-          if(c.stage!=='active'&&c.stage!=='stunned')continue;
+          if(c.stage!=='active'&&c.stage!=='stunned'&&c.stage!=='casting')continue;
           const current=worldToCell(c.outer.position.x,c.outer.position.z);
           if(cellRadius(current,m.impactCell)<=1)damage(c,m.attacker.attackDamage,m.attacker);
         }
-      }else if(m.target.stage==='active'||m.target.stage==='stunned'){
+      }else if(m.target.stage==='active'||m.target.stage==='stunned'||m.target.stage==='casting'){
         const current=worldToCell(m.target.outer.position.x,m.target.outer.position.z);
         if(current.row===m.impactCell.row&&current.col===m.impactCell.col){
           damage(m.target,m.attacker.attackDamage,m.attacker);
