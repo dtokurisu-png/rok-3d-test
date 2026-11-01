@@ -38,7 +38,8 @@ canvas{display:block;touch-action:none}
   #bottom button{font-size:12px}
 }
 #nameplateLayer{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:8}
-.unitTag{position:absolute;width:104px;transform:translate(-50%,-100%);
+/* Mini HUD proporcional: 40% de largo y grosor; centro anclado al personaje. */
+.unitTag{position:absolute;width:104px;transform:translate(-50%,-100%) scale(.4);transform-origin:50% 100%;
   display:flex;flex-direction:column;gap:2px;text-align:center;pointer-events:none;
   color:#fff;font-size:9px;font-weight:800;line-height:1;
   text-shadow:0 1px 3px #000,0 0 4px #000;
@@ -77,7 +78,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.7.4</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.7.5</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -555,7 +556,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.7.4. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.7.5. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -676,7 +677,7 @@ function updateNameplate(c){
     mana.querySelector('.unitBarFill').style.width=(THREE.MathUtils.clamp(c.mana/c.maxMana,0,1)*100)+'%';
     mana.querySelector('.unitBarText').textContent=Math.floor(c.mana)+' / '+c.maxMana;
   }
-  const pos=new THREE.Vector3(0,2.6*Math.max(.5,c.model.scale.x/c.model.userData.baseScale)+c.model.position.y,0);
+  const pos=new THREE.Vector3(0,2.3*Math.max(.5,c.model.scale.x/c.model.userData.baseScale)+c.model.position.y,0);
   c.outer.localToWorld(pos);
   pos.project(camera);
   if(pos.z<-1||pos.z>1||Math.abs(pos.x)>1.7||Math.abs(pos.y)>1.7){
