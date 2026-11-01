@@ -89,7 +89,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.8.7</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.8.8</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -989,7 +989,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.8.7. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.8.8. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -1239,8 +1239,11 @@ function beginSummonEmergence(c){
   for(const bone of feet){
     lowest=Math.min(lowest,bone.getWorldPosition(new THREE.Vector3()).y);
   }
+  // El primer fotograma de Standing puede desplazar considerablemente
+  // las caderas: la restauración no debe recortar ese desplazamiento a 1,2 m.
+  // El casteo de una nueva invocación conserva su ajuste anterior.
   c.summonBaseY=Number.isFinite(lowest)?
-    THREE.MathUtils.clamp(c.idleFootY-lowest,-1.2,1.2):0;
+    THREE.MathUtils.clamp(c.idleFootY-lowest,winner?-2.8:-1.2,winner?2.8:1.2):0;
   c.model.position.y=c.summonBaseY-1.65;
   c.groundDelta=c.summonBaseY;
   c.summonProgress=0;
@@ -1288,11 +1291,35 @@ function updateSummonEmergence(c,dt,winner=false){
 }
 // La transición comienza ANTES del último frame de Standing.
 // El mixer mezcla las dos poses mientras el cuerpo conserva su altura.
+// Anclaje exclusivo del Standing de RESTAURACIÓN del vencedor.
+// En este estado followGround() está deshabilitado deliberadamente porque
+// el ascenso mueve el modelo bajo el suelo; una vez terminado el ascenso,
+// volver a calcular el apoyo de los pies en cada fotograma es indispensable.
+function anchorRestoredStanding(c,dt){
+  const feet=c.groundBones?.feet;
+  if(!feet?.length)return;
+  c.model.updateMatrixWorld(true);
+  let lowest=Infinity;
+  for(const foot of feet)lowest=Math.min(lowest,foot.getWorldPosition(new THREE.Vector3()).y);
+  if(!Number.isFinite(lowest))return;
+  const currentY=c.model.position.y;
+  const target=THREE.MathUtils.clamp(
+    currentY+c.idleFootY-lowest,-2.8,2.8
+  );
+  // Priorizar elevarla si los pies se hunden; el descenso es amortiguado
+  // para que la transición Standing -> Idle no produzca un salto.
+  const speed=target>currentY?30:12;
+  c.groundDelta=THREE.MathUtils.damp(currentY,target,speed,dt);
+  c.model.position.y=c.groundDelta;
+}
 function updateSummonStanding(c,dt,winner=false){
   c.summonStandingLeft=Math.max(0,c.summonStandingLeft-dt);
   const total=Math.max(.001,c.summonStandingDuration||1);
   const fraction=1-c.summonStandingLeft/total;
   setAppearance(c,.59*(1-ease(fraction)));
+  // Solo el vencedor: seguir la posición real de los pies mientras Standing
+  // deja la postura agachada y termina de ponerse de pie.
+  if(winner)anchorRestoredStanding(c,dt);
   if(c.summonBlending)return;
   const fade=Math.min(.52,Math.max(.18,total*.32));
   if(c.summonStandingLeft<=fade){
@@ -1310,12 +1337,10 @@ function updateSummonBlend(c,dt,winner=false){
   c.summonBlendLeft=Math.max(0,c.summonBlendLeft-dt);
   const ratio=1-c.summonBlendLeft/Math.max(.001,c.summonBlendDuration);
   setAppearance(c,.25*(1-ease(ratio)));
-  // La vencedora salta el anclaje habitual durante restauración, por eso
-  // suavizamos aquí Y también. Para una invocación nueva lo hace followGround.
-  if(winner){
-    c.groundDelta=THREE.MathUtils.damp(c.groundDelta,0,10,dt);
-    c.model.position.y=c.groundDelta;
-  }
+  // Mientras se mezclan Standing e Idle los pies siguen determinando Y.
+  // No amortiguar hacia 0: el primer fotograma de Standing todavía puede
+  // estar agachado y enterraría el cuerpo antes de acabar la mezcla.
+  if(winner)anchorRestoredStanding(c,dt);
   if(c.summonBlendLeft<=0)finishNewSummon(c,winner);
 }
 function finishNewSummon(c,winner=false){
