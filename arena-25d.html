@@ -89,7 +89,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.8.6</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.8.7</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -102,7 +102,7 @@ canvas{display:block;touch-action:none}
     <p id="modelStatus">Modelos: cargando…</p>
     <p id="textureStatus">Textura R.O.K.: comprobando…</p>
     <p id="fps">FPS: —</p>
-    <p><b>Combate experimental:</b> aliada 7 PV, alcance 3, escudo de 2. Rival 5 PV, alcance 5, onda 3×3 y PDA de aturdimiento 32 % por impacto; 5 estrellas orbitando durante 2,5 s. La rival dispone de 10 PM y evade un impacto si tiene 6 PM y su habilidad (10 s) está lista, desplazándose a una casilla a distancia 2–5 de la aliada. Recupera 1 PM cada 3 s. Botón para cambiar el modo de ataque. No modifica R.O.K. principal.</p>
+    <p><b>Combate experimental:</b> aliada 7 PV, alcance 3, escudo de 2. Rival 5 PV, alcance 5, onda 3×3 y PDA de aturdimiento 50 % por impacto; 5 estrellas orbitando durante 2,5 s. La rival dispone de 10 PM y evade un impacto si tiene 6 PM y su habilidad (10 s) está lista, desplazándose a una casilla a distancia 2–5 de la aliada. Recupera 1 PM cada 3 s. Botón para cambiar el modo de ataque. No modifica R.O.K. principal.</p>
     <p><a href="./index.html" style="color:#00ffe4">Volver al visor de Farolera</a></p>
   </div>
 </section>
@@ -989,7 +989,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.8.6. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.8.7. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -1244,6 +1244,7 @@ function beginSummonEmergence(c){
   c.model.position.y=c.summonBaseY-1.65;
   c.groundDelta=c.summonBaseY;
   c.summonProgress=0;
+  c.summonBlending=false;c.summonBlendLeft=0;c.summonBlendDuration=0;
   c.stage=winner?'restoring':'summonEmerging';
   if(winner)c.restorationPhase='rise';
   if(c.summonBar)c.summonBar.style.display='none';
@@ -1272,6 +1273,7 @@ function updateSummonEmergence(c,dt,winner=false){
       if(c.animAction)c.animAction.paused=false;
       c.summonStandingLeft=Math.max(.2,combatAnimations.get(13).duration);
       c.summonStandingDuration=c.summonStandingLeft;
+      c.summonBlending=false;c.summonBlendLeft=0;c.summonBlendDuration=0;
       c.stage=winner?'restoring':'summonStanding';
       if(winner)c.restorationPhase='standing';
       qs('#phase').textContent=winner?
@@ -1284,14 +1286,48 @@ function updateSummonEmergence(c,dt,winner=false){
     resetLampDynamics(c);
   }
 }
+// La transición comienza ANTES del último frame de Standing.
+// El mixer mezcla las dos poses mientras el cuerpo conserva su altura.
+function updateSummonStanding(c,dt,winner=false){
+  c.summonStandingLeft=Math.max(0,c.summonStandingLeft-dt);
+  const total=Math.max(.001,c.summonStandingDuration||1);
+  const fraction=1-c.summonStandingLeft/total;
+  setAppearance(c,.59*(1-ease(fraction)));
+  if(c.summonBlending)return;
+  const fade=Math.min(.52,Math.max(.18,total*.32));
+  if(c.summonStandingLeft<=fade){
+    c.summonBlending=true;
+    c.summonBlendDuration=fade;
+    c.summonBlendLeft=fade;
+    // Standing aún no ha terminado. La postura se mezcla con el Idle real,
+    // en vez de reiniciar una animación al llegar a su último fotograma.
+    setAnim(c,'idle',{fade,force:true});
+    if(winner)c.restorationPhase='blend';
+    else c.stage='summonBlend';
+  }
+}
+function updateSummonBlend(c,dt,winner=false){
+  c.summonBlendLeft=Math.max(0,c.summonBlendLeft-dt);
+  const ratio=1-c.summonBlendLeft/Math.max(.001,c.summonBlendDuration);
+  setAppearance(c,.25*(1-ease(ratio)));
+  // La vencedora salta el anclaje habitual durante restauración, por eso
+  // suavizamos aquí Y también. Para una invocación nueva lo hace followGround.
+  if(winner){
+    c.groundDelta=THREE.MathUtils.damp(c.groundDelta,0,10,dt);
+    c.model.position.y=c.groundDelta;
+  }
+  if(c.summonBlendLeft<=0)finishNewSummon(c,winner);
+}
 function finishNewSummon(c,winner=false){
-  c.model.position.y=0;
-  c.groundDelta=0;
+  // No volver a imponer Y=0 ni reiniciar Idle: ambas operaciones causaban
+  // el salto visual cuando Standing terminaba.
+  c.model.position.y=c.groundDelta;
   clearSummonFx(c);
   setAppearance(c,0);
   c.mixer.timeScale=1;
-  setAnim(c,'idle',{fade:.18,force:true});
+  if(c.animId!=='idle')setAnim(c,'idle',{fade:.22});
   c.stage='active';
+  c.summonBlending=false;
   c.cooldown=Math.max(c.cooldown,.35);
   if(c.shieldShell)c.shieldShell.visible=c.shield>0;
   resetLampDynamics(c);
@@ -1314,6 +1350,7 @@ function resetCombatant(c){
   c.restorationPhase=null;c.restorePhaseT=0;c.restoreEmission=0;
   c.restorationStartX=0;c.restorationStartZ=0;
   c.summonCastLeft=0;c.summonProgress=0;c.summonStandingLeft=0;c.summonBaseY=0;
+  c.summonBlending=false;c.summonBlendLeft=0;c.summonBlendDuration=0;
   if(c.summonBar)c.summonBar.style.display='none';
   c.cooldown=c.side==='enemy'?.20:.65;
   c.specialCooldown=0;
@@ -1562,17 +1599,23 @@ function updateVictoriousRestoration(c,dt){
     updateSummonEmergence(c,dt,true);
   }else if(c.restorationPhase==='standing'){
     updateRestorationFx(c,dt,12);
-    c.summonStandingLeft=Math.max(0,c.summonStandingLeft-dt);
-    const t=1-c.summonStandingLeft/Math.max(.001,c.summonStandingDuration||1);
-    setAppearance(c,.59*(1-ease(t)));
-    if(c.summonStandingLeft<=0)finishNewSummon(c,true);
+    updateSummonStanding(c,dt,true);
+  }else if(c.restorationPhase==='blend'){
+    updateRestorationFx(c,dt,12);
+    updateSummonBlend(c,dt,true);
   }
 }
 function applyStun(c){
   if(c.stage!=='active'&&c.stage!=='stunned')return;
   c.stage='stunned';c.stunLeft=2.5;c.cooldown=Math.max(c.cooldown,.4);
+  // El rival puede golpear durante el aturdimiento. Reducir su espera
+  // pendiente evita que se cumplan los 2,5 s sin un segundo ataque.
+  const opponent=combatants.find(other=>other!==c);
+  if(opponent&&(opponent.stage==='active'||opponent.stage==='casting')){
+    opponent.cooldown=Math.min(opponent.cooldown,.15);
+  }
   makeFloatingWord(c,'ATURDIDO');
-  qs('#phase').textContent='★ ATURDIDO · efecto aplicado (PDA 32 %)';
+  qs('#phase').textContent='★ ATURDIDO · efecto aplicado (PDA 50 %)';
 }
 // La evasión se resuelve ANTES del daño y apunta al atacante. El radio
 // permitido es el alcance del defensor (5), excluyendo la corona adyacente.
@@ -1737,7 +1780,7 @@ function damage(target,value,source){
     if(source&&source!==target&&source.hp>0)startRestoration(source);
   }else {
     beginHit(target);
-    if(source?.side==='enemy'&&Math.random()<.32)applyStun(target);
+    if(source?.side==='enemy'&&Math.random()<.50)applyStun(target);
   }
   return true;
 }
@@ -1805,7 +1848,7 @@ function spawnImpact(x,z,aoe,enemySpell){
 }
 function launchSpell(attacker,target){
   // Todas las descargas enemigas tienen daño y efecto de área 3×3.
-  // La PDA del 32 % solo se evalúa para el aturdimiento al hacer daño.
+  // La PDA del 50 % solo se evalúa para el aturdimiento al hacer daño.
   const area=attacker.side==='enemy';
   const group=new THREE.Group();root.add(group);
   // El proyectil aparece exactamente en RightHand, centro del círculo de carga.
@@ -1864,7 +1907,7 @@ function updateMagic(dt){
           damage(m.target,m.attacker.attackDamage,m.attacker);
         }
       }
-      if(m.area)qs('#phase').textContent='✦ ONDA EXPANSIVA · 3×3 · PDA aturdimiento 32 %';
+      if(m.area)qs('#phase').textContent='✦ ONDA EXPANSIVA · 3×3 · PDA aturdimiento 50 %';
       root.remove(m.group);
       m.group.traverse(o=>{if(o.material)o.material.dispose?.()});
       missiles.splice(i,1);
@@ -1931,10 +1974,9 @@ function updateDuel(dt){
     }else if(c.stage==='summonEmerging'){
       updateSummonEmergence(c,dt);
     }else if(c.stage==='summonStanding'){
-      c.summonStandingLeft=Math.max(0,c.summonStandingLeft-dt);
-      const t=1-c.summonStandingLeft/Math.max(.001,c.summonStandingDuration||1);
-      setAppearance(c,.59*(1-ease(t)));
-      if(c.summonStandingLeft<=0)finishNewSummon(c);
+      updateSummonStanding(c,dt);
+    }else if(c.stage==='summonBlend'){
+      updateSummonBlend(c,dt);
     }else if(c.stage==='restoring'){
       updateVictoriousRestoration(c,dt);
     }else if(c.stage==='teleporting'){
@@ -1987,9 +2029,12 @@ function updateDuel(dt){
   const enemy=combatants.find(c=>c.side==='enemy');
   if(!ally||!enemy)return;
   for(const c of combatants){
-    if(c.stage!=='active'||c.hitLeft>0)continue;
+    if(c.stage!=='active')continue;
     const target=c.side==='ally'?enemy:ally;
-    if(target.stage==='restoring'||target.stage==='dying'||target.stage==='vanishing'||target.stage==='dead'||target.stage==='summonCasting'||target.stage==='summonEmerging'||target.stage==='summonStanding') {
+    // Un objetivo aturdido permanece vulnerable. La reacción de daño
+    // del atacante no debe bloquear la oportunidad de castigarlo.
+    if(c.hitLeft>0&&target.stage!=='stunned')continue;
+    if(target.stage==='restoring'||target.stage==='dying'||target.stage==='vanishing'||target.stage==='dead'||target.stage==='summonCasting'||target.stage==='summonEmerging'||target.stage==='summonStanding'||target.stage==='summonBlend') {
       setAnim(c,'idle',{fade:.15});continue;
     }
     const dx=target.outer.position.x-c.outer.position.x;
@@ -2028,8 +2073,8 @@ function updateDuel(dt){
     qs('#phase').textContent='✦ Casteando nueva invocación · '+next.summonCastLeft.toFixed(1)+' s';
   }else if(combatants.some(c=>c.stage==='summonEmerging')){
     qs('#phase').textContent='✦ Nueva invocación saliendo del suelo';
-  }else if(combatants.some(c=>c.stage==='summonStanding')){
-    qs('#phase').textContent='✦ Standing → Idle · nueva invocación';
+  }else if(combatants.some(c=>c.stage==='summonStanding'||c.stage==='summonBlend')){
+    qs('#phase').textContent='✦ Standing → Idle · transición suave';
   }else if(combatants.some(c=>c.stage==='dead')){
     qs('#phase').textContent='✝ Invocación eliminada · comenzando casteo';
   }else if(combatants.some(c=>c.stage==='restoring')){
