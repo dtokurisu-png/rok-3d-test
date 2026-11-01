@@ -39,7 +39,7 @@ canvas{display:block;touch-action:none}
 }
 #nameplateLayer{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:8}
 /* Mini HUD proporcional: 40% de largo y grosor; centro anclado al personaje. */
-.unitTag{position:absolute;width:104px;transform:translate(-50%,-100%) scale(.4);transform-origin:50% 100%;
+.unitTag{position:absolute;width:104px;transform:translate(-50%,-100%) scale(.8);transform-origin:50% 100%;
   display:flex;flex-direction:column;gap:2px;text-align:center;pointer-events:none;
   color:#fff;font-size:9px;font-weight:800;line-height:1;
   text-shadow:0 1px 3px #000,0 0 4px #000;
@@ -78,7 +78,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.8.0</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.8.1</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -533,6 +533,50 @@ async function preloadCombatAnimationsFromRepo(baseModel){
     }catch(err){console.warn('[R.O.K.] Paquete de animaciones inválido',err)}
   }
 }
+// Magic Heal (02) reaches forward at roughly the middle of its animation.
+// Sample the actual arm pose on a separate skeleton: fire at maximum reach,
+// not at the last 16% when the caster has already pulled her arm back.
+let magicReleaseFraction=.50;
+function detectMagicRelease(clip,baseModel){
+  if(!clip||!baseModel||clip.duration<=.05)return .50;
+  let probeMixer=null;
+  try{
+    const copy=cloneSkinned(baseModel);
+    let leftHand=null,leftArm=null;
+    copy.traverse(o=>{
+      if(!o.isBone)return;
+      const k=boneKey(o.name);
+      if(k==='lefthand')leftHand=o;
+      if(k==='leftarm')leftArm=o;
+    });
+    if(!leftHand||!leftArm)return .50;
+    probeMixer=new THREE.AnimationMixer(copy);
+    probeMixer.clipAction(clip).play();
+    const samples=45,start=.30,end=.68;
+    let best=.50,bestIndex=-1,bestScore=-Infinity;
+    const shoulderPos=new THREE.Vector3(),handPos=new THREE.Vector3();
+    for(let i=0;i<=samples;i++){
+      const fraction=start+(end-start)*i/samples;
+      probeMixer.setTime(Math.min(clip.duration-.00001,clip.duration*fraction));
+      copy.updateMatrixWorld(true);
+      leftArm.getWorldPosition(shoulderPos);
+      leftHand.getWorldPosition(handPos);
+      copy.worldToLocal(shoulderPos);
+      copy.worldToLocal(handPos);
+      const forward=handPos.z-shoulderPos.z;
+      const extension=handPos.distanceTo(shoulderPos);
+      // Give priority to the free palm moving forward and a straight arm.
+      const score=forward+.22*extension-.035*Math.abs(fraction-.50);
+      if(score>bestScore){bestScore=score;best=fraction;bestIndex=i}
+    }
+    // Avoid choosing the edge of the search window if this clip has no
+    // recognizable extension in its middle section.
+    return bestIndex<=1||bestIndex>=samples-1?.50:best;
+  }catch(e){
+    console.warn('[ROK] No se pudo localizar el gesto máximo del brazo:',e);
+    return .50;
+  }finally{probeMixer?.stopAllAction()}
+}
 function getAction(c,id){
   const clip=id==='idle'?c.idleClip:combatAnimations.get(id);
   return clip?c.mixer.clipAction(clip):null;
@@ -601,9 +645,11 @@ async function activateArenaAnimationPack(baseModel){
   const fromCache=await readAnimationsFromViewerCache();
   if(animationNeeds.some(id=>!combatAnimations.has(id)))await preloadCombatAnimationsFromRepo(baseModel);
   const ready=animationNeeds.filter(id=>combatAnimations.has(id));
+  magicReleaseFraction=detectMagicRelease(combatAnimations.get(2),combatants[0]?.model||baseModel);
   for(const c of combatants)setAnim(c,'idle',{force:true,fade:.08});
   qs('#animationStatus').textContent='Animaciones: '+ready.length+'/'+animationNeeds.length+
-    ' · '+(ready.length?'Mixamo: '+ready.join(', '):'solo Idle (sin caché local ni FBX publicado)');
+    ' · '+(ready.length?'Mixamo: '+ready.join(', '):'solo Idle (sin caché local ni FBX publicado)')+
+    (combatAnimations.has(2)?' · disparo al '+Math.round(magicReleaseFraction*100)+'% de Magic Heal':'');
   if(!ready.length){
     qs('#sceneStatus').textContent='Arena activa · Idle disponible. Abre el probador en este mismo navegador para compartir sus animaciones guardadas.';
   }else{
@@ -765,7 +811,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.8.0. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.8.1. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -886,7 +932,7 @@ function updateNameplate(c){
     mana.querySelector('.unitBarFill').style.width=(THREE.MathUtils.clamp(c.mana/c.maxMana,0,1)*100)+'%';
     mana.querySelector('.unitBarText').textContent=Math.floor(c.mana)+' / '+c.maxMana;
   }
-  const pos=new THREE.Vector3(0,2.3*Math.max(.5,c.model.scale.x/c.model.userData.baseScale)+c.model.position.y,0);
+  const pos=new THREE.Vector3(0,1.94*Math.max(.5,c.model.scale.x/c.model.userData.baseScale)+c.model.position.y,0);
   c.outer.localToWorld(pos);
   pos.project(camera);
   if(pos.z<-1||pos.z>1||Math.abs(pos.x)>1.7||Math.abs(pos.y)>1.7){
@@ -974,14 +1020,18 @@ function startCast(c,target){
   const clip=combatAnimations.get(2);
   c.stage='casting';c.castT=0;
   c.castDuration=clip?Math.max(.5,clip.duration):.65;
-  c.castRelease=c.castDuration*.84;
+  c.castRelease=c.castDuration*magicReleaseFraction;
   c.castFired=false;c.castTarget=target;
   setAnim(c,2,{once:true,fade:.12,force:true});
   qs('#phase').textContent='✦ Casteando hechizo · preparación';
 }
 function updateCast(c,dt){
   c.castT+=dt;
-  if(!c.castFired&&c.castT>=c.castRelease){
+  // El AnimationMixer se actualiza antes de esta comprobación: la salida
+  // coincide con el fotograma animado que se está mostrando ahora.
+  const animationTime=c.animId===2&&c.animAction?
+    c.animAction.time:c.castT;
+  if(!c.castFired&&animationTime>=c.castRelease){
     c.castFired=true;
     const target=c.castTarget;
     if(target&&target.hp>0&&target.stage!=='restoring'&&target.stage!=='dying')
