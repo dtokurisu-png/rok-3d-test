@@ -37,13 +37,13 @@ canvas{display:block;touch-action:none}
 </head>
 <body>
 <aside id="versionProof" aria-label="Versión y dimensiones de la arena">
-<strong>ARENA v0.6.0</strong>
+<strong>ARENA v0.6.1</strong>
 <span id="gridProof">Verificando casillas…</span>
 <small>Prueba 2.5D · 31/10/2026</small>
 </aside>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
-    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.6.0</small></div>
+    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.6.1</small></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
@@ -222,14 +222,14 @@ function addTrailParticle(c){
 }
 function updateRestorationFx(c,dt,t){
   const fx=c.restorationFx;
-  const traveling=t>=8.55&&t<10.35;
+  const traveling=t>=8.38&&t<9.28;
   if(traveling){
     fx.emission+=dt;
-    while(fx.emission>=.055){fx.emission-=.055;addTrailParticle(c);}
+    while(fx.emission>=.028){fx.emission-=.028;addTrailParticle(c);}
   }else{fx.emission=0;}
-  const flash=t>=8.2&&t<8.75?Math.sin(Math.PI*(t-8.2)/.55):
-    traveling?.52*(1-(t-8.55)/1.8):
-    t>=10.35&&t<11.7?.35*(1-(t-10.35)/1.35):0;
+  const flash=t>=8.2&&t<8.38?Math.sin(Math.PI*(t-8.2)/.18):
+    traveling?.52*(1-(t-8.38)/.90):
+    t>=9.28&&t<9.95?.35*(1-(t-9.28)/.67):0;
   fx.glow.visible=flash>.003;
   fx.glow.material.opacity=Math.max(0,flash)*.62;
   fx.glow.position.set(0,.83,c.outer.position.z);
@@ -317,8 +317,9 @@ function createFighter(baseScene,clip,side){
       o.frustumCulled=false;
       const arr=Array.isArray(o.material)?o.material:[o.material];
       const copied=arr.map(m=>{
-        const n=m.clone();n.transparent=true;n.depthWrite=false;
-        n.userData.baseOpacity=m.opacity??1;
+        // Conservar opacidad, alpha, depthWrite y demás propiedades del GLB.
+        // La transparencia forzada rompía las texturas de la Farolera.
+        const n=m.clone();
         if(n.emissive&&n.emissive.isColor){
           n.userData.baseEmissive=n.emissive.clone();
           n.userData.baseEmissiveIntensity=n.emissiveIntensity??1;
@@ -337,12 +338,12 @@ function createFighter(baseScene,clip,side){
   combatants.push(c);initLamp(c);return c;
 }
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
-const DURATION=13.2;
+const DURATION=11.4;
 const eventTimes=[6.08,6.76,7.42];
 function bump(t,at,width){return Math.exp(-Math.pow((t-at)/width,2));}
-function setAppearance(c,opacity,brightness){
+function setAppearance(c,brightness){
   for(const m of c.mats){
-    m.opacity=m.userData.baseOpacity*opacity;
+    // El material permanece sólido; no se altera su opacidad original.
     if(m.userData.baseEmissive&&m.emissive){
       m.emissive.copy(m.userData.baseEmissive).lerp(c.glowColor,brightness);
       m.emissiveIntensity=m.userData.baseEmissiveIntensity+brightness*1.8;
@@ -361,47 +362,44 @@ function animateFighter(c,t){
     }
   }
   let z=c.startZ+move+knock;
-  let opacity=1,scale=1,height=0,glow=0;
+  let scale=1,height=0,glow=0;
   if(t<1.4){
-    // Aparición inicial desde el suelo.
+    // La aparición inicial también conserva el material original, sin fundidos.
     const a=ease(clamp(t/1.32));
-    opacity=a;scale=.25+.75*a;height=-1.30*(1-a);
+    scale=.25+.75*a;height=-1.30*(1-a);
   }else if(t<8.2){
-    // Avance y combate: tamaño y transparencia normales.
-  }else if(t<8.55){
-    // Destello tras el combate, antes de iniciar la retirada.
-    const a=ease((t-8.2)/.35);
-    glow=.55+.45*Math.sin(Math.PI*a);
-    opacity=1-.13*a;
-    height=.06*Math.sin(Math.PI*a);
+    // Avance y combate con texturas originales intactas.
+  }else if(t<8.38){
+    // Destello breve al terminar la batalla.
+    const a=ease((t-8.2)/.18);
+    glow=.75+.45*Math.sin(Math.PI*a);
+    height=.05*Math.sin(Math.PI*a);
     z=c.endZ;
-  }else if(t<10.35){
-    // Regreso visible hasta la casilla original, cada vez más pequeño.
-    const a=ease((t-8.55)/1.8);
+  }else if(t<9.28){
+    // Regreso a la casilla de origen en la mitad de tiempo.
+    const a=ease((t-8.38)/.90);
     z=THREE.MathUtils.lerp(c.endZ,c.startZ,a);
     scale=1-.86*a;
-    opacity=.87-.78*a;
-    height=.12+Math.sin(Math.PI*a)*.24;
-    glow=.72*(1-a)+.08;
-  }else if(t<11.7){
-    // En el punto de origen se materializa emergiendo del suelo.
-    const a=ease((t-10.35)/1.35);
+    height=.10+Math.sin(Math.PI*a)*.20;
+    glow=.78*(1-a)+.10;
+  }else if(t<9.95){
+    // Reaparición desde debajo del suelo a velocidad doble.
+    const a=ease((t-9.28)/.67);
     z=c.startZ;
-    opacity=.09+.91*a;
     scale=.14+.86*a;
     height=-1.6*(1-a);
-    glow=.43*(1-a);
+    glow=.50*(1-a);
   }else{
     z=c.startZ;
   }
   c.outer.position.z=z;
   c.model.position.y=height;
   c.model.scale.setScalar(c.model.userData.baseScale*scale);
-  setAppearance(c,Math.max(0,opacity),Math.max(0,glow));
+  setAppearance(c,Math.max(0,glow));
   c.fx.g.position.set(0,.08,z);
   const spawnPulse=t<1.4?1-ease(t/1.4):
-    t>=10.35&&t<11.85?1-ease((t-10.35)/1.5):0;
-  const returnPulse=t>=8.2&&t<10.35?.40*Math.sin(Math.PI*(t-8.2)/2.15):0;
+    t>=9.28&&t<10.03?1-ease((t-9.28)/.75):0;
+  const returnPulse=t>=8.2&&t<9.28?.40*Math.sin(Math.PI*(t-8.2)/1.08):0;
   const amount=clamp(Math.max(spawnPulse,returnPulse),0,1);
   c.fx.ring.scale.setScalar(.75+(1-amount)*1.9);
   c.fx.ring.material.opacity=.8*amount;
@@ -432,9 +430,9 @@ function updateStage(t){
   if(t<1.4)msg='✦ Materializando ambas Faroleras';
   else if(t<5.85)msg='➜ Avanzando por las 9 filas propias hacia el rival';
   else if(t<8.2)msg='⚔ Encuentro · combate de prueba';
-  else if(t<8.55)msg='✦ Brillo de restauración tras el combate';
-  else if(t<10.35)msg='✧ Retorno al origen · estela de partículas';
-  else if(t<11.7)msg='✦ Reapareciendo desde el suelo';
+  else if(t<8.38)msg='✦ Brillo de restauración tras el combate';
+  else if(t<9.28)msg='✧ Retorno 2× rápido · estela de partículas';
+  else if(t<9.95)msg='✦ Reapareciendo desde el suelo';
   else msg='✓ Restauración completada';
   qs('#phase').textContent=msg;
 }
