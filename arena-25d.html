@@ -99,14 +99,14 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.6</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.7</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><strong>Notas de versión · Arena v0.9.6 (01/11/2026):</strong> carga automática del paquete Mixamo de 14 animaciones alojado en GitHub, incluso desde un navegador o dispositivo nuevo. Se admite el ZIP contenedor que está publicado en la raíz del repositorio. No cambia la cuadrícula ni la lógica del combate. v0.9.1: defensa prioritaria del caster y selección dinámica de objetivos.</p>
+    <p><strong>Notas de versión · Arena v0.9.7 (01/11/2026):</strong> enfrentamientos 1 contra 1: cada invocación puede bloquear solo una invocación rival; las demás eligen otro objetivo libre o al caster. Los duelos se liberan al morir, restaurarse o evadir con teletransporte. La onda 3×3 no daña enemigos ya reservados por otra invocación. Se mantienen las animaciones y la carga automática desde GitHub.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas. Invocaciones de escudo/maná: columnas 3 y 5, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
@@ -1064,30 +1064,71 @@ const canDamageTarget=c=>(c?.role==='caster'?
   c.hp>0&&c.stage==='active':
   !!c&&c.hp>0&&(c.stage==='active'||c.stage==='stunned'||c.stage==='casting'));
 const casterLost=()=>casters.some(c=>c.stage==='defeated');
-// Dos defensores por lado: una invocación viva intercepta al caster
-// si está cerca o se interpone en el corredor hacia él.
-// Prioridad dinámica: defender al caster propio de invocaciones que
-// lo tienen dentro de su alcance; en ausencia de amenazas, buscar el
-// objetivo enemigo más cercano (invocación o caster rival).
+// Enfrentamientos 1 contra 1: una invocación solo puede reservar una
+// invocación enemiga y ninguna otra puede atacarla mientras dure el duelo.
+// Los casters no cuentan como invocaciones y siguen siendo objetivos libres.
+function releaseSummonDuel(c){
+  if(!c||c.role!=='summon')return;
+  const previous=c.duelOpponent;
+  c.duelOpponent=null;
+  if(previous?.duelOpponent===c)previous.duelOpponent=null;
+}
+function currentSummonDuel(c){
+  if(!c||c.role!=='summon')return null;
+  const opponent=c.duelOpponent;
+  if(!opponent)return null;
+  if(opponent.duelOpponent!==c||opponent.side===c.side||
+     !canDamageTarget(c)||!canDamageTarget(opponent)){
+    releaseSummonDuel(c);
+    return null;
+  }
+  return opponent;
+}
+function reserveSummonDuel(c,target){
+  if(!c||!target||c.role!=='summon'||target.role!=='summon'||
+     c.side===target.side||!canDamageTarget(c)||!canDamageTarget(target))return false;
+  const current=currentSummonDuel(c);
+  if(current)return current===target;
+  if(currentSummonDuel(target))return false;
+  c.duelOpponent=target;
+  target.duelOpponent=c;
+  return true;
+}
+// Una onda 3x3 conserva su efecto sobre unidades libres, pero no puede
+// golpear una invocación bloqueada por una compañera de la atacante.
+function canAttackSummonTarget(attacker,target){
+  if(target?.role!=='summon')return true;
+  if(!attacker||attacker.role!=='summon')return false;
+  const lockedVictim=currentSummonDuel(target);
+  if(lockedVictim&&lockedVictim!==attacker)return false;
+  const lockedAttacker=currentSummonDuel(attacker);
+  if(lockedAttacker&&lockedAttacker!==target)return false;
+  return true;
+}
+// Defender al caster si una invocación enemiga LIBRE amenaza atacarlo;
+// si no hay un enemigo libre, avanzar contra el caster rival.
 function selectCombatTarget(c){
-  const ownCaster=casters.find(o=>o.side===c.side);
+  if(!c||c.role!=='summon'||!canDamageTarget(c))return null;
   const enemyCaster=casters.find(o=>o.side!==c.side);
   if(!enemyCaster||!canDamageTarget(enemyCaster))return null;
+  const assigned=currentSummonDuel(c);
+  if(assigned)return assigned; // Mantener el duelo, incluso durante aturdimiento.
+  if(c.stage==='stunned')return null; // No reservar duelos nuevos estando aturdida.
+  const ownCaster=casters.find(o=>o.side===c.side);
   const here=c.outer.position;
   const distanceTo=e=>Math.hypot(
     e.outer.position.x-here.x,e.outer.position.z-here.z
   );
-  const aliveEnemies=combatants.filter(e=>
-    e.side!==c.side&&canDamageTarget(e)
+  const available=combatants.filter(e=>
+    e.side!==c.side&&canDamageTarget(e)&&!currentSummonDuel(e)
   );
   const threats=ownCaster&&ownCaster.stage==='active'?
-    aliveEnemies.filter(e=>Math.hypot(
+    available.filter(e=>Math.hypot(
       e.outer.position.x-ownCaster.outer.position.x,
       e.outer.position.z-ownCaster.outer.position.z
     )<=e.range+.25):[];
+  let selected=null;
   if(threats.length){
-    // Ante una amenaza directa se defiende al caster, incluso cuando el
-    // atacante se teletransportó detrás de nuestras Faroleras.
     threats.sort((a,b)=>{
       const da=Math.hypot(
         a.outer.position.x-ownCaster.outer.position.x,
@@ -1099,12 +1140,16 @@ function selectCombatTarget(c){
       );
       return da-db||distanceTo(a)-distanceTo(b);
     });
-    return threats[0];
+    selected=threats[0];
+  }else{
+    const candidates=[...available,enemyCaster];
+    candidates.sort((a,b)=>distanceTo(a)-distanceTo(b)||
+      (a.role==='caster'?1:0)-(b.role==='caster'?1:0));
+    selected=candidates[0]||null;
   }
-  const candidates=[...aliveEnemies,enemyCaster];
-  candidates.sort((a,b)=>distanceTo(a)-distanceTo(b)||
-    (a.role==='caster'?1:0)-(b.role==='caster'?1:0));
-  return candidates[0]||null;
+  if(selected?.role==='summon'&&!reserveSummonDuel(c,selected))
+    return enemyCaster;
+  return selected;
 }
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
 const CASTER_RESTART_DELAY=1.8; // Mostrar victoria/derrota antes de reiniciar.
@@ -1212,7 +1257,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.9.6. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.9.7. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -1432,6 +1477,7 @@ function startSummonCountdown(c){
   qs('#phase').textContent='✦ Casteando una nueva invocación · 3 segundos';
 }
 function beginSummonEmergence(c){
+  releaseSummonDuel(c);
   const winner=c.stage==='restoring'&&c.restorationPhase==='travel';
   if(c.stage!=='summonCasting'&&!winner)return;
   // Reiniciar el mismo contenedor 3D (nuevo ciclo de vida), sin crear
@@ -1591,6 +1637,7 @@ function finishNewSummon(c,winner=false){
 }
 
 function resetCombatant(c){
+  releaseSummonDuel(c);
   const shield=c.kind==='shield';
   c.maxHp=shield?7:5;
   c.hp=c.maxHp;
@@ -1711,6 +1758,7 @@ function updateCast(c,dt){
 }
 function beginDeath(c){
   if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
+  releaseSummonDuel(c);
   c.stage='dying';c.deathT=0;c.castTarget=null;c.castFired=true;
   c.deathDuration=Math.max(.65,combatAnimations.get(8)?.duration||1.25);
   c.hitLeft=0;c.stunLeft=0;c.mixer.timeScale=1;
@@ -1791,6 +1839,7 @@ const RESTORE_TRAVEL_SECONDS=.96;
 function startRestoration(c){
   if(!c||c.hp<=0||c.stage==='restoring'||c.stage==='intro'||
      c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead')return false;
+  releaseSummonDuel(c);
   c.stage='restoring';
   c.restorationPhase='dissolve';
   c.restorePhaseT=0;
@@ -1871,11 +1920,9 @@ function applyStun(c){
   c.stage='stunned';c.stunLeft=2.5;c.cooldown=Math.max(c.cooldown,.4);
   // El rival puede golpear durante el aturdimiento. Reducir su espera
   // pendiente evita que se cumplan los 2,5 s sin un segundo ataque.
-  const opponents=combatants.filter(other=>other.side!==c.side&&
-    (other.stage==='active'||other.stage==='casting'));
-  for(const opponent of opponents){
+  const opponent=currentSummonDuel(c);
+  if(opponent&&(opponent.stage==='active'||opponent.stage==='casting'))
     opponent.cooldown=Math.min(opponent.cooldown,.15);
-  }
   makeFloatingWord(c,'ATURDIDO');
   qs('#phase').textContent='★ ATURDIDO · efecto aplicado (PDA 50 %)';
 }
@@ -2011,6 +2058,7 @@ function tryEvasion(target,attacker,impactCell){
   target.manaTimer=0;
   // Se reserva inmediatamente el destino lógico, pero el modelo desaparece
   // del origen y reaparece en destino en una transición visible de 0,45 s.
+  releaseSummonDuel(target);
   target.stage='teleporting';
   target.castTarget=null;target.hitLeft=0;
   const portalClip=combatAnimations.get(14);
@@ -2026,7 +2074,8 @@ function tryEvasion(target,attacker,impactCell){
 // La tirada PDA es independiente por cada impacto efectivo del enemigo.
 // Estar protegido por escudo no convierte el impacto en una restauración.
 function damage(target,value,source){
-  if(matchRestartLeft!==null||!canDamageTarget(target))return false;
+  if(matchRestartLeft!==null||!canDamageTarget(target)||
+     !canAttackSummonTarget(source,target))return false;
   if(target.role==='caster'){
     target.hp=Math.max(0,target.hp-value);
     if(target.hp===0){
@@ -2165,7 +2214,8 @@ function updateMagic(dt){
     m.core.scale.setScalar(1+.18*Math.sin(m.age*21));
     if(a>=1){
       // La evasión sucede justo antes del contacto, nunca después del daño.
-      if(m.target.role!=='caster'&&m.target.stage==='active')
+      if(m.target.role!=='caster'&&m.target.stage==='active'&&
+         canAttackSummonTarget(m.attacker,m.target))
         tryEvasion(m.target,m.attacker,m.impactCell);
       spawnImpact(m.aimX,m.aimZ,m.area,m.attacker.side==='enemy');
       if(m.area){
