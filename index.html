@@ -225,7 +225,7 @@ function setupArmTuning(){
 // Guardamos los cuaterniones SIN AJUSTE inmediatamente después de que el
 // AnimationMixer actualiza la pose. Esto evita acumulaciones entre fotogramas.
 function captureOriginalArmPose(){
-  if(!rightUpperArmBone||!rightForearmBone)return;
+  if(currentCharacter!=='farolera'||!rightUpperArmBone||!rightForearmBone)return;
   upperArmMixerPose.copy(rightUpperArmBone.quaternion);
   forearmMixerPose.copy(rightForearmBone.quaternion);
   armMixerPoseValid=true;
@@ -251,7 +251,7 @@ function applyJointLift(bone,child,degrees){
   model.updateMatrixWorld(true);
 }
 function previewArmAngles(){
-  if(!armMixerPoseValid||activeAnimation!==12||
+  if(currentCharacter!=='farolera'||!armMixerPoseValid||activeAnimation!==12||
      !rightUpperArmBone||!rightForearmBone||!rightHandBone)return;
   // Restaurar la pose original antes de cada previsualización, también
   // cuando el usuario mueve los controles mientras está en pausa.
@@ -656,6 +656,8 @@ async function switchCharacter(character){
       document.querySelector('#lampReset').disabled=false;
       setupArmTuning();setupLantern();
     }else{
+      armMixerPoseValid=false;
+      rightUpperArmBone=null;rightForearmBone=null;rightHandBone=null;
       document.querySelector('#rightArmTuning').style.display='none';
       document.querySelector('#physics').disabled=true;
       document.querySelector('#lampReset').disabled=true;
