@@ -23,6 +23,27 @@ canvas{display:block;touch-action:none}
 #bottom button{background:#17434b;border:1px solid #299d9c;color:#f5ffff;border-radius:22px;padding:10px 12px;font-size:12px;white-space:nowrap;min-height:39px}
 #bottom button.primary{background:#007b75;border-color:var(--mint);font-weight:700}
 #bottom button:disabled{opacity:.5}
+#bottom{flex-wrap:wrap;border-radius:17px}
+#bottom button{padding:8px 10px;min-height:35px}
+#nameplateLayer{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:8}
+.unitTag{position:absolute;width:128px;transform:translate(-50%,-100%);text-align:center;
+  text-shadow:0 1px 3px #000,0 1px 5px #000;will-change:left,top;
+  font-size:11px;color:#fff;font-weight:750}
+.unitName{background:#091720dc;border:1px solid #33797b;border-radius:6px 6px 0 0;padding:2px 4px;white-space:nowrap}
+.unitTag.enemy .unitName{border-color:#e58b9d}
+.unitHealth{height:12px;border:1px solid #d4dde7;border-radius:3px;background:#2c1722;position:relative;overflow:hidden}
+.unitHealthFill{position:absolute;inset:0 auto 0 0;width:100%;background:linear-gradient(90deg,#26bd67,#a9ed68)}
+.unitTag.enemy .unitHealthFill{background:linear-gradient(90deg,#e54d72,#f5a2a9)}
+.unitHealthText{position:relative;font-size:10px;line-height:10px;text-align:center;color:#fff}
+.unitShield{font-size:10px;color:#9feaff;min-height:12px}
+.unitStars{font-size:15px;color:#ffe47a;letter-spacing:1px;line-height:18px;white-space:nowrap}
+#combatReadout{position:fixed;top:calc(env(safe-area-inset-top,0px) + 94px);right:9px;z-index:9;
+  border:1px solid #367f88;border-radius:9px;background:#081c2add;color:#e8fffe;
+  padding:6px 9px;font-size:10px;line-height:1.5;max-width:180px;text-align:right}
+@media(max-width:759px){#phase,#hint{bottom:calc(env(safe-area-inset-bottom,0px) + 130px)}
+#combatReadout{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 174px);right:8px;max-width:144px;font-size:9px}
+.unitTag{width:106px}}
+
 #phase{position:fixed;z-index:9;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);padding:6px 10px;border:1px solid #277b78;border-radius:9px;background:#081925d9;font-size:11px;font-weight:700;color:#ccf7ee}
 #hint{position:fixed;z-index:9;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);font-size:10px;max-width:42vw;color:#d0dfe0;text-align:right;background:#09192599;padding:6px;border-radius:6px}
 @media(min-width:760px){#top{left:16px;transform:none;top:16px}#bottom{bottom:20px}#phase{bottom:20px}#hint{bottom:20px}}
@@ -37,13 +58,13 @@ canvas{display:block;touch-action:none}
 </head>
 <body>
 <aside id="versionProof" aria-label="Versión y dimensiones de la arena">
-<strong>ARENA v0.6.2</strong>
+<strong>ARENA v0.7.0</strong>
 <span id="gridProof">Verificando casillas…</span>
 <small>Prueba 2.5D · 31/10/2026</small>
 </aside>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
-    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.6.2</small></div>
+    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.7.0</small></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
@@ -52,10 +73,12 @@ canvas{display:block;touch-action:none}
     <p id="modelStatus">Modelos: cargando…</p>
     <p id="textureStatus">Textura R.O.K.: comprobando…</p>
     <p id="fps">FPS: —</p>
-    <p><b>Secuencia:</b> materialización → avance → golpes → retorno luminoso con partículas → reaparición desde el suelo. Demostración visual sin modificar el combate real.</p>
+    <p><b>Combate experimental:</b> aliada 7 PV, alcance 3, escudo absorbente de 2; rival 5 PV, alcance 5, onda de área de radio 1 y aturdimiento tras restaurarse durante 2,5 s (5 estrellas, -1 cada 0,5 s). Botón para alternar el ataque mágico y el ataque simple. No modifica el combate de R.O.K.</p>
     <p><a href="./index.html" style="color:#00ffe4">Volver al visor de Farolera</a></p>
   </div>
 </section>
+<div id="nameplateLayer" aria-hidden="true"></div>
+<div id="combatReadout">Aliada: ❤️ 7 · alcance 3 · 🛡️ 2<br>Rival: ❤️ 5 · alcance 5 · onda 1</div>
 <div id="phase">Preparando combate…</div>
 <div id="hint">1 dedo: girar · 2 dedos: zoom<br>Arriba: rival · Abajo: aliado</div>
 <div id="bottom">
@@ -63,6 +86,7 @@ canvas{display:block;touch-action:none}
   <button id="pause" disabled>Ⅱ Pausar</button>
   <button id="camera">⌖ Cámara</button>
   <button id="full">▦ Arena</button>
+  <button id="attackMode" class="primary" disabled>✦ Ataque: mágico</button>
 </div>
 <script type="module">
 import * as THREE from 'three';
@@ -494,49 +518,270 @@ function updateStage(t){
   else msg='✓ Restauración completada · próximo avance sin aparición extra';
   qs('#phase').textContent=msg;
 }
+
+/* R.O.K. arena · duelo de prueba v0.7.0. No altera el motor del juego principal. */
+let attackMode='magic';
+const nameplates=new Map();
+const missiles=[],magicImpacts=[];
+const magicSphereGeo=new THREE.SphereGeometry(.115,12,9);
+const magicSphereMaterial=new THREE.MeshBasicMaterial({color:0xf1fdff});
+const impactGeo=new THREE.RingGeometry(.90,1.0,48);
+const waveMaterial=new THREE.MeshBasicMaterial({color:0xea88ff,transparent:true,opacity:.8,depthWrite:false,side:THREE.DoubleSide});
+const attackModeButton=qs('#attackMode');
+function renderAttackMode(){
+  attackModeButton.textContent=attackMode==='magic'?'✦ Ataque: mágico':'➜ Ataque: simple';
+  attackModeButton.setAttribute('aria-pressed',String(attackMode==='magic'));
+}
+attackModeButton.addEventListener('click',()=>{
+  if(!loaded)return;
+  attackMode=attackMode==='magic'?'basic':'magic';
+  renderAttackMode();
+  qs('#phase').textContent=attackMode==='magic'?'✦ Ataques mágicos habilitados':'➜ Ataques simples habilitados';
+});
+function makeNameplate(c){
+  const el=document.createElement('div');
+  el.className='unitTag '+(c.side==='enemy'?'enemy':'ally');
+  el.innerHTML='<div class="unitName"></div><div class="unitHealth"><div class="unitHealthFill"></div><div class="unitHealthText"></div></div><div class="unitShield"></div><div class="unitStars"></div>';
+  qs('#nameplateLayer').appendChild(el);nameplates.set(c,el);
+}
+function updateNameplate(c){
+  const el=nameplates.get(c);if(!el)return;
+  el.querySelector('.unitName').textContent=c.side==='ally'?'Farolera aliada':'Farolera rival';
+  const pct=THREE.MathUtils.clamp(c.hp/c.maxHp,0,1)*100;
+  el.querySelector('.unitHealthFill').style.width=pct+'%';
+  el.querySelector('.unitHealthText').textContent=c.hp+' / '+c.maxHp+' PV';
+  el.querySelector('.unitShield').textContent=c.shield>0?'🛡️ Escudo: '+c.shield+' / '+c.shieldMax:(c.shieldMax?'Escudo agotado':'Rango '+c.range+' · área 1');
+  const stars=c.stage==='stunned'?Math.min(5,Math.max(0,Math.ceil((c.stunLeft-1e-5)/.5))):0;
+  el.querySelector('.unitStars').textContent=stars?'★'.repeat(stars):'';
+  el.querySelector('.unitStars').title=stars?'Aturdimiento: '+c.stunLeft.toFixed(1)+' segundos':'';
+  const pos=new THREE.Vector3(0,2.18*Math.max(.5,c.model.scale.x/c.model.userData.baseScale)+c.model.position.y,c.outer.position.z);
+  // El movimiento real del modelo se proyecta encima de su cabeza.
+  c.outer.localToWorld(pos);
+  pos.project(camera);
+  if(pos.z<-1||pos.z>1||Math.abs(pos.x)>1.7||Math.abs(pos.y)>1.7){
+    el.style.display='none';return;
+  }
+  el.style.display='block';
+  el.style.left=((pos.x*.5+.5)*innerWidth)+'px';
+  el.style.top=((-pos.y*.5+.5)*innerHeight)+'px';
+}
+function resetCombatant(c){
+  c.maxHp=c.side==='ally'?7:5;
+  c.hp=c.maxHp;
+  c.shieldMax=c.side==='ally'?2:0;
+  c.shield=c.shieldMax;
+  c.range=c.side==='ally'?3:5;
+  c.attackDamage=c.side==='ally'?2:1;
+  c.speed=c.side==='ally'?2.4:2.15;
+  c.stage='intro';c.introT=0;
+  c.restoringT=0;c.stunLeft=0;c.postRestoreStun=0;
+  c.cooldown=c.side==='enemy'?.20:.65;
+  c.specialCooldown=0;
+  c.baseEndZ=c.endZ;
+  c.outer.position.z=c.startZ;
+  c.model.position.y=0;
+  c.model.scale.setScalar(c.model.userData.baseScale);
+  resetRestorationFx(c);
+  resetLampDynamics(c);
+}
+function resetDemoCombat(){
+  for(const p of missiles){root.remove(p.group);}
+  missiles.length=0;
+  for(const p of magicImpacts){root.remove(p.group);}
+  magicImpacts.length=0;
+  combatants.forEach(resetCombatant);
+  qs('#phase').textContent='✦ Materializando ambas Faroleras';
+}
+function startRestoration(c,stun=false){
+  if(c.stage==='restoring'||c.stage==='intro')return;
+  c.stage='restoring';
+  c.restoringT=0;
+  c.endZ=c.outer.position.z; // Restaurar desde el punto REAL del impacto.
+  c.postRestoreStun=stun?2.5:0;
+  c.cooldown=.6;
+  resetRestorationFx(c);
+  if(c.pendV)c.pendV.y+=(c.side==='ally'?-1:1)*1.8;
+}
+function damage(target,value,withStun=false){
+  if(target.stage!=='active')return;
+  const absorbed=Math.min(target.shield,value);
+  target.shield-=absorbed;
+  target.hp=Math.max(0,target.hp-(value-absorbed));
+  if(target.pendV){
+    target.pendV.y+=(target.side==='ally'?-1:1)*2;
+    target.pendV.x+=.6;
+  }
+  if(target.hp===0||withStun){
+    startRestoration(target,withStun);
+  }
+}
+function spawnImpact(z,aoe,enemySpell){
+  const group=new THREE.Group();root.add(group);
+  group.position.set(0,.085,z);
+  const ring=new THREE.Mesh(aoe?impactGeo:new THREE.RingGeometry(.13,.2,36),
+    waveMaterial.clone());
+  ring.rotation.x=-Math.PI/2;
+  ring.material.color.setHex(enemySpell?0xd89bff:0x90f8ff);
+  group.add(ring);
+  const burst=new THREE.Sprite(new THREE.SpriteMaterial({
+    map:glowTexture,color:enemySpell?0xdc9bff:0x68fff0,
+    transparent:true,opacity:.7,blending:THREE.AdditiveBlending,depthWrite:false
+  }));
+  burst.position.y=.45;burst.scale.set(.9,.9,1);group.add(burst);
+  magicImpacts.push({group,ring,burst,t:0,aoe});
+}
+function launchSpell(attacker,target){
+  const isMagic=attackMode==='magic';
+  const area=attacker.side==='enemy'&&isMagic&&attacker.specialCooldown<=0;
+  // La magia rival tiene una descarga especial de área y restauración aturdida.
+  if(area)attacker.specialCooldown=7.5;
+  const group=new THREE.Group();root.add(group);
+  group.position.set(0,1.03,attacker.outer.position.z);
+  const core=new THREE.Mesh(magicSphereGeo,magicSphereMaterial.clone());
+  core.material.color.setHex(attacker.side==='ally'?0x8ffff1:(area?0xf7b4ff:0xffdbbf));
+  group.add(core);
+  const halo=new THREE.Sprite(new THREE.SpriteMaterial({
+    map:glowTexture,color:attacker.side==='ally'?0x00ffe4:0xd3a1ff,
+    opacity:.87,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false
+  }));
+  halo.scale.set(.64,.64,1);group.add(halo);
+  missiles.push({group,core,halo,target,attacker,age:0,duration:Math.max(.32,Math.abs(attacker.outer.position.z-target.outer.position.z)/9.5),area});
+  if(attacker.pendV)attacker.pendV.y+=(attacker.side==='ally'?1:-1)*.7;
+}
+function updateMagic(dt){
+  for(let i=missiles.length-1;i>=0;i--){
+    const m=missiles[i];m.age+=dt;
+    const a=THREE.MathUtils.clamp(m.age/m.duration,0,1);
+    const startZ=m.attacker.outer.position.z;
+    m.group.position.z=THREE.MathUtils.lerp(startZ,m.target.outer.position.z,a);
+    m.group.position.y=1.03+Math.sin(Math.PI*a)*.25;
+    m.core.scale.setScalar(1+.18*Math.sin(m.age*21));
+    if(a>=1){
+      if(m.target.stage==='active'){
+        spawnImpact(m.target.outer.position.z,m.area,m.attacker.side==='enemy');
+        damage(m.target,m.attacker.attackDamage,m.area);
+        if(m.area)qs('#phase').textContent='✦ Onda mágica radio 1 · restauración aturdida';
+      }else{
+        spawnImpact(m.group.position.z,false,false);
+      }
+      root.remove(m.group);m.group.traverse(o=>{if(o.material)o.material.dispose?.()});
+      missiles.splice(i,1);
+    }
+  }
+  for(let i=magicImpacts.length-1;i>=0;i--){
+    const fx=magicImpacts[i];fx.t+=dt;
+    const a=THREE.MathUtils.clamp(fx.t/.55,0,1);
+    fx.ring.scale.setScalar(fx.aoe?.35+.65*ease(a):.55+2*ease(a));
+    fx.ring.material.opacity=(1-a)*.80;
+    fx.burst.material.opacity=(1-a)*.7;
+    fx.burst.scale.setScalar(.55+1.6*a);
+    if(a>=1){
+      root.remove(fx.group);
+      fx.group.traverse(o=>{if(o.material)o.material.dispose?.()});
+      magicImpacts.splice(i,1);
+    }
+  }
+}
+function updateDuel(dt){
+  // Cada unidad tiene su propio ciclo: los proyectiles no alteran
+  // el esqueleto Idle ni se repite la animación de aparición inicial.
+  for(const c of combatants){
+    c.mixer.update(dt);
+    if(c.stage==='intro'){
+      c.introT=Math.min(1.4,c.introT+dt);
+      animateFighter(c,c.introT);
+      updateRestorationFx(c,dt,c.introT);
+      if(c.introT>=1.4)c.stage='active';
+    }else if(c.stage==='restoring'){
+      c.restoringT=Math.min(1.75,c.restoringT+dt);
+      const virtualT=8.2+c.restoringT;
+      animateFighter(c,virtualT);
+      updateRestorationFx(c,dt,virtualT);
+      if(c.restoringT>=1.75){
+        c.hp=c.maxHp;c.shield=c.shieldMax;
+        c.endZ=c.baseEndZ;
+        c.model.scale.setScalar(c.model.userData.baseScale);
+        c.model.position.y=0;
+        c.outer.position.z=c.startZ;
+        c.stunLeft=c.postRestoreStun;
+        c.stage=c.stunLeft>0?'stunned':'active';
+        resetLampDynamics(c);
+      }
+    }else if(c.stage==='stunned'){
+      c.stunLeft=Math.max(0,c.stunLeft-dt);
+      c.mixer.timeScale=.5;
+      updateRestorationFx(c,dt,12);
+      if(c.stunLeft<=0){
+        c.stage='active';c.mixer.timeScale=1;
+        c.cooldown=.45;
+      }
+    }else{
+      c.mixer.timeScale=1;
+      updateRestorationFx(c,dt,12);
+      c.cooldown-=dt;
+      c.specialCooldown=Math.max(0,c.specialCooldown-dt);
+    }
+    updateLamp(c,dt,0);
+  }
+  const ally=combatants.find(c=>c.side==='ally');
+  const enemy=combatants.find(c=>c.side==='enemy');
+  if(!ally||!enemy)return;
+  for(const c of combatants){
+    if(c.stage!=='active')continue;
+    const target=c.side==='ally'?enemy:ally;
+    // Contra una unidad que se restaura o está aturdida, se sigue
+    // avanzando pero no se la golpea hasta que vuelva al combate.
+    const distance=Math.abs(c.outer.position.z-target.outer.position.z);
+    const sign=c.side==='ally'?-1:1;
+    if(distance>c.range+.005){
+      const step=Math.min(c.speed*dt,Math.max(0,distance-c.range));
+      const cap=c.side==='ally'?-8.2:8.2;
+      const next=c.outer.position.z+sign*step;
+      c.outer.position.z=c.side==='ally'?Math.max(next,cap):Math.min(next,cap);
+    }else if(target.stage==='active'&&c.cooldown<=0){
+      launchSpell(c,target);
+      c.cooldown=c.side==='ally'?1.35:1.75;
+    }
+  }
+  updateMagic(dt);
+  const stunned=combatants.find(c=>c.stage==='stunned');
+  if(stunned){
+    const count=Math.min(5,Math.ceil((stunned.stunLeft-1e-5)/.5));
+    qs('#phase').textContent='★ Aturdimiento '+count+'/5 · '+stunned.stunLeft.toFixed(1)+' s';
+  }else if(combatants.some(c=>c.stage==='restoring')){
+    qs('#phase').textContent='✧ Restauración luminosa y reaparición';
+  }else if(missiles.length){
+    qs('#phase').textContent=attackMode==='magic'?'✦ Intercambio de hechizos mágicos':'➜ Ataques simples a distancia';
+  }else if(combatants.every(c=>c.stage==='active')){
+    qs('#phase').textContent='➜ Avance según alcance: 3 / 5 casillas';
+  }
+  for(const c of combatants)updateNameplate(c);
+  qs('#combatReadout').innerHTML='Aliada: ❤️ '+ally.hp+'/7 · '+ally.range+' casillas · 🛡️ '+ally.shield+'/2<br>Rival: ❤️ '+enemy.hp+'/5 · '+enemy.range+' casillas · ✦ área 1';
+}
+
 new GLTFLoader().load('./chiara_idle.glb',g=>{
   if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
   const a=createFighter(g.scene,g.animations[0],'ally');
   const b=createFighter(g.scene,g.animations[0],'enemy');
   for(const c of [a,b])c.model.userData.baseScale=c.model.scale.x;
-  loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · demostración automática';
+  for(const c of combatants){makeNameplate(c);resetCombatant(c);}
+  attackModeButton.disabled=false;renderAttackMode();
+  hits.visible=false;
+  loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
   qs('#modelStatus').textContent='2 Faroleras · '+g.animations.length+' Idle · física de lámpara: '+combatants.filter(c=>c.lamp).length+'/2 detectadas. '+combatants.map(c=>c.side+': '+c.lampNode).join(' · ');
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
 },e=>{if(e.total)qs('#sceneStatus').textContent='Cargando modelo '+Math.round(e.loaded/e.total*100)+'%';},err=>{
   qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
   console.error(err);
 });
-qs('#repeat').onclick=()=>{
-  tm=0;playing=true;qs('#pause').textContent='Ⅱ Pausar';
-  for(const c of combatants){
-    resetRestorationFx(c);
-    resetLampDynamics(c);
-  }
-};
+qs('#repeat').onclick=()=>{playing=true;qs('#pause').textContent='Ⅱ Pausar';resetDemoCombat();};
 qs('#pause').onclick=()=>{playing=!playing;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';};
 let fpsTime=0,fpsCount=0;
 function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
-  if(loaded&&playing){
-    tm+=dt;
-    if(tm>=DURATION){
-      // Cada restauración YA incluye la reaparición. No ejecutar otra
-      // materialización al reiniciar: continuar desde la fase de avance.
-      tm=LOOP_RESTART_AT+(tm-DURATION);
-      for(const c of combatants){
-        resetRestorationFx(c);
-        resetLampDynamics(c);
-      }
-    }
-    for(const c of combatants)c.mixer.update(dt);
-    for(const c of combatants){
-      animateFighter(c,tm);
-      updateRestorationFx(c,dt,tm);
-      updateLamp(c,dt,tm);
-    }
-    hitEffects(tm);updateStage(tm);
-  }
+  if(loaded&&playing){updateDuel(dt);}
+  if(loaded){for(const c of combatants)updateNameplate(c);}
   controls.update();renderer.render(scene,camera);
   fpsTime+=dt;fpsCount++;if(fpsTime>=1){qs('#fps').textContent='FPS: '+Math.round(fpsCount/fpsTime);fpsTime=0;fpsCount=0;}
 }
