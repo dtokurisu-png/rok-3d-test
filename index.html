@@ -151,7 +151,7 @@ const animSelection=document.querySelector('#animSelection');
 const fbxLoader=new FBXLoader();
 let idleOriginal=null,activeAnimation=null,activeAction=null;
 let loadingAnimations=false;
-const normBone=n=>String(n).replace(/.*[\\/|]/g,'').replace(/^.*?mixamorig[:_]?/i,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
+const normBone=n=>String(n).replace(/.*[\/\\|]/g,'').replace(/^.*?mixamorig[:_]?/i,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
 function makeBoneLookup(){
   const names=new Map();
   if(model)model.traverse(o=>{if(o.isBone)names.set(normBone(o.name),o.name);});
@@ -185,7 +185,7 @@ function renderAnimList(){
       (activeAnimation===row.index?'active':'');
     const play=document.createElement('button');
     play.type='button';play.disabled=!row.clip||!model;
-    play.textContent=String(row.index).padStart(2,'0')+' · '+row.name.replace(/\\.fbx$/i,'');
+    play.textContent=String(row.index).padStart(2,'0')+' · '+row.name.replace(/\.fbx$/i,'');
     play.title=row.details||'Carga el ZIP para reproducir esta animación';
     play.addEventListener('click',()=>playAnimation(row.index));
     const state=document.createElement('span');state.className='animNo';
@@ -253,7 +253,7 @@ document.querySelector('#animClear').addEventListener('click',()=>{
   renderAnimList();renderSelection();
 });
 function identifyAnimation(name){
-  const clean=name.replace(/.*[\\/]/g,'');
+  const clean=name.replace(/.*[\/\\]/g,'');
   let row=animationRows.find(a=>a.name.toLowerCase()===clean.toLowerCase());
   if(!row){
     row={index:animationRows.length+1,name:clean,clip:null,status:'pending',details:'',keep:false};
@@ -266,7 +266,7 @@ async function importAnimation(name,buffer){
   try{
     const source=fbxLoader.parse(buffer,'');
     if(!source.animations?.length)throw Error('FBX sin clip de animación');
-    const adapted=makeAnimationClip(source.animations[0],row.name.replace(/\\.fbx$/i,''));
+    const adapted=makeAnimationClip(source.animations[0],row.name.replace(/\.fbx$/i,''));
     if(row.clip&&mixer)mixer.uncacheClip(row.clip);
     row.clip=adapted.clip;row.status='ok';
     row.details=adapted.matched+' huesos animados · '+row.clip.duration.toFixed(2)+' s';
@@ -294,18 +294,18 @@ document.querySelector('#animFiles').addEventListener('change',async e=>{
   loadingAnimations=true;let attempted=0;
   try{
     for(const file of files){
-      if(/\\.zip$/i.test(file.name)){
+      if(/\.zip$/i.test(file.name)){
         if(!window.JSZip)throw Error('No se pudo cargar el lector ZIP. Comprueba Internet o usa archivos FBX.');
         const zip=await window.JSZip.loadAsync(file);
-        const entries=Object.values(zip.files).filter(v=>!v.dir&&/\\.fbx$/i.test(v.name));
+        const entries=Object.values(zip.files).filter(v=>!v.dir&&/\.fbx$/i.test(v.name));
         if(!entries.length)throw Error('No se encontraron archivos FBX en el ZIP.');
         for(const entry of entries){
           attempted++;
-          animMessage.textContent='Vinculando '+attempted+' de '+entries.length+' · '+entry.name.replace(/.*[\\/]/g,'');
+          animMessage.textContent='Vinculando '+attempted+' de '+entries.length+' · '+entry.name.replace(/.*[\/\\]/g,'');
           await new Promise(resolve=>setTimeout(resolve,0));
           await importAnimation(entry.name,await entry.async('arraybuffer'));
         }
-      }else if(/\\.fbx$/i.test(file.name)){
+      }else if(/\.fbx$/i.test(file.name)){
         attempted++;
         animMessage.textContent='Vinculando '+file.name;
         await importAnimation(file.name,await file.arrayBuffer());
