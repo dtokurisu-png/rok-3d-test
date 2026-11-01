@@ -37,13 +37,13 @@ canvas{display:block;touch-action:none}
 </head>
 <body>
 <aside id="versionProof" aria-label="Versión y dimensiones de la arena">
-<strong>ARENA v0.5.4</strong>
+<strong>ARENA v0.6.0</strong>
 <span id="gridProof">Verificando casillas…</span>
 <small>Prueba 2.5D · 31/10/2026</small>
 </aside>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
-    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.5.4</small></div>
+    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.6.0</small></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
@@ -52,7 +52,7 @@ canvas{display:block;touch-action:none}
     <p id="modelStatus">Modelos: cargando…</p>
     <p id="textureStatus">Textura R.O.K.: comprobando…</p>
     <p id="fps">FPS: —</p>
-    <p><b>Secuencia:</b> materialización → avance → intercambio de golpes → restauración. Demostración visual sin cambiar las reglas reales.</p>
+    <p><b>Secuencia:</b> materialización → avance → golpes → retorno luminoso con partículas → reaparición desde el suelo. Demostración visual sin modificar el combate real.</p>
     <p><a href="./index.html" style="color:#00ffe4">Volver al visor de Farolera</a></p>
   </div>
 </section>
@@ -169,6 +169,84 @@ marker(8.5,0x00ffe4);marker(-8.5,0xff8f9b);
 const ease=x=>{x=THREE.MathUtils.clamp(x,0,1);return x*x*(3-2*x)};
 const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
 const combatants=[];
+// Textura procedural circular para partículas. Se comparte entre ambos personajes
+// y evita cargar imágenes o crear geometrías en cada fotograma.
+function createGlowTexture(){
+  const canvas=document.createElement('canvas');
+  canvas.width=64;canvas.height=64;
+  const ctx=canvas.getContext('2d');
+  const grad=ctx.createRadialGradient(32,32,2,32,32,31);
+  grad.addColorStop(0,'rgba(255,255,255,1)');
+  grad.addColorStop(.25,'rgba(255,255,255,.9)');
+  grad.addColorStop(.60,'rgba(255,255,255,.25)');
+  grad.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(canvas);
+}
+const glowTexture=createGlowTexture();
+function makeRestorationFx(color){
+  const glow=new THREE.Sprite(new THREE.SpriteMaterial({
+    map:glowTexture,color,opacity:0,transparent:true,
+    blending:THREE.AdditiveBlending,depthWrite:false
+  }));
+  glow.scale.set(2.1,2.5,1);glow.visible=false;root.add(glow);
+  // Pool de partículas reutilizables, pensado para navegadores móviles.
+  const particles=[];
+  for(let i=0;i<38;i++){
+    const sprite=new THREE.Sprite(new THREE.SpriteMaterial({
+      map:glowTexture,color,opacity:0,transparent:true,
+      blending:THREE.AdditiveBlending,depthWrite:false
+    }));
+    sprite.visible=false;root.add(sprite);
+    particles.push({sprite,age:0,life:1,base:0,size:0,vy:0,vz:0,active:false});
+  }
+  return {glow,particles,head:0,emission:0};
+}
+function resetRestorationFx(c){
+  if(!c.restorationFx)return;
+  c.restorationFx.emission=0;
+  c.restorationFx.glow.visible=false;
+  for(const p of c.restorationFx.particles){p.active=false;p.sprite.visible=false;p.sprite.material.opacity=0;}
+}
+function addTrailParticle(c){
+  const fx=c.restorationFx;
+  const p=fx.particles[fx.head];fx.head=(fx.head+1)%fx.particles.length;
+  p.active=true;p.age=0;p.life=.65+Math.random()*.56;
+  p.base=.48+Math.random()*.38;p.size=.14+Math.random()*.15;
+  p.vy=.26+Math.random()*.36;
+  p.vz=(c.startZ-c.endZ)>0?.22:-.22;
+  p.sprite.position.set((Math.random()-.5)*.53,
+    .25+Math.random()*.95,c.outer.position.z+(Math.random()-.5)*.28);
+  p.sprite.scale.setScalar(p.size);p.sprite.material.opacity=p.base;
+  p.sprite.visible=true;
+}
+function updateRestorationFx(c,dt,t){
+  const fx=c.restorationFx;
+  const traveling=t>=8.55&&t<10.35;
+  if(traveling){
+    fx.emission+=dt;
+    while(fx.emission>=.055){fx.emission-=.055;addTrailParticle(c);}
+  }else{fx.emission=0;}
+  const flash=t>=8.2&&t<8.75?Math.sin(Math.PI*(t-8.2)/.55):
+    traveling?.52*(1-(t-8.55)/1.8):
+    t>=10.35&&t<11.7?.35*(1-(t-10.35)/1.35):0;
+  fx.glow.visible=flash>.003;
+  fx.glow.material.opacity=Math.max(0,flash)*.62;
+  fx.glow.position.set(0,.83,c.outer.position.z);
+  const size=2.0+flash*.8;
+  fx.glow.scale.set(size,size*1.25,1);
+  for(const p of fx.particles){
+    if(!p.active)continue;
+    p.age+=dt;
+    const u=p.age/p.life;
+    if(u>=1){p.active=false;p.sprite.visible=false;continue;}
+    p.sprite.position.y+=p.vy*dt;
+    p.sprite.position.z+=p.vz*dt;
+    p.sprite.material.opacity=p.base*Math.pow(1-u,1.65);
+    const scale=p.size*(1+.6*u);
+    p.sprite.scale.set(scale,scale,1);
+  }
+}
 const sphereGeo=new THREE.SphereGeometry(1,10,8);
 function makeFx(color){
   const g=new THREE.Group();root.add(g);
@@ -238,43 +316,101 @@ function createFighter(baseScene,clip,side){
     if(o.isMesh){
       o.frustumCulled=false;
       const arr=Array.isArray(o.material)?o.material:[o.material];
-      const copied=arr.map(m=>{const n=m.clone();n.transparent=true;n.depthWrite=true;n.userData.baseOpacity=m.opacity??1;mats.push(n);return n});
+      const copied=arr.map(m=>{
+        const n=m.clone();n.transparent=true;n.depthWrite=false;
+        n.userData.baseOpacity=m.opacity??1;
+        if(n.emissive&&n.emissive.isColor){
+          n.userData.baseEmissive=n.emissive.clone();
+          n.userData.baseEmissiveIntensity=n.emissiveIntensity??1;
+        }
+        mats.push(n);return n;
+      });
       o.material=Array.isArray(o.material)?copied:copied[0];
     }
   });
   const mixer=new THREE.AnimationMixer(model);mixer.clipAction(clip).play();
-  const fx=makeFx(side==='ally'?0x00ffe4:0xff869c);
-  const c={side,outer,model,startZ,endZ:side==='ally'?.72:-.72,mixer,mats,fx,lamp:null,pend:null};
+  const color=side==='ally'?0x00ffe4:0xff869c;
+  const fx=makeFx(color);
+  const restorationFx=makeRestorationFx(color);
+  const c={side,outer,model,startZ,endZ:side==='ally'?.72:-.72,mixer,mats,fx,restorationFx,
+    glowColor:new THREE.Color(color),lamp:null,pend:null};
   combatants.push(c);initLamp(c);return c;
 }
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
-const DURATION=12;
+const DURATION=13.2;
 const eventTimes=[6.08,6.76,7.42];
 function bump(t,at,width){return Math.exp(-Math.pow((t-at)/width,2));}
-function setOpacity(c,a){for(const m of c.mats)m.opacity=m.userData.baseOpacity*a;}
+function setAppearance(c,opacity,brightness){
+  for(const m of c.mats){
+    m.opacity=m.userData.baseOpacity*opacity;
+    if(m.userData.baseEmissive&&m.emissive){
+      m.emissive.copy(m.userData.baseEmissive).lerp(c.glowColor,brightness);
+      m.emissiveIntensity=m.userData.baseEmissiveIntensity+brightness*1.8;
+    }
+  }
+}
 function animateFighter(c,t){
   const u=ease((t-1.4)/4.45);
   const move=u*(c.endZ-c.startZ);
   const combat=t>=5.85&&t<8.2;
   let knock=0;
-  if(combat){for(const h of eventTimes){const b=bump(t,h,.13);knock+=b*(c.side==='ally'? .12:-.12);}}
-  c.outer.position.z=c.startZ+move+knock;
-  let fade=1,spawn=0;
-  if(t<1.4){fade=ease(t/.95);spawn=1-fade;}
-  else if(t<8.2){fade=1;spawn=0;}
-  else if(t<8.9){fade=1-ease((t-8.2)/.66);spawn=1-fade;}
-  else {c.outer.position.z=c.startZ;fade=ease((t-8.9)/.95);spawn=1-fade;}
-  // El modelo completo emerge al materializarse; la animación Idle sigue reproduciéndose.
-  c.model.position.y=-(1-fade)*.38;
-  const scale=fade*.15+.85;c.model.scale.setScalar(c.model.userData.baseScale*scale);
-  setOpacity(c,Math.max(0,fade));
-  c.fx.g.position.set(0,.08,c.outer.position.z);
-  const matPulse=t<1.4?1-ease(t/1.4):t>8.1&&t<10.0?1-Math.abs((t-9.05)/.95):0;
-  const amount=clamp(matPulse,0,1);
-  c.fx.ring.scale.setScalar(.75+(1-amount)*1.9);c.fx.ring.material.opacity=.80*amount;
+  if(combat){
+    for(const h of eventTimes){
+      const b=bump(t,h,.13);
+      knock+=b*(c.side==='ally'?.12:-.12);
+    }
+  }
+  let z=c.startZ+move+knock;
+  let opacity=1,scale=1,height=0,glow=0;
+  if(t<1.4){
+    // Aparición inicial desde el suelo.
+    const a=ease(clamp(t/1.32));
+    opacity=a;scale=.25+.75*a;height=-1.30*(1-a);
+  }else if(t<8.2){
+    // Avance y combate: tamaño y transparencia normales.
+  }else if(t<8.55){
+    // Destello tras el combate, antes de iniciar la retirada.
+    const a=ease((t-8.2)/.35);
+    glow=.55+.45*Math.sin(Math.PI*a);
+    opacity=1-.13*a;
+    height=.06*Math.sin(Math.PI*a);
+    z=c.endZ;
+  }else if(t<10.35){
+    // Regreso visible hasta la casilla original, cada vez más pequeño.
+    const a=ease((t-8.55)/1.8);
+    z=THREE.MathUtils.lerp(c.endZ,c.startZ,a);
+    scale=1-.86*a;
+    opacity=.87-.78*a;
+    height=.12+Math.sin(Math.PI*a)*.24;
+    glow=.72*(1-a)+.08;
+  }else if(t<11.7){
+    // En el punto de origen se materializa emergiendo del suelo.
+    const a=ease((t-10.35)/1.35);
+    z=c.startZ;
+    opacity=.09+.91*a;
+    scale=.14+.86*a;
+    height=-1.6*(1-a);
+    glow=.43*(1-a);
+  }else{
+    z=c.startZ;
+  }
+  c.outer.position.z=z;
+  c.model.position.y=height;
+  c.model.scale.setScalar(c.model.userData.baseScale*scale);
+  setAppearance(c,Math.max(0,opacity),Math.max(0,glow));
+  c.fx.g.position.set(0,.08,z);
+  const spawnPulse=t<1.4?1-ease(t/1.4):
+    t>=10.35&&t<11.85?1-ease((t-10.35)/1.5):0;
+  const returnPulse=t>=8.2&&t<10.35?.40*Math.sin(Math.PI*(t-8.2)/2.15):0;
+  const amount=clamp(Math.max(spawnPulse,returnPulse),0,1);
+  c.fx.ring.scale.setScalar(.75+(1-amount)*1.9);
+  c.fx.ring.material.opacity=.8*amount;
   c.fx.disc.material.opacity=.42*amount;
   c.fx.beam.material.opacity=.24*amount;
-  c.fx.sparks.forEach((p,j)=>{p.material.opacity=.8*amount;p.position.y=.1+(j%4)*.2+(1-amount)*.62;});
+  c.fx.sparks.forEach((p,j)=>{
+    p.material.opacity=.8*amount;
+    p.position.y=.1+(j%4)*.2+(1-amount)*.62;
+  });
 }
 const hits=new THREE.Group();root.add(hits);
 const hitA=new THREE.Mesh(new THREE.RingGeometry(.14,.23,48),new THREE.MeshBasicMaterial({color:0xe7ffff,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));hits.add(hitA);
@@ -296,8 +432,10 @@ function updateStage(t){
   if(t<1.4)msg='✦ Materializando ambas Faroleras';
   else if(t<5.85)msg='➜ Avanzando por las 9 filas propias hacia el rival';
   else if(t<8.2)msg='⚔ Encuentro · combate de prueba';
-  else if(t<9.9)msg='✧ Restaurando ambas unidades';
-  else msg='✓ Listas para otra ronda';
+  else if(t<8.55)msg='✦ Brillo de restauración tras el combate';
+  else if(t<10.35)msg='✧ Retorno al origen · estela de partículas';
+  else if(t<11.7)msg='✦ Reapareciendo desde el suelo';
+  else msg='✓ Restauración completada';
   qs('#phase').textContent=msg;
 }
 new GLTFLoader().load('./chiara_idle.glb',g=>{
@@ -312,17 +450,31 @@ new GLTFLoader().load('./chiara_idle.glb',g=>{
   qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
   console.error(err);
 });
-qs('#repeat').onclick=()=>{tm=0;playing=true;qs('#pause').textContent='Ⅱ Pausar';for(const c of combatants){c.prev=c.lamp?.getWorldPosition(new THREE.Vector3())||null;c.vPrev?.set(0,0,0);c.pend?.set(0,0);c.pendV?.set(0,0);}};
+qs('#repeat').onclick=()=>{
+  tm=0;playing=true;qs('#pause').textContent='Ⅱ Pausar';
+  for(const c of combatants){
+    resetRestorationFx(c);
+    c.prev=c.lamp?.getWorldPosition(new THREE.Vector3())||null;
+    c.vPrev?.set(0,0,0);c.pend?.set(0,0);c.pendV?.set(0,0);
+  }
+};
 qs('#pause').onclick=()=>{playing=!playing;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';};
 let fpsTime=0,fpsCount=0;
 function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
   if(loaded&&playing){
-    tm+=dt;if(tm>=DURATION)tm=0;
+    tm+=dt;
+    if(tm>=DURATION){
+      tm=0;
+      for(const c of combatants)resetRestorationFx(c);
+    }
     for(const c of combatants)c.mixer.update(dt);
-    for(const c of combatants)animateFighter(c,tm);
-    for(const c of combatants)updateLamp(c,dt);
+    for(const c of combatants){
+      animateFighter(c,tm);
+      updateRestorationFx(c,dt,tm);
+      updateLamp(c,dt);
+    }
     hitEffects(tm);updateStage(tm);
   }
   controls.update();renderer.render(scene,camera);
