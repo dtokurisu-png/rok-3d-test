@@ -20,9 +20,9 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.0</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.0 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.1</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.1 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo numerado</h3>
-<p>Importa el ZIP de Mixamo desde tu dispositivo. Se leerá en este navegador, sin subir archivos a GitHub. Pulsa el número para probar cada movimiento en la Farolera.</p>
+<p>Importa el ZIP de Mixamo desde tu dispositivo. El adaptador compara el esqueleto original del FBX con el del modelo GLB; pulsa cada número para probar.</p>
 <div class="animImport"><label for="animFiles">📁 Cargar ZIP / FBX</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
 <p id="animMessage" role="status">12 animaciones identificadas en el ZIP recibido · sin asignar a la Farolera.</p>
 <div id="animList"></div>
@@ -34,6 +34,7 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
+import {clone as cloneSkinned,retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 const status=document.querySelector('#status'), details=document.querySelector('#details'),error=document.querySelector('#error'),fps=document.querySelector('#fps'),toggle=document.querySelector('#toggle');
 const mobileToggle=document.querySelector('#mobileToggle'), hud=document.querySelector('.hud');mobileToggle.addEventListener('click',()=>{const closed=hud.classList.toggle('mobile-closed');mobileToggle.textContent=closed?'Mostrar controles':'Ocultar controles';mobileToggle.setAttribute('aria-expanded',String(!closed));});
 // Prueba de desplazamiento amortiguado: la cámara permanece fija; el personaje se mueve sobre Z.
@@ -152,30 +153,71 @@ const fbxLoader=new FBXLoader();
 let idleOriginal=null,activeAnimation=null,activeAction=null;
 let loadingAnimations=false;
 const normBone=n=>String(n).replace(/.*[\/\\|]/g,'').replace(/^.*?mixamorig[:_]?/i,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
-function makeBoneLookup(){
-  const names=new Map();
-  if(model)model.traverse(o=>{if(o.isBone)names.set(normBone(o.name),o.name);});
-  return names;
+// Los FBX y el modelo exportado desde Blender no comparten necesariamente
+// los mismos ejes locales aunque todos sus huesos se llamen mixamorig.
+function findRigSkeleton(root){
+  let longest=null;
+  root.traverse(o=>{
+    if(o.isSkinnedMesh&&o.skeleton&&
+      (!longest||o.skeleton.bones.length>longest.bones.length))longest=o.skeleton;
+  });
+  if(longest)return longest;
+  // También soporta FBX "Without Skin" con un esqueleto sin malla.
+  const bones=[];root.traverse(o=>{if(o.isBone)bones.push(o)});
+  if(bones.length<20)throw Error('No se encontró un esqueleto Mixamo válido en este FBX');
+  return new THREE.Skeleton(bones);
 }
-function makeAnimationClip(sourceClip,displayName){
-  const bones=makeBoneLookup();
-  const tracks=[];let matched=0;
-  for(const track of sourceClip.tracks){
-    const idx=track.name.lastIndexOf('.');
-    if(idx<0)continue;
-    const binding=track.name.slice(idx+1);
-    // Usar las rotaciones óseas en el rig existente y descartar movimientos
-    // de raíz para que las pruebas no desplacen el modelo fuera de la escena.
-    if(binding!=='quaternion')continue;
-    const key=normBone(track.name.slice(0,idx));
-    const boneName=bones.get(key);
-    if(!boneName)continue;
-    const copy=track.clone();
-    copy.name=boneName+'.quaternion';
-    tracks.push(copy);matched++;
+function makeAnimationClip(sourceRoot,sourceClip,displayName){
+  if(!model)throw Error('Primero debe cargarse el GLB de la Farolera');
+  // Trabajar sobre una copia de rig; no alterar el Idle ni el esqueleto real.
+  const targetRoot=cloneSkinned(model);
+  const sourceSkeleton=findRigSkeleton(sourceRoot);
+  const targetSkeleton=findRigSkeleton(targetRoot);
+  const sourceByName=new Map(sourceSkeleton.bones.map(b=>[normBone(b.name),b]));
+  const names={},localOffsets={};
+  sourceSkeleton.pose();targetSkeleton.pose();
+  sourceRoot.updateMatrixWorld(true);targetRoot.updateMatrixWorld(true);
+  let matched=0;
+  for(const dst of targetSkeleton.bones){
+    const src=sourceByName.get(normBone(dst.name));
+    if(!src)continue;
+    names[dst.name]=src.name;
+    // Ajustar cada hueso según las rotaciones globales de sus bind poses.
+    // Copiar directamente cuaterniones FBX -> GLB deformaba torso y brazos.
+    const srcRest=src.getWorldQuaternion(new THREE.Quaternion());
+    const dstRest=dst.getWorldQuaternion(new THREE.Quaternion());
+    localOffsets[dst.name]=new THREE.Matrix4().makeRotationFromQuaternion(
+      srcRest.invert().multiply(dstRest)
+    );
+    matched++;
   }
-  if(matched<15)throw Error('Solo '+matched+' huesos compatibles. Esqueleto o pistas no coincidentes.');
-  return {clip:new THREE.AnimationClip(displayName,-1,tracks),matched,total:sourceClip.tracks.length};
+  if(matched<20)throw Error('Solo '+matched+' huesos coinciden: requiere adaptación específica');
+  sourceRoot.skeleton=sourceSkeleton;targetRoot.skeleton=targetSkeleton;
+  let baked;
+  try{
+    baked=retargetClip(targetRoot,sourceRoot,sourceClip,{
+      fps:30,names,localOffsets,preserveBonePositions:true,
+      // El visor maneja la traslación por separado: solo rotaciones.
+      hip:'__NO_ROOT_TRANSLATION__'
+    });
+  }finally{
+    delete sourceRoot.skeleton;
+    delete targetRoot.skeleton;
+  }
+  // retargetClip emite ".bones[nombre].quaternion", pero el mixer
+  // original tiene una raíz Group, por lo que necesita "nombre.quaternion".
+  const tracks=[];
+  for(const track of baked.tracks){
+    const m=/^\.bones\[(.+)\]\.quaternion$/.exec(track.name);
+    if(!m)continue;
+    const result=track.clone();
+    result.name=m[1]+'.quaternion';
+    tracks.push(result);
+  }
+  if(tracks.length<20)throw Error('La adaptación generó solo '+tracks.length+' pistas');
+  const clip=new THREE.AnimationClip(displayName,-1,tracks);
+  clip.optimize();
+  return {clip,matched:tracks.length,total:sourceClip.tracks.length};
 }
 function renderAnimList(){
   animList.replaceChildren();
@@ -266,10 +308,10 @@ async function importAnimation(name,buffer){
   try{
     const source=fbxLoader.parse(buffer,'');
     if(!source.animations?.length)throw Error('FBX sin clip de animación');
-    const adapted=makeAnimationClip(source.animations[0],row.name.replace(/\.fbx$/i,''));
+    const adapted=makeAnimationClip(source,source.animations[0],row.name.replace(/\.fbx$/i,''));
     if(row.clip&&mixer)mixer.uncacheClip(row.clip);
     row.clip=adapted.clip;row.status='ok';
-    row.details=adapted.matched+' huesos animados · '+row.clip.duration.toFixed(2)+' s';
+    row.details=adapted.matched+' huesos adaptados por pose de referencia · '+row.clip.duration.toFixed(2)+' s';
     // No conservar modelos, texturas ni geometría FBX: solo clips de huesos.
     source.traverse(o=>{
       if(o.geometry)o.geometry.dispose();
