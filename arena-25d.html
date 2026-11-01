@@ -37,13 +37,13 @@ canvas{display:block;touch-action:none}
 </head>
 <body>
 <aside id="versionProof" aria-label="Versión y dimensiones de la arena">
-<strong>ARENA v0.6.1</strong>
+<strong>ARENA v0.6.2</strong>
 <span id="gridProof">Verificando casillas…</span>
 <small>Prueba 2.5D · 31/10/2026</small>
 </aside>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
-    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.6.1</small></div>
+    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.6.2</small></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
@@ -266,40 +266,97 @@ function makeFx(color){
   return {g,ring,disc,beam,sparks};
 }
 function findLantern(model){
-  let hand=null;model.traverse(o=>{if(o.isBone && /(?:^|:)RightHand$/i.test(o.name))hand=o;});
-  const list=[];
-  if(hand)hand.traverse(o=>{if(o.isMesh&&!o.isSkinnedMesh)list.push(o);});
-  return list[0]||null;
+  // Copiado del criterio del visor original v0.4.1: mano derecha y
+  // alternativa por nombre Tripo cuando el exportador cambia jerarquías.
+  let hand=null;
+  model.traverse(o=>{
+    if(o.isBone && /(?:^|:)RightHand$/i.test(o.name))hand=o;
+  });
+  const candidates=[];
+  if(hand)hand.traverse(o=>{
+    if(o.isMesh&&!o.isSkinnedMesh)candidates.push(o);
+  });
+  if(!candidates.length)model.traverse(o=>{
+    if(o.isMesh&&!o.isSkinnedMesh&&/tripo_node.*(?:001|lantern|lamp)/i.test(o.name)){
+      candidates.push(o);
+    }
+  });
+  return {lamp:candidates[0]||null,hand,found:candidates.length};
 }
-const quatParent=new THREE.Quaternion(),quatTarget=new THREE.Quaternion(),quatTilt=new THREE.Quaternion();
 const down=new THREE.Vector3(0,-1,0);
 function initLamp(c){
-  c.lamp=findLantern(c.model);
-  if(!c.lamp){c.pend=null;return;}
-  c.model.updateWorldMatrix(true,true);
-  const originalQ=new THREE.Quaternion();c.lamp.getWorldQuaternion(originalQ);
-  const lampDown=down.clone().applyQuaternion(originalQ).normalize();
-  const corr=new THREE.Quaternion().setFromUnitVectors(lampDown,down);
-  c.restQ=originalQ.premultiply(corr).normalize();
-  c.prev=c.lamp.getWorldPosition(new THREE.Vector3());
+  const found=findLantern(c.model);
+  c.lamp=found.lamp;
+  c.lampDebug=found.hand?.name||'sin hueso';
+  c.lampNode=found.lamp?.name||'no localizada';
+  if(!c.lamp||!c.lamp.parent){
+    c.pend=null;
+    console.warn('[ROK Arena] Lámpara no localizada:',c.side,c.lampDebug);
+    return;
+  }
+  c.model.updateMatrixWorld(true);
+  c.lamp.parent.updateWorldMatrix(true,false);
+  const baseWorldQ=c.lamp.getWorldQuaternion(new THREE.Quaternion());
+  // La cadena se orienta hacia abajo según la configuración del GLB.
+  const localDown=down.clone().applyQuaternion(baseWorldQ).normalize();
+  const correction=new THREE.Quaternion().setFromUnitVectors(localDown,down);
+  c.restQ=baseWorldQ.premultiply(correction).normalize();
+  // Medir la aceleración desde el hueso de anclaje, nunca desde la
+  // lámpara que oscila: evita que el péndulo se alimente de su propio giro.
+  c.anchor=c.lamp.parent;
+  c.prev=c.anchor.getWorldPosition(new THREE.Vector3());
   c.vPrev=new THREE.Vector3();
-  c.pend=new THREE.Vector2();c.pendV=new THREE.Vector2();
+  c.pend=new THREE.Vector2();
+  c.pendV=new THREE.Vector2();
+  c.lastHitTime=-1;
 }
-function updateLamp(c,dt){
+function resetLampDynamics(c){
+  if(!c.lamp||!c.pend)return;
+  c.model.updateMatrixWorld(true);
+  c.lamp.parent.updateWorldMatrix(true,false);
+  c.prev.copy(c.anchor.getWorldPosition(new THREE.Vector3()));
+  c.vPrev.set(0,0,0);
+  c.pend.set(0,0);
+  c.pendV.set(0,0);
+  c.lastHitTime=-1;
+}
+function updateLamp(c,dt,t){
   if(!c.lamp||!c.pend||dt<=0)return;
-  c.model.updateWorldMatrix(true,true);
-  const pos=c.lamp.getWorldPosition(new THREE.Vector3());
+  c.model.updateMatrixWorld(true);
+  c.lamp.parent.updateWorldMatrix(true,false);
+  const pos=c.anchor.getWorldPosition(new THREE.Vector3());
   const vel=pos.clone().sub(c.prev).divideScalar(dt);
   const accel=vel.clone().sub(c.vPrev).divideScalar(dt);
-  c.prev.copy(pos);c.vPrev.copy(vel);
-  const stiff=47,damping=5.5,force=.60;
-  c.pendV.x+=(-stiff*c.pend.x-damping*c.pendV.x-clamp(accel.x,-35,35)*force)*dt;
-  c.pendV.y+=(-stiff*c.pend.y-damping*c.pendV.y-clamp(accel.z,-35,35)*force)*dt;
-  c.pend.addScaledVector(c.pendV,dt);c.pend.clampLength(0,.46);
-  const tiltDir=new THREE.Vector3(Math.sin(c.pend.x),-Math.cos(c.pend.length()),Math.sin(c.pend.y)).normalize();
-  quatTilt.setFromUnitVectors(down,tiltDir);quatTarget.copy(quatTilt).multiply(c.restQ);
-  c.lamp.parent.getWorldQuaternion(quatParent);
-  c.lamp.quaternion.copy(quatParent.invert().multiply(quatTarget));
+  c.prev.copy(pos);
+  c.vPrev.copy(vel);
+  // Parámetros originales de física del visor Farolera:
+  // gravedad 15.5, cadena 0.28, rozamiento 4.1, ángulo máximo .38.
+  const gravity=15.5,chainLength=.28,damping=4.1;
+  const desiredAx=-THREE.MathUtils.clamp(accel.x,-35,35)/chainLength;
+  const desiredAz=-THREE.MathUtils.clamp(accel.z,-35,35)/chainLength;
+  c.pendV.x+=(-gravity/chainLength*c.pend.x-damping*c.pendV.x+desiredAx)*dt;
+  c.pendV.y+=(-gravity/chainLength*c.pend.y-damping*c.pendV.y+desiredAz)*dt;
+  // La colisión también transmite un impulso real al péndulo.
+  if(t>=5.85&&t<8.2){
+    for(let i=0;i<eventTimes.length;i++){
+      const hit=eventTimes[i];
+      if(t>=hit&&t-dt<hit&&c.lastHitTime!==i){
+        c.pendV.y+=(c.side==='ally'?-1:1)*2.2;
+        c.pendV.x+=(i%2?1:-1)*.55;
+        c.lastHitTime=i;
+      }
+    }
+  }
+  c.pend.addScaledVector(c.pendV,dt);
+  c.pend.clampLength(0,.38);
+  const direction=new THREE.Vector3(
+    Math.sin(c.pend.x),-Math.cos(c.pend.length()),Math.sin(c.pend.y)
+  ).normalize();
+  const qTilt=new THREE.Quaternion().setFromUnitVectors(down,direction);
+  const qTarget=qTilt.multiply(c.restQ);
+  const qParent=c.lamp.parent.getWorldQuaternion(new THREE.Quaternion());
+  c.lamp.quaternion.copy(qParent.invert().multiply(qTarget));
+  c.lamp.updateMatrixWorld(true);
 }
 function createFighter(baseScene,clip,side){
   const model=cloneSkinned(baseScene);
@@ -338,7 +395,8 @@ function createFighter(baseScene,clip,side){
   combatants.push(c);initLamp(c);return c;
 }
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
-const DURATION=11.4;
+const DURATION=10.25;
+const LOOP_RESTART_AT=1.4; // La aparición inicial solo ocurre en la primera vuelta.
 const eventTimes=[6.08,6.76,7.42];
 function bump(t,at,width){return Math.exp(-Math.pow((t-at)/width,2));}
 function setAppearance(c,brightness){
@@ -433,7 +491,7 @@ function updateStage(t){
   else if(t<8.38)msg='✦ Brillo de restauración tras el combate';
   else if(t<9.28)msg='✧ Retorno 2× rápido · estela de partículas';
   else if(t<9.95)msg='✦ Reapareciendo desde el suelo';
-  else msg='✓ Restauración completada';
+  else msg='✓ Restauración completada · próximo avance sin aparición extra';
   qs('#phase').textContent=msg;
 }
 new GLTFLoader().load('./chiara_idle.glb',g=>{
@@ -442,7 +500,7 @@ new GLTFLoader().load('./chiara_idle.glb',g=>{
   const b=createFighter(g.scene,g.animations[0],'enemy');
   for(const c of [a,b])c.model.userData.baseScale=c.model.scale.x;
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · demostración automática';
-  qs('#modelStatus').textContent='2 instancias de Farolera del Umbral · '+g.animations.length+' Idle · '+combatants.filter(c=>c.lamp).length+'/2 lámparas detectadas';
+  qs('#modelStatus').textContent='2 Faroleras · '+g.animations.length+' Idle · física de lámpara: '+combatants.filter(c=>c.lamp).length+'/2 detectadas. '+combatants.map(c=>c.side+': '+c.lampNode).join(' · ');
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
 },e=>{if(e.total)qs('#sceneStatus').textContent='Cargando modelo '+Math.round(e.loaded/e.total*100)+'%';},err=>{
   qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
@@ -452,8 +510,7 @@ qs('#repeat').onclick=()=>{
   tm=0;playing=true;qs('#pause').textContent='Ⅱ Pausar';
   for(const c of combatants){
     resetRestorationFx(c);
-    c.prev=c.lamp?.getWorldPosition(new THREE.Vector3())||null;
-    c.vPrev?.set(0,0,0);c.pend?.set(0,0);c.pendV?.set(0,0);
+    resetLampDynamics(c);
   }
 };
 qs('#pause').onclick=()=>{playing=!playing;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';};
@@ -464,14 +521,19 @@ function loop(now){
   if(loaded&&playing){
     tm+=dt;
     if(tm>=DURATION){
-      tm=0;
-      for(const c of combatants)resetRestorationFx(c);
+      // Cada restauración YA incluye la reaparición. No ejecutar otra
+      // materialización al reiniciar: continuar desde la fase de avance.
+      tm=LOOP_RESTART_AT+(tm-DURATION);
+      for(const c of combatants){
+        resetRestorationFx(c);
+        resetLampDynamics(c);
+      }
     }
     for(const c of combatants)c.mixer.update(dt);
     for(const c of combatants){
       animateFighter(c,tm);
       updateRestorationFx(c,dt,tm);
-      updateLamp(c,dt);
+      updateLamp(c,dt,tm);
     }
     hitEffects(tm);updateStage(tm);
   }
