@@ -1311,6 +1311,8 @@ function resetCombatant(c){
   c.stage='intro';c.introT=0;
   c.hitLeft=0;c.castT=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
   c.restoringT=0;c.stunLeft=0;c.postRestoreStun=0;
+  c.restorationPhase=null;c.restorePhaseT=0;c.restoreEmission=0;
+  c.restorationStartX=0;c.restorationStartZ=0;
   c.summonCastLeft=0;c.summonProgress=0;c.summonStandingLeft=0;c.summonBaseY=0;
   if(c.summonBar)c.summonBar.style.display='none';
   c.cooldown=c.side==='enemy'?.20:.65;
@@ -1483,27 +1485,88 @@ function startRestoringStanding(c){
 // Restauración del VENCEDOR, sin relación con la animación de muerte.
 // Conserva el efecto original: destello -> retorno con estela -> reaparición.
 // Standing (13) pertenece exclusivamente a la FUTURA nueva invocación.
+/* Restauración del VENCEDOR: no es muerte ni casteo de unidad nueva.
+   Brillo sobre el modelo -> disolución total -> SOLO partículas recorren la
+   arena -> aparece desde el suelo iluminada, Standing -> Idle. */
+const RESTORE_DISSOLVE_SECONDS=.36;
+const RESTORE_TRAVEL_SECONDS=.96;
 function startRestoration(c){
   if(!c||c.hp<=0||c.stage==='restoring'||c.stage==='intro'||
      c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead')return false;
   c.stage='restoring';
-  c.standingPlayed=false;
+  c.restorationPhase='dissolve';
+  c.restorePhaseT=0;
+  c.restoreEmission=0;
+  c.restorationStartX=c.outer.position.x;
+  c.restorationStartZ=c.outer.position.z;
   c.stunLeft=0;c.hitLeft=0;
   c.castTarget=null;c.castFired=true;
   if(c.castMarker)c.castMarker.marker.visible=false;
   c.mixer.timeScale=1;
-  c.restoringT=0;
-  c.endZ=c.outer.position.z;
-  c.endX=c.outer.position.x;
+  c.endZ=c.outer.position.z;c.endX=c.outer.position.x;
   c.cooldown=.6;
-  // La restauración utiliza la postura Idle; no dispara ni ejecuta Standing.
-  setAnim(c,'idle',{fade:.12});
+  setAnim(c,'idle',{fade:.10});
   if(c.shieldShell)c.shieldShell.visible=false;
   if(c.stunHalo)c.stunHalo.group.visible=false;
   resetRestorationFx(c);
+  setDeathOpacity(c,1);
   if(c.pendV)c.pendV.y+=(c.side==='ally'?-1:1)*1.8;
-  qs('#phase').textContent='✧ Victoria · restaurando a la Farolera vencedora';
+  qs('#phase').textContent='✧ Victoria · resplandor y disolución';
   return true;
+}
+function updateRestorationStream(c,dt,x,z,intensity,perSecond){
+  // Actualizar partículas ya emitidas independientemente del personaje.
+  updateRestorationFx(c,dt,12);
+  const fx=c.restorationFx;
+  c.restoreEmission+=dt*perSecond;
+  let budget=8;
+  const position={x,z};
+  while(c.restoreEmission>=1&&budget-->0){
+    c.restoreEmission-=1;
+    addTrailParticle(c,position);
+  }
+  fx.glow.visible=intensity>.02;
+  fx.glow.position.set(x,.72,z);
+  fx.glow.material.opacity=.43*intensity;
+  fx.glow.scale.set(1.3+.55*intensity,1.9+.5*intensity,1);
+}
+function updateVictoriousRestoration(c,dt){
+  if(c.restorationPhase==='dissolve'){
+    c.restorePhaseT=Math.min(RESTORE_DISSOLVE_SECONDS,c.restorePhaseT+dt);
+    const u=ease(c.restorePhaseT/RESTORE_DISSOLVE_SECONDS);
+    // El brillo crece mientras el material se disuelve: al final NO queda
+    // un personaje pequeño viajando por la arena.
+    setAppearance(c,.68+.29*u);
+    setDeathOpacity(c,1-u);
+    updateRestorationStream(c,dt,c.restorationStartX,c.restorationStartZ,1,40+28*u);
+    if(c.restorePhaseT>=RESTORE_DISSOLVE_SECONDS){
+      c.model.visible=false;
+      c.restorationPhase='travel';
+      c.restorePhaseT=0;
+      setDeathOpacity(c,0);
+    }
+  }else if(c.restorationPhase==='travel'){
+    c.restorePhaseT=Math.min(RESTORE_TRAVEL_SECONDS,c.restorePhaseT+dt);
+    const fraction=ease(c.restorePhaseT/RESTORE_TRAVEL_SECONDS);
+    // SOLO se mueve el foco de las partículas; el modelo permanece invisible
+    // e inmóvil hasta aparecer directamente en su casilla de origen.
+    const x=THREE.MathUtils.lerp(c.restorationStartX,0,fraction);
+    const z=THREE.MathUtils.lerp(c.restorationStartZ,c.startZ,fraction);
+    updateRestorationStream(c,dt,x,z,.7+.3*Math.sin(Math.PI*fraction),72);
+    if(c.restorePhaseT>=RESTORE_TRAVEL_SECONDS){
+      c.restorationFx.glow.visible=false;
+      beginSummonEmergence(c);
+    }
+  }else if(c.restorationPhase==='rise'){
+    updateRestorationFx(c,dt,12);
+    updateSummonEmergence(c,dt,true);
+  }else if(c.restorationPhase==='standing'){
+    updateRestorationFx(c,dt,12);
+    c.summonStandingLeft=Math.max(0,c.summonStandingLeft-dt);
+    const t=1-c.summonStandingLeft/Math.max(.001,c.summonStandingDuration||1);
+    setAppearance(c,.59*(1-ease(t)));
+    if(c.summonStandingLeft<=0)finishNewSummon(c,true);
+  }
 }
 function applyStun(c){
   if(c.stage!=='active'&&c.stage!=='stunned')return;
@@ -1873,24 +1936,7 @@ function updateDuel(dt){
       setAppearance(c,.59*(1-ease(t)));
       if(c.summonStandingLeft<=0)finishNewSummon(c);
     }else if(c.stage==='restoring'){
-      c.restoringT=Math.min(1.75,c.restoringT+dt);
-      const virtualT=8.2+c.restoringT;
-      // El vencedor vuelve con el efecto existente. No ejecutar Standing:
-      // esa animación queda reservada para la aparición de una unidad NUEVA.
-      animateFighter(c,virtualT);
-      updateRestorationFx(c,dt,virtualT);
-      if(c.restoringT>=1.75){
-        c.hp=c.maxHp;c.shield=c.shieldMax;
-        c.endZ=c.baseEndZ;
-        c.model.scale.setScalar(c.model.userData.baseScale);
-        c.model.position.y=0;
-        c.outer.position.set(0,0,c.startZ);
-        c.stunLeft=0;c.hitLeft=0;c.groundDelta=0;
-        c.stage='active';
-        setAnim(c,'idle',{fade:.18,force:true});
-        setAppearance(c,0);
-        resetLampDynamics(c);
-      }
+      updateVictoriousRestoration(c,dt);
     }else if(c.stage==='teleporting'){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
@@ -1935,7 +1981,7 @@ function updateDuel(dt){
     if(c.stage!=='casting'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
     updateCastMarker(c);
     if(c.animId===12)liftWalkArm(c);
-    if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')updateLamp(c,dt,0);
+    if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
   }
   const ally=combatants.find(c=>c.side==='ally');
   const enemy=combatants.find(c=>c.side==='enemy');
@@ -1987,7 +2033,12 @@ function updateDuel(dt){
   }else if(combatants.some(c=>c.stage==='dead')){
     qs('#phase').textContent='✝ Invocación eliminada · comenzando casteo';
   }else if(combatants.some(c=>c.stage==='restoring')){
-    qs('#phase').textContent='✧ Victoria · restauración de la Farolera vencedora';
+    const v=combatants.find(c=>c.stage==='restoring');
+    qs('#phase').textContent=
+      v.restorationPhase==='dissolve'?'✧ Victoria · desintegración luminosa':
+      v.restorationPhase==='travel'?'✧ Restauración · partículas hacia el origen':
+      v.restorationPhase==='rise'?'✧ Restauración · emergiendo entre rayos':
+      '✧ Restauración · Standing → Idle';
   }else if(combatants.some(c=>c.stage==='casting')){
     qs('#phase').textContent='✦ Casteo · proyectil desde la palma al final de Magic Heal';
   }else if(missiles.length){
