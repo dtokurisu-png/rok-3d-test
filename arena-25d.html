@@ -331,6 +331,7 @@ function initLamp(c){
   const localDown=down.clone().applyQuaternion(baseWorldQ).normalize();
   const correction=new THREE.Quaternion().setFromUnitVectors(localDown,down);
   c.restQ=baseWorldQ.premultiply(correction).normalize();
+  c.lampRestYaw=c.outer.rotation.y;
   // Medir la aceleración desde el hueso de anclaje, nunca desde la
   // lámpara que oscila: evita que el péndulo se alimente de su propio giro.
   c.anchor=c.lamp.parent;
@@ -383,7 +384,11 @@ function updateLamp(c,dt,t){
     Math.sin(c.pend.x),-Math.cos(c.pend.length()),Math.sin(c.pend.y)
   ).normalize();
   const qTilt=new THREE.Quaternion().setFromUnitVectors(down,direction);
-  const qTarget=qTilt.multiply(c.restQ);
+  // La orientación de reposo se mueve junto con el cuerpo cuando se gira
+  // tras teletransportarse. El péndulo conserva gravedad e inercia originales.
+  const yawDelta=c.outer.rotation.y-c.lampRestYaw;
+  const yawQ=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),yawDelta);
+  const qTarget=qTilt.multiply(yawQ).multiply(c.restQ);
   const qParent=c.lamp.parent.getWorldQuaternion(new THREE.Quaternion());
   c.lamp.quaternion.copy(qParent.invert().multiply(qTarget));
   c.lamp.updateMatrixWorld(true);
