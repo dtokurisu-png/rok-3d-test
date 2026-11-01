@@ -29,13 +29,13 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.5</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.5 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.6</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.6 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
 <div id="rightArmTuning">
 <strong>Farolera · animación 12 original · ajuste manual</strong>
-<label>Brazo derecho (hombro) <input id="rightUpperArmAngle" type="range" min="-20" max="35" step="1" value="0"><output id="rightUpperArmAngleValue">0°</output></label>
+<label>Brazo derecho (hombro) <input id="rightUpperArmAngle" type="range" min="-20" max="35" step="1" value="17"><output id="rightUpperArmAngleValue">17°</output></label>
 <label>Antebrazo derecho (codo) <input id="rightForearmAngle" type="range" min="-20" max="35" step="1" value="0"><output id="rightForearmAngleValue">0°</output></label>
 <p>Ambos comienzan en 0°. Solo se previsualiza un ajuste cuando tú mueves un control. Manos, dedos y FBX permanecen intactos.</p>
 </div>
@@ -44,7 +44,7 @@
 <div class="animToolbar"><button type="button" id="animFilter">Ver: todas</button><button type="button" id="animCopy">Copiar números marcados</button><button type="button" id="animClear">Limpiar marcas</button></div>
 <p id="animSelection">Seleccionadas: ninguna.</p>
 <p>Idle principal: el del GLB original. Los roles son asignaciones del probador, no cambios en la arena. La caché depende del navegador y del dispositivo.</p>
-</section><p class="meta" id="fps">FPS: —</p><p class="meta" id="lampInfo">Lámpara: esperando GLB…</p><p class="meta" id="debugInfo">Detección v2: pendiente</p><p class="meta" id="error"></p></div><div id="mobileActions"><button id="shakeModel" type="button" disabled>↔ Probar balanceo</button><button id="quickPhysics" type="button">Física: ON</button></div><div class="help">1 dedo: girar · 2 dedos: zoom y desplazar</div><script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script><script type="module">
+</section><p class="meta" id="groundInfo">Suelo: esperando el modelo…</p><p class="meta" id="fps">FPS: —</p><p class="meta" id="lampInfo">Lámpara: esperando GLB…</p><p class="meta" id="debugInfo">Detección v2: pendiente</p><p class="meta" id="error"></p></div><div id="mobileActions"><button id="shakeModel" type="button" disabled>↔ Probar balanceo</button><button id="quickPhysics" type="button">Física: ON</button></div><div class="help">1 dedo: girar · 2 dedos: zoom y desplazar</div><script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script><script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
@@ -254,6 +254,61 @@ function previewArmAngles(){
   applyJointLift(rightForearmBone,rightHandBone,foreDeg);
 }
 const normBone=n=>String(n).replace(/.*[\/\\|]/g,'').replace(/^.*?mixamorig[:_]?/i,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
+
+const groundInfo=document.querySelector('#groundInfo');
+let baseModelY=0,groundReferenceY=null,groundOffset=0,groundProbeTick=0,groundTargetOffset=0;
+let groundSkinned=[];
+const vertexTmp=new THREE.Vector3();
+// Medir geometría YA deformada por las animaciones (no bounding box del reposo).
+// Se excluye el farol rígido de la detección del suelo.
+function probeSkinnedBottom(){
+  if(!model)return null;
+  model.updateMatrixWorld(true);
+  let minY=Infinity;
+  for(const mesh of groundSkinned){
+    const attr=mesh.geometry?.getAttribute('position');
+    if(!attr||!mesh.skeleton||typeof mesh.getVertexPosition!=='function')continue;
+    mesh.skeleton.update();
+    const skip=Math.max(1,Math.floor(attr.count/650));
+    for(let k=0;k<attr.count;k+=skip){
+      mesh.getVertexPosition(k,vertexTmp);
+      vertexTmp.applyMatrix4(mesh.matrixWorld);
+      if(vertexTmp.y<minY)minY=vertexTmp.y;
+    }
+  }
+  return Number.isFinite(minY)?minY:null;
+}
+function setupGroundAnchor(){
+  baseModelY=model.position.y;groundOffset=0;groundTargetOffset=0;groundProbeTick=0;
+  groundSkinned=[];
+  model.traverse(o=>{if(o.isSkinnedMesh)groundSkinned.push(o);});
+  groundReferenceY=probeSkinnedBottom();
+  groundInfo.textContent=groundReferenceY===null?
+    'Suelo: el GLB no tiene mallas esqueléticas detectables':
+    'Suelo: altura de referencia tomada del Idle original';
+}
+function updateGroundAnchor(dt){
+  if(groundReferenceY===null||!model)return;
+  const imported=activeAnimation!==null;
+  // Nunca modificar la postura o la altura permanente del Idle original.
+  if(!imported){groundTargetOffset=0;groundProbeTick=0;}
+  else if(++groundProbeTick%2===0){
+    const bottom=probeSkinnedBottom();
+    if(bottom!==null){
+      // El muestreo incluye la corrección anterior: restarla para evitar
+      // acumulación y aplicar siempre una referencia absoluta del Idle.
+      const uncorrectedY=bottom-groundOffset;
+      groundTargetOffset=THREE.MathUtils.clamp(
+        groundReferenceY-uncorrectedY,-1.8,1.8
+      );
+    }
+  }
+  groundOffset=THREE.MathUtils.damp(groundOffset,groundTargetOffset,18,dt);
+  model.position.y=baseModelY+groundOffset;
+  model.updateMatrixWorld(true);
+  groundInfo.textContent=imported?'Suelo: ajustado · Y '+groundOffset.toFixed(3)+' m':
+    'Suelo: Idle original · Y '+groundOffset.toFixed(3)+' m';
+}
 // Los FBX y el modelo exportado desde Blender no comparten necesariamente
 // los mismos ejes locales aunque todos sus huesos se llamen mixamorig.
 function findRigSkeleton(root){
@@ -278,6 +333,17 @@ function makeAnimationClip(sourceRoot,sourceClip,displayName){
   const names={},localOffsets={};
   sourceSkeleton.pose();targetSkeleton.pose();
   sourceRoot.updateMatrixWorld(true);targetRoot.updateMatrixWorld(true);
+  const srcHip=sourceByName.get('hips');
+  const srcFoot=sourceByName.get('leftfoot')||sourceByName.get('rightfoot');
+  const dstHip=targetSkeleton.bones.find(b=>normBone(b.name)==='hips');
+  const dstFoot=targetSkeleton.bones.find(b=>normBone(b.name)==='leftfoot')||
+    targetSkeleton.bones.find(b=>normBone(b.name)==='rightfoot');
+  if(!srcHip||!srcFoot||!dstHip||!dstFoot)throw Error('Faltan Hips o Foot para anclar el suelo');
+  const bonePos=b=>b.getWorldPosition(new THREE.Vector3());
+  const sourceLeg=bonePos(srcHip).distanceTo(bonePos(srcFoot));
+  const targetLeg=bonePos(dstHip).distanceTo(bonePos(dstFoot));
+  const motionScale=THREE.MathUtils.clamp(targetLeg/Math.max(.00001,sourceLeg),.0001,100);
+  const hipRest=dstHip.position.clone();
   let matched=0;
   for(const dst of targetSkeleton.bones){
     const src=sourceByName.get(normBone(dst.name));
@@ -305,6 +371,32 @@ function makeAnimationClip(sourceRoot,sourceClip,displayName){
     delete sourceRoot.skeleton;
     delete targetRoot.skeleton;
   }
+
+  // La adaptación anterior borraba la traslación Hips del FBX. Recuperar
+  // su desplazamiento VERTICAL, escalado según las piernas de ambos rigs.
+  // Se excluye X/Z para que una caminata de Mixamo no salga del escenario.
+  const hipsTracks=[];
+  if(Number.isFinite(sourceClip.duration)&&sourceClip.duration>0){
+    sourceSkeleton.pose();sourceRoot.updateMatrixWorld(true);
+    const sourceMixer=new THREE.AnimationMixer(sourceRoot);
+    sourceMixer.clipAction(sourceClip).play();
+    const frames=Math.max(2,Math.ceil(sourceClip.duration*30)+1);
+    const times=new Float32Array(frames),values=new Float32Array(frames*3);
+    let y0=null;
+    for(let i=0;i<frames;i++){
+      const t=Math.max(0,Math.min(sourceClip.duration-.00001,
+        i*sourceClip.duration/(frames-1)));
+      sourceMixer.setTime(t);
+      sourceRoot.updateMatrixWorld(true);
+      const currentY=srcHip.getWorldPosition(new THREE.Vector3()).y;
+      if(y0===null)y0=currentY;
+      const delta=THREE.MathUtils.clamp((currentY-y0)*motionScale,-1.6,1.6);
+      times[i]=t;
+      values[3*i]=hipRest.x;values[3*i+1]=hipRest.y+delta;values[3*i+2]=hipRest.z;
+    }
+    hipsTracks.push(new THREE.VectorKeyframeTrack(dstHip.name+'.position',times,values));
+    sourceMixer.stopAllAction();
+  }
   // retargetClip emite ".bones[nombre].quaternion", pero el mixer
   // original tiene una raíz Group, por lo que necesita "nombre.quaternion".
   const tracks=[];
@@ -316,9 +408,9 @@ function makeAnimationClip(sourceRoot,sourceClip,displayName){
     tracks.push(result);
   }
   if(tracks.length<20)throw Error('La adaptación generó solo '+tracks.length+' pistas');
-  const clip=new THREE.AnimationClip(displayName,-1,tracks);
+  const clip=new THREE.AnimationClip(displayName,-1,tracks.concat(hipsTracks));
   clip.optimize();
-  return {clip,matched:tracks.length,total:sourceClip.tracks.length};
+  return {clip,matched:tracks.length,total:sourceClip.tracks.length,hipMotion:hipsTracks.length>0};
 }
 function renderAnimList(){
   animList.replaceChildren();
@@ -513,7 +605,7 @@ async function importAnimation(name,buffer){
     const adapted=makeAnimationClip(source,source.animations[0],row.name.replace(/\.fbx$/i,''));
     if(row.clip&&mixer)mixer.uncacheClip(row.clip);
     row.clip=adapted.clip;row.status='ok';
-    row.details=adapted.matched+' huesos adaptados por pose de referencia · '+row.clip.duration.toFixed(2)+' s';
+    row.details=adapted.matched+' huesos adaptados · '+row.clip.duration.toFixed(2)+' s · '+(adapted.hipMotion?'cadera vertical':'sin curva vertical');
     await saveAnimToCache(row);
     // No conservar modelos, texturas ni geometría FBX: solo clips de huesos.
     source.traverse(o=>{
@@ -573,7 +665,7 @@ renderAnimList();renderSelection();
 new GLTFLoader().load('./chiara_idle.glb',g=>{model=g.scene;scene.add(model);modelBaseZ=model.position.z;shakeButton.disabled=false;let meshes=0,bones=0;model.traverse(o=>{if(o.isMesh){meshes++;originalMaterials.set(o,o.material);o.frustumCulled=false;}if(o.isBone)bones++;});if(g.animations.length){mixer=new THREE.AnimationMixer(model);
 idleOriginal=g.animations[0];
 activeAction=mixer.clipAction(idleOriginal).play();
-mixer.update(0);setupArmTuning();setupLantern();toggle.disabled=false;
+mixer.update(0);setupArmTuning();setupLantern();setupGroundAnchor();toggle.disabled=false;
 document.querySelector('#animIdle').disabled=false;
 renderAnimList();
 status.textContent='Modelo cargado · Idle en reproducción · probador de animaciones listo';
@@ -582,5 +674,5 @@ toggle.onclick=()=>{playing=!playing;toggle.textContent=playing?'Pausar':'Reprod
 document.querySelector('#wire').onclick=()=>{wire=!wire;if(!model)return;model.traverse(o=>{if(!o.isMesh)return;if(wire){const m=o.material.clone();m.wireframe=true;o.material=m;}else{o.material.dispose();o.material=originalMaterials.get(o);}})};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 let prev=performance.now(),t=0,n=0;function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-prev)/1000,.05);prev=now;if(mixer&&playing){mixer.update(dt);captureOriginalArmPose();}
-previewArmAngles();animateShake(dt);if(lantern&&playing)updateLantern(dt);controls.update();renderer.render(scene,camera);t+=dt;n++;if(t>1){fps.textContent='FPS: '+Math.round(n/t);t=0;n=0}}requestAnimationFrame(tick);
+previewArmAngles();updateGroundAnchor(dt);animateShake(dt);if(lantern&&playing)updateLantern(dt);controls.update();renderer.render(scene,camera);t+=dt;n++;if(t>1){fps.textContent='FPS: '+Math.round(n/t);t=0;n=0}}requestAnimationFrame(tick);
 </script></body></html>
