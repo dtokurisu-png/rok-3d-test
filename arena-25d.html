@@ -99,7 +99,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.0</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.1</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -973,29 +973,45 @@ const canDamageTarget=c=>(c?.role==='caster'?
 const casterLost=()=>casters.some(c=>c.stage==='defeated');
 // Dos defensores por lado: una invocación viva intercepta al caster
 // si está cerca o se interpone en el corredor hacia él.
+// Prioridad dinámica: defender al caster propio de invocaciones que
+// lo tienen dentro de su alcance; en ausencia de amenazas, buscar el
+// objetivo enemigo más cercano (invocación o caster rival).
 function selectCombatTarget(c){
+  const ownCaster=casters.find(o=>o.side===c.side);
   const enemyCaster=casters.find(o=>o.side!==c.side);
   if(!enemyCaster||!canDamageTarget(enemyCaster))return null;
-  const px=c.outer.position.x,pz=c.outer.position.z;
-  const cx=enemyCaster.outer.position.x,cz=enemyCaster.outer.position.z;
-  const vx=cx-px,vz=cz-pz,distSq=vx*vx+vz*vz;
-  const candidates=[];
-  for(const enemy of combatants){
-    if(enemy.side===c.side||!canDamageTarget(enemy))continue;
-    const ox=enemy.outer.position.x,oz=enemy.outer.position.z;
-    const dist=Math.hypot(ox-px,oz-pz);
-    const near=dist<=3.1;
-    let corridor=false;
-    if(distSq>.0001){
-      const advance=((ox-px)*vx+(oz-pz)*vz)/distSq;
-      const lateral=Math.abs((ox-px)*vz-(oz-pz)*vx)/Math.sqrt(distSq);
-      corridor=advance>0&&advance<1&&lateral<=1.15&&dist<=5.5;
-    }
-    if(near||corridor)candidates.push({enemy,dist,near});
+  const here=c.outer.position;
+  const distanceTo=e=>Math.hypot(
+    e.outer.position.x-here.x,e.outer.position.z-here.z
+  );
+  const aliveEnemies=combatants.filter(e=>
+    e.side!==c.side&&canDamageTarget(e)
+  );
+  const threats=ownCaster&&ownCaster.stage==='active'?
+    aliveEnemies.filter(e=>Math.hypot(
+      e.outer.position.x-ownCaster.outer.position.x,
+      e.outer.position.z-ownCaster.outer.position.z
+    )<=e.range+.25):[];
+  if(threats.length){
+    // Ante una amenaza directa se defiende al caster, incluso cuando el
+    // atacante se teletransportó detrás de nuestras Faroleras.
+    threats.sort((a,b)=>{
+      const da=Math.hypot(
+        a.outer.position.x-ownCaster.outer.position.x,
+        a.outer.position.z-ownCaster.outer.position.z
+      );
+      const db=Math.hypot(
+        b.outer.position.x-ownCaster.outer.position.x,
+        b.outer.position.z-ownCaster.outer.position.z
+      );
+      return da-db||distanceTo(a)-distanceTo(b);
+    });
+    return threats[0];
   }
-  if(!candidates.length)return enemyCaster;
-  candidates.sort((a,b)=>Number(b.near)-Number(a.near)||a.dist-b.dist);
-  return candidates[0].enemy;
+  const candidates=[...aliveEnemies,enemyCaster];
+  candidates.sort((a,b)=>distanceTo(a)-distanceTo(b)||
+    (a.role==='caster'?1:0)-(b.role==='caster'?1:0));
+  return candidates[0]||null;
 }
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
 const CASTER_RESTART_DELAY=1.8; // Mostrar victoria/derrota antes de reiniciar.
@@ -1103,7 +1119,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.9.0. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.9.1. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -1580,6 +1596,10 @@ function startCast(c,target){
 }
 function updateCast(c,dt){
   c.castT+=dt;
+  // Si un enemigo aparece cerca del caster durante el ataque, cambiar
+  // el blanco antes de disparar sin reiniciar la animación Magic Heal.
+  const priority=selectCombatTarget(c);
+  if(priority&&canDamageTarget(priority))c.castTarget=priority;
   // El AnimationMixer se actualiza antes de esta comprobación: la salida
   // coincide con el fotograma animado que se está mostrando ahora.
   const animationTime=c.animId===2&&c.animAction?
