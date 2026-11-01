@@ -99,14 +99,14 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.5</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.6</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><strong>Notas de versión · Arena v0.9.5 (01/11/2026):</strong> nuevo botón Guardar en GitHub: publica el ancho y largo del fondo en arena-background.css mediante una autorización de GitHub con permiso limitado. La arena carga esos valores compartidos al abrirse. No cambia la cuadrícula ni la lógica del combate. v0.9.1: defensa prioritaria del caster y selección dinámica de objetivos.</p>
+    <p><strong>Notas de versión · Arena v0.9.6 (01/11/2026):</strong> carga automática del paquete Mixamo de 14 animaciones alojado en GitHub, incluso desde un navegador o dispositivo nuevo. Se admite el ZIP contenedor que está publicado en la raíz del repositorio. No cambia la cuadrícula ni la lógica del combate. v0.9.1: defensa prioritaria del caster y selección dinámica de objetivos.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas. Invocaciones de escudo/maná: columnas 3 y 5, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
@@ -772,14 +772,21 @@ function adaptAnimationFBX(source,sourceClip,targetModel,name){
   const clip=new THREE.AnimationClip(name,-1,tracks);clip.optimize();return clip;
 }
 async function preloadCombatAnimationsFromRepo(baseModel){
-  const candidates=['./animations/Farolera_Mixamo_14_animaciones.zip',
+  // El paquete publicado en GitHub contiene el ZIP original dentro de otro ZIP.
+  // Mantener también las rutas antiguas para admitir distribuciones futuras.
+  const candidates=['./ROK_PUBLICAR_ANIMACIONES.zip',
+    './animations/Farolera_Mixamo_14_animaciones.zip',
     './assets/Farolera_Mixamo_14_animaciones.zip'];
   for(const url of candidates){
     let response;
     try{response=await fetch(url)}catch{continue}
     if(!response.ok||!window.JSZip)continue;
     try{
-      const zip=await window.JSZip.loadAsync(await response.arrayBuffer());
+      const downloaded=await window.JSZip.loadAsync(await response.arrayBuffer());
+      const nested=Object.values(downloaded.files).find(entry=>
+        !entry.dir&&entry.name.split('/').pop()==='Farolera_Mixamo_14_animaciones.zip');
+      const zip=nested?
+        await window.JSZip.loadAsync(await nested.async('arraybuffer')):downloaded;
       const fbx=new FBXLoader();
       for(const id of animationNeeds){
         if(combatAnimations.has(id))continue;
@@ -1205,7 +1212,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.9.5. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.9.6. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
