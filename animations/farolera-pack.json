@@ -1,5 +1,5 @@
 {
-  "version": "0.1",
+  "version": "0.2",
   "character": "Farolera del Umbral",
   "rig": "mixamorig",
   "sourceModel": "chiara_idle.glb",
@@ -11,10 +11,11 @@
   "publishedAssetStatus": "FBX originals pending GitHub binary transfer; not yet accessible via public Pages",
   "playerRigCorrection": {
     "animation": 12,
-    "bone": "mixamorig:RightArm",
-    "method": "Non-destructive world-space retarget on mixer tick",
-    "raisePercent": 75,
-    "spreadPercent": 52,
+    "bone": "mixamorig:RightForeArm",
+    "method": "Small capped forearm rotation after mixer update; no edits to hand or finger keyframes",
+    "defaultDegrees": 6,
+    "maxDegrees": 12,
+    "raiseOnly": true,
     "codeFile": "index.html"
   },
   "roleMap": {
