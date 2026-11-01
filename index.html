@@ -29,7 +29,7 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.6</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.6 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.7</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.7 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -259,8 +259,43 @@ const groundInfo=document.querySelector('#groundInfo');
 let baseModelY=0,groundReferenceY=null,groundOffset=0,groundProbeTick=0,groundTargetOffset=0;
 let groundSkinned=[];
 const vertexTmp=new THREE.Vector3();
-// Medir geometría YA deformada por las animaciones (no bounding box del reposo).
-// Se excluye el farol rígido de la detección del suelo.
+const worldBonePos=new THREE.Vector3();
+// Soportes por huesos SOLO para tres animaciones problemáticas. No mover ni
+// retocar las pistas de animación, manos o dedos: desplazar todo el modelo en Y.
+let contactBones=null,footSoleDepth=.08,kneeContactRadius=.10,bodyContactRadius=.17,headContactRadius=.13;
+const contactInfo={8:'rodillas / torso / pies',13:'pies / rodillas',14:'pies / rodillas'};
+function setupContactBones(){
+  const bones=new Map();
+  model.traverse(o=>{if(o.isBone)bones.set(normBone(o.name),o);});
+  const byName=n=>bones.get(n)||null;
+  contactBones={
+    feet:['leftfoot','rightfoot','lefttoebase','righttoebase'].map(byName).filter(Boolean),
+    knees:['leftleg','rightleg'].map(byName).filter(Boolean),
+    body:['hips','spine','spine1','spine2','leftshoulder','rightshoulder'].map(byName).filter(Boolean),
+    head:['head'].map(byName).filter(Boolean),
+    upperLegs:['leftupleg','rightupleg'].map(byName).filter(Boolean)
+  };
+  const footYs=contactBones.feet.map(b=>b.getWorldPosition(new THREE.Vector3()).y);
+  if(footYs.length&&groundReferenceY!==null){
+    // Distancia normal de articulación de pie a la suela en el Idle que SÍ
+    // está bien anclado. No deducir el apoyo de la capa ni el farol.
+    footSoleDepth=THREE.MathUtils.clamp(Math.min(...footYs)-groundReferenceY,0,.25);
+  }
+  const hip=bones.get('hips'),knee=contactBones.knees[0];
+  if(hip&&knee){
+    const hipPt=hip.getWorldPosition(new THREE.Vector3());
+    const kneePt=knee.getWorldPosition(new THREE.Vector3());
+    const len=hipPt.distanceTo(kneePt);
+    kneeContactRadius=THREE.MathUtils.clamp(len*.19,.05,.16);
+  }
+  const left=bones.get('leftshoulder'),right=bones.get('rightshoulder');
+  if(left&&right){
+    const width=left.getWorldPosition(new THREE.Vector3())
+      .distanceTo(right.getWorldPosition(new THREE.Vector3()));
+    bodyContactRadius=THREE.MathUtils.clamp(width*.33,.09,.26);
+    headContactRadius=THREE.MathUtils.clamp(width*.23,.06,.19);
+  }
+}
 function probeSkinnedBottom(){
   if(!model)return null;
   model.updateMatrixWorld(true);
@@ -278,11 +313,37 @@ function probeSkinnedBottom(){
   }
   return Number.isFinite(minY)?minY:null;
 }
+function probeAnatomicalBottom(animationId){
+  if(!contactBones)return null;
+  model.updateMatrixWorld(true);
+  let minY=Infinity;
+  const consider=(bones,radius)=>{
+    for(const bone of bones){
+      const y=bone.getWorldPosition(worldBonePos).y-radius;
+      minY=Math.min(minY,y);
+    }
+  };
+  // Standing, portal: los pies deben tocar el suelo incluso cuando la
+  // capa, falda o lámpara cuelgan más bajo y antes confundían al detector.
+  consider(contactBones.feet,footSoleDepth);
+  // En cuclillas o arrodillada, una rodilla puede ser el punto de apoyo.
+  consider(contactBones.knees,kneeContactRadius);
+  if(animationId===8){
+    // Muerte: al tumbarse se permite contacto por espalda/pecho/cabeza.
+    // Muestreo dinámico de las articulaciones del cuerpo completo sin
+    // forzar los pies a quedar apoyados cuando el cuerpo está horizontal.
+    consider(contactBones.upperLegs,kneeContactRadius);
+    consider(contactBones.body,bodyContactRadius);
+    consider(contactBones.head,headContactRadius);
+  }
+  return Number.isFinite(minY)?minY:null;
+}
 function setupGroundAnchor(){
   baseModelY=model.position.y;groundOffset=0;groundTargetOffset=0;groundProbeTick=0;
   groundSkinned=[];
   model.traverse(o=>{if(o.isSkinnedMesh)groundSkinned.push(o);});
   groundReferenceY=probeSkinnedBottom();
+  if(groundReferenceY!==null)setupContactBones();
   groundInfo.textContent=groundReferenceY===null?
     'Suelo: el GLB no tiene mallas esqueléticas detectables':
     'Suelo: altura de referencia tomada del Idle original';
@@ -290,23 +351,28 @@ function setupGroundAnchor(){
 function updateGroundAnchor(dt){
   if(groundReferenceY===null||!model)return;
   const imported=activeAnimation!==null;
-  // Nunca modificar la postura o la altura permanente del Idle original.
+  const targeted=activeAnimation===8||activeAnimation===13||activeAnimation===14;
   if(!imported){groundTargetOffset=0;groundProbeTick=0;}
-  else if(++groundProbeTick%2===0){
-    const bottom=probeSkinnedBottom();
+  else if(++groundProbeTick%(targeted?1:2)===0){
+    const bottom=targeted?probeAnatomicalBottom(activeAnimation):probeSkinnedBottom();
     if(bottom!==null){
-      // El muestreo incluye la corrección anterior: restarla para evitar
-      // acumulación y aplicar siempre una referencia absoluta del Idle.
-      const uncorrectedY=bottom-groundOffset;
+      // Quitar el offset aplicado previamente para evitar que la
+      // compensación se acumule en cada fotograma.
+      const originalY=bottom-groundOffset;
       groundTargetOffset=THREE.MathUtils.clamp(
-        groundReferenceY-uncorrectedY,-1.8,1.8
+        groundReferenceY-originalY,targeted?-2.3:-1.8,targeted?2.3:1.8
       );
     }
   }
-  groundOffset=THREE.MathUtils.damp(groundOffset,groundTargetOffset,18,dt);
+  // En las tres posturas complejas responder antes al contacto del cuerpo.
+  groundOffset=THREE.MathUtils.damp(
+    groundOffset,groundTargetOffset,targeted?25:18,dt
+  );
   model.position.y=baseModelY+groundOffset;
   model.updateMatrixWorld(true);
-  groundInfo.textContent=imported?'Suelo: ajustado · Y '+groundOffset.toFixed(3)+' m':
+  groundInfo.textContent=targeted?
+    'Suelo: apoyo '+contactInfo[activeAnimation]+' · Y '+groundOffset.toFixed(3)+' m':
+    imported?'Suelo: ajustado · Y '+groundOffset.toFixed(3)+' m':
     'Suelo: Idle original · Y '+groundOffset.toFixed(3)+' m';
 }
 // Los FBX y el modelo exportado desde Blender no comparten necesariamente
