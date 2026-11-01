@@ -7,6 +7,10 @@
 .animImport label{display:inline-block;background:#006c68;color:#fff;border:1px solid #00ffe4;border-radius:7px;padding:9px;font-size:12px;font-weight:bold;cursor:pointer}
 .animImport input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 #animList{display:grid;gap:5px;max-height:240px;overflow-y:auto;padding-right:3px}
+.animRow.farolera{border-left:3px solid #00ffe4}
+.animRow.candidate{border-left:3px solid #ffce6b}
+.animRole{display:block;font-size:10px;margin-top:3px;color:#8bf4e0}
+.animRow.candidate .animRole{color:#ffce6b}
 .animRow{display:grid;grid-template-columns:1fr auto auto;gap:5px;align-items:center;padding:5px;border:1px solid #244a57;border-radius:7px;background:#0b1b28}
 .animRow button{min-width:0;text-align:left;padding:6px 5px;font-size:11px;white-space:normal;overflow-wrap:anywhere}
 .animRow button[disabled]{opacity:.6}
@@ -20,15 +24,15 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.1</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.1 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
-<h3>Animaciones Mixamo · catálogo numerado</h3>
-<p>Importa el ZIP de Mixamo desde tu dispositivo. El adaptador compara el esqueleto original del FBX con el del modelo GLB; pulsa cada número para probar.</p>
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.2</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.2 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+<h3>Animaciones Mixamo · catálogo de 14</h3>
+<p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>Importa ZIP o FBX una vez; el probador recuerda las animaciones compatibles en este navegador. Luego pulsa sus números.</p>
 <div class="animImport"><label for="animFiles">📁 Cargar ZIP / FBX</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
 <p id="animMessage" role="status">12 animaciones identificadas en el ZIP recibido · sin asignar a la Farolera.</p>
 <div id="animList"></div>
-<div class="animToolbar"><button type="button" id="animCopy">Copiar números marcados</button><button type="button" id="animClear">Limpiar marcas</button></div>
+<div class="animToolbar"><button type="button" id="animFilter">Ver: todas</button><button type="button" id="animCopy">Copiar números marcados</button><button type="button" id="animClear">Limpiar marcas</button></div>
 <p id="animSelection">Seleccionadas: ninguna.</p>
-<p>Marcar solo crea una lista provisional para comunicármela; no modifica las acciones del combate.</p>
+<p>Idle principal: el del GLB original. Los roles son asignaciones del probador, no cambios en la arena. La caché depende del navegador y del dispositivo.</p>
 </section><p class="meta" id="fps">FPS: —</p><p class="meta" id="lampInfo">Lámpara: esperando GLB…</p><p class="meta" id="debugInfo">Detección v2: pendiente</p><p class="meta" id="error"></p></div><div id="mobileActions"><button id="shakeModel" type="button" disabled>↔ Probar balanceo</button><button id="quickPhysics" type="button">Física: ON</button></div><div class="help">1 dedo: girar · 2 dedos: zoom y desplazar</div><script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script><script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -135,16 +139,25 @@ document.querySelector('#lampReset').onclick=()=>{
 };
 function frame(){if(!model)return;const box=new THREE.Box3().setFromObject(model);if(box.isEmpty())return;const center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());const h=Math.max(size.y,size.x,size.z,.01);controls.target.copy(center);camera.position.copy(center).add(new THREE.Vector3(h*.8,h*.36,h*1.5));camera.near=Math.max(.001,h/1000);camera.far=h*300;camera.updateProjectionMatrix();controls.update();}
 
-/* Catálogo estable 01–12: se conserva el orden exacto del ZIP recibido. */
+/* Catálogo estable 01–14: las doce originales nunca se renumeran. */
 const animCatalog=[
   'Stable Sword Outward Slash.fbx','Magic Heal.fbx','Frisbee Throw.fbx',
   'Running Backward Arc (1).fbx','Running Backward Arc.fbx',
   'Running Backward.fbx','Running.fbx','Sword And Shield Death.fbx',
   'Standing React Small From Headshot.fbx','Standing Aim Recoil.fbx',
-  'Idle.fbx','Walk W_ Briefcase.fbx'
+  'Idle.fbx','Walk W_ Briefcase.fbx',
+  'Standing.fbx','Standing 2H Magic Area Attack 01.fbx'
 ];
+const faroleraRoles={
+  2:'Hechizos a distancia',8:'Muerte antes de restauración',
+  9:'Reacción al daño',12:'Caminar con farol',
+  13:'Restauración desde el suelo',14:'Casteo provisional del portal'
+};
+const candidateRoles={3:'Candidata: lanzamiento del farol'};
 const animationRows=animCatalog.map((name,index)=>({
-  index:index+1,name,clip:null,status:'pending',details:'',keep:false
+  index:index+1,name,clip:null,status:'pending',details:'',
+  keep:!!faroleraRoles[index+1],
+  role:faroleraRoles[index+1]?'farolera':candidateRoles[index+1]?'candidate':'other'
 }));
 const animList=document.querySelector('#animList');
 const animMessage=document.querySelector('#animMessage');
@@ -152,6 +165,7 @@ const animSelection=document.querySelector('#animSelection');
 const fbxLoader=new FBXLoader();
 let idleOriginal=null,activeAnimation=null,activeAction=null;
 let loadingAnimations=false;
+let currentAnimFilter='all';
 const normBone=n=>String(n).replace(/.*[\/\\|]/g,'').replace(/^.*?mixamorig[:_]?/i,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
 // Los FBX y el modelo exportado desde Blender no comparten necesariamente
 // los mismos ejes locales aunque todos sus huesos se llamen mixamorig.
@@ -222,12 +236,19 @@ function makeAnimationClip(sourceRoot,sourceClip,displayName){
 function renderAnimList(){
   animList.replaceChildren();
   for(const row of animationRows){
+    if(currentAnimFilter==='pack'&&row.role==='other')continue;
+    if(currentAnimFilter==='other'&&row.role!=='other')continue;
     const el=document.createElement('div');
     el.className='animRow '+(row.clip?'ok ':'')+(row.status==='error'?'error ':'')+
-      (activeAnimation===row.index?'active':'');
+      (activeAnimation===row.index?'active ':'')+row.role;
     const play=document.createElement('button');
     play.type='button';play.disabled=!row.clip||!model;
     play.textContent=String(row.index).padStart(2,'0')+' · '+row.name.replace(/\.fbx$/i,'');
+    if(faroleraRoles[row.index]||candidateRoles[row.index]){
+      const tag=document.createElement('small');tag.className='animRole';
+      tag.textContent=faroleraRoles[row.index]||candidateRoles[row.index];
+      play.append(tag);
+    }
     play.title=row.details||'Carga el ZIP para reproducir esta animación';
     play.addEventListener('click',()=>playAnimation(row.index));
     const state=document.createElement('span');state.className='animNo';
@@ -276,10 +297,16 @@ function playIdleOriginal(){
   else action.setEffectiveWeight(1);
   activeAction=action;activeAnimation=null;playing=true;
   toggle.textContent='Pausar / Reproducir';
-  animMessage.textContent='Idle original del GLB · no depende de las 12 animaciones.';
+  animMessage.textContent='Idle original del GLB · independiente del catálogo FBX.';
   renderAnimList();
 }
 document.querySelector('#animIdle').addEventListener('click',playIdleOriginal);
+document.querySelector('#animFilter').addEventListener('click',()=>{
+  currentAnimFilter=currentAnimFilter==='all'?'pack':currentAnimFilter==='pack'?'other':'all';
+  document.querySelector('#animFilter').textContent=currentAnimFilter==='all'?'Ver: todas':
+    currentAnimFilter==='pack'?'Ver: Farolera + candidata':'Ver: otras';
+  renderAnimList();
+});
 document.querySelector('#animCopy').addEventListener('click',async()=>{
   const selection=animationRows.filter(a=>a.keep).map(a=>String(a.index).padStart(2,'0')).join(', ');
   if(!selection){animMessage.textContent='Marca primero los números que quieras reservar.';return;}
@@ -295,13 +322,70 @@ document.querySelector('#animClear').addEventListener('click',()=>{
   renderAnimList();renderSelection();
 });
 function identifyAnimation(name){
-  const clean=name.replace(/.*[\/\\]/g,'');
+  let clean=name.replace(/.*[\/\\]/g,'');
+  // Las dos descargas nuevas llevan sufijo (1) añadido por el navegador.
+  // No normalizar Running Backward Arc (1), que es una animación distinta.
+  if(clean==='Standing (1).fbx')clean='Standing.fbx';
+  if(clean==='Standing 2H Magic Area Attack 01 (1).fbx')
+    clean='Standing 2H Magic Area Attack 01.fbx';
   let row=animationRows.find(a=>a.name.toLowerCase()===clean.toLowerCase());
   if(!row){
-    row={index:animationRows.length+1,name:clean,clip:null,status:'pending',details:'',keep:false};
+    row={index:animationRows.length+1,name:clean,clip:null,status:'pending',details:'',keep:false,role:'other'};
     animationRows.push(row);
   }
   return row;
+}
+
+const ANIM_DB='rok-farolera-animation-lab';
+function openAnimDB(){
+  return new Promise((resolve,reject)=>{
+    if(!window.indexedDB){resolve(null);return;}
+    const request=indexedDB.open(ANIM_DB,1);
+    request.onupgradeneeded=()=>{
+      if(!request.result.objectStoreNames.contains('clips'))
+        request.result.createObjectStore('clips',{keyPath:'index'});
+    };
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error);
+    request.onblocked=()=>reject(Error('Almacenamiento ocupado'));
+  });
+}
+async function saveAnimToCache(row){
+  if(!row.clip)return;
+  let db;
+  try{
+    db=await openAnimDB();if(!db)return;
+    await new Promise((resolve,reject)=>{
+      const t=db.transaction('clips','readwrite');
+      t.objectStore('clips').put({index:row.index,name:row.name,
+        json:row.clip.toJSON(),details:row.details});
+      t.oncomplete=resolve;t.onerror=()=>reject(t.error);t.onabort=()=>reject(t.error);
+    });
+  }catch(e){console.warn('[ROK] No se pudo conservar animación',row.name,e);}
+  finally{db?.close();}
+}
+async function recoverAnimCache(){
+  let db;
+  try{
+    db=await openAnimDB();if(!db)return;
+    const found=await new Promise((resolve,reject)=>{
+      const q=db.transaction('clips','readonly').objectStore('clips').getAll();
+      q.onsuccess=()=>resolve(q.result);
+      q.onerror=()=>reject(q.error);
+    });
+    let recovered=0;
+    for(const item of found){
+      const row=animationRows.find(r=>r.index===item.index&&r.name===item.name);
+      if(!row||row.clip)continue;
+      try{
+        row.clip=THREE.AnimationClip.parse(item.json);
+        row.status='ok';row.details=item.details+' · en caché';recovered++;
+      }catch(e){console.warn('[ROK] Caché no compatible',item.name,e);}
+    }
+    if(recovered)animMessage.textContent=recovered+' animaciones recuperadas de este navegador.';
+    renderAnimList();renderSelection();
+  }catch(e){console.warn('[ROK] No se puede leer la caché',e);}
+  finally{db?.close();}
 }
 async function importAnimation(name,buffer){
   const row=identifyAnimation(name);
@@ -312,6 +396,7 @@ async function importAnimation(name,buffer){
     if(row.clip&&mixer)mixer.uncacheClip(row.clip);
     row.clip=adapted.clip;row.status='ok';
     row.details=adapted.matched+' huesos adaptados por pose de referencia · '+row.clip.duration.toFixed(2)+' s';
+    await saveAnimToCache(row);
     // No conservar modelos, texturas ni geometría FBX: solo clips de huesos.
     source.traverse(o=>{
       if(o.geometry)o.geometry.dispose();
@@ -355,8 +440,8 @@ document.querySelector('#animFiles').addEventListener('change',async e=>{
     }
     const ok=animationRows.filter(r=>r.clip).length;
     const bad=animationRows.filter(r=>r.status==='error');
-    animMessage.textContent='Catálogo: '+ok+' animaciones disponibles para reproducir · '+bad.length+
-      ' con error. No se han asignado al paquete definitivo.';
+    animMessage.textContent='Catálogo: '+ok+' animaciones listas · '+bad.length+
+      ' con error. Las funciones del pack están etiquetadas para pruebas.';
     if(bad.length)animMessage.textContent+=' Problemas: '+bad.map(r=>r.index+' '+r.details).join('; ');
   }catch(err){
     animMessage.textContent='Error al importar: '+(err?.message||String(err));
@@ -373,7 +458,8 @@ activeAction=mixer.clipAction(idleOriginal).play();
 mixer.update(0);setupLantern();toggle.disabled=false;
 document.querySelector('#animIdle').disabled=false;
 renderAnimList();
-status.textContent='Modelo cargado · Idle en reproducción · probador de animaciones listo';}else {status.textContent='Modelo cargado SIN animación';setupLantern();}details.textContent=`${meshes} mallas · ${bones} huesos · ${g.animations.length} animación(es) · ${g.animations.map(a=>a.name).join(', ')}`;frame();},ev=>{if(ev.total)status.textContent=`Cargando modelo: ${Math.round(ev.loaded/ev.total*100)}%`;},e=>{status.textContent='Error cargando GLB';error.textContent=e.message+' — Comprueba la conexión a Internet y vuelve a cargar esta página.';console.error(e)});
+status.textContent='Modelo cargado · Idle en reproducción · probador de animaciones listo';
+recoverAnimCache();}else {status.textContent='Modelo cargado SIN animación';setupLantern();}details.textContent=`${meshes} mallas · ${bones} huesos · ${g.animations.length} animación(es) · ${g.animations.map(a=>a.name).join(', ')}`;frame();},ev=>{if(ev.total)status.textContent=`Cargando modelo: ${Math.round(ev.loaded/ev.total*100)}%`;},e=>{status.textContent='Error cargando GLB';error.textContent=e.message+' — Comprueba la conexión a Internet y vuelve a cargar esta página.';console.error(e)});
 toggle.onclick=()=>{playing=!playing;toggle.textContent=playing?'Pausar':'Reproducir';};document.querySelector('#reset').onclick=frame;
 document.querySelector('#wire').onclick=()=>{wire=!wire;if(!model)return;model.traverse(o=>{if(!o.isMesh)return;if(wire){const m=o.material.clone();m.wireframe=true;o.material=m;}else{o.material.dispose();o.material=originalMaterials.get(o);}})};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
