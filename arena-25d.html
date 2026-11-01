@@ -19,12 +19,24 @@ canvas{display:block;touch-action:none}
 #top.open #details{display:block}
 #details p{margin:7px 0}
 #sceneStatus{font-weight:700;color:#ebf8f8}
-#bottom{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);left:50%;transform:translateX(-50%);z-index:12;display:flex;gap:7px;align-items:center;justify-content:center;background:#091b29d9;border:1px solid #2b6e73;border-radius:40px;padding:6px;max-width:98vw}
-#bottom button{background:#17434b;border:1px solid #299d9c;color:#f5ffff;border-radius:22px;padding:10px 12px;font-size:12px;white-space:nowrap;min-height:39px}
+/* Barra de controles anclada: integrada al borde inferior, sin flotación. */
+#bottom{position:fixed;left:0;right:0;bottom:0;transform:none;z-index:12;
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;
+  width:100%;max-width:none;margin:0;
+  padding:7px 8px calc(7px + env(safe-area-inset-bottom,0px));
+  background:#091b29f2;border:1px solid #286d72;border-left:0;border-right:0;border-bottom:0;
+  border-radius:13px 13px 0 0;box-shadow:0 -5px 18px #000a}
+#bottom button{min-width:0;min-height:37px;padding:8px 3px;
+  border:1px solid #299d9c;border-radius:8px;
+  background:#17434b;color:#f5ffff;font-size:11px;white-space:nowrap}
 #bottom button.primary{background:#007b75;border-color:var(--mint);font-weight:700}
 #bottom button:disabled{opacity:.5}
-#bottom{flex-wrap:wrap;border-radius:17px}
-#bottom button{padding:8px 10px;min-height:35px}
+#attackMode{grid-column:1/-1}
+@media(min-width:760px){
+  #bottom{grid-template-columns:repeat(5,minmax(0,1fr));padding:9px max(20px,env(safe-area-inset-right,0px))}
+  #attackMode{grid-column:auto}
+  #bottom button{font-size:12px}
+}
 #nameplateLayer{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:8}
 .unitTag{position:absolute;width:104px;transform:translate(-50%,-100%);
   display:flex;flex-direction:column;gap:2px;text-align:center;pointer-events:none;
@@ -48,30 +60,27 @@ canvas{display:block;touch-action:none}
 .unitMana .unitBarFill{background:linear-gradient(180deg,#75ceff,#226be9 75%,#1941ad)}
 .unitTag [hidden]{display:none!important}
 @media(max-width:759px){
-  #phase,#hint{bottom:calc(env(safe-area-inset-bottom,0px) + 130px)}
+  #phase,#hint{bottom:calc(env(safe-area-inset-bottom,0px) + 121px)}
   .unitTag{width:90px}
 }
 #phase{position:fixed;z-index:9;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);padding:6px 10px;border:1px solid #277b78;border-radius:9px;background:#081925d9;font-size:11px;font-weight:700;color:#ccf7ee}
 #hint{position:fixed;z-index:9;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);font-size:10px;max-width:42vw;color:#d0dfe0;text-align:right;background:#09192599;padding:6px;border-radius:6px}
-@media(min-width:760px){#top{left:16px;transform:none;top:16px}#bottom{bottom:20px}#phase{bottom:20px}#hint{bottom:20px}}
+@media(min-width:760px){#top{left:16px;transform:none;top:16px}#phase{bottom:73px}#hint{bottom:73px}}
 
-#versionProof{position:fixed;z-index:16;left:10px;top:calc(env(safe-area-inset-top,0px) + 58px);pointer-events:none;display:flex;flex-direction:column;gap:3px;max-width:min(240px,63vw);padding:8px 10px;border:1px solid #8b9970;border-radius:9px;background:#0a1726e8;box-shadow:0 4px 16px #0009}
-#versionProof strong{font-size:12px;color:#ffe59b;letter-spacing:.03em}
-#versionProof span{font-size:11px;color:#e9ffff;font-weight:700}
-#versionProof small{font-size:10px;color:#a4c5c8}
-@media(min-width:760px){#versionProof{top:74px;left:16px}}
+#versionProof{position:fixed;z-index:16;top:calc(env(safe-area-inset-top,0px) + 56px);
+  left:50%;transform:translateX(-50%);width:min(410px,94vw);
+  color:#a5d0d1;font-size:9px;line-height:1;font-weight:600;
+  text-align:right;padding-right:7px;pointer-events:none;
+  background:none;border:none;box-shadow:none}
+@media(min-width:760px){#versionProof{top:72px;left:16px;transform:none}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<aside id="versionProof" aria-label="Versión y dimensiones de la arena">
-<strong>ARENA v0.7.3</strong>
-<span id="gridProof">Verificando casillas…</span>
-<small>Prueba 2.5D · 31/10/2026</small>
-</aside>
+<div id="versionProof" aria-label="Versión de la arena">v0.7.4</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
-    <div><strong>R.O.K. · Arena 2.5D</strong> <small>v0.7.3</small></div>
+    <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
@@ -141,7 +150,6 @@ const root=new THREE.Group();scene.add(root);
 // R.O.K. auténtico: 9 columnas X (0–8) y 18 filas de profundidad Z (0–17).
 // J2: filas 0–8 (arriba); J1: filas 9–17 (abajo).
 const W=9,D=18;
-qs('#gridProof').textContent=`${W} columnas × ${D} filas · ${W*D/2} rival + ${W*D/2} aliado`;
 const base=new THREE.Mesh(new THREE.BoxGeometry(W+.5,.25,D+.5),new THREE.MeshStandardMaterial({color:0x182b31,metalness:.15,roughness:.83}));
 base.position.y=-.16;root.add(base);
 const tileGeo=new THREE.PlaneGeometry(.986,.986);
@@ -245,7 +253,7 @@ function addTrailParticle(c){
   p.base=.48+Math.random()*.38;p.size=.14+Math.random()*.15;
   p.vy=.26+Math.random()*.36;
   p.vz=(c.startZ-c.endZ)>0?.22:-.22;
-  p.sprite.position.set((Math.random()-.5)*.53,
+  p.sprite.position.set(c.outer.position.x+(Math.random()-.5)*.53,
     .25+Math.random()*.95,c.outer.position.z+(Math.random()-.5)*.28);
   p.sprite.scale.setScalar(p.size);p.sprite.material.opacity=p.base;
   p.sprite.visible=true;
@@ -262,7 +270,7 @@ function updateRestorationFx(c,dt,t){
     t>=9.28&&t<9.95?.35*(1-(t-9.28)/.67):0;
   fx.glow.visible=flash>.003;
   fx.glow.material.opacity=Math.max(0,flash)*.62;
-  fx.glow.position.set(0,.83,c.outer.position.z);
+  fx.glow.position.set(c.outer.position.x,.83,c.outer.position.z);
   const size=2.0+flash*.8;
   fx.glow.scale.set(size,size*1.25,1);
   for(const p of fx.particles){
@@ -506,7 +514,7 @@ function animateFighter(c,t){
   c.model.position.y=height;
   c.model.scale.setScalar(c.model.userData.baseScale*scale);
   setAppearance(c,Math.max(0,glow));
-  c.fx.g.position.set(0,.08,z);
+  c.fx.g.position.set(c.outer.position.x,.08,c.outer.position.z);
   const spawnPulse=t<1.4?1-ease(t/1.4):
     t>=9.28&&t<10.03?1-ease((t-9.28)/.75):0;
   const returnPulse=t>=8.2&&t<9.28?.40*Math.sin(Math.PI*(t-8.2)/1.08):0;
@@ -547,7 +555,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.7.3. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.7.4. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -965,8 +973,9 @@ function spawnImpact(x,z,aoe,enemySpell){
   magicImpacts.push({group,ring,burst,t:0,aoe,flashes,splashes,splashMaterial});
 }
 function launchSpell(attacker,target){
-  const area=attacker.side==='enemy'&&attackMode==='magic'&&attacker.specialCooldown<=0;
-  if(area)attacker.specialCooldown=7.5;
+  // Todas las descargas enemigas tienen daño y efecto de área 3×3.
+  // La PDA del 32 % solo se evalúa para el aturdimiento al hacer daño.
+  const area=attacker.side==='enemy';
   const group=new THREE.Group();root.add(group);
   const fromX=attacker.outer.position.x,fromZ=attacker.outer.position.z;
   const cell=worldToCell(target.outer.position.x,target.outer.position.z);
