@@ -29,14 +29,15 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.4</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.4 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.5</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.5 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
 <div id="rightArmTuning">
-<strong>Farolera · caminata 12 · ajuste suave del antebrazo</strong>
-<label>Elevación <input id="rightForearmRaise" type="range" min="0" max="12" step="1" value="6"><output id="rightForearmRaiseValue">6°</output></label>
-<p>Solo el antebrazo derecho; sin modificar mano, dedos ni los demás movimientos.</p>
+<strong>Farolera · animación 12 original · ajuste manual</strong>
+<label>Brazo derecho (hombro) <input id="rightUpperArmAngle" type="range" min="-20" max="35" step="1" value="0"><output id="rightUpperArmAngleValue">0°</output></label>
+<label>Antebrazo derecho (codo) <input id="rightForearmAngle" type="range" min="-20" max="35" step="1" value="0"><output id="rightForearmAngleValue">0°</output></label>
+<p>Ambos comienzan en 0°. Solo se previsualiza un ajuste cuando tú mueves un control. Manos, dedos y FBX permanecen intactos.</p>
 </div>
 <p id="animMessage" role="status">12 animaciones identificadas en el ZIP recibido · sin asignar a la Farolera.</p>
 <div id="animList"></div>
@@ -179,54 +180,78 @@ let currentAnimFilter='all';
 // Corrección NO destructiva del brazo que sostiene el farol para Walk 12.
 // El mixer controla todo el esqueleto; después se recoloca únicamente RightArm
 // mediante una rotación en espacio global convertida al espacio del padre.
-// Ajuste discreto limitado a RightForeArm. El mixer conserva TODAS las
-// pistas del FBX originales; no se modifican ni reescriben dedos, muñeca,
-// poses de manos, ni otros clips. Máximo absoluto: 12 grados.
-const forearmRaise=document.querySelector('#rightForearmRaise');
-const forearmRaiseLabel=document.querySelector('#rightForearmRaiseValue');
-let rightForearmBone=null,rightHandBone=null,walkArmBlend=0;
-forearmRaise.addEventListener('input',()=>{forearmRaiseLabel.textContent=forearmRaise.value+'°';});
+// Control de PREVISUALIZACIÓN: no altera el FBX ni guarda huesos nuevos.
+// Con ángulos 0° la animación 12 es exactamente la que reproduce el mixer.
+const upperArmAngle=document.querySelector('#rightUpperArmAngle');
+const forearmAngle=document.querySelector('#rightForearmAngle');
+const upperArmAngleValue=document.querySelector('#rightUpperArmAngleValue');
+const forearmAngleValue=document.querySelector('#rightForearmAngleValue');
+let rightUpperArmBone=null,rightForearmBone=null,rightHandBone=null;
+let upperArmMixerPose=new THREE.Quaternion(),forearmMixerPose=new THREE.Quaternion();
+let armMixerPoseValid=false;
+function updateArmAngleLabels(){
+  upperArmAngleValue.textContent=upperArmAngle.value+'°';
+  forearmAngleValue.textContent=forearmAngle.value+'°';
+}
+upperArmAngle.addEventListener('input',updateArmAngleLabels);
+forearmAngle.addEventListener('input',updateArmAngleLabels);
+updateArmAngleLabels();
 function setupArmTuning(){
-  rightForearmBone=null;rightHandBone=null;
+  rightUpperArmBone=null;rightForearmBone=null;rightHandBone=null;
   model?.traverse(o=>{
     if(!o.isBone)return;
     const n=o.name.replace(/^.*?mixamorig[:_]?/i,'').toLowerCase();
+    if(n==='rightarm')rightUpperArmBone=o;
     if(n==='rightforearm')rightForearmBone=o;
     if(n==='righthand')rightHandBone=o;
   });
-  if(!rightForearmBone||!rightHandBone){
-    console.warn('[ROK] Faltan huesos RightForeArm / RightHand para ajustar la caminata 12');
+  armMixerPoseValid=false;
+  if(!rightUpperArmBone||!rightForearmBone||!rightHandBone){
     document.querySelector('#rightArmTuning').querySelector('p').textContent=
-      'No se localizaron los huesos del antebrazo derecho. No se aplica ninguna corrección.';
+      'No se encontraron los huesos del brazo derecho. La animación original seguirá intacta.';
+    console.warn('[ROK] Brazo derecho incompleto: no se realizarán ajustes');
   }
 }
-function tuneLanternArm(dt){
-  if(!rightForearmBone||!rightHandBone||!model)return;
-  const active=activeAnimation===12&&playing?1:0;
-  walkArmBlend=THREE.MathUtils.damp(walkArmBlend,active,14,dt);
-  const degrees=Number(forearmRaise.value)*walkArmBlend;
-  if(degrees<.001)return;
+// Guardamos los cuaterniones SIN AJUSTE inmediatamente después de que el
+// AnimationMixer actualiza la pose. Esto evita acumulaciones entre fotogramas.
+function captureOriginalArmPose(){
+  if(!rightUpperArmBone||!rightForearmBone)return;
+  upperArmMixerPose.copy(rightUpperArmBone.quaternion);
+  forearmMixerPose.copy(rightForearmBone.quaternion);
+  armMixerPoseValid=true;
+}
+const armWorldUp=new THREE.Vector3(0,1,0);
+function applyJointLift(bone,child,degrees){
+  if(!degrees)return;
   model.updateMatrixWorld(true);
-  const elbow=rightForearmBone.getWorldPosition(new THREE.Vector3());
-  const wrist=rightHandBone.getWorldPosition(new THREE.Vector3());
-  const forearm=wrist.sub(elbow);
-  if(forearm.lengthSq()<1e-8)return;
-  // La meta eleva el extremo de la muñeca apenas lo correspondiente a
-  // unos grados de flexión, sin desplazar ni rotar manualmente la mano.
-  const desired=forearm.clone().add(
-    new THREE.Vector3(0,forearm.length()*Math.sin(THREE.MathUtils.degToRad(degrees)),0)
-  );
-  const rotation=new THREE.Quaternion().setFromUnitVectors(
-    forearm.normalize(),desired.normalize()
-  );
-  // Tope estricto contra deformaciones exageradas incluso en poses extremas.
-  const angle=rotation.angleTo(new THREE.Quaternion());
-  const cap=THREE.MathUtils.degToRad(degrees);
-  if(angle>cap)rotation.slerp(new THREE.Quaternion(),1-cap/angle);
-  const parentWorld=rightForearmBone.parent.getWorldQuaternion(new THREE.Quaternion());
-  const correction=parentWorld.clone().invert().multiply(rotation).multiply(parentWorld);
-  rightForearmBone.quaternion.premultiply(correction).normalize();
+  const jointPos=bone.getWorldPosition(new THREE.Vector3());
+  const childPos=child.getWorldPosition(new THREE.Vector3());
+  const limb=childPos.sub(jointPos);
+  if(limb.lengthSq()<1e-9)return;
+  // El eje es perpendicular al segmento y al "arriba" del mundo.
+  // Se aplica solo al hueso solicitado, sin editar mano ni dedos.
+  const axis=limb.clone().cross(armWorldUp);
+  if(axis.lengthSq()<1e-9)axis.copy(limb).cross(new THREE.Vector3(0,0,1));
+  if(axis.lengthSq()<1e-9)return;
+  axis.normalize();
+  const worldRotation=new THREE.Quaternion().setFromAxisAngle(axis,THREE.MathUtils.degToRad(degrees));
+  const parentRotation=bone.parent.getWorldQuaternion(new THREE.Quaternion());
+  const localRotation=parentRotation.clone().invert().multiply(worldRotation).multiply(parentRotation);
+  bone.quaternion.premultiply(localRotation).normalize();
   model.updateMatrixWorld(true);
+}
+function previewArmAngles(){
+  if(!armMixerPoseValid||activeAnimation!==12||
+     !rightUpperArmBone||!rightForearmBone||!rightHandBone)return;
+  // Restaurar la pose original antes de cada previsualización, también
+  // cuando el usuario mueve los controles mientras está en pausa.
+  rightUpperArmBone.quaternion.copy(upperArmMixerPose);
+  rightForearmBone.quaternion.copy(forearmMixerPose);
+  const armDeg=Number(upperArmAngle.value);
+  const foreDeg=Number(forearmAngle.value);
+  if(armDeg===0&&foreDeg===0)return;
+  applyJointLift(rightUpperArmBone,rightForearmBone,armDeg);
+  applyJointLift(rightForearmBone,rightHandBone,foreDeg);
 }
 const normBone=n=>String(n).replace(/.*[\/\\|]/g,'').replace(/^.*?mixamorig[:_]?/i,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
 // Los FBX y el modelo exportado desde Blender no comparten necesariamente
@@ -556,5 +581,6 @@ recoverAnimCache().then(()=>preloadRepoAnimations());}else {status.textContent='
 toggle.onclick=()=>{playing=!playing;toggle.textContent=playing?'Pausar':'Reproducir';};document.querySelector('#reset').onclick=frame;
 document.querySelector('#wire').onclick=()=>{wire=!wire;if(!model)return;model.traverse(o=>{if(!o.isMesh)return;if(wire){const m=o.material.clone();m.wireframe=true;o.material=m;}else{o.material.dispose();o.material=originalMaterials.get(o);}})};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-let prev=performance.now(),t=0,n=0;function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-prev)/1000,.05);prev=now;if(mixer&&playing)mixer.update(dt);if(mixer&&playing)tuneLanternArm(dt);animateShake(dt);if(lantern&&playing)updateLantern(dt);controls.update();renderer.render(scene,camera);t+=dt;n++;if(t>1){fps.textContent='FPS: '+Math.round(n/t);t=0;n=0}}requestAnimationFrame(tick);
+let prev=performance.now(),t=0,n=0;function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-prev)/1000,.05);prev=now;if(mixer&&playing){mixer.update(dt);captureOriginalArmPose();}
+previewArmAngles();animateShake(dt);if(lantern&&playing)updateLantern(dt);controls.update();renderer.render(scene,camera);t+=dt;n++;if(t>1){fps.textContent='FPS: '+Math.round(n/t);t=0;n=0}}requestAnimationFrame(tick);
 </script></body></html>
