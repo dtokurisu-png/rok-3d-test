@@ -76,12 +76,12 @@ canvas{display:block;touch-action:none}
     <p id="modelStatus">Modelos: cargando…</p>
     <p id="textureStatus">Textura R.O.K.: comprobando…</p>
     <p id="fps">FPS: —</p>
-    <p><b>Combate experimental:</b> aliada 7 PV, alcance 3, escudo absorbente de 2; rival 5 PV, alcance 5, onda de área de radio 1 y aturdimiento tras restaurarse durante 2,5 s (5 estrellas, -1 cada 0,5 s). Botón para alternar el ataque mágico y el ataque simple. No modifica el combate de R.O.K.</p>
+    <p><b>Combate experimental:</b> aliada 7 PV, alcance 3, escudo de 2. Rival 5 PV, alcance 5, onda 3×3 y PDA de aturdimiento 32 % por impacto; 5 estrellas orbitando durante 2,5 s. La rival dispone de 10 PM y evade un impacto si tiene 6 PM y su habilidad (10 s) está lista, desplazándose a una casilla a distancia 2–5 de la aliada. Recupera 1 PM cada 3 s. Botón para cambiar el modo de ataque. No modifica R.O.K. principal.</p>
     <p><a href="./index.html" style="color:#00ffe4">Volver al visor de Farolera</a></p>
   </div>
 </section>
 <div id="nameplateLayer" aria-hidden="true"></div>
-<div id="combatReadout">Aliada: ❤️ 7 · alcance 3 · 🛡️ 2<br>Rival: ❤️ 5 · alcance 5 · onda 1</div>
+<div id="combatReadout">Aliada: ❤️ 7 · rango 3 · 🛡️ 2<br>Rival: ❤️ 5 · rango 5 · 💧 10/10 PM · PDA 32 %</div>
 <div id="phase">Preparando combate…</div>
 <div id="hint">1 dedo: girar · 2 dedos: zoom<br>Arriba: rival · Abajo: aliado</div>
 <div id="bottom">
@@ -492,6 +492,9 @@ function animateFighter(c,t){
     z=c.startZ;
   }
   c.outer.position.z=z;
+  // Tras una evasión lateral, regresar suavemente también por X.
+  if(t>=8.38&&t<9.28)c.outer.position.x=THREE.MathUtils.lerp(c.endX||0,0,ease((t-8.38)/.90));
+  else if(t>=9.28)c.outer.position.x=0;
   c.model.position.y=height;
   c.model.scale.setScalar(c.model.userData.baseScale*scale);
   setAppearance(c,Math.max(0,glow));
@@ -671,6 +674,7 @@ function resetCombatant(c){
   c.cooldown=c.side==='enemy'?.20:.65;
   c.specialCooldown=0;
   c.baseEndZ=c.endZ;
+  c.endX=0;
   c.shieldPulse=0;
   c.maxMana=c.side==='enemy'?10:0;
   c.mana=c.maxMana;c.manaTimer=0;c.dodgeCooldown=0;
@@ -708,6 +712,7 @@ function startRestoration(c){
   c.mixer.timeScale=1;
   c.restoringT=0;
   c.endZ=c.outer.position.z;
+  c.endX=c.outer.position.x;
   c.cooldown=.6;
   if(c.shieldShell)c.shieldShell.visible=false;
   if(c.stunHalo)c.stunHalo.group.visible=false;
@@ -829,6 +834,13 @@ function updateMagic(dt){
   for(let i=missiles.length-1;i>=0;i--){
     const m=missiles[i];m.age+=dt;
     const a=THREE.MathUtils.clamp(m.age/m.duration,0,1);
+    // Seguimiento limitado antes del último tramo; al impactar, la celda
+    // queda fijada para que la evasión pueda esquivar el proyectil.
+    if(a<.85&&(m.target.stage==='active'||m.target.stage==='stunned')){
+      m.impactCell=worldToCell(m.target.outer.position.x,m.target.outer.position.z);
+      const aim=cellToWorld(m.impactCell.col,m.impactCell.row);
+      m.aimX=aim.x;m.aimZ=aim.z;
+    }
     m.group.position.x=THREE.MathUtils.lerp(m.fromX,m.aimX,a);
     m.group.position.z=THREE.MathUtils.lerp(m.fromZ,m.aimZ,a);
     m.group.position.y=1.03+Math.sin(Math.PI*a)*.25;
