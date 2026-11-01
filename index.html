@@ -8,9 +8,9 @@
 .animImport input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 #animList{display:grid;gap:5px;max-height:240px;overflow-y:auto;padding-right:3px}
 .characterPicker{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0;padding:9px;border:1px solid #237c78;border-radius:9px;background:#092832}
-.characterPicker label{font-size:12px;color:#00ffe4;font-weight:bold}
-.characterPicker select{flex:1;min-width:160px;max-width:100%;padding:9px;border:1px solid #00bdaa;border-radius:7px;background:#123b43;color:white;font-size:12px;cursor:pointer}
-.characterPicker select:disabled{opacity:.65;cursor:wait}
+.characterPicker .characterLabel{font-size:12px;color:#00ffe4;font-weight:bold}
+.characterPicker button{flex:1;min-width:160px;max-width:100%;padding:9px;border:1px solid #00ffe4;border-radius:7px;background:#12535a;color:white;font-size:12px;font-weight:bold;cursor:pointer}
+.characterPicker button:disabled{opacity:.65;cursor:wait}
 #characterInfo{width:100%;font-size:11px;color:#bfd7d7;line-height:1.35;overflow-wrap:anywhere}
 .animRow.farolera{border-left:3px solid #00ffe4}
 .animRow.candidate{border-left:3px solid #ffce6b}
@@ -34,7 +34,7 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.14</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.14 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.14: panel desplazable mediante rueda y barra visible. Selector Farolera / Arquera del Desierto; la Arquera reutiliza las 14 animaciones Mixamo con adaptación a su propio rig. La habilidad diferencial de Arquera aún no está definida. Arena 2.5D sigue en v0.9.7.</p><div class="characterPicker"><label for="characterSelect">Modelo 3D</label><select id="characterSelect" disabled><option value="farolera">Farolera (original)</option><option value="archer">Arquera del Desierto</option></select><span id="characterInfo">Farolera original · cargando animaciones…</span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.15</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.15 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.15: botón para alternar Farolera / Arquera del Desierto. Panel desplazable mediante rueda y barra visible. Se conservan las 14 animaciones Mixamo para ambos modelos sin reemplazos. Arena 2.5D sigue en v0.9.7.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><span id="characterInfo">Farolera original · cargando animaciones…</span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -690,10 +690,12 @@ async function switchCharacter(character){
     console.warn('[R.O.K.] Cambio de personaje:',e);
   }finally{
     characterSelect.value=currentCharacter;
+    characterSelect.textContent=currentCharacter==='farolera'?
+      'Cambiar a Arquera del Desierto':'Cambiar a Farolera';
     characterSelect.disabled=false;characterSwitching=false;
   }
 }
-characterSelect.addEventListener('change',()=>switchCharacter(characterSelect.value));
+characterSelect.addEventListener('click',()=>switchCharacter(currentCharacter==='farolera'?'archer':'farolera'));
 
 document.querySelector('#animIdle').addEventListener('click',playIdleOriginal);
 document.querySelector('#animFilter').addEventListener('click',()=>{
