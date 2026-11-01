@@ -1,7 +1,39 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R.O.K. — Farolera del Umbral · Pruebas 3D</title><style>html,body{margin:0;height:100%;background:#0b1119;color:#efffff;font-family:Arial,sans-serif}canvas{display:block}.hud{position:fixed;left:16px;top:16px;background:#101d2ae8;padding:16px;border:1px solid #18bca9;border-radius:12px;max-width:330px;box-sizing:border-box}.hud h2{font-size:18px;margin:0 0 8px;color:#00ffe4}.hud p{font-size:13px;line-height:1.5;margin:7px 0}.buttons{display:flex;gap:6px;flex-wrap:wrap}button{background:#123b43;color:white;border:1px solid #00bdaa;border-radius:7px;padding:9px;cursor:pointer}.meta{color:#b4ced0}#status{font-weight:bold}.help{position:fixed;right:12px;bottom:12px;color:#b6cccc;background:#101d2acc;padding:9px;border-radius:8px;font-size:12px}@media(max-width:580px){.hud{max-width:calc(100% - 30px);padding:10px}.hud h2{font-size:15px}.help{display:none}}@media(max-width:700px){html,body{overflow:hidden}canvas{touch-action:none}.hud{top:env(safe-area-inset-top,0px);left:8px;max-width:min(94vw,360px);width:calc(100vw - 16px);padding:10px;border-radius:10px;max-height:42vh;overflow:auto}.hud.mobile-closed{width:auto;max-width:calc(100vw - 16px);max-height:none;overflow:visible;padding:8px 10px}.hud.mobile-closed> :not(h2):not(#mobileToggle){display:none}.hud h2{font-size:14px;margin:0}.hud p{font-size:11px;margin:5px 0}.buttons button{font-size:12px;padding:8px;min-height:36px}.help{display:block;bottom:8px;left:8px;right:auto;font-size:10px;max-width:90vw}.hud.mobile-closed #mobileToggle{display:inline-block}}#mobileToggle{display:none;margin:6px 0;background:#18535b;color:#fff;border:1px solid #00ffe4;border-radius:6px;padding:6px 10px}@media(max-width:700px){#mobileToggle{display:inline-block}} @media(max-width:700px){.hud{position:fixed!important;top:calc(env(safe-area-inset-top,0px) + 5px)!important;left:50%!important;transform:translateX(-50%);width:min(92vw,330px)!important;max-width:330px!important;max-height:68dvh!important;overflow:auto!important;padding:8px 10px!important;border-radius:12px!important;z-index:20;box-shadow:0 4px 18px #0008}.hud.mobile-closed{width:min(92vw,330px)!important;max-height:42px!important;overflow:hidden!important;padding:7px 10px!important;display:flex;align-items:center;justify-content:space-between;gap:8px}.hud.mobile-closed h2{font-size:12px;white-space:nowrap;flex:1}.hud.mobile-closed #mobileToggle{margin:0;font-size:11px;flex:none}.hud.mobile-closed> :not(h2):not(#mobileToggle){display:none}.hud:not(.mobile-closed) h2{font-size:14px}.hud:not(.mobile-closed) #mobileToggle{margin:4px 0 7px}.help{bottom:calc(env(safe-area-inset-bottom,0px) + 8px);right:auto;left:8px;max-width:50vw;font-size:10px}#shakeModel{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);padding:13px 16px;min-height:48px}}#shakeModel{position:fixed;z-index:30;right:15px;bottom:18px;background:#005d60;color:white;border:2px solid #00ffe4;border-radius:100px;font-size:14px;font-weight:bold;box-shadow:0 3px 18px #000a;touch-action:manipulation}#shakeModel:disabled{opacity:.55;cursor:wait}#mobileActions{position:fixed;z-index:40;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);right:10px;display:flex;align-items:center;gap:8px}#mobileActions #shakeModel{position:static!important;right:auto!important;bottom:auto!important;padding:12px 14px!important;min-height:46px}#quickPhysics{background:#16414a;border:2px solid #00ffe4;border-radius:28px;padding:12px 11px;min-height:46px;font-weight:bold}#mobileActions button{box-shadow:0 4px 16px #0009;touch-action:manipulation}@media(max-width:700px){#mobileActions{left:50%;right:auto;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:max-content;max-width:96vw}#mobileActions button{font-size:12px!important}.help{display:none!important}} </style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.4.1</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.4.1 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><p class="meta" id="fps">FPS: —</p><p class="meta" id="lampInfo">Lámpara: esperando GLB…</p><p class="meta" id="debugInfo">Detección v2: pendiente</p><p class="meta" id="error"></p></div><div id="mobileActions"><button id="shakeModel" type="button" disabled>↔ Probar balanceo</button><button id="quickPhysics" type="button">Física: ON</button></div><div class="help">1 dedo: girar · 2 dedos: zoom y desplazar</div><script type="module">
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R.O.K. — Farolera del Umbral · Pruebas 3D</title><style>html,body{margin:0;height:100%;background:#0b1119;color:#efffff;font-family:Arial,sans-serif}canvas{display:block}.hud{position:fixed;left:16px;top:16px;background:#101d2ae8;padding:16px;border:1px solid #18bca9;border-radius:12px;max-width:330px;box-sizing:border-box}.hud h2{font-size:18px;margin:0 0 8px;color:#00ffe4}.hud p{font-size:13px;line-height:1.5;margin:7px 0}.buttons{display:flex;gap:6px;flex-wrap:wrap}button{background:#123b43;color:white;border:1px solid #00bdaa;border-radius:7px;padding:9px;cursor:pointer}.meta{color:#b4ced0}#status{font-weight:bold}.help{position:fixed;right:12px;bottom:12px;color:#b6cccc;background:#101d2acc;padding:9px;border-radius:8px;font-size:12px}@media(max-width:580px){.hud{max-width:calc(100% - 30px);padding:10px}.hud h2{font-size:15px}.help{display:none}}@media(max-width:700px){html,body{overflow:hidden}canvas{touch-action:none}.hud{top:env(safe-area-inset-top,0px);left:8px;max-width:min(94vw,360px);width:calc(100vw - 16px);padding:10px;border-radius:10px;max-height:42vh;overflow:auto}.hud.mobile-closed{width:auto;max-width:calc(100vw - 16px);max-height:none;overflow:visible;padding:8px 10px}.hud.mobile-closed> :not(h2):not(#mobileToggle){display:none}.hud h2{font-size:14px;margin:0}.hud p{font-size:11px;margin:5px 0}.buttons button{font-size:12px;padding:8px;min-height:36px}.help{display:block;bottom:8px;left:8px;right:auto;font-size:10px;max-width:90vw}.hud.mobile-closed #mobileToggle{display:inline-block}}#mobileToggle{display:none;margin:6px 0;background:#18535b;color:#fff;border:1px solid #00ffe4;border-radius:6px;padding:6px 10px}@media(max-width:700px){#mobileToggle{display:inline-block}} @media(max-width:700px){.hud{position:fixed!important;top:calc(env(safe-area-inset-top,0px) + 5px)!important;left:50%!important;transform:translateX(-50%);width:min(92vw,330px)!important;max-width:330px!important;max-height:68dvh!important;overflow:auto!important;padding:8px 10px!important;border-radius:12px!important;z-index:20;box-shadow:0 4px 18px #0008}.hud.mobile-closed{width:min(92vw,330px)!important;max-height:42px!important;overflow:hidden!important;padding:7px 10px!important;display:flex;align-items:center;justify-content:space-between;gap:8px}.hud.mobile-closed h2{font-size:12px;white-space:nowrap;flex:1}.hud.mobile-closed #mobileToggle{margin:0;font-size:11px;flex:none}.hud.mobile-closed> :not(h2):not(#mobileToggle){display:none}.hud:not(.mobile-closed) h2{font-size:14px}.hud:not(.mobile-closed) #mobileToggle{margin:4px 0 7px}.help{bottom:calc(env(safe-area-inset-bottom,0px) + 8px);right:auto;left:8px;max-width:50vw;font-size:10px}#shakeModel{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);padding:13px 16px;min-height:48px}}#shakeModel{position:fixed;z-index:30;right:15px;bottom:18px;background:#005d60;color:white;border:2px solid #00ffe4;border-radius:100px;font-size:14px;font-weight:bold;box-shadow:0 3px 18px #000a;touch-action:manipulation}#shakeModel:disabled{opacity:.55;cursor:wait}#mobileActions{position:fixed;z-index:40;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);right:10px;display:flex;align-items:center;gap:8px}#mobileActions #shakeModel{position:static!important;right:auto!important;bottom:auto!important;padding:12px 14px!important;min-height:46px}#quickPhysics{background:#16414a;border:2px solid #00ffe4;border-radius:28px;padding:12px 11px;min-height:46px;font-weight:bold}#mobileActions button{box-shadow:0 4px 16px #0009;touch-action:manipulation}@media(max-width:700px){#mobileActions{left:50%;right:auto;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:max-content;max-width:96vw}#mobileActions button{font-size:12px!important}.help{display:none!important}} 
+/* R.O.K. · laboratorio de animaciones numeradas. Panel bajo los controles existentes. */
+.animLab{margin-top:10px;padding:10px;border:1px solid #237c78;border-radius:10px;background:#0b232bdd}
+.animLab h3{margin:0 0 6px;font-size:14px;color:#00ffe4}
+.animLab p{margin:5px 0;font-size:11px;line-height:1.35;color:#bfd7d7}
+.animImport{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.animImport label{display:inline-block;background:#006c68;color:#fff;border:1px solid #00ffe4;border-radius:7px;padding:9px;font-size:12px;font-weight:bold;cursor:pointer}
+.animImport input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#animList{display:grid;gap:5px;max-height:240px;overflow-y:auto;padding-right:3px}
+.animRow{display:grid;grid-template-columns:1fr auto auto;gap:5px;align-items:center;padding:5px;border:1px solid #244a57;border-radius:7px;background:#0b1b28}
+.animRow button{min-width:0;text-align:left;padding:6px 5px;font-size:11px;white-space:normal;overflow-wrap:anywhere}
+.animRow button[disabled]{opacity:.6}
+.animRow.active{border-color:#00ffe4;background:#103c3d}
+.animRow.ok button{color:#eeffff}
+.animRow.error button{color:#ee9c97}
+.animNo{color:#ffe3a3;font-size:11px;font-weight:700;min-width:20px}
+.animKeep{display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;font-size:9px;color:#c7dfdf;cursor:pointer}
+.animKeep input{width:16px;height:16px;accent-color:#00ffe4}
+.animToolbar{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.animToolbar button{font-size:11px;padding:7px}
+#animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
+@media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.0</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.0 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+<h3>Animaciones Mixamo · catálogo numerado</h3>
+<p>Importa el ZIP de Mixamo desde tu dispositivo. Se leerá en este navegador, sin subir archivos a GitHub. Pulsa el número para probar cada movimiento en la Farolera.</p>
+<div class="animImport"><label for="animFiles">📁 Cargar ZIP / FBX</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
+<p id="animMessage" role="status">12 animaciones identificadas en el ZIP recibido · sin asignar a la Farolera.</p>
+<div id="animList"></div>
+<div class="animToolbar"><button type="button" id="animCopy">Copiar números marcados</button><button type="button" id="animClear">Limpiar marcas</button></div>
+<p id="animSelection">Seleccionadas: ninguna.</p>
+<p>Marcar solo crea una lista provisional para comunicármela; no modifica las acciones del combate.</p>
+</section><p class="meta" id="fps">FPS: —</p><p class="meta" id="lampInfo">Lámpara: esperando GLB…</p><p class="meta" id="debugInfo">Detección v2: pendiente</p><p class="meta" id="error"></p></div><div id="mobileActions"><button id="shakeModel" type="button" disabled>↔ Probar balanceo</button><button id="quickPhysics" type="button">Física: ON</button></div><div class="help">1 dedo: girar · 2 dedos: zoom y desplazar</div><script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script><script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 const status=document.querySelector('#status'), details=document.querySelector('#details'),error=document.querySelector('#error'),fps=document.querySelector('#fps'),toggle=document.querySelector('#toggle');
 const mobileToggle=document.querySelector('#mobileToggle'), hud=document.querySelector('.hud');mobileToggle.addEventListener('click',()=>{const closed=hud.classList.toggle('mobile-closed');mobileToggle.textContent=closed?'Mostrar controles':'Ocultar controles';mobileToggle.setAttribute('aria-expanded',String(!closed));});
 // Prueba de desplazamiento amortiguado: la cámara permanece fija; el personaje se mueve sobre Z.
@@ -101,7 +133,205 @@ document.querySelector('#lampReset').onclick=()=>{
   pendulum.set(0,0);pendulumVelocity.set(0,0);prevAnchor=null;prevAnchorVelocity.set(0,0);
 };
 function frame(){if(!model)return;const box=new THREE.Box3().setFromObject(model);if(box.isEmpty())return;const center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());const h=Math.max(size.y,size.x,size.z,.01);controls.target.copy(center);camera.position.copy(center).add(new THREE.Vector3(h*.8,h*.36,h*1.5));camera.near=Math.max(.001,h/1000);camera.far=h*300;camera.updateProjectionMatrix();controls.update();}
-new GLTFLoader().load('./chiara_idle.glb',g=>{model=g.scene;scene.add(model);modelBaseZ=model.position.z;shakeButton.disabled=false;let meshes=0,bones=0;model.traverse(o=>{if(o.isMesh){meshes++;originalMaterials.set(o,o.material);o.frustumCulled=false;}if(o.isBone)bones++;});if(g.animations.length){mixer=new THREE.AnimationMixer(model);mixer.clipAction(g.animations[0]).play();mixer.update(0);setupLantern();toggle.disabled=false;status.textContent='Modelo cargado · Idle en reproducción';}else {status.textContent='Modelo cargado SIN animación';setupLantern();}details.textContent=`${meshes} mallas · ${bones} huesos · ${g.animations.length} animación(es) · ${g.animations.map(a=>a.name).join(', ')}`;frame();},ev=>{if(ev.total)status.textContent=`Cargando modelo: ${Math.round(ev.loaded/ev.total*100)}%`;},e=>{status.textContent='Error cargando GLB';error.textContent=e.message+' — Comprueba la conexión a Internet y vuelve a cargar esta página.';console.error(e)});
+
+/* Catálogo estable 01–12: se conserva el orden exacto del ZIP recibido. */
+const animCatalog=[
+  'Stable Sword Outward Slash.fbx','Magic Heal.fbx','Frisbee Throw.fbx',
+  'Running Backward Arc (1).fbx','Running Backward Arc.fbx',
+  'Running Backward.fbx','Running.fbx','Sword And Shield Death.fbx',
+  'Standing React Small From Headshot.fbx','Standing Aim Recoil.fbx',
+  'Idle.fbx','Walk W_ Briefcase.fbx'
+];
+const animationRows=animCatalog.map((name,index)=>({
+  index:index+1,name,clip:null,status:'pending',details:'',keep:false
+}));
+const animList=document.querySelector('#animList');
+const animMessage=document.querySelector('#animMessage');
+const animSelection=document.querySelector('#animSelection');
+const fbxLoader=new FBXLoader();
+let idleOriginal=null,activeAnimation=null,activeAction=null;
+let loadingAnimations=false;
+const normBone=n=>String(n).replace(/.*[\\/|]/g,'').replace(/^.*?mixamorig[:_]?/i,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
+function makeBoneLookup(){
+  const names=new Map();
+  if(model)model.traverse(o=>{if(o.isBone)names.set(normBone(o.name),o.name);});
+  return names;
+}
+function makeAnimationClip(sourceClip,displayName){
+  const bones=makeBoneLookup();
+  const tracks=[];let matched=0;
+  for(const track of sourceClip.tracks){
+    const idx=track.name.lastIndexOf('.');
+    if(idx<0)continue;
+    const binding=track.name.slice(idx+1);
+    // Usar las rotaciones óseas en el rig existente y descartar movimientos
+    // de raíz para que las pruebas no desplacen el modelo fuera de la escena.
+    if(binding!=='quaternion')continue;
+    const key=normBone(track.name.slice(0,idx));
+    const boneName=bones.get(key);
+    if(!boneName)continue;
+    const copy=track.clone();
+    copy.name=boneName+'.quaternion';
+    tracks.push(copy);matched++;
+  }
+  if(matched<15)throw Error('Solo '+matched+' huesos compatibles. Esqueleto o pistas no coincidentes.');
+  return {clip:new THREE.AnimationClip(displayName,-1,tracks),matched,total:sourceClip.tracks.length};
+}
+function renderAnimList(){
+  animList.replaceChildren();
+  for(const row of animationRows){
+    const el=document.createElement('div');
+    el.className='animRow '+(row.clip?'ok ':'')+(row.status==='error'?'error ':'')+
+      (activeAnimation===row.index?'active':'');
+    const play=document.createElement('button');
+    play.type='button';play.disabled=!row.clip||!model;
+    play.textContent=String(row.index).padStart(2,'0')+' · '+row.name.replace(/\\.fbx$/i,'');
+    play.title=row.details||'Carga el ZIP para reproducir esta animación';
+    play.addEventListener('click',()=>playAnimation(row.index));
+    const state=document.createElement('span');state.className='animNo';
+    state.textContent=row.status==='error'?'⚠':row.clip?'✓':'—';
+    const keep=document.createElement('label');keep.className='animKeep';
+    const check=document.createElement('input');
+    check.type='checkbox';check.checked=row.keep;
+    check.setAttribute('aria-label','Seleccionar animación '+row.index);
+    check.addEventListener('change',()=>{row.keep=check.checked;renderSelection();});
+    keep.append(check,document.createTextNode('Elegir'));
+    el.append(play,state,keep);animList.append(el);
+  }
+}
+function renderSelection(){
+  const chosen=animationRows.filter(row=>row.keep);
+  animSelection.textContent=chosen.length?'Seleccionadas: '+chosen.map(row=>String(row.index).padStart(2,'0')).join(', '):
+    'Seleccionadas: ninguna.';
+}
+function playAnimation(index){
+  const row=animationRows.find(a=>a.index===index);
+  if(!row||!row.clip||!mixer)return;
+  const previous=activeAction;
+  // Un solo mixer y esqueleto para todas las pruebas: la lámpara conserva
+  // su parent y la física que ya existían en este visor.
+  const next=mixer.clipAction(row.clip).reset();
+  next.enabled=true;next.setEffectiveWeight(1);next.setEffectiveTimeScale(1);
+  next.setLoop(THREE.LoopRepeat,Infinity);
+  next.play();
+  if(previous&&previous!==next){
+    previous.fadeOut(.18);
+    next.fadeIn(.18);
+  }else next.setEffectiveWeight(1);
+  activeAction=next;activeAnimation=index;
+  playing=true;toggle.textContent='Pausar / Reproducir';
+  animMessage.textContent='Animación '+String(index).padStart(2,'0')+' · '+row.name+
+    ' · '+row.details+' · vista preliminar';
+  renderAnimList();
+}
+function playIdleOriginal(){
+  if(!mixer||!idleOriginal)return;
+  const previous=activeAction;
+  const action=mixer.clipAction(idleOriginal).reset();
+  action.enabled=true;action.setEffectiveWeight(1);action.setEffectiveTimeScale(1);
+  action.setLoop(THREE.LoopRepeat,Infinity);action.play();
+  if(previous&&previous!==action){previous.fadeOut(.18);action.fadeIn(.18);}
+  else action.setEffectiveWeight(1);
+  activeAction=action;activeAnimation=null;playing=true;
+  toggle.textContent='Pausar / Reproducir';
+  animMessage.textContent='Idle original del GLB · no depende de las 12 animaciones.';
+  renderAnimList();
+}
+document.querySelector('#animIdle').addEventListener('click',playIdleOriginal);
+document.querySelector('#animCopy').addEventListener('click',async()=>{
+  const selection=animationRows.filter(a=>a.keep).map(a=>String(a.index).padStart(2,'0')).join(', ');
+  if(!selection){animMessage.textContent='Marca primero los números que quieras reservar.';return;}
+  try{
+    await navigator.clipboard.writeText(selection);
+    animMessage.textContent='Números copiados: '+selection+' · puedes enviármelos en el chat.';
+  }catch{
+    animMessage.textContent='Copiado no disponible. Envíame estos números: '+selection;
+  }
+});
+document.querySelector('#animClear').addEventListener('click',()=>{
+  for(const row of animationRows)row.keep=false;
+  renderAnimList();renderSelection();
+});
+function identifyAnimation(name){
+  const clean=name.replace(/.*[\\/]/g,'');
+  let row=animationRows.find(a=>a.name.toLowerCase()===clean.toLowerCase());
+  if(!row){
+    row={index:animationRows.length+1,name:clean,clip:null,status:'pending',details:'',keep:false};
+    animationRows.push(row);
+  }
+  return row;
+}
+async function importAnimation(name,buffer){
+  const row=identifyAnimation(name);
+  try{
+    const source=fbxLoader.parse(buffer,'');
+    if(!source.animations?.length)throw Error('FBX sin clip de animación');
+    const adapted=makeAnimationClip(source.animations[0],row.name.replace(/\\.fbx$/i,''));
+    if(row.clip&&mixer)mixer.uncacheClip(row.clip);
+    row.clip=adapted.clip;row.status='ok';
+    row.details=adapted.matched+' huesos animados · '+row.clip.duration.toFixed(2)+' s';
+    // No conservar modelos, texturas ni geometría FBX: solo clips de huesos.
+    source.traverse(o=>{
+      if(o.geometry)o.geometry.dispose();
+      if(o.material){
+        for(const mat of (Array.isArray(o.material)?o.material:[o.material])){
+          for(const k of ['map','normalMap','roughnessMap','metalnessMap','emissiveMap'])
+            if(mat[k])mat[k].dispose();
+          mat.dispose();
+        }
+      }
+    });
+  }catch(e){
+    row.status='error';row.details=e?.message||String(e);
+    console.warn('[ROK Animaciones] No compatible:',row.name,e);
+  }
+  renderAnimList();
+}
+document.querySelector('#animFiles').addEventListener('change',async e=>{
+  if(loadingAnimations||!model){animMessage.textContent='Primero debe terminar de cargar la Farolera.';return;}
+  const files=Array.from(e.target.files||[]);
+  if(!files.length)return;
+  loadingAnimations=true;let attempted=0;
+  try{
+    for(const file of files){
+      if(/\\.zip$/i.test(file.name)){
+        if(!window.JSZip)throw Error('No se pudo cargar el lector ZIP. Comprueba Internet o usa archivos FBX.');
+        const zip=await window.JSZip.loadAsync(file);
+        const entries=Object.values(zip.files).filter(v=>!v.dir&&/\\.fbx$/i.test(v.name));
+        if(!entries.length)throw Error('No se encontraron archivos FBX en el ZIP.');
+        for(const entry of entries){
+          attempted++;
+          animMessage.textContent='Vinculando '+attempted+' de '+entries.length+' · '+entry.name.replace(/.*[\\/]/g,'');
+          await new Promise(resolve=>setTimeout(resolve,0));
+          await importAnimation(entry.name,await entry.async('arraybuffer'));
+        }
+      }else if(/\\.fbx$/i.test(file.name)){
+        attempted++;
+        animMessage.textContent='Vinculando '+file.name;
+        await importAnimation(file.name,await file.arrayBuffer());
+      }
+    }
+    const ok=animationRows.filter(r=>r.clip).length;
+    const bad=animationRows.filter(r=>r.status==='error');
+    animMessage.textContent='Catálogo: '+ok+' animaciones disponibles para reproducir · '+bad.length+
+      ' con error. No se han asignado al paquete definitivo.';
+    if(bad.length)animMessage.textContent+=' Problemas: '+bad.map(r=>r.index+' '+r.details).join('; ');
+  }catch(err){
+    animMessage.textContent='Error al importar: '+(err?.message||String(err));
+  }finally{
+    loadingAnimations=false;
+    e.target.value='';
+    renderAnimList();renderSelection();
+  }
+});
+renderAnimList();renderSelection();
+new GLTFLoader().load('./chiara_idle.glb',g=>{model=g.scene;scene.add(model);modelBaseZ=model.position.z;shakeButton.disabled=false;let meshes=0,bones=0;model.traverse(o=>{if(o.isMesh){meshes++;originalMaterials.set(o,o.material);o.frustumCulled=false;}if(o.isBone)bones++;});if(g.animations.length){mixer=new THREE.AnimationMixer(model);
+idleOriginal=g.animations[0];
+activeAction=mixer.clipAction(idleOriginal).play();
+mixer.update(0);setupLantern();toggle.disabled=false;
+document.querySelector('#animIdle').disabled=false;
+renderAnimList();
+status.textContent='Modelo cargado · Idle en reproducción · probador de animaciones listo';}else {status.textContent='Modelo cargado SIN animación';setupLantern();}details.textContent=`${meshes} mallas · ${bones} huesos · ${g.animations.length} animación(es) · ${g.animations.map(a=>a.name).join(', ')}`;frame();},ev=>{if(ev.total)status.textContent=`Cargando modelo: ${Math.round(ev.loaded/ev.total*100)}%`;},e=>{status.textContent='Error cargando GLB';error.textContent=e.message+' — Comprueba la conexión a Internet y vuelve a cargar esta página.';console.error(e)});
 toggle.onclick=()=>{playing=!playing;toggle.textContent=playing?'Pausar':'Reproducir';};document.querySelector('#reset').onclick=frame;
 document.querySelector('#wire').onclick=()=>{wire=!wire;if(!model)return;model.traverse(o=>{if(!o.isMesh)return;if(wire){const m=o.material.clone();m.wireframe=true;o.material=m;}else{o.material.dispose();o.material=originalMaterials.get(o);}})};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
