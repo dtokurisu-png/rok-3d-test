@@ -1,0 +1,6 @@
+/* R.O.K. Arena 2.5D — dimensiones oficiales del sprite de fondo.
+   Modificadas por el botón Guardar en GitHub. Valores en porcentaje. */
+:root {
+  --rok-arena-bg-width: 100;
+  --rok-arena-bg-length: 100;
+}
