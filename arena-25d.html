@@ -1739,7 +1739,10 @@ function updateCast(c,dt){
   // Si un enemigo aparece cerca del caster durante el ataque, cambiar
   // el blanco antes de disparar sin reiniciar la animación Magic Heal.
   const priority=selectCombatTarget(c);
-  if(priority&&canDamageTarget(priority))c.castTarget=priority;
+  // No conservar un objetivo antiguo si escapó, murió o quedó bloqueado
+  // por otra invocación mientras se estaba preparando el hechizo.
+  c.castTarget=priority&&canDamageTarget(priority)&&
+    canAttackSummonTarget(c,priority)?priority:null;
   // El AnimationMixer se actualiza antes de esta comprobación: la salida
   // coincide con el fotograma animado que se está mostrando ahora.
   const animationTime=c.animId===2&&c.animAction?
@@ -1748,7 +1751,7 @@ function updateCast(c,dt){
     c.castFired=true;
     if(c.castMarker)c.castMarker.marker.visible=false;
     const target=c.castTarget;
-    if(target&&target.hp>0&&target.stage!=='restoring'&&target.stage!=='dying')
+    if(canDamageTarget(target)&&canAttackSummonTarget(c,target))
       launchSpell(c,target);
   }
   if(c.castT>=c.castDuration){
