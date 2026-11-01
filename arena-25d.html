@@ -78,7 +78,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.8.1</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.8.2</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -533,48 +533,50 @@ async function preloadCombatAnimationsFromRepo(baseModel){
     }catch(err){console.warn('[R.O.K.] Paquete de animaciones inválido',err)}
   }
 }
-// Magic Heal (02) reaches forward at roughly the middle of its animation.
-// Sample the actual arm pose on a separate skeleton: fire at maximum reach,
-// not at the last 16% when the caster has already pulled her arm back.
-let magicReleaseFraction=.50;
+// Magic Heal (02): localizar extensión de la MANO DERECHA (RightHand).
+// Emitir ligeramente ANTES de la extensión máxima para evitar desfase visual.
+let magicReleaseFraction=.45;
 function detectMagicRelease(clip,baseModel){
-  if(!clip||!baseModel||clip.duration<=.05)return .50;
+  if(!clip||!baseModel||clip.duration<=.05)return .45;
   let probeMixer=null;
   try{
     const copy=cloneSkinned(baseModel);
-    let leftHand=null,leftArm=null;
+    let rightHand=null,rightArm=null;
     copy.traverse(o=>{
       if(!o.isBone)return;
       const k=boneKey(o.name);
-      if(k==='lefthand')leftHand=o;
-      if(k==='leftarm')leftArm=o;
+      if(k==='righthand')rightHand=o;
+      if(k==='rightarm')rightArm=o;
     });
-    if(!leftHand||!leftArm)return .50;
+    if(!rightHand||!rightArm)return .45;
     probeMixer=new THREE.AnimationMixer(copy);
     probeMixer.clipAction(clip).play();
-    const samples=45,start=.30,end=.68;
-    let best=.50,bestIndex=-1,bestScore=-Infinity;
+    const samples=45,start=.27,end=.62;
+    let best=.45,bestIndex=-1,bestScore=-Infinity;
     const shoulderPos=new THREE.Vector3(),handPos=new THREE.Vector3();
     for(let i=0;i<=samples;i++){
       const fraction=start+(end-start)*i/samples;
       probeMixer.setTime(Math.min(clip.duration-.00001,clip.duration*fraction));
       copy.updateMatrixWorld(true);
-      leftArm.getWorldPosition(shoulderPos);
-      leftHand.getWorldPosition(handPos);
+      rightArm.getWorldPosition(shoulderPos);
+      rightHand.getWorldPosition(handPos);
       copy.worldToLocal(shoulderPos);
       copy.worldToLocal(handPos);
       const forward=handPos.z-shoulderPos.z;
       const extension=handPos.distanceTo(shoulderPos);
       // Give priority to the free palm moving forward and a straight arm.
-      const score=forward+.22*extension-.035*Math.abs(fraction-.50);
+      const score=forward+.22*extension-.035*Math.abs(fraction-.45);
       if(score>bestScore){bestScore=score;best=fraction;bestIndex=i}
     }
     // Avoid choosing the edge of the search window if this clip has no
     // recognizable extension in its middle section.
-    return bestIndex<=1||bestIndex>=samples-1?.50:best;
+    const peak=bestIndex<=1||bestIndex>=samples-1?.49:best;
+    // Dos fotogramas de anticipación a 30 FPS; un límite pequeño
+    // evita disparar antes de que el brazo comience a extenderse.
+    return THREE.MathUtils.clamp(peak-2/(30*clip.duration),.34,.55);
   }catch(e){
     console.warn('[ROK] No se pudo localizar el gesto máximo del brazo:',e);
-    return .50;
+    return .45;
   }finally{probeMixer?.stopAllAction()}
 }
 function getAction(c,id){
@@ -605,11 +607,49 @@ function findBone(c,name){
   c.model.traverse(o=>{if(o.isBone&&boneKey(o.name)===name)found=o});
   return found;
 }
+// El círculo de preparación y el proyectil comparten EXACTAMENTE el
+// mismo origen óseo RightHand. Sigue la mano en cada frame del ataque.
+function updateCastMarker(c){
+  const fx=c.castMarker;
+  if(!fx)return;
+  if(c.stage!=='casting'||c.castFired||!c.castHand){
+    fx.marker.visible=false;return;
+  }
+  c.model.updateMatrixWorld(true);
+  c.castHand.getWorldPosition(fx.marker.position);
+  fx.marker.quaternion.copy(camera.quaternion);
+  const progress=THREE.MathUtils.clamp(c.castT/Math.max(.001,c.castRelease),0,1);
+  const size=.78+.30*progress;
+  fx.circle.scale.setScalar(size);
+  fx.circle.material.opacity=.55+.4*progress;
+  fx.glow.material.opacity=.28+.35*progress;
+  fx.marker.visible=true;
+}
 function setUpAnimationRig(c,idleClip){
   c.idleClip=idleClip;
   c.animId='idle';
   c.animAction=c.mixer.clipAction(idleClip);
-  c.castHand=findBone(c,'lefthand')||findBone(c,'righthand');
+  // Origen exacto: el hueso principal de la mano derecha, no la izquierda.
+  c.castHand=findBone(c,'righthand');
+  if(!c.castHand)console.warn('[ROK Arena] RightHand no localizado:',c.side);
+  const marker=new THREE.Group();
+  const circle=new THREE.Mesh(
+    new THREE.RingGeometry(.11,.165,32),
+    new THREE.MeshBasicMaterial({
+      color:c.side==='ally'?0x71fff5:0xd5a8ff,
+      transparent:true,opacity:.95,depthWrite:false,depthTest:false,
+      blending:THREE.AdditiveBlending,side:THREE.DoubleSide
+    })
+  );
+  const glow=new THREE.Sprite(new THREE.SpriteMaterial({
+    map:glowTexture,color:c.side==='ally'?0x00ffe4:0xcfaaff,
+    transparent:true,opacity:.48,depthWrite:false,depthTest:false,
+    blending:THREE.AdditiveBlending
+  }));
+  glow.scale.set(.38,.38,1);
+  marker.add(glow,circle);marker.visible=false;root.add(marker);
+  c.castMarker={marker,circle,glow};
+
   c.walkArm=findBone(c,'rightarm');
   c.walkForearm=findBone(c,'rightforearm');
   c.groundBones={
@@ -811,7 +851,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.8.1. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.8.2. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -965,6 +1005,7 @@ function resetCombatant(c){
   c.model.visible=true;
   c.teleportT=0;c.teleportMoved=false;c.teleportTo=null;
   if(c.stunHalo){c.stunHalo.group.visible=false;c.stunHalo.phase=0;}
+  if(c.castMarker)c.castMarker.marker.visible=false;
   c.outer.position.z=c.startZ;
   c.model.position.y=0;
   c.model.scale.setScalar(c.model.userData.baseScale);
@@ -1023,6 +1064,7 @@ function startCast(c,target){
   c.castRelease=c.castDuration*magicReleaseFraction;
   c.castFired=false;c.castTarget=target;
   setAnim(c,2,{once:true,fade:.12,force:true});
+  updateCastMarker(c);
   qs('#phase').textContent='✦ Casteando hechizo · preparación';
 }
 function updateCast(c,dt){
@@ -1033,6 +1075,7 @@ function updateCast(c,dt){
     c.animAction.time:c.castT;
   if(!c.castFired&&animationTime>=c.castRelease){
     c.castFired=true;
+    if(c.castMarker)c.castMarker.marker.visible=false;
     const target=c.castTarget;
     if(target&&target.hp>0&&target.stage!=='restoring'&&target.stage!=='dying')
       launchSpell(c,target);
@@ -1325,7 +1368,7 @@ function launchSpell(attacker,target){
   // La PDA del 32 % solo se evalúa para el aturdimiento al hacer daño.
   const area=attacker.side==='enemy';
   const group=new THREE.Group();root.add(group);
-  // La magia se materializa en la palma de la mano libre de la Farolera.
+  // El proyectil aparece exactamente en RightHand, centro del círculo de carga.
   const hand=attacker.castHand;
   attacker.model.updateMatrixWorld(true);
   const palm=hand?hand.getWorldPosition(new THREE.Vector3()):
@@ -1465,6 +1508,9 @@ function updateDuel(dt){
     }else if(c.stage==='casting'){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
+      // El anclaje se aplica antes del lanzamiento: así la posición
+      // del proyectil coincide con la palma visible en este fotograma.
+      followGround(c,dt);
       updateCast(c,dt);
     }else if(c.stage==='stunned'){
       c.stunLeft=Math.max(0,c.stunLeft-dt);
@@ -1496,7 +1542,8 @@ function updateDuel(dt){
     }
     // Mantener el movimiento vertical de pies, rodillas y torso también
     // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
-    followGround(c,dt);
+    if(c.stage!=='casting')followGround(c,dt);
+    updateCastMarker(c);
     if(c.animId===12)liftWalkArm(c);
     updateLamp(c,dt,0);
   }
