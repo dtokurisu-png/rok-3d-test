@@ -998,6 +998,8 @@ function selectCombatTarget(c){
   return candidates[0].enemy;
 }
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
+const CASTER_RESTART_DELAY=1.8; // Mostrar victoria/derrota antes de reiniciar.
+let matchRestartLeft=null;
 const DURATION=10.25;
 const LOOP_RESTART_AT=1.4; // La aparición inicial solo ocurre en la primera vuelta.
 const eventTimes=[6.08,6.76,7.42];
@@ -1523,6 +1525,7 @@ function resetCombatant(c){
   setAnim(c,'idle',{force:true,fade:0});
 }
 function resetDemoCombat(){
+  matchRestartLeft=null;
   clearFloatingWords();
   clearPortalEffects();
   for(const p of missiles){root.remove(p.group);}
@@ -1910,12 +1913,13 @@ function tryEvasion(target,attacker,impactCell){
 // La tirada PDA es independiente por cada impacto efectivo del enemigo.
 // Estar protegido por escudo no convierte el impacto en una restauración.
 function damage(target,value,source){
-  if(!canDamageTarget(target))return false;
+  if(matchRestartLeft!==null||!canDamageTarget(target))return false;
   if(target.role==='caster'){
     target.hp=Math.max(0,target.hp-value);
     if(target.hp===0){
       target.stage='defeated';
       target.mixer.timeScale=0;
+      if(matchRestartLeft===null)matchRestartLeft=CASTER_RESTART_DELAY;
       const label=nameplates.get(target);
       if(label)label.classList.add('defeated');
       qs('#phase').textContent='★ Caster '+(target.side==='enemy'?'rival':'aliado')+' derrotado · '+(target.side==='enemy'?'victoria':'derrota');
@@ -2106,6 +2110,11 @@ function updateMagic(dt){
   }
 }
 function updateDuel(dt){
+  if(matchRestartLeft!==null){
+    matchRestartLeft-=dt;
+    if(matchRestartLeft<=0)resetDemoCombat();
+    return;
+  }
   for(const c of combatants){
     if(c.kind==='mana'){
       c.dodgeCooldown=Math.max(0,c.dodgeCooldown-dt);
