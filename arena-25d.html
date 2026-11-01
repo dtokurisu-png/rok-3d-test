@@ -560,6 +560,8 @@ function setUpAnimationRig(c,idleClip){
   c.animId='idle';
   c.animAction=c.mixer.clipAction(idleClip);
   c.castHand=findBone(c,'lefthand')||findBone(c,'righthand');
+  c.walkArm=findBone(c,'rightarm');
+  c.walkForearm=findBone(c,'rightforearm');
   c.groundBones={
     feet:['leftfoot','rightfoot','lefttoebase','righttoebase'].map(x=>findBone(c,x)).filter(Boolean),
     knees:['leftleg','rightleg'].map(x=>findBone(c,x)).filter(Boolean),
@@ -943,6 +945,25 @@ function cellRadius(a,b){return Math.max(Math.abs(a.col-b.col),Math.abs(a.row-b.
 
 /* Secuenciador de animaciones: el ataque NO crea magia al presionar/alcanzar.
    El misil nace en la palma cuando la acción llega a su tramo final. */
+function liftWalkArm(c){
+  if(c.animId!==12||c.stage!=='active')return;
+  const bone=c.walkArm,child=c.walkForearm;
+  if(!bone||!child)return;
+  c.model.updateMatrixWorld(true);
+  const a=bone.getWorldPosition(new THREE.Vector3());
+  const b=child.getWorldPosition(new THREE.Vector3());
+  const vec=b.sub(a);
+  if(vec.lengthSq()<.00001)return;
+  const up=new THREE.Vector3(0,1,0);
+  const axis=vec.clone().cross(up);
+  if(axis.lengthSq()<.00001)return;
+  const worldQ=new THREE.Quaternion().setFromAxisAngle(
+    axis.normalize(),THREE.MathUtils.degToRad(17)
+  );
+  const parent=bone.parent.getWorldQuaternion(new THREE.Quaternion());
+  const offset=parent.clone().invert().multiply(worldQ).multiply(parent);
+  bone.quaternion.premultiply(offset).normalize();
+}
 function startCast(c,target){
   const clip=combatAnimations.get(2);
   c.stage='casting';c.castT=0;
@@ -1121,6 +1142,7 @@ function updateTeleportation(c,dt){
     c.model.scale.setScalar(c.model.userData.baseScale);
     c.model.position.y=0;
     c.stage='active';
+    setAnim(c,'idle',{fade:.12});
     c.cooldown=Math.max(c.cooldown,.20);
     c.teleportTo=null;
     resetLampDynamics(c);
@@ -1150,6 +1172,9 @@ function tryEvasion(target,attacker,impactCell){
   // Se reserva inmediatamente el destino lógico, pero el modelo desaparece
   // del origen y reaparece en destino en una transición visible de 0,45 s.
   target.stage='teleporting';
+  target.castTarget=null;target.hitLeft=0;
+  const portalClip=combatAnimations.get(14);
+  setAnim(target,14,{once:true,speed:portalClip?Math.max(1,portalClip.duration/.45):1,fade:.07,force:true});
   target.teleportT=0;
   target.teleportMoved=false;
   target.teleportTo=next;
@@ -1343,15 +1368,11 @@ function updateMagic(dt){
 }
 function updateDuel(dt){
   for(const c of combatants){
-    // El maná y la recarga funcionan por reloj real del combate,
-    // independientemente del estado de ataque o restauración.
     if(c.side==='enemy'){
       c.dodgeCooldown=Math.max(0,c.dodgeCooldown-dt);
       if(c.mana<c.maxMana){
         c.manaTimer+=dt;
-        while(c.manaTimer>=3&&c.mana<c.maxMana){
-          c.manaTimer-=3;c.mana+=1;
-        }
+        while(c.manaTimer>=3&&c.mana<c.maxMana){c.manaTimer-=3;c.mana+=1}
       }else c.manaTimer=0;
     }
     c.mixer.update(dt);
@@ -1359,10 +1380,15 @@ function updateDuel(dt){
       c.introT=Math.min(1.4,c.introT+dt);
       animateFighter(c,c.introT);
       updateRestorationFx(c,dt,c.introT);
-      if(c.introT>=1.4)c.stage='active';
+      if(c.introT>=1.4){c.stage='active';setAnim(c,'idle',{fade:.10})}
+    }else if(c.stage==='dying'){
+      c.deathT+=dt;
+      updateRestorationFx(c,dt,12);
+      if(c.deathT>=c.deathDuration)startRestoration(c);
     }else if(c.stage==='restoring'){
       c.restoringT=Math.min(1.75,c.restoringT+dt);
       const virtualT=8.2+c.restoringT;
+      if(virtualT>=9.28)startRestoringStanding(c);
       animateFighter(c,virtualT);
       updateRestorationFx(c,dt,virtualT);
       if(c.restoringT>=1.75){
@@ -1371,25 +1397,32 @@ function updateDuel(dt){
         c.model.scale.setScalar(c.model.userData.baseScale);
         c.model.position.y=0;
         c.outer.position.set(0,0,c.startZ);
-        c.stunLeft=0;
+        c.stunLeft=0;c.hitLeft=0;c.groundDelta=0;
         c.stage='active';
+        setAnim(c,'idle',{fade:.18});
         resetLampDynamics(c);
       }
     }else if(c.stage==='teleporting'){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
       updateTeleportation(c,dt);
+    }else if(c.stage==='casting'){
+      c.mixer.timeScale=1;
+      updateRestorationFx(c,dt,12);
+      updateCast(c,dt);
     }else if(c.stage==='stunned'){
       c.stunLeft=Math.max(0,c.stunLeft-dt);
-      c.mixer.timeScale=.5;
+      c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
+      updateHit(c,dt);
       if(c.stunLeft<=0){
-        c.stage='active';c.mixer.timeScale=1;
-        c.cooldown=.45;
+        c.stage='active';c.cooldown=.45;
+        setAnim(c,'idle',{fade:.13});
       }
     }else{
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
+      updateHit(c,dt);
     }
     if(c.stage==='active'){
       c.cooldown-=dt;
@@ -1397,7 +1430,7 @@ function updateDuel(dt){
     }
     if(c.shieldShell){
       c.shieldPulse=Math.max(0,c.shieldPulse-dt);
-      const activeShield=c.shield>0&&c.stage!=='restoring';
+      const activeShield=c.shield>0&&c.stage!=='restoring'&&c.stage!=='dying';
       c.shieldShell.visible=activeShield;
       if(activeShield){
         c.shieldShell.material.opacity=.09+.17*c.shieldPulse+.025*Math.sin(performance.now()*.006);
@@ -1405,14 +1438,21 @@ function updateDuel(dt){
         c.shieldShell.scale.y=1.1+.1*c.shieldPulse;
       }
     }
+    // Mantener el movimiento vertical de pies, rodillas y torso también
+    // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
+    followGround(c,dt);
+    if(c.animId===12)liftWalkArm(c);
     updateLamp(c,dt,0);
   }
   const ally=combatants.find(c=>c.side==='ally');
   const enemy=combatants.find(c=>c.side==='enemy');
   if(!ally||!enemy)return;
   for(const c of combatants){
-    if(c.stage!=='active')continue;
+    if(c.stage!=='active'||c.hitLeft>0)continue;
     const target=c.side==='ally'?enemy:ally;
+    if(target.stage==='restoring'||target.stage==='dying') {
+      setAnim(c,'idle',{fade:.15});continue;
+    }
     const dx=target.outer.position.x-c.outer.position.x;
     const dz=target.outer.position.z-c.outer.position.z;
     const distance=Math.hypot(dx,dz);
@@ -1420,14 +1460,16 @@ function updateDuel(dt){
       const step=Math.min(c.speed*dt,distance-c.range);
       c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/distance*step,-4,4);
       c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-8.5,8.5);
-    }else if((target.stage==='active'||target.stage==='stunned')&&c.cooldown<=0){
-      launchSpell(c,target);
+      setAnim(c,12,{fade:.16});
+    }else if((target.stage==='active'||target.stage==='stunned'||target.stage==='casting')&&c.cooldown<=0){
+      startCast(c,target);
       c.cooldown=c.side==='ally'?1.35:1.75;
+    }else{
+      setAnim(c,'idle',{fade:.15});
     }
   }
   updateMagic(dt);
   updatePortalEffects(dt);
-  // La dirección del cuerpo depende siempre del rival, no de la casilla de destino.
   for(const c of combatants){
     const opponent=c.side==='ally'?enemy:ally;
     if(c.stage!=='restoring'&&c.stage!=='intro')faceTarget(c,opponent);
@@ -1438,8 +1480,12 @@ function updateDuel(dt){
   if(stunned){
     const count=Math.min(5,Math.ceil((stunned.stunLeft-1e-5)/.5));
     qs('#phase').textContent='★ ATURDIDO · '+count+' estrellas · '+stunned.stunLeft.toFixed(1)+' s';
+  }else if(combatants.some(c=>c.stage==='dying')){
+    qs('#phase').textContent='✝ Muerte · animación completa antes de restaurarse';
   }else if(combatants.some(c=>c.stage==='restoring')){
-    qs('#phase').textContent='✧ Restauración luminosa y reaparición';
+    qs('#phase').textContent='✧ Restauración · Standing → Idle';
+  }else if(combatants.some(c=>c.stage==='casting')){
+    qs('#phase').textContent='✦ Casteo · proyectil desde la palma al final de Magic Heal';
   }else if(missiles.length){
     qs('#phase').textContent=attackMode==='magic'?'✦ Intercambio de hechizos mágicos':'➜ Ataques simples a distancia';
   }else if(combatants.every(c=>c.stage==='active')){
@@ -1453,6 +1499,7 @@ new GLTFLoader().load('./chiara_idle.glb',g=>{
   const b=createFighter(g.scene,g.animations[0],'enemy');
   for(const c of [a,b])c.model.userData.baseScale=c.model.scale.x;
   for(const c of combatants){makeNameplate(c);resetCombatant(c);}
+  activateArenaAnimationPack(g.scene).catch(err=>console.warn('[R.O.K.] Paquete Mixamo no disponible:',err));
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
