@@ -60,6 +60,17 @@ canvas{display:block;touch-action:none}
 .unitMana{height:11px;border-color:#70a9ff;background:#122148ea}
 .unitMana .unitBarFill{background:linear-gradient(180deg,#75ceff,#226be9 75%,#1941ad)}
 .unitTag [hidden]{display:none!important}
+/* Cuenta atrás del casteo de sustitución, independiente del HUD de vida. */
+#summonCastLayer{position:fixed;inset:0;pointer-events:none;z-index:10}
+.summonCast{position:absolute;transform:translate(-50%,-100%);
+  width:142px;padding:5px 7px 7px;background:#081c2be8;
+  border:1px solid #55cbbf;border-radius:7px;box-shadow:0 2px 10px #0008;
+  text-align:center;font:700 11px/1.25 Roboto,system-ui,sans-serif;color:#fff;
+  text-shadow:0 1px 2px #000}
+.summonCast.enemy{border-color:#dc91b2}
+.summonCastMeter{height:6px;margin-top:5px;border-radius:5px;overflow:hidden;background:#163d46}
+.summonCastFill{width:0%;height:100%;background:#00ffe4;transition:width .05s linear}
+.summonCast.enemy .summonCastFill{background:#ef9ac3}
 @media(max-width:759px){
   #phase,#hint{bottom:calc(env(safe-area-inset-bottom,0px) + 121px)}
   .unitTag{width:90px}
@@ -78,7 +89,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.8.4</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.8.5</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -96,6 +107,7 @@ canvas{display:block;touch-action:none}
   </div>
 </section>
 <div id="nameplateLayer" aria-hidden="true"></div>
+<div id="summonCastLayer" aria-hidden="true"></div>
 <div id="phase">Preparando combate…</div>
 <div id="hint">1 dedo: girar · 2 dedos: zoom<br>Arriba: rival · Abajo: aliado</div>
 <div id="bottom">
@@ -953,7 +965,7 @@ function updateStage(t){
   qs('#phase').textContent=msg;
 }
 
-/* R.O.K. arena · duelo de prueba v0.8.4. No altera el motor del juego principal. */
+/* R.O.K. arena · duelo de prueba v0.8.5. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
 const missiles=[],magicImpacts=[];
@@ -1058,7 +1070,7 @@ function makeNameplate(c){
 function updateNameplate(c){
   const el=nameplates.get(c);
   if(!el)return;
-  if(c.stage==='vanishing'||c.stage==='dead'){el.style.display='none';return;}
+  if(c.stage==='vanishing'||c.stage==='dead'||c.stage==='summonCasting'){el.style.display='none';return;}
   const health=el.querySelector('.unitHealth');
   health.querySelector('.unitBarFill').style.width=(THREE.MathUtils.clamp(c.hp/c.maxHp,0,1)*100)+'%';
   health.querySelector('.unitBarText').textContent=c.hp+' / '+c.maxHp;
@@ -1085,6 +1097,154 @@ function updateNameplate(c){
   el.style.left=((pos.x*.5+.5)*innerWidth)+'px';
   el.style.top=((-pos.y*.5+.5)*innerHeight)+'px';
 }
+
+/* APARICIÓN DE UNA INVOCACIÓN NUEVA.
+   MUERTE -> casteo 3s -> Standing congelada mientras emerge del suelo ->
+   Standing completa -> Idle -> combate. No reutilizar la restauración
+   del vencedor; no crear mallas/sistemas adicionales en cada muerte. */
+const SUMMON_CAST_SECONDS=3;
+const SUMMON_RISE_SECONDS=.95;
+function makeSummonCountdown(c){
+  const el=document.createElement('div');
+  el.className='summonCast '+c.side;
+  el.style.display='none';
+  el.innerHTML='<span class="summonCastLabel">Casteando · 3.0 s</span>'+
+    '<div class="summonCastMeter"><div class="summonCastFill"></div></div>';
+  qs('#summonCastLayer').appendChild(el);
+  c.summonBar=el;
+}
+function updateSummonCountdown(c){
+  const el=c.summonBar;
+  if(!el)return;
+  if(c.stage!=='summonCasting'){
+    el.style.display='none';return;
+  }
+  const position=new THREE.Vector3(0,.45,c.startZ).project(camera);
+  if(position.z< -1||position.z>1||
+     Math.abs(position.x)>1.1||Math.abs(position.y)>1.15){
+    el.style.display='none';return;
+  }
+  el.style.display='block';
+  el.style.left=((position.x*.5+.5)*innerWidth)+'px';
+  el.style.top=((-position.y*.5+.5)*innerHeight)+'px';
+  el.querySelector('.summonCastLabel').textContent='Casteando · '+
+    Math.max(0,c.summonCastLeft).toFixed(1)+' s';
+  el.querySelector('.summonCastFill').style.width=
+    (100*THREE.MathUtils.clamp(1-c.summonCastLeft/SUMMON_CAST_SECONDS,0,1))+'%';
+}
+function clearSummonFx(c){
+  if(!c.fx)return;
+  c.fx.ring.material.opacity=0;
+  c.fx.disc.material.opacity=0;
+  c.fx.beam.material.opacity=0;
+  for(const p of c.fx.sparks)p.material.opacity=0;
+}
+function updateSummonFx(c,progress){
+  const fx=c.fx;if(!fx)return;
+  const remain=1-THREE.MathUtils.clamp(progress,0,1);
+  fx.g.position.set(0,.08,c.startZ);
+  fx.ring.scale.setScalar(.75+1.25*(1-remain));
+  fx.ring.material.opacity=.83*remain;
+  fx.disc.material.opacity=.47*remain;
+  fx.beam.material.opacity=.25*remain;
+  for(let i=0;i<fx.sparks.length;i++){
+    const p=fx.sparks[i];p.material.opacity=.75*remain;
+    p.position.y=.10+(i%4)*.20+(1-remain)*.7;
+  }
+}
+function startSummonCountdown(c){
+  if(c.stage!=='dead')return;
+  c.stage='summonCasting';
+  c.summonCastLeft=SUMMON_CAST_SECONDS;
+  c.summonProgress=0;
+  c.model.visible=false;
+  if(c.summonBar)c.summonBar.style.display='none';
+  qs('#phase').textContent='✦ Casteando una nueva invocación · 3 segundos';
+}
+function beginSummonEmergence(c){
+  if(c.stage!=='summonCasting')return;
+  // Reiniciar el mismo contenedor 3D (nuevo ciclo de vida), sin crear
+  // copias adicionales ni modificar el modelo original del GLB.
+  c.hp=c.maxHp;c.shield=c.shieldMax;c.shieldPulse=0;
+  c.mana=c.maxMana;c.manaTimer=0;c.dodgeCooldown=0;
+  c.stunLeft=0;c.hitLeft=0;c.cooldown=.55;c.specialCooldown=0;
+  c.castT=0;c.castTarget=null;c.castFired=false;
+  c.teleportT=0;c.teleportMoved=false;c.teleportTo=null;
+  c.restoringT=0;c.standingPlayed=false;c.groundDelta=0;
+  c.endZ=c.baseEndZ;c.endX=0;
+  c.outer.position.set(0,0,c.startZ);
+  c.outer.rotation.y=c.side==='ally'?Math.PI:0;
+  c.model.position.y=0;
+  c.model.scale.setScalar(c.model.userData.baseScale);
+  c.model.visible=true;
+  setDeathOpacity(c,1);setAppearance(c,0);
+  resetDeathFx(c);resetRestorationFx(c);
+  if(c.castMarker)c.castMarker.marker.visible=false;
+  if(c.stunHalo){c.stunHalo.group.visible=false;c.stunHalo.phase=0}
+  if(c.shieldShell)c.shieldShell.visible=false;
+  c.mixer.timeScale=1;c.mixer.stopAllAction();
+  c.animId=null;c.animAction=null;
+  // Standing DEBE congelarse en su primera pose mientras emerge.
+  const hasStanding=combatAnimations.has(13);
+  setAnim(c,hasStanding?13:'idle',{once:hasStanding,fade:0,force:true});
+  c.mixer.update(0);
+  if(c.animAction)c.animAction.paused=true;
+  c.model.updateMatrixWorld(true);
+  const feet=c.groundBones?.feet||[];
+  let lowest=Infinity;
+  for(const bone of feet){
+    lowest=Math.min(lowest,bone.getWorldPosition(new THREE.Vector3()).y);
+  }
+  c.summonBaseY=Number.isFinite(lowest)?
+    THREE.MathUtils.clamp(c.idleFootY-lowest,-1.2,1.2):0;
+  c.model.position.y=c.summonBaseY-1.65;
+  c.groundDelta=c.summonBaseY;
+  c.summonProgress=0;
+  c.stage='summonEmerging';
+  if(c.summonBar)c.summonBar.style.display='none';
+  c.fx.g.position.set(0,.08,c.startZ);
+  updateSummonFx(c,0);
+  resetLampDynamics(c);
+  qs('#phase').textContent='✦ Nueva invocación · emergiendo desde el suelo';
+}
+function updateSummonEmergence(c,dt){
+  c.summonProgress=Math.min(SUMMON_RISE_SECONDS,c.summonProgress+dt);
+  const fraction=ease(c.summonProgress/SUMMON_RISE_SECONDS);
+  c.model.position.y=c.summonBaseY-1.65*(1-fraction);
+  updateSummonFx(c,fraction);
+  if(c.summonProgress>=SUMMON_RISE_SECONDS){
+    c.model.position.y=c.summonBaseY;
+    c.groundDelta=c.summonBaseY;
+    clearSummonFx(c);
+    if(combatAnimations.has(13)){
+      // Liberar Standing EN SU PRIMER FRAME, a velocidad original,
+      // cuando la Farolera terminó de salir; después pasar a Idle.
+      setAnim(c,13,{once:true,fade:0,force:true});
+      if(c.animAction)c.animAction.paused=false;
+      c.summonStandingLeft=Math.max(.2,combatAnimations.get(13).duration);
+      c.stage='summonStanding';
+      qs('#phase').textContent='✦ Nueva invocación · Standing → Idle';
+    }else{
+      // Fallback explícito cuando el FBX 13 aún no está en la caché.
+      finishNewSummon(c);
+    }
+    resetLampDynamics(c);
+  }
+}
+function finishNewSummon(c){
+  c.model.position.y=0;
+  c.groundDelta=0;
+  clearSummonFx(c);
+  setAppearance(c,0);
+  c.mixer.timeScale=1;
+  setAnim(c,'idle',{fade:.18,force:true});
+  c.stage='active';
+  c.cooldown=Math.max(c.cooldown,.35);
+  if(c.shieldShell)c.shieldShell.visible=c.shield>0;
+  resetLampDynamics(c);
+  qs('#phase').textContent='✓ Invocación lista · Idle y regreso al combate';
+}
+
 function resetCombatant(c){
   c.maxHp=c.side==='ally'?7:5;
   c.hp=c.maxHp;
@@ -1096,6 +1256,8 @@ function resetCombatant(c){
   c.stage='intro';c.introT=0;
   c.hitLeft=0;c.castT=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
   c.restoringT=0;c.stunLeft=0;c.postRestoreStun=0;
+  c.summonCastLeft=0;c.summonProgress=0;c.summonStandingLeft=0;c.summonBaseY=0;
+  if(c.summonBar)c.summonBar.style.display='none';
   c.cooldown=c.side==='enemy'?.20:.65;
   c.specialCooldown=0;
   c.baseEndZ=c.endZ;
@@ -1116,6 +1278,7 @@ function resetCombatant(c){
   c.model.position.y=0;
   c.model.scale.setScalar(c.model.userData.baseScale);
   resetRestorationFx(c);
+  clearSummonFx(c);
   resetLampDynamics(c);
   c.mixer.timeScale=1;
   c.mixer.stopAllAction();c.animId=null;c.animAction=null;
@@ -1235,6 +1398,8 @@ function updateDeathSequence(c,dt){
   }else if(c.stage==='dead'){
     c.deathParticlesT=Math.max(0,c.deathParticlesT-dt);
     updateDeathFx(c,dt,0,0);
+    // Tras la desaparición comienza el casteo nuevo de 3 segundos.
+    startSummonCountdown(c);
   }
 }
 function beginHit(c){
@@ -1641,6 +1806,15 @@ function updateDuel(dt){
       updateDeathSequence(c,dt);
     }else if(c.stage==='vanishing'||c.stage==='dead'){
       updateDeathSequence(c,dt);
+    }else if(c.stage==='summonCasting'){
+      updateDeathFx(c,dt,0,0);
+      c.summonCastLeft=Math.max(0,c.summonCastLeft-dt);
+      if(c.summonCastLeft<=0)beginSummonEmergence(c);
+    }else if(c.stage==='summonEmerging'){
+      updateSummonEmergence(c,dt);
+    }else if(c.stage==='summonStanding'){
+      c.summonStandingLeft=Math.max(0,c.summonStandingLeft-dt);
+      if(c.summonStandingLeft<=0)finishNewSummon(c);
     }else if(c.stage==='restoring'){
       c.restoringT=Math.min(1.75,c.restoringT+dt);
       const virtualT=8.2+c.restoringT;
@@ -1701,10 +1875,10 @@ function updateDuel(dt){
     }
     // Mantener el movimiento vertical de pies, rodillas y torso también
     // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
-    if(c.stage!=='casting'&&c.stage!=='vanishing'&&c.stage!=='dead')followGround(c,dt);
+    if(c.stage!=='casting'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
     updateCastMarker(c);
     if(c.animId===12)liftWalkArm(c);
-    if(c.stage!=='vanishing'&&c.stage!=='dead')updateLamp(c,dt,0);
+    if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')updateLamp(c,dt,0);
   }
   const ally=combatants.find(c=>c.side==='ally');
   const enemy=combatants.find(c=>c.side==='enemy');
@@ -1712,7 +1886,7 @@ function updateDuel(dt){
   for(const c of combatants){
     if(c.stage!=='active'||c.hitLeft>0)continue;
     const target=c.side==='ally'?enemy:ally;
-    if(target.stage==='restoring'||target.stage==='dying'||target.stage==='vanishing'||target.stage==='dead') {
+    if(target.stage==='restoring'||target.stage==='dying'||target.stage==='vanishing'||target.stage==='dead'||target.stage==='summonCasting'||target.stage==='summonEmerging'||target.stage==='summonStanding') {
       setAnim(c,'idle',{fade:.15});continue;
     }
     const dx=target.outer.position.x-c.outer.position.x;
@@ -1746,8 +1920,15 @@ function updateDuel(dt){
     qs('#phase').textContent='✝ Muerte · caída y resplandor';
   }else if(combatants.some(c=>c.stage==='vanishing')){
     qs('#phase').textContent='✝ Muerte · desintegración luminosa';
+  }else if(combatants.some(c=>c.stage==='summonCasting')){
+    const next=combatants.find(c=>c.stage==='summonCasting');
+    qs('#phase').textContent='✦ Casteando nueva invocación · '+next.summonCastLeft.toFixed(1)+' s';
+  }else if(combatants.some(c=>c.stage==='summonEmerging')){
+    qs('#phase').textContent='✦ Nueva invocación saliendo del suelo';
+  }else if(combatants.some(c=>c.stage==='summonStanding')){
+    qs('#phase').textContent='✦ Standing → Idle · nueva invocación';
   }else if(combatants.some(c=>c.stage==='dead')){
-    qs('#phase').textContent='✝ Invocación eliminada · esperando nueva invocación';
+    qs('#phase').textContent='✝ Invocación eliminada · comenzando casteo';
   }else if(combatants.some(c=>c.stage==='restoring')){
     qs('#phase').textContent='✧ Victoria · restauración de la Farolera vencedora';
   }else if(combatants.some(c=>c.stage==='casting')){
@@ -1764,7 +1945,7 @@ new GLTFLoader().load('./chiara_idle.glb',g=>{
   const a=createFighter(g.scene,g.animations[0],'ally');
   const b=createFighter(g.scene,g.animations[0],'enemy');
   for(const c of [a,b])c.model.userData.baseScale=c.model.scale.x;
-  for(const c of combatants){makeNameplate(c);resetCombatant(c);}
+  for(const c of combatants){makeNameplate(c);makeSummonCountdown(c);resetCombatant(c);}
   activateArenaAnimationPack(g.scene).catch(err=>console.warn('[R.O.K.] Paquete Mixamo no disponible:',err));
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
@@ -1782,7 +1963,7 @@ function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
   if(loaded&&playing){updateDuel(dt);}
-  if(loaded){for(const c of combatants)updateNameplate(c);}
+  if(loaded){for(const c of combatants){updateNameplate(c);updateSummonCountdown(c);}}
   controls.update();renderer.render(scene,camera);
   fpsTime+=dt;fpsCount++;if(fpsTime>=1){qs('#fps').textContent='FPS: '+Math.round(fpsCount/fpsTime);fpsTime=0;fpsCount=0;}
 }
