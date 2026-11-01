@@ -1,5 +1,5 @@
 {
-  "version": "0.3",
+  "version": "0.4",
   "character": "Farolera del Umbral",
   "rig": "mixamorig",
   "sourceModel": "chiara_idle.glb",
@@ -21,7 +21,7 @@
       "mixamorig:RightForeArm"
     ],
     "handAndFingerTracksUnchanged": true,
-    "rightArmDegreesDefault": 0,
+    "rightArmDegreesDefault": 17,
     "rightForearmDegreesDefault": 0,
     "controlRangeDegrees": [
       -20,
@@ -57,5 +57,14 @@
     "Standing.fbx",
     "Standing 2H Magic Area Attack 01.fbx"
   ],
-  "importRule": "Preserve all 14 catalog entries and file identity; never replace original GLB idle; no battle integration until confirmed."
+  "importRule": "Preserve all 14 catalog entries and file identity; never replace original GLB idle; no battle integration until confirmed.",
+  "groundCorrection": {
+    "version": "v0.5.6",
+    "codeFile": "index.html",
+    "reference": "Unmodified original GLB Idle skinned mesh deformed minimum Y",
+    "importedAnimations": "Skinned geometry contact against original Idle floor; adjust model root Y only",
+    "reimportedFBX": "Preserve scaled source Hips vertical translation while discarding lateral root motion",
+    "legacyCachedClips": "Visual ground correction still runs, but old cached clips lack baked source-hip translation until reimport",
+    "preserved": "Hands, fingers, original GLB Idle, physics lantern, arena-25d.html"
+  }
 }
