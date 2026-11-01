@@ -20,14 +20,25 @@
 .animNo{color:#ffe3a3;font-size:11px;font-weight:700;min-width:20px}
 .animKeep{display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;font-size:9px;color:#c7dfdf;cursor:pointer}
 .animKeep input{width:16px;height:16px;accent-color:#00ffe4}
+#rightArmTuning{margin:8px 0;padding:8px;border:1px solid #357a76;border-radius:7px;background:#092832}
+#rightArmTuning strong{color:#00ffe4;font-size:11px}
+#rightArmTuning label{display:flex;align-items:center;gap:7px;margin:6px 0;font-size:11px}
+#rightArmTuning input[type=range]{flex:1;min-width:0;accent-color:#00ffe4}
+#rightArmTuning output{min-width:34px;text-align:right;color:#ffe39b;font-size:11px}
 .animToolbar{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.2</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.2 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.3</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.3 · 31/10/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
-<p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>Importa ZIP o FBX una vez; el probador recuerda las animaciones compatibles en este navegador. Luego pulsa sus números.</p>
-<div class="animImport"><label for="animFiles">📁 Cargar ZIP / FBX</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
+<p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
+<div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
+<div id="rightArmTuning">
+<strong>Farolera · caminar 12 · brazo derecho elevado</strong>
+<label>Altura <input id="rightArmRaise" type="range" min="0" max="100" value="75"><output id="rightArmRaiseValue">75%</output></label>
+<label>Separación <input id="rightArmSpread" type="range" min="0" max="100" value="52"><output id="rightArmSpreadValue">52%</output></label>
+<p>Preajuste activo en la caminata 12. No cambia los archivos originales ni la animación Idle.</p>
+</div>
 <p id="animMessage" role="status">12 animaciones identificadas en el ZIP recibido · sin asignar a la Farolera.</p>
 <div id="animList"></div>
 <div class="animToolbar"><button type="button" id="animFilter">Ver: todas</button><button type="button" id="animCopy">Copiar números marcados</button><button type="button" id="animClear">Limpiar marcas</button></div>
@@ -166,6 +177,61 @@ const fbxLoader=new FBXLoader();
 let idleOriginal=null,activeAnimation=null,activeAction=null;
 let loadingAnimations=false;
 let currentAnimFilter='all';
+// Corrección NO destructiva del brazo que sostiene el farol para Walk 12.
+// El mixer controla todo el esqueleto; después se recoloca únicamente RightArm
+// mediante una rotación en espacio global convertida al espacio del padre.
+const rightArmRaise=document.querySelector('#rightArmRaise');
+const rightArmSpread=document.querySelector('#rightArmSpread');
+const armRaiseValue=document.querySelector('#rightArmRaiseValue');
+const armSpreadValue=document.querySelector('#rightArmSpreadValue');
+let rightArmBone=null,rightHandBone=null,walkArmBlend=0;
+function readArmTune(){
+  armRaiseValue.textContent=rightArmRaise.value+'%';
+  armSpreadValue.textContent=rightArmSpread.value+'%';
+}
+rightArmRaise.addEventListener('input',readArmTune);
+rightArmSpread.addEventListener('input',readArmTune);
+readArmTune();
+function setupArmTuning(){
+  if(!model)return;
+  model.traverse(o=>{
+    if(!o.isBone)return;
+    const name=o.name.replace(/^.*?mixamorig[:_]?/i,'').toLowerCase();
+    if(name==='rightarm')rightArmBone=o;
+    if(name==='righthand')rightHandBone=o;
+  });
+  if(!rightArmBone||!rightHandBone){
+    console.warn('[ROK] No se encontraron RightArm/RightHand para ajustar el farol');
+    document.querySelector('#rightArmTuning').querySelector('p').textContent=
+      'No se detectaron los huesos del brazo derecho: requiere revisión del GLB.';
+  }
+}
+function tuneLanternArm(dt){
+  if(!rightArmBone||!rightHandBone||!model)return;
+  // No se toca el Idle, ni se alteran las demás animaciones.
+  const desired=(activeAnimation===12&&playing)?1:0;
+  walkArmBlend=THREE.MathUtils.damp(walkArmBlend,desired,14,dt);
+  if(walkArmBlend<.001)return;
+  model.updateMatrixWorld(true);
+  const shoulder=rightArmBone.getWorldPosition(new THREE.Vector3());
+  const hand=rightHandBone.getWorldPosition(new THREE.Vector3());
+  const from=hand.clone().sub(shoulder);
+  if(from.lengthSq()<.000001)return;
+  // X local del personaje indica el lado derecho real, incluso cuando el
+  // modelo se gira con la cámara. Mover mano hacia fuera y hacia arriba.
+  const localShoulder=model.worldToLocal(shoulder.clone());
+  const sign=localShoulder.x>=0?1:-1;
+  const raise=Number(rightArmRaise.value)/100*walkArmBlend;
+  const spread=Number(rightArmSpread.value)/100*walkArmBlend;
+  const desiredOffset=new THREE.Vector3(sign*.33*spread,.45*raise,.035*raise);
+  desiredOffset.applyQuaternion(model.getWorldQuaternion(new THREE.Quaternion()));
+  const to=from.clone().add(desiredOffset);
+  const qWorld=new THREE.Quaternion().setFromUnitVectors(from.normalize(),to.normalize());
+  const parentQ=rightArmBone.parent.getWorldQuaternion(new THREE.Quaternion());
+  const localCorrection=parentQ.clone().invert().multiply(qWorld).multiply(parentQ);
+  rightArmBone.quaternion.premultiply(localCorrection).normalize();
+  model.updateMatrixWorld(true);
+}
 const normBone=n=>String(n).replace(/.*[\/\\|]/g,'').replace(/^.*?mixamorig[:_]?/i,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
 // Los FBX y el modelo exportado desde Blender no comparten necesariamente
 // los mismos ejes locales aunque todos sus huesos se llamen mixamorig.
@@ -387,6 +453,37 @@ async function recoverAnimCache(){
   }catch(e){console.warn('[ROK] No se puede leer la caché',e);}
   finally{db?.close();}
 }
+// Cargar desde el repo cuando la carpeta de assets esté disponible.
+// Si GitHub todavía no contiene los FBX, no se simula una carga exitosa.
+async function preloadRepoAnimations(){
+  if(!model)return;
+  const candidates=['./animations/Farolera_Mixamo_14_animaciones.zip',
+    './assets/Farolera_Mixamo_14_animaciones.zip'];
+  for(const url of candidates){
+    try{
+      const response=await fetch(url,{cache:'no-store'});
+      if(!response.ok)continue;
+      if(!window.JSZip)throw Error('No se pudo iniciar el lector ZIP');
+      const archive=await window.JSZip.loadAsync(await response.arrayBuffer());
+      const entries=Object.values(archive.files).filter(e=>!e.dir&&/\.fbx$/i.test(e.name));
+      if(!entries.length)continue;
+      let done=0;
+      for(const e of entries){
+        const name=e.name.replace(/.*[\/\\]/g,'');
+        const row=identifyAnimation(name);
+        if(row.clip)continue;
+        animMessage.textContent='Preparando desde GitHub '+(++done)+'/'+entries.length+' · '+name;
+        await importAnimation(name,await e.async('arraybuffer'));
+      }
+      animMessage.textContent='Animaciones cargadas automáticamente desde GitHub. '+animationRows.filter(x=>x.clip).length+' listas.';
+      return true;
+    }catch(err){console.warn('[ROK] No se pudo leer el paquete del repositorio:',url,err);}
+  }
+  if(!animationRows.some(r=>r.clip)){
+    animMessage.textContent='Catálogo identificado. Archivos FBX todavía no alojados en GitHub; no se han cargado automáticamente.';
+  }
+  return false;
+}
 async function importAnimation(name,buffer){
   const row=identifyAnimation(name);
   try{
@@ -455,13 +552,13 @@ renderAnimList();renderSelection();
 new GLTFLoader().load('./chiara_idle.glb',g=>{model=g.scene;scene.add(model);modelBaseZ=model.position.z;shakeButton.disabled=false;let meshes=0,bones=0;model.traverse(o=>{if(o.isMesh){meshes++;originalMaterials.set(o,o.material);o.frustumCulled=false;}if(o.isBone)bones++;});if(g.animations.length){mixer=new THREE.AnimationMixer(model);
 idleOriginal=g.animations[0];
 activeAction=mixer.clipAction(idleOriginal).play();
-mixer.update(0);setupLantern();toggle.disabled=false;
+mixer.update(0);setupArmTuning();setupLantern();toggle.disabled=false;
 document.querySelector('#animIdle').disabled=false;
 renderAnimList();
 status.textContent='Modelo cargado · Idle en reproducción · probador de animaciones listo';
-recoverAnimCache();}else {status.textContent='Modelo cargado SIN animación';setupLantern();}details.textContent=`${meshes} mallas · ${bones} huesos · ${g.animations.length} animación(es) · ${g.animations.map(a=>a.name).join(', ')}`;frame();},ev=>{if(ev.total)status.textContent=`Cargando modelo: ${Math.round(ev.loaded/ev.total*100)}%`;},e=>{status.textContent='Error cargando GLB';error.textContent=e.message+' — Comprueba la conexión a Internet y vuelve a cargar esta página.';console.error(e)});
+recoverAnimCache().then(()=>preloadRepoAnimations());}else {status.textContent='Modelo cargado SIN animación';setupLantern();}details.textContent=`${meshes} mallas · ${bones} huesos · ${g.animations.length} animación(es) · ${g.animations.map(a=>a.name).join(', ')}`;frame();},ev=>{if(ev.total)status.textContent=`Cargando modelo: ${Math.round(ev.loaded/ev.total*100)}%`;},e=>{status.textContent='Error cargando GLB';error.textContent=e.message+' — Comprueba la conexión a Internet y vuelve a cargar esta página.';console.error(e)});
 toggle.onclick=()=>{playing=!playing;toggle.textContent=playing?'Pausar':'Reproducir';};document.querySelector('#reset').onclick=frame;
 document.querySelector('#wire').onclick=()=>{wire=!wire;if(!model)return;model.traverse(o=>{if(!o.isMesh)return;if(wire){const m=o.material.clone();m.wireframe=true;o.material=m;}else{o.material.dispose();o.material=originalMaterials.get(o);}})};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-let prev=performance.now(),t=0,n=0;function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-prev)/1000,.05);prev=now;if(mixer&&playing)mixer.update(dt);animateShake(dt);if(lantern&&playing)updateLantern(dt);controls.update();renderer.render(scene,camera);t+=dt;n++;if(t>1){fps.textContent='FPS: '+Math.round(n/t);t=0;n=0}}requestAnimationFrame(tick);
+let prev=performance.now(),t=0,n=0;function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-prev)/1000,.05);prev=now;if(mixer&&playing)mixer.update(dt);if(mixer&&playing)tuneLanternArm(dt);animateShake(dt);if(lantern&&playing)updateLantern(dt);controls.update();renderer.render(scene,camera);t+=dt;n++;if(t>1){fps.textContent='FPS: '+Math.round(n/t);t=0;n=0}}requestAnimationFrame(tick);
 </script></body></html>
