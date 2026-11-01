@@ -1203,7 +1203,8 @@ function startSummonCountdown(c){
   qs('#phase').textContent='✦ Casteando una nueva invocación · 3 segundos';
 }
 function beginSummonEmergence(c){
-  if(c.stage!=='summonCasting')return;
+  const winner=c.stage==='restoring'&&c.restorationPhase==='travel';
+  if(c.stage!=='summonCasting'&&!winner)return;
   // Reiniciar el mismo contenedor 3D (nuevo ciclo de vida), sin crear
   // copias adicionales ni modificar el modelo original del GLB.
   c.hp=c.maxHp;c.shield=c.shieldMax;c.shieldPulse=0;
@@ -1219,7 +1220,9 @@ function beginSummonEmergence(c){
   c.model.scale.setScalar(c.model.userData.baseScale);
   c.model.visible=true;
   setDeathOpacity(c,1);setAppearance(c,0);
-  resetDeathFx(c);resetRestorationFx(c);
+  resetDeathFx(c);
+  // La estela del vencedor continúa visible mientras empieza a emerger.
+  if(!winner)resetRestorationFx(c);
   if(c.castMarker)c.castMarker.marker.visible=false;
   if(c.stunHalo){c.stunHalo.group.visible=false;c.stunHalo.phase=0}
   if(c.shieldShell)c.shieldShell.visible=false;
@@ -1241,18 +1244,23 @@ function beginSummonEmergence(c){
   c.model.position.y=c.summonBaseY-1.65;
   c.groundDelta=c.summonBaseY;
   c.summonProgress=0;
-  c.stage='summonEmerging';
+  c.stage=winner?'restoring':'summonEmerging';
+  if(winner)c.restorationPhase='rise';
   if(c.summonBar)c.summonBar.style.display='none';
   c.fx.g.position.set(0,.08,c.startZ);
   updateSummonFx(c,0);
   resetLampDynamics(c);
-  qs('#phase').textContent='✦ Nueva invocación · emergiendo desde el suelo';
+  qs('#phase').textContent=winner?
+    '✧ Restauración · la vencedora reaparece entre rayos':
+    '✦ Nueva invocación · emergiendo desde el suelo';
 }
-function updateSummonEmergence(c,dt){
+function updateSummonEmergence(c,dt,winner=false){
   c.summonProgress=Math.min(SUMMON_RISE_SECONDS,c.summonProgress+dt);
   const fraction=ease(c.summonProgress/SUMMON_RISE_SECONDS);
   c.model.position.y=c.summonBaseY-1.65*(1-fraction);
   updateSummonFx(c,fraction);
+  // Tanto la invocación nueva como el vencedor brillan durante su ascenso.
+  setAppearance(c,.84-.25*fraction);
   if(c.summonProgress>=SUMMON_RISE_SECONDS){
     c.model.position.y=c.summonBaseY;
     c.groundDelta=c.summonBaseY;
@@ -1263,16 +1271,20 @@ function updateSummonEmergence(c,dt){
       setAnim(c,13,{once:true,fade:0,force:true});
       if(c.animAction)c.animAction.paused=false;
       c.summonStandingLeft=Math.max(.2,combatAnimations.get(13).duration);
-      c.stage='summonStanding';
-      qs('#phase').textContent='✦ Nueva invocación · Standing → Idle';
+      c.summonStandingDuration=c.summonStandingLeft;
+      c.stage=winner?'restoring':'summonStanding';
+      if(winner)c.restorationPhase='standing';
+      qs('#phase').textContent=winner?
+        '✧ Restauración · Standing → Idle':
+        '✦ Nueva invocación · Standing → Idle';
     }else{
       // Fallback explícito cuando el FBX 13 aún no está en la caché.
-      finishNewSummon(c);
+      finishNewSummon(c,winner);
     }
     resetLampDynamics(c);
   }
 }
-function finishNewSummon(c){
+function finishNewSummon(c,winner=false){
   c.model.position.y=0;
   c.groundDelta=0;
   clearSummonFx(c);
@@ -1283,7 +1295,9 @@ function finishNewSummon(c){
   c.cooldown=Math.max(c.cooldown,.35);
   if(c.shieldShell)c.shieldShell.visible=c.shield>0;
   resetLampDynamics(c);
-  qs('#phase').textContent='✓ Invocación lista · Idle y regreso al combate';
+  qs('#phase').textContent=winner?
+    '✓ Restauración completada · vencedora lista para combatir':
+    '✓ Invocación lista · Idle y regreso al combate';
 }
 
 function resetCombatant(c){
@@ -1855,6 +1869,8 @@ function updateDuel(dt){
       updateSummonEmergence(c,dt);
     }else if(c.stage==='summonStanding'){
       c.summonStandingLeft=Math.max(0,c.summonStandingLeft-dt);
+      const t=1-c.summonStandingLeft/Math.max(.001,c.summonStandingDuration||1);
+      setAppearance(c,.59*(1-ease(t)));
       if(c.summonStandingLeft<=0)finishNewSummon(c);
     }else if(c.stage==='restoring'){
       c.restoringT=Math.min(1.75,c.restoringT+dt);
