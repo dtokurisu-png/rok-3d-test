@@ -12,6 +12,7 @@
 .characterPicker button{flex:1;min-width:160px;max-width:100%;padding:9px;border:1px solid #00ffe4;border-radius:7px;background:#12535a;color:white;font-size:12px;font-weight:bold;cursor:pointer}
 .characterPicker button:disabled{opacity:.65;cursor:wait}#archerRestPose{display:none;flex:0 0 auto;min-width:0;font-weight:normal;background:#18343c}
 #characterInfo{width:100%;font-size:11px;color:#bfd7d7;line-height:1.35;overflow-wrap:anywhere}
+#archerMaterialInfo{display:none;width:100%;font-size:11px;color:#ffdfa8;line-height:1.35;overflow-wrap:anywhere}
 .animRow.farolera{border-left:3px solid #00ffe4}
 .animRow.candidate{border-left:3px solid #ffce6b}
 .animRole{display:block;font-size:10px;margin-top:3px;color:#8bf4e0}
@@ -34,7 +35,7 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.19</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.19 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.19: retirado el anclaje automático de arco y flecha; el visor conserva las posiciones, orientaciones y relaciones padre-hijo originales del FBX importado de Blender. Diagnóstico de solo lectura de la jerarquía; no se modifican las animaciones, Farolera ni la arena.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><span id="characterInfo">Farolera original · cargando animaciones…</span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.20</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.20 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.20: diagnóstico de texturas/materiales reales de Arquera, espacio sRGB de color y luz de relleno neutra exclusiva. Soporte automático para GLB PBR exportado desde Blender (si existe) con alternativa FBX. Sin recolorear mallas ni alterar rig, anclajes, Farolera o arena.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -75,7 +76,29 @@ function animateShake(dt){
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x101b27);
 const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.01,1000); camera.position.set(2.6,1.9,4.8);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<=700?1.5:2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
-scene.add(new THREE.HemisphereLight(0xdffaff,0x334c54,2.1));const light=new THREE.DirectionalLight(0xffffff,2.6);light.position.set(3,6,5);scene.add(light);
+// Conservar la iluminación original de Farolera. La Arquera FBX utiliza
+// una luz de relleno neutra separada, sin recolorear sus materiales.
+const hemisphere=new THREE.HemisphereLight(0xdffaff,0x334c54,2.1);
+scene.add(hemisphere);
+const light=new THREE.DirectionalLight(0xffffff,2.6);
+light.position.set(3,6,5);scene.add(light);
+const archerFill=new THREE.DirectionalLight(0xffe9d5,1.05);
+archerFill.position.set(-3,3,4);archerFill.visible=false;scene.add(archerFill);
+function setCharacterLighting(character){
+  if(character==='archer'){
+    hemisphere.color.setHex(0xffffff);
+    hemisphere.groundColor.setHex(0x39444b);
+    hemisphere.intensity=1.7;
+    archerFill.visible=true;
+    renderer.toneMappingExposure=1.12;
+  }else{
+    hemisphere.color.setHex(0xdffaff);
+    hemisphere.groundColor.setHex(0x334c54);
+    hemisphere.intensity=2.1;
+    archerFill.visible=false;
+    renderer.toneMappingExposure=1;
+  }
+}
 const grid=new THREE.GridHelper(12,24,0x26736f,0x27404c);scene.add(grid);
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.target.set(0,1,0);
 let model,mixer,playing=true, wire=false, originalMaterials=new Map(), bounds;
@@ -85,6 +108,8 @@ let currentCharacter='farolera',faroleraModel=null,faroleraIdle=null,archerModel
 let animationArchive=null,characterSwitching=false;
 let archerRigReference=null; // Captura inmutable del rig en bind pose, antes de animar.
 let archerEquipmentStatus='accesorios sin comprobar';
+let archerMaterialStatus='materiales pendientes';
+let archerAssetFormat='FBX';
 const characterClips={farolera:null,archer:null};
 // Lámpara exportada de Blender como malla independiente, hija de mixamorig:RightHand.
 let lantern=null, lanternBaseWorldQ=new THREE.Quaternion(), lanternUpCorrection=new THREE.Quaternion();
@@ -793,15 +818,73 @@ function inspectArcherOriginalEquipment(root){
   console.info('[R.O.K.] Armas y vínculos originales del FBX:',report);
   return report;
 }
+// Diagnóstico real de mapas de color, no se inventan texturas ni tonos.
+// Para FBX la información del shader de Blender no se conserva tan
+// fielmente como en GLB. Corregir solamente el espacio de color si procede.
+function inspectArcherMaterials(root,format){
+  let meshCount=0,mapCount=0,normalCount=0,roughnessCount=0,materialCount=0;
+  const unique=new Set();
+  root.traverse(o=>{
+    if(!o.isMesh)return;
+    meshCount++;
+    for(const mat of (Array.isArray(o.material)?o.material:[o.material])){
+      if(!mat||unique.has(mat))continue;
+      unique.add(mat);materialCount++;
+      if(mat.map){
+        mapCount++;
+        if(mat.map.colorSpace!==THREE.SRGBColorSpace){
+          mat.map.colorSpace=THREE.SRGBColorSpace;
+          mat.map.needsUpdate=true;
+        }
+      }
+      if(mat.emissiveMap){
+        if(mat.emissiveMap.colorSpace!==THREE.SRGBColorSpace){
+          mat.emissiveMap.colorSpace=THREE.SRGBColorSpace;
+          mat.emissiveMap.needsUpdate=true;
+        }
+      }
+      if(mat.normalMap)normalCount++;
+      if(mat.roughnessMap)roughnessCount++;
+    }
+  });
+  const summary=format+' · '+meshCount+' mallas · '+materialCount+
+    ' materiales · color '+mapCount+' · normal '+normalCount+
+    ' · rugosidad '+roughnessCount;
+  if(mapCount===0){
+    return summary+' · AVISO: ninguna textura de color reconocida por el visor.'+
+      ' Para conservar los materiales de Blender, exporta GLB con texturas.';
+  }
+  return summary;
+}
+
 async function loadArcherModel(){
   if(archerModel)return archerModel;
-  const loaded=await new Promise((resolve,reject)=>{
-    fbxLoader.load('./animations/ARQUERA%20DEL%20DECIERTO.fbx',resolve,
-      progress=>{
-        if(progress.total)characterInfo.textContent='Descargando Arquera: '+
-          Math.round(progress.loaded*100/progress.total)+' %';
-      },reject);
-  });
+  // Preferir GLB PBR exportado desde Blender cuando exista; si aún no se
+  // ha publicado, conservar el FBX actual sin alterar su jerarquía.
+  let loaded=null,format='FBX';
+  const glbUrl='./animations/ARQUERA%20DEL%20DECIERTO.glb';
+  try{
+    const exists=await fetch(glbUrl,{method:'HEAD',cache:'no-store'});
+    if(exists.ok){
+      const gltf=await new GLTFLoader().loadAsync(glbUrl);
+      loaded=gltf.scene;
+      loaded.animations=gltf.animations;
+      format='GLB';
+    }
+  }catch(e){
+    console.warn('[R.O.K.] Arquera GLB no disponible; cargando FBX original',e);
+  }
+  if(!loaded){
+    loaded=await new Promise((resolve,reject)=>{
+      fbxLoader.load('./animations/ARQUERA%20DEL%20DECIERTO.fbx',resolve,
+        progress=>{
+          if(progress.total)characterInfo.textContent='Descargando Arquera FBX: '+
+            Math.round(progress.loaded*100/progress.total)+' %';
+        },reject);
+    });
+  }
+  archerAssetFormat=format;
+  archerMaterialStatus=inspectArcherMaterials(loaded,format);
   const modelRestCorrection=makeArcherRestUpright(loaded);
   if(modelRestCorrection)console.info('[R.O.K.] Eje del FBX de Arquera corregido '+modelRestCorrection.toFixed(0)+'°');
   const box=new THREE.Box3().setFromObject(loaded);
@@ -860,6 +943,7 @@ async function switchCharacter(character){
     scene.remove(model);
     model=next;currentCharacter=character;
     scene.add(model);
+    setCharacterLighting(character);
     mixer=new THREE.AnimationMixer(model);
     idleOriginal=character==='farolera'?faroleraIdle:archerIdle;
     activeAction=null;activeAnimation=null;
@@ -902,6 +986,9 @@ async function switchCharacter(character){
     characterInfo.textContent=(character==='archer'?'Arquera del Desierto':'Farolera original')+
       ' · '+animationRows.filter(r=>r.clip).length+' animaciones disponibles'+
       (character==='archer'?' · '+archerEquipmentStatus:'');
+    const materialInfo=document.querySelector('#archerMaterialInfo');
+    materialInfo.style.display=character==='archer'?'block':'none';
+    materialInfo.textContent=character==='archer'?archerMaterialStatus:'';
     status.textContent=(character==='archer'?'Arquera del Desierto':'Farolera')+
       ' · visor listo';
     let meshes=0,bones=0;
