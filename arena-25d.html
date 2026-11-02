@@ -1955,6 +1955,9 @@ function updateHit(c,dt){
 function startRestoringStanding(c){
   if(c.standingPlayed)return;
   c.standingPlayed=true;
+  // Standing 13 de Arquera sigue en ajuste (inclina la cabeza hacia arriba);
+  // no introducir esa pose defectuosa durante restauración/victoria.
+  if(c.kind==='archer'){setAnim(c,'idle',{fade:.1});return;}
   const clip=getCombatClip(c,13);
   // Animación completa durante la subida final de 0,67 s. El clip original
   // NO se modifica; únicamente se adapta su velocidad en el mixer.
