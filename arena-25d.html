@@ -99,14 +99,14 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.10</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.11</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><strong>Notas de versión · Arena v0.9.10 (01/11/2026):</strong> La flecha de la Arquera vuela 3 veces más rápido (28,5 casillas/s) y, si impacta, queda clavada en el torso del objetivo y lo acompaña mientras se anima, hasta que esa unidad se reinicie. Mantiene 3 PV, alcance 9, daño 2 y 3 s entre ataques; Farolera y el rig original siguen intactos.</p>
+    <p><strong>Notas de versión · Arena v0.9.11 (01/11/2026):</strong> El daño normal ya no cancela ataques en preparación: la reacción 09 funciona en una capa que anima cabeza/cuello/piernas, sin reescribir los brazos ni perder el objetivo o el disparo. El aturdimiento sí interrumpe la preparación. Se mantienen la flecha a 28,5 casillas/s, las estadísticas y las animaciones propias de ambos personajes.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas. Invocaciones de escudo/maná/arquera: columnas 3, 5 y 4, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
@@ -1585,6 +1585,7 @@ function beginSummonEmergence(c){
   releaseSummonDuel(c);
   const winner=c.stage==='restoring'&&c.restorationPhase==='travel';
   if(c.stage!=='summonCasting'&&!winner)return;
+  stopHitOverlay(c);
   clearEmbeddedArrows(c); // Una vida nueva no hereda las flechas de la anterior.
   // Reiniciar el mismo contenedor 3D (nuevo ciclo de vida), sin crear
   // copias adicionales ni modificar el modelo original del GLB.
@@ -1745,6 +1746,7 @@ function finishNewSummon(c,winner=false){
 
 function resetCombatant(c){
   clearEmbeddedArrows(c);
+  stopHitOverlay(c);
   releaseSummonDuel(c);
   const shield=c.kind==='shield',archer=c.kind==='archer';
   c.maxHp=archer?ATTACK_PROFILES.archer.hp:shield?7:5;
@@ -1893,6 +1895,7 @@ function updateCast(c,dt){
 
 function beginDeath(c){
   if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
+  stopHitOverlay(c);
   releaseSummonDuel(c);
   c.stage='dying';c.deathT=0;c.castTarget=null;c.castFired=true;
   if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=true;
@@ -1941,18 +1944,75 @@ function updateDeathSequence(c,dt){
     startSummonCountdown(c);
   }
 }
+
+// Reacciones simultáneas: el disparo conserva prioridad ABSOLUTA en brazos,
+// hombros, manos, dedos y toda la cadena troncal que los sostiene.
+// La reacción 09 solo anima cabeza/cuello y piernas: son pistas independientes
+// de las rotaciones del ataque. Sin mezclar los brazos ni mover la raíz.
+const maskedHitClipCache=new WeakMap();
+const HIT_OVERLAY_BONES=new Set([
+  'neck','head','leftupleg','rightupleg','leftleg','rightleg',
+  'leftfoot','rightfoot','lefttoebase','righttoebase'
+]);
+function getHitOverlayClip(c){
+  const source=getCombatClip(c,9);
+  if(!source)return null;
+  if(maskedHitClipCache.has(source))return maskedHitClipCache.get(source);
+  const tracks=source.tracks.filter(track=>{
+    const match=/^(.+)\.quaternion$/.exec(track.name);
+    if(!match)return false;
+    const bone=boneKey(match[1].replace(/^\.bones\[(.+)\]$/,'$1'));
+    return HIT_OVERLAY_BONES.has(bone);
+  }).map(track=>track.clone());
+  const clip=tracks.length?
+    new THREE.AnimationClip('ROK_HitOverlay_'+c.kind,source.duration,tracks):null;
+  maskedHitClipCache.set(source,clip);
+  return clip;
+}
+function stopHitOverlay(c){
+  if(c.hitOverlayAction){
+    c.hitOverlayAction.stop();
+    c.hitOverlayAction=null;
+  }
+}
+function startHitOverlay(c){
+  stopHitOverlay(c);
+  const clip=getHitOverlayClip(c);
+  if(!clip)return false;
+  const action=c.mixer.clipAction(clip);
+  action.reset();
+  action.enabled=true;
+  action.setEffectiveWeight(.8);
+  action.setEffectiveTimeScale(1);
+  action.setLoop(THREE.LoopOnce,1);
+  action.clampWhenFinished=false;
+  action.play();
+  c.hitOverlayAction=action;
+  return true;
+}
+
 function beginHit(c){
   if(c.stage==='dying'||c.stage==='restoring')return;
-  if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=true;
   c.hitLeft=Math.max(.25,getCombatClip(c,9)?.duration||.45);
-  c.castTarget=null;c.castFired=true;
-  if(c.stage==='casting')c.stage='active';
+  if(c.stage==='casting'){
+    // No interrumpir ni reiniciar el ataque: conservar stage, castTarget,
+    // castT, castReleaseClip, castFired, acción y flecha sostenida.
+    // El overlay se reproduce simultáneamente sobre pistas sin brazos.
+    startHitOverlay(c);
+    return;
+  }
+  // Fuera del ataque sigue la reacción de daño original.
+  stopHitOverlay(c);
+  if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=true;
   setAnim(c,9,{once:true,fade:.08,force:true});
 }
 function updateHit(c,dt){
   if(c.hitLeft<=0)return false;
   c.hitLeft=Math.max(0,c.hitLeft-dt);
-  if(c.hitLeft===0&&c.stage==='active')setAnim(c,'idle',{fade:.1});
+  if(c.hitLeft===0){
+    stopHitOverlay(c);
+    if(c.stage==='active')setAnim(c,'idle',{fade:.1});
+  }
   return c.hitLeft>0;
 }
 function startRestoringStanding(c){
@@ -1979,6 +2039,7 @@ const RESTORE_TRAVEL_SECONDS=.96;
 function startRestoration(c){
   if(!c||c.hp<=0||c.stage==='restoring'||c.stage==='intro'||
      c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead')return false;
+  stopHitOverlay(c);
   releaseSummonDuel(c);
   c.stage='restoring';
   c.restorationPhase='dissolve';
@@ -2057,7 +2118,20 @@ function updateVictoriousRestoration(c,dt){
   }
 }
 function applyStun(c){
-  if(c.stage!=='active'&&c.stage!=='stunned')return;
+  if(c.stage!=='active'&&c.stage!=='stunned'&&c.stage!=='casting')return;
+  const interruptsAttack=c.stage==='casting';
+  stopHitOverlay(c);
+  if(interruptsAttack){
+    // Excepción explícita: un aturdimiento SÍ cancela el ataque cargado.
+    c.castTarget=null;c.castFired=true;c.castClip=null;
+    c.castT=0;c.castDuration=0;c.castWindupDuration=0;
+    if(c.castMarker)c.castMarker.marker.visible=false;
+    if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=true;
+    c.mixer.stopAllAction();
+    c.animAction=null;c.animId=null;
+    setAnim(c,9,{once:true,fade:0,force:true});
+    c.hitLeft=Math.max(.25,getCombatClip(c,9)?.duration||.45);
+  }
   c.stage='stunned';c.stunLeft=2.5;c.cooldown=Math.max(c.cooldown,.4);
   // El rival puede golpear durante el aturdimiento. Reducir su espera
   // pendiente evita que se cumplan los 2,5 s sin un segundo ataque.
@@ -2200,6 +2274,7 @@ function tryEvasion(target,attacker,impactCell){
   // Se reserva inmediatamente el destino lógico, pero el modelo desaparece
   // del origen y reaparece en destino en una transición visible de 0,45 s.
   releaseSummonDuel(target);
+  stopHitOverlay(target);
   target.stage='teleporting';
   target.castTarget=null;target.hitLeft=0;
   const portalClip=getCombatClip(target,14);
@@ -2567,6 +2642,9 @@ function updateDuel(dt){
       // del proyectil coincide con la palma visible en este fotograma.
       followGround(c,dt);
       updateCast(c,dt);
+      // Avanzar la reacción sin sustituir la animación del ataque.
+      // mixer.update(dt) ya reprodujo simultáneamente ambas acciones.
+      updateHit(c,dt);
     }else if(c.stage==='stunned'){
       c.stunLeft=Math.max(0,c.stunLeft-dt);
       c.mixer.timeScale=1;
