@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R.O.K. — Farolera del Umbral · Pruebas 3D</title><style>html,body{margin:0;height:100%;background:#0b1119;color:#efffff;font-family:Arial,sans-serif}canvas{display:block}.hud{position:fixed;left:16px;top:16px;background:#101d2ae8;padding:16px;border:1px solid #18bca9;border-radius:12px;max-width:330px;box-sizing:border-box}.hud h2{font-size:18px;margin:0 0 8px;color:#00ffe4}.hud p{font-size:13px;line-height:1.5;margin:7px 0}.buttons{display:flex;gap:6px;flex-wrap:wrap}button{background:#123b43;color:white;border:1px solid #00bdaa;border-radius:7px;padding:9px;cursor:pointer}.meta{color:#b4ced0}#status{font-weight:bold}.help{position:fixed;right:12px;bottom:12px;color:#b6cccc;background:#101d2acc;padding:9px;border-radius:8px;font-size:12px}@media(max-width:580px){.hud{max-width:calc(100% - 30px);padding:10px}.hud h2{font-size:15px}.help{display:none}}@media(max-width:700px){html,body{overflow:hidden}canvas{touch-action:none}.hud{top:env(safe-area-inset-top,0px);left:8px;max-width:min(94vw,360px);width:calc(100vw - 16px);padding:10px;border-radius:10px;max-height:42vh;overflow:auto}.hud.mobile-closed{width:auto;max-width:calc(100vw - 16px);max-height:none;overflow:visible;padding:8px 10px}.hud.mobile-closed> :not(h2):not(#mobileToggle){display:none}.hud h2{font-size:14px;margin:0}.hud p{font-size:11px;margin:5px 0}.buttons button{font-size:12px;padding:8px;min-height:36px}.help{display:block;bottom:8px;left:8px;right:auto;font-size:10px;max-width:90vw}.hud.mobile-closed #mobileToggle{display:inline-block}}#mobileToggle{display:none;margin:6px 0;background:#18535b;color:#fff;border:1px solid #00ffe4;border-radius:6px;padding:6px 10px}@media(max-width:700px){#mobileToggle{display:inline-block}} @media(max-width:700px){.hud{position:fixed!important;top:calc(env(safe-area-inset-top,0px) + 5px)!important;left:50%!important;transform:translateX(-50%);width:min(92vw,330px)!important;max-width:330px!important;max-height:68dvh!important;overflow:auto!important;padding:8px 10px!important;border-radius:12px!important;z-index:20;box-shadow:0 4px 18px #0008}.hud.mobile-closed{width:min(92vw,330px)!important;max-height:42px!important;overflow:hidden!important;padding:7px 10px!important;display:flex;align-items:center;justify-content:space-between;gap:8px}.hud.mobile-closed h2{font-size:12px;white-space:nowrap;flex:1}.hud.mobile-closed #mobileToggle{margin:0;font-size:11px;flex:none}.hud.mobile-closed> :not(h2):not(#mobileToggle){display:none}.hud:not(.mobile-closed) h2{font-size:14px}.hud:not(.mobile-closed) #mobileToggle{margin:4px 0 7px}.help{bottom:calc(env(safe-area-inset-bottom,0px) + 8px);right:auto;left:8px;max-width:50vw;font-size:10px}#shakeModel{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);padding:13px 16px;min-height:48px}}#shakeModel{position:fixed;z-index:30;right:15px;bottom:18px;background:#005d60;color:white;border:2px solid #00ffe4;border-radius:100px;font-size:14px;font-weight:bold;box-shadow:0 3px 18px #000a;touch-action:manipulation}#shakeModel:disabled{opacity:.55;cursor:wait}#mobileActions{position:fixed;z-index:40;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);right:10px;display:flex;align-items:center;gap:8px}#mobileActions #shakeModel{position:static!important;right:auto!important;bottom:auto!important;padding:12px 14px!important;min-height:46px}#quickPhysics{background:#16414a;border:2px solid #00ffe4;border-radius:28px;padding:12px 11px;min-height:46px;font-weight:bold}#mobileActions button{box-shadow:0 4px 16px #0009;touch-action:manipulation}@media(max-width:700px){#mobileActions{left:50%;right:auto;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:max-content;max-width:96vw}#mobileActions button{font-size:12px!important}.help{display:none!important}} 
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>R.O.K. — Farolera del Umbral · Pruebas 3D</title><style>html,body{margin:0;height:100%;background:#0b1119;color:#efffff;font-family:Arial,sans-serif}canvas{display:block}.hud{position:fixed;left:16px;top:16px;background:#101d2ae8;padding:16px;border:1px solid #18bca9;border-radius:12px;max-width:330px;box-sizing:border-box;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#00ffe4 #18343c;z-index:20}.hud::-webkit-scrollbar{width:10px}.hud::-webkit-scrollbar-track{background:#18343c;border-radius:8px}.hud::-webkit-scrollbar-thumb{background:#00bdaa;border:2px solid #18343c;border-radius:8px}.hud::-webkit-scrollbar-thumb:hover{background:#00ffe4}.hud h2{font-size:18px;margin:0 0 8px;color:#00ffe4}.hud p{font-size:13px;line-height:1.5;margin:7px 0}.buttons{display:flex;gap:6px;flex-wrap:wrap}button{background:#123b43;color:white;border:1px solid #00bdaa;border-radius:7px;padding:9px;cursor:pointer}.meta{color:#b4ced0}#status{font-weight:bold}.help{position:fixed;right:12px;bottom:12px;color:#b6cccc;background:#101d2acc;padding:9px;border-radius:8px;font-size:12px}@media(max-width:580px){.hud{max-width:calc(100% - 30px);padding:10px}.hud h2{font-size:15px}.help{display:none}}@media(max-width:700px){html,body{overflow:hidden}canvas{touch-action:none}.hud{top:env(safe-area-inset-top,0px);left:8px;max-width:min(94vw,360px);width:calc(100vw - 16px);padding:10px;border-radius:10px;max-height:42vh;overflow:auto}.hud.mobile-closed{width:auto;max-width:calc(100vw - 16px);max-height:none;overflow:visible;padding:8px 10px}.hud.mobile-closed> :not(h2):not(#mobileToggle){display:none}.hud h2{font-size:14px;margin:0}.hud p{font-size:11px;margin:5px 0}.buttons button{font-size:12px;padding:8px;min-height:36px}.help{display:block;bottom:8px;left:8px;right:auto;font-size:10px;max-width:90vw}.hud.mobile-closed #mobileToggle{display:inline-block}}#mobileToggle{display:none;margin:6px 0;background:#18535b;color:#fff;border:1px solid #00ffe4;border-radius:6px;padding:6px 10px}@media(max-width:700px){#mobileToggle{display:inline-block}} @media(max-width:700px){.hud{position:fixed!important;top:calc(env(safe-area-inset-top,0px) + 5px)!important;left:50%!important;transform:translateX(-50%);width:min(92vw,330px)!important;max-width:330px!important;max-height:68dvh!important;overflow:auto!important;padding:8px 10px!important;border-radius:12px!important;z-index:20;box-shadow:0 4px 18px #0008}.hud.mobile-closed{width:min(92vw,330px)!important;max-height:42px!important;overflow:hidden!important;padding:7px 10px!important;display:flex;align-items:center;justify-content:space-between;gap:8px}.hud.mobile-closed h2{font-size:12px;white-space:nowrap;flex:1}.hud.mobile-closed #mobileToggle{margin:0;font-size:11px;flex:none}.hud.mobile-closed> :not(h2):not(#mobileToggle){display:none}.hud:not(.mobile-closed) h2{font-size:14px}.hud:not(.mobile-closed) #mobileToggle{margin:4px 0 7px}.help{bottom:calc(env(safe-area-inset-bottom,0px) + 8px);right:auto;left:8px;max-width:50vw;font-size:10px}#shakeModel{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);padding:13px 16px;min-height:48px}}#shakeModel{position:fixed;z-index:30;right:15px;bottom:18px;background:#005d60;color:white;border:2px solid #00ffe4;border-radius:100px;font-size:14px;font-weight:bold;box-shadow:0 3px 18px #000a;touch-action:manipulation}#shakeModel:disabled{opacity:.55;cursor:wait}#mobileActions{position:fixed;z-index:40;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);right:10px;display:flex;align-items:center;gap:8px}#mobileActions #shakeModel{position:static!important;right:auto!important;bottom:auto!important;padding:12px 14px!important;min-height:46px}#quickPhysics{background:#16414a;border:2px solid #00ffe4;border-radius:28px;padding:12px 11px;min-height:46px;font-weight:bold}#mobileActions button{box-shadow:0 4px 16px #0009;touch-action:manipulation}@media(max-width:700px){#mobileActions{left:50%;right:auto;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:max-content;max-width:96vw}#mobileActions button{font-size:12px!important}.help{display:none!important}} 
 /* R.O.K. · laboratorio de animaciones numeradas. Panel bajo los controles existentes. */
 .animLab{margin-top:10px;padding:10px;border:1px solid #237c78;border-radius:10px;background:#0b232bdd}
 .animLab h3{margin:0 0 6px;font-size:14px;color:#00ffe4}
@@ -7,6 +7,12 @@
 .animImport label{display:inline-block;background:#006c68;color:#fff;border:1px solid #00ffe4;border-radius:7px;padding:9px;font-size:12px;font-weight:bold;cursor:pointer}
 .animImport input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 #animList{display:grid;gap:5px;max-height:240px;overflow-y:auto;padding-right:3px}
+.characterPicker{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0;padding:9px;border:1px solid #237c78;border-radius:9px;background:#092832}
+.characterPicker .characterLabel{font-size:12px;color:#00ffe4;font-weight:bold}
+.characterPicker button{flex:1;min-width:160px;max-width:100%;padding:9px;border:1px solid #00ffe4;border-radius:7px;background:#12535a;color:white;font-size:12px;font-weight:bold;cursor:pointer}
+.characterPicker button:disabled{opacity:.65;cursor:wait}#archerRestPose{display:none;flex:0 0 auto;min-width:0;font-weight:normal;background:#18343c}
+#characterInfo{width:100%;font-size:11px;color:#bfd7d7;line-height:1.35;overflow-wrap:anywhere}
+#archerMaterialInfo{display:none;width:100%;font-size:11px;color:#ffdfa8;line-height:1.35;overflow-wrap:anywhere}
 .animRow.farolera{border-left:3px solid #00ffe4}
 .animRow.candidate{border-left:3px solid #ffce6b}
 .animRole{display:block;font-size:10px;margin-top:3px;color:#8bf4e0}
@@ -29,7 +35,7 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.13</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.13 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.13: notas actualizadas; las 14 animaciones del visor permanecen intactas. Arena 2.5D v0.9.7: enfrentamientos exclusivos entre invocaciones (1 contra 1), objetivos alternativos libres o caster, y liberación del duelo al morir, restaurarse o teleportarse. El modelo 3D y sus animaciones no se han alterado.</p><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.20</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.20 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.20: diagnóstico de texturas/materiales reales de Arquera, espacio sRGB de color y luz de relleno neutra exclusiva. Soporte automático para GLB PBR exportado desde Blender (si existe) con alternativa FBX. Sin recolorear mallas ni alterar rig, anclajes, Farolera o arena.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -70,10 +76,41 @@ function animateShake(dt){
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x101b27);
 const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.01,1000); camera.position.set(2.6,1.9,4.8);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<=700?1.5:2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
-scene.add(new THREE.HemisphereLight(0xdffaff,0x334c54,2.1));const light=new THREE.DirectionalLight(0xffffff,2.6);light.position.set(3,6,5);scene.add(light);
+// Conservar la iluminación original de Farolera. La Arquera FBX utiliza
+// una luz de relleno neutra separada, sin recolorear sus materiales.
+const hemisphere=new THREE.HemisphereLight(0xdffaff,0x334c54,2.1);
+scene.add(hemisphere);
+const light=new THREE.DirectionalLight(0xffffff,2.6);
+light.position.set(3,6,5);scene.add(light);
+const archerFill=new THREE.DirectionalLight(0xffe9d5,1.05);
+archerFill.position.set(-3,3,4);archerFill.visible=false;scene.add(archerFill);
+function setCharacterLighting(character){
+  if(character==='archer'){
+    hemisphere.color.setHex(0xffffff);
+    hemisphere.groundColor.setHex(0x39444b);
+    hemisphere.intensity=1.7;
+    archerFill.visible=true;
+    renderer.toneMappingExposure=1.12;
+  }else{
+    hemisphere.color.setHex(0xdffaff);
+    hemisphere.groundColor.setHex(0x334c54);
+    hemisphere.intensity=2.1;
+    archerFill.visible=false;
+    renderer.toneMappingExposure=1;
+  }
+}
 const grid=new THREE.GridHelper(12,24,0x26736f,0x27404c);scene.add(grid);
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.target.set(0,1,0);
 let model,mixer,playing=true, wire=false, originalMaterials=new Map(), bounds;
+const characterSelect=document.querySelector('#characterSelect');
+const characterInfo=document.querySelector('#characterInfo');
+let currentCharacter='farolera',faroleraModel=null,faroleraIdle=null,archerModel=null,archerIdle=null;
+let animationArchive=null,characterSwitching=false;
+let archerRigReference=null; // Captura inmutable del rig en bind pose, antes de animar.
+let archerEquipmentStatus='accesorios sin comprobar';
+let archerMaterialStatus='materiales pendientes';
+let archerAssetFormat='FBX';
+const characterClips={farolera:null,archer:null};
 // Lámpara exportada de Blender como malla independiente, hija de mixamorig:RightHand.
 let lantern=null, lanternBaseWorldQ=new THREE.Quaternion(), lanternUpCorrection=new THREE.Quaternion();
 let prevAnchor=null, prevAnchorVelocity=new THREE.Vector3(), pendulum=new THREE.Vector2(), pendulumVelocity=new THREE.Vector2();
@@ -215,7 +252,7 @@ function setupArmTuning(){
 // Guardamos los cuaterniones SIN AJUSTE inmediatamente después de que el
 // AnimationMixer actualiza la pose. Esto evita acumulaciones entre fotogramas.
 function captureOriginalArmPose(){
-  if(!rightUpperArmBone||!rightForearmBone)return;
+  if(currentCharacter!=='farolera'||!rightUpperArmBone||!rightForearmBone)return;
   upperArmMixerPose.copy(rightUpperArmBone.quaternion);
   forearmMixerPose.copy(rightForearmBone.quaternion);
   armMixerPoseValid=true;
@@ -241,7 +278,7 @@ function applyJointLift(bone,child,degrees){
   model.updateMatrixWorld(true);
 }
 function previewArmAngles(){
-  if(!armMixerPoseValid||activeAnimation!==12||
+  if(currentCharacter!=='farolera'||!armMixerPoseValid||activeAnimation!==12||
      !rightUpperArmBone||!rightForearmBone||!rightHandBone)return;
   // Restaurar la pose original antes de cada previsualización, también
   // cuando el usuario mueve los controles mientras está en pausa.
@@ -389,6 +426,182 @@ function findRigSkeleton(root){
   if(bones.length<20)throw Error('No se encontró un esqueleto Mixamo válido en este FBX');
   return new THREE.Skeleton(bones);
 }
+// Adaptación exclusiva para la Arquera FBX, sin tocar el retarget GLB de Farolera.
+// El personaje no necesita un Idle incrustado: su bind pose es suficiente.
+// Guardar el esqueleto en reposo UNA vez, antes de activar el AnimationMixer.
+// Orientación observada en el modelo real: Hips -> Head.
+// No deducir la vertical por el tamaño del bounding box ni por el nombre Idle.
+function archerTorsoDirection(root){
+  const skeleton=findRigSkeleton(root);
+  const hips=skeleton.bones.find(b=>normBone(b.name)==='hips');
+  const head=skeleton.bones.find(b=>normBone(b.name)==='head');
+  if(!hips||!head)throw Error('La Arquera necesita Hips y Head para orientar el cuerpo');
+  root.updateMatrixWorld(true);
+  const direction=head.getWorldPosition(new THREE.Vector3())
+    .sub(hips.getWorldPosition(new THREE.Vector3()));
+  if(direction.lengthSq()<1e-8)throw Error('Rig inválido: Hips y Head coinciden');
+  return direction.normalize();
+}
+// El FBX exportado de Blender puede tener otro eje vertical. Solo se
+// ajusta la raíz del objeto en memoria, sin editar huesos, malla ni FBX.
+function makeArcherRestUpright(root){
+  findRigSkeleton(root).pose();
+  root.updateMatrixWorld(true);
+  const direction=archerTorsoDirection(root);
+  const correction=THREE.MathUtils.radToDeg(
+    direction.angleTo(new THREE.Vector3(0,1,0)));
+  if(correction>35){
+    root.quaternion.premultiply(new THREE.Quaternion()
+      .setFromUnitVectors(direction,new THREE.Vector3(0,1,0)));
+    root.updateMatrixWorld(true);
+  }
+  return correction>35?correction:0;
+}
+// Comprobar el clip animado sobre una COPIA del rig, sin tocar la pose de la
+// Arquera que el jugador está viendo. El Idle DEBE empezar erguido.
+// Corregir solo una rotación estática de Hips: el movimiento interno del
+// clip (incluida la caída de la animación de muerte) permanece animado.
+function checkArcherClipOrientation(clip){
+  const probe=cloneSkinned(model);
+  const skeleton=findRigSkeleton(probe);
+  skeleton.pose();
+  probe.updateMatrixWorld(true);
+  const reference=archerTorsoDirection(probe);
+  const mixer=new THREE.AnimationMixer(probe);
+  mixer.clipAction(clip).play();mixer.setTime(0);
+  const animated=archerTorsoDirection(probe);
+  const before=THREE.MathUtils.radToDeg(reference.angleTo(animated));
+  let corrected=0;
+  if(before>36){
+    const hips=skeleton.bones.find(b=>normBone(b.name)==='hips');
+    const name=archerRigReference.get('hips').name+'.quaternion';
+    const track=clip.tracks.find(t=>t.name===name);
+    if(!hips||!track)
+      throw Error('El clip inclina el torso '+before.toFixed(0)+
+        '° y no contiene rotaciones Hips corregibles');
+    const correctionWorld=new THREE.Quaternion().setFromUnitVectors(
+      animated,reference);
+    const parentWorld=hips.parent.getWorldQuaternion(new THREE.Quaternion());
+    const localCorrection=parentWorld.clone().invert()
+      .multiply(correctionWorld).multiply(parentWorld).normalize();
+    const rotation=new THREE.Quaternion();
+    for(let i=0;i<track.times.length;i++){
+      rotation.fromArray(track.values,i*4).normalize();
+      rotation.premultiply(localCorrection).normalize();
+      rotation.toArray(track.values,i*4);
+    }
+    corrected=before;
+    // Volver a comprobar el primer fotograma con la pista corregida.
+    mixer.stopAllAction();mixer.uncacheClip(clip);
+    skeleton.pose();probe.updateMatrixWorld(true);
+    const verify=new THREE.AnimationMixer(probe);
+    verify.clipAction(clip).play();verify.setTime(0);
+    const remaining=THREE.MathUtils.radToDeg(reference.angleTo(
+      archerTorsoDirection(probe)));
+    if(remaining>38)
+      throw Error('Arquera: Idle/postura inicial sigue inclinada '+
+        remaining.toFixed(0)+'°; revisar el rig original de Blender');
+  }
+  mixer.stopAllAction();
+  return {before,corrected};
+}
+
+function captureArcherRigReference(root){
+  const skeleton=findRigSkeleton(root);
+  skeleton.pose();
+  root.updateMatrixWorld(true);
+  const result=new Map();
+  const rigParent=bone=>{
+    let parent=bone.parent;
+    while(parent&&!parent.isBone)parent=parent.parent;
+    return parent?normBone(parent.name):'';
+  };
+  for(const bone of skeleton.bones){
+    const key=normBone(bone.name);
+    if(!key||result.has(key))continue;
+    result.set(key,{
+      name:bone.name,
+      parent:rigParent(bone),
+      local:bone.quaternion.clone().normalize(),
+      world:bone.getWorldQuaternion(new THREE.Quaternion()).normalize()
+    });
+  }
+  return result;
+}
+function makeArcherAnimationClip(sourceRoot,sourceClip,displayName){
+  if(currentCharacter!=='archer'||!archerRigReference)
+    throw Error('El rig de la Arquera todavía no está preparado');
+  const skeleton=findRigSkeleton(sourceRoot);
+  skeleton.pose();
+  sourceRoot.updateMatrixWorld(true);
+  const bones=new Map();
+  for(const bone of skeleton.bones){
+    const name=normBone(bone.name);
+    if(name&&!bones.has(name))bones.set(name,bone);
+  }
+  const rigParent=bone=>{
+    let parent=bone.parent;
+    while(parent&&!parent.isBone)parent=parent.parent;
+    return parent?normBone(parent.name):'';
+  };
+  const mandatory=['hips','spine','head','leftarm','rightarm',
+    'leftforearm','rightforearm','leftupleg','rightupleg','leftleg','rightleg'];
+  const missing=mandatory.filter(name=>!bones.has(name)||!archerRigReference.has(name));
+  if(missing.length)throw Error('Rig no compatible; faltan huesos Mixamo: '+missing.join(', '));
+  const conflicts=mandatory.filter(name=>
+    rigParent(bones.get(name))!==archerRigReference.get(name).parent);
+  if(conflicts.length>2)
+    throw Error('La jerarquía ósea de la Arquera difiere de Mixamo en: '+conflicts.join(', '));
+  const tracks=[],seen=new Set();
+  let largestRestOffset=0;
+  for(const track of sourceClip.tracks){
+    const match=/^(.+)\.quaternion$/.exec(track.name);
+    if(!match||!track.times?.length||track.values.length!==track.times.length*4)continue;
+    const key=normBone(match[1].replace(/^\.bones\[(.+)\]$/,'$1'));
+    const sourceBone=bones.get(key),target=archerRigReference.get(key);
+    if(!sourceBone||!target||seen.has(key))continue;
+    seen.add(key);
+    // Cada rig tiene un descanso local diferente. Es incorrecto copiar
+    // la rotación absoluta de un FBX de Mixamo sobre otro rig.
+    const sourceRestLocal=sourceBone.quaternion.clone().normalize();
+    const inverseSourceRest=sourceRestLocal.clone().invert();
+    // Convertir el DELTA en la orientación mundial de cada bind pose.
+    // Esto mantiene la dirección física de brazos y piernas aun si sus
+    // ejes locales difieren tras exportar el FBX desde Blender.
+    const sourceRestWorld=sourceBone.getWorldQuaternion(new THREE.Quaternion()).normalize();
+    const basis=target.world.clone().invert().multiply(sourceRestWorld).normalize();
+    const inverseBasis=basis.clone().invert();
+    largestRestOffset=Math.max(largestRestOffset,
+      THREE.MathUtils.radToDeg(sourceRestWorld.angleTo(target.world)));
+    const out=new Float32Array(track.values.length);
+    const sourceQ=new THREE.Quaternion(),delta=new THREE.Quaternion();
+    const aligned=new THREE.Quaternion(),output=new THREE.Quaternion();
+    for(let i=0;i<track.times.length;i++){
+      sourceQ.fromArray(track.values,i*4).normalize();
+      delta.copy(inverseSourceRest).multiply(sourceQ);
+      aligned.copy(basis).multiply(delta).multiply(inverseBasis);
+      output.copy(target.local).multiply(aligned).normalize();
+      output.toArray(out,i*4);
+    }
+    tracks.push(new THREE.QuaternionKeyframeTrack(
+      target.name+'.quaternion',track.times.slice(),out));
+  }
+  if(tracks.length<20)
+    throw Error('Arquera: solo '+tracks.length+' huesos animados compatibles de '+bones.size+
+      '. Revisa el Armature y la exportación FBX de Blender.');
+  // El movimiento X/Z de Hips no se transfiere: el visor controla la raíz.
+  // El apoyo vertical se ajusta sin cambiar las pistas originales.
+  const clip=new THREE.AnimationClip(displayName,-1,tracks);
+  const upright=checkArcherClipOrientation(clip);
+  clip.optimize();
+  return {clip,matched:tracks.length,total:sourceClip.tracks.length,
+    hipMotion:false,
+    diagnostic:'torso inicial '+upright.before.toFixed(0)+'°'+
+      (upright.corrected?' · corrección vertical '+upright.corrected.toFixed(0)+'°':' · vertical correcta')+
+      ' · retarget Mixamo bind pose; diferencia máxima '+
+      largestRestOffset.toFixed(1)+'°; '+conflicts.length+' conflictos de jerarquía'};
+}
+
 function makeAnimationClip(sourceRoot,sourceClip,displayName){
   if(!model)throw Error('Primero debe cargarse el GLB de la Farolera');
   // Trabajar sobre una copia de rig; no alterar el Idle ni el esqueleto real.
@@ -533,7 +746,12 @@ function playAnimation(index){
   renderAnimList();
 }
 function playIdleOriginal(){
-  if(!mixer||!idleOriginal)return;
+  if(!mixer)return;
+  if(!idleOriginal&&currentCharacter==='archer'){
+    if(animationRows[10]?.clip)playAnimation(11);
+    return;
+  }
+  if(!idleOriginal)return;
   const previous=activeAction;
   const action=mixer.clipAction(idleOriginal).reset();
   action.enabled=true;action.setEffectiveWeight(1);action.setEffectiveTimeScale(1);
@@ -542,9 +760,263 @@ function playIdleOriginal(){
   else action.setEffectiveWeight(1);
   activeAction=action;activeAnimation=null;playing=true;
   toggle.textContent='Pausar / Reproducir';
-  animMessage.textContent='Idle original del GLB · independiente del catálogo FBX.';
+  animMessage.textContent=currentCharacter==='archer'?
+    'Idle original de la Arquera del Desierto.':
+    'Idle original del GLB · independiente del catálogo FBX.';
   renderAnimList();
 }
+
+function snapshotCharacterClips(){
+  characterClips[currentCharacter]=animationRows.map(row=>({
+    clip:row.clip,status:row.status,details:row.details
+  }));
+}
+function restoreCharacterClips(character){
+  const stored=characterClips[character];
+  for(let i=0;i<animationRows.length;i++){
+    const snapshot=stored?.[i];
+    animationRows[i].clip=snapshot?.clip||null;
+    animationRows[i].status=snapshot?.status||'pending';
+    animationRows[i].details=snapshot?.details||'';
+  }
+  renderAnimList();
+}
+
+// Equipo rígido de Arquera: vínculo independiente de las animaciones.
+// Se identifica arco/flecha por nombre; en FBX sin nombres se utiliza forma
+// alargada + separación del cuerpo. Nunca modificar carcaj, ropa ni SkinnedMesh.
+// Diagnóstico de SOLO LECTURA. No reparentar, recentrar ni girar armas.
+// El FBX cargado mantiene exactamente la jerarquía y las matrices exportadas.
+// En algunos FBX las armas no tienen nombres reconocibles; no inventar enlaces.
+function inspectArcherOriginalEquipment(root){
+  const equipment=/(bow|arco|longbow|recurve|arrow|flecha)/i;
+  const labeled=[];
+  let rigidBoneChildren=0,otherRigid=0;
+  root.updateMatrixWorld(true);
+  root.traverse(o=>{
+    if(!o.isMesh||o.isSkinnedMesh)return;
+    let nearestBone=null,ancestor=o.parent;
+    while(ancestor&&ancestor!==root){
+      if(ancestor.isBone){nearestBone=ancestor;break;}
+      ancestor=ancestor.parent;
+    }
+    if(nearestBone)rigidBoneChildren++;
+    else otherRigid++;
+    const name=[o.name,o.parent?.name].filter(Boolean).join(' / ');
+    if(equipment.test(name)){
+      const hand=nearestBone?normBone(nearestBone.name):null;
+      labeled.push((o.name||'objeto sin nombre')+
+        ' → '+(hand?'hueso original '+nearestBone.name:'sin padre óseo directo'));
+    }
+  });
+  const status=labeled.length?
+    labeled.slice(0,4).join(' · '):
+    'FBX sin nombres de arco/flecha identificables';
+  const report=status+' · mallas rígidas bajo huesos: '+rigidBoneChildren+
+    ' · mallas rígidas sin padre óseo: '+otherRigid+
+    ' · ninguna transformación modificada';
+  console.info('[R.O.K.] Armas y vínculos originales del FBX:',report);
+  return report;
+}
+// Diagnóstico real de mapas de color, no se inventan texturas ni tonos.
+// Para FBX la información del shader de Blender no se conserva tan
+// fielmente como en GLB. Corregir solamente el espacio de color si procede.
+function inspectArcherMaterials(root,format){
+  let meshCount=0,mapCount=0,normalCount=0,roughnessCount=0,materialCount=0;
+  const unique=new Set();
+  root.traverse(o=>{
+    if(!o.isMesh)return;
+    meshCount++;
+    for(const mat of (Array.isArray(o.material)?o.material:[o.material])){
+      if(!mat||unique.has(mat))continue;
+      unique.add(mat);materialCount++;
+      if(mat.map){
+        mapCount++;
+        if(mat.map.colorSpace!==THREE.SRGBColorSpace){
+          mat.map.colorSpace=THREE.SRGBColorSpace;
+          mat.map.needsUpdate=true;
+        }
+      }
+      if(mat.emissiveMap){
+        if(mat.emissiveMap.colorSpace!==THREE.SRGBColorSpace){
+          mat.emissiveMap.colorSpace=THREE.SRGBColorSpace;
+          mat.emissiveMap.needsUpdate=true;
+        }
+      }
+      if(mat.normalMap)normalCount++;
+      if(mat.roughnessMap)roughnessCount++;
+    }
+  });
+  const summary=format+' · '+meshCount+' mallas · '+materialCount+
+    ' materiales · color '+mapCount+' · normal '+normalCount+
+    ' · rugosidad '+roughnessCount;
+  if(mapCount===0){
+    return summary+' · AVISO: ninguna textura de color reconocida por el visor.'+
+      ' Para conservar los materiales de Blender, exporta GLB con texturas.';
+  }
+  return summary;
+}
+
+async function loadArcherModel(){
+  if(archerModel)return archerModel;
+  // Preferir GLB PBR exportado desde Blender cuando exista; si aún no se
+  // ha publicado, conservar el FBX actual sin alterar su jerarquía.
+  let loaded=null,format='FBX';
+  const glbUrl='./animations/ARQUERA%20DEL%20DECIERTO.glb';
+  try{
+    const exists=await fetch(glbUrl,{method:'HEAD',cache:'no-store'});
+    if(exists.ok){
+      const gltf=await new GLTFLoader().loadAsync(glbUrl);
+      loaded=gltf.scene;
+      loaded.animations=gltf.animations;
+      format='GLB';
+    }
+  }catch(e){
+    console.warn('[R.O.K.] Arquera GLB no disponible; cargando FBX original',e);
+  }
+  if(!loaded){
+    loaded=await new Promise((resolve,reject)=>{
+      fbxLoader.load('./animations/ARQUERA%20DEL%20DECIERTO.fbx',resolve,
+        progress=>{
+          if(progress.total)characterInfo.textContent='Descargando Arquera FBX: '+
+            Math.round(progress.loaded*100/progress.total)+' %';
+        },reject);
+    });
+  }
+  archerAssetFormat=format;
+  archerMaterialStatus=inspectArcherMaterials(loaded,format);
+  const modelRestCorrection=makeArcherRestUpright(loaded);
+  if(modelRestCorrection)console.info('[R.O.K.] Eje del FBX de Arquera corregido '+modelRestCorrection.toFixed(0)+'°');
+  const box=new THREE.Box3().setFromObject(loaded);
+  if(box.isEmpty())throw Error('El archivo FBX no contiene mallas visibles');
+  // Normalizar la representación (sin modificar el modelo que está en GitHub).
+  loaded.scale.multiplyScalar(1.65/Math.max(.001,box.getSize(new THREE.Vector3()).y));
+  loaded.updateMatrixWorld(true);
+  const scaledBox=new THREE.Box3().setFromObject(loaded);
+  const center=scaledBox.getCenter(new THREE.Vector3());
+  loaded.position.x-=center.x;
+  loaded.position.y-=scaledBox.min.y;
+  loaded.position.z-=center.z;
+  archerRigReference=captureArcherRigReference(loaded);
+  // No modificar posiciones ni parentesco del arco y la flecha.
+  // El vínculo original de Blender se mantiene tal como lo interprete FBXLoader.
+  archerEquipmentStatus=inspectArcherOriginalEquipment(loaded);
+  archerModel=loaded;
+  archerIdle=loaded.animations?.[0]||null;
+  return loaded;
+}
+async function loadArcherSharedAnimations(){
+  if(characterClips.archer)return;
+  if(!animationArchive)await preloadRepoAnimations();
+  if(!animationArchive)throw Error('No se encontró el paquete Mixamo publicado en GitHub');
+  const entries=Object.values(animationArchive.files).filter(e=>!e.dir&&/\.fbx$/i.test(e.name));
+  let count=0;
+  for(const entry of entries){
+    const name=entry.name.split('/').pop();
+    const row=identifyAnimation(name);
+    if(row.clip)continue;
+    animMessage.textContent='Adaptando Arquera '+(++count)+'/'+entries.length+' · '+name;
+    await new Promise(resolve=>setTimeout(resolve,0));
+    await importAnimation(name,await entry.async('arraybuffer'));
+  }
+  snapshotCharacterClips();
+}
+async function switchCharacter(character){
+  if(characterSwitching||!model||character===currentCharacter)return;
+  if(loadingAnimations){
+    characterSelect.value=currentCharacter;
+    characterInfo.textContent='Termina la importación actual antes de cambiar.';
+    return;
+  }
+  characterSwitching=true;characterSelect.disabled=true;
+  try{
+    // No retirar Farolera hasta haber cargado correctamente el nuevo FBX.
+    const next=character==='archer'?await loadArcherModel():faroleraModel;
+    if(!next)throw Error('Modelo no disponible');
+    snapshotCharacterClips();
+    if(wire){
+      model.traverse(o=>{if(o.isMesh&&originalMaterials.has(o)){
+        o.material.dispose?.();o.material=originalMaterials.get(o);
+      }});
+      wire=false;
+    }
+    scene.remove(model);
+    model=next;currentCharacter=character;
+    scene.add(model);
+    setCharacterLighting(character);
+    mixer=new THREE.AnimationMixer(model);
+    idleOriginal=character==='farolera'?faroleraIdle:archerIdle;
+    activeAction=null;activeAnimation=null;
+    restoreCharacterClips(character);
+    originalMaterials=new Map();
+    model.traverse(o=>{if(o.isMesh){
+      originalMaterials.set(o,o.material);o.frustumCulled=false;
+    }});
+    modelBaseZ=model.position.z;shakeActive=false;
+    pendulum.set(0,0);pendulumVelocity.set(0,0);prevAnchor=null;
+    prevAnchorVelocity.set(0,0);
+    document.querySelector('#archerRestPose').style.display=
+      character==='archer'?'inline-block':'none';
+    if(character==='farolera'){
+      document.querySelector('#rightArmTuning').style.display='';
+      document.querySelector('#physics').disabled=false;
+      document.querySelector('#lampReset').disabled=false;
+      setupArmTuning();setupLantern();
+    }else{
+      armMixerPoseValid=false;
+      rightUpperArmBone=null;rightForearmBone=null;rightHandBone=null;
+      document.querySelector('#rightArmTuning').style.display='none';
+      document.querySelector('#physics').disabled=true;
+      document.querySelector('#lampReset').disabled=true;
+      lantern=null;
+      lampInfo.textContent='Arquera: no se aplica física de lámpara.';
+    }
+    setupGroundAnchor();
+    if(idleOriginal){
+      activeAction=mixer.clipAction(idleOriginal).play();
+      mixer.update(0);
+    }
+    document.querySelector('#animIdle').disabled=!idleOriginal&&character!=='archer';
+    if(character==='archer'&&!characterClips.archer)await loadArcherSharedAnimations();
+    if(character==='archer'&&!idleOriginal&&animationRows[10]?.clip){
+      playAnimation(11);
+      document.querySelector('#animIdle').textContent='↺ Idle (11)';
+    }else document.querySelector('#animIdle').textContent='↺ Idle original';
+    playing=true;toggle.disabled=false;toggle.textContent='Pausar / Reproducir';
+    characterInfo.textContent=(character==='archer'?'Arquera del Desierto':'Farolera original')+
+      ' · '+animationRows.filter(r=>r.clip).length+' animaciones disponibles'+
+      (character==='archer'?' · '+archerEquipmentStatus:'');
+    const materialInfo=document.querySelector('#archerMaterialInfo');
+    materialInfo.style.display=character==='archer'?'block':'none';
+    materialInfo.textContent=character==='archer'?archerMaterialStatus:'';
+    status.textContent=(character==='archer'?'Arquera del Desierto':'Farolera')+
+      ' · visor listo';
+    let meshes=0,bones=0;
+    model.traverse(o=>{if(o.isMesh)meshes++;if(o.isBone)bones++;});
+    details.textContent=meshes+' mallas · '+bones+' huesos · modelo: '+
+      (character==='archer'?'Arquera del Desierto':'Farolera');
+    frame();renderAnimList();
+  }catch(e){
+    characterInfo.textContent='Error al preparar el modelo: '+(e?.message||String(e));
+    console.warn('[R.O.K.] Cambio de personaje:',e);
+  }finally{
+    characterSelect.value=currentCharacter;
+    characterSelect.textContent=currentCharacter==='farolera'?
+      'Cambiar a Arquera del Desierto':'Cambiar a Farolera';
+    characterSelect.disabled=false;characterSwitching=false;
+  }
+}
+characterSelect.addEventListener('click',()=>switchCharacter(currentCharacter==='farolera'?'archer':'farolera'));
+document.querySelector('#archerRestPose').addEventListener('click',()=>{
+  if(currentCharacter!=='archer'||!model||!mixer)return;
+  mixer.stopAllAction();
+  findRigSkeleton(model).pose();
+  model.updateMatrixWorld(true);
+  activeAction=null;activeAnimation=null;
+  animMessage.textContent='Arquera · pose de reposo ORIGINAL del FBX, sin animación';
+  renderAnimList();
+});
+
 document.querySelector('#animIdle').addEventListener('click',playIdleOriginal);
 document.querySelector('#animFilter').addEventListener('click',()=>{
   currentAnimFilter=currentAnimFilter==='all'?'pack':currentAnimFilter==='pack'?'other':'all';
@@ -596,7 +1068,8 @@ function openAnimDB(){
   });
 }
 async function saveAnimToCache(row){
-  if(!row.clip)return;
+  // Conservar la caché anterior solo para el rig Farolera.
+  if(!row.clip||currentCharacter!=='farolera')return;
   let db;
   try{
     db=await openAnimDB();if(!db)return;
@@ -650,6 +1123,7 @@ async function preloadRepoAnimations(){
         !entry.dir&&entry.name.split('/').pop()==='Farolera_Mixamo_14_animaciones.zip');
       const archive=nested?
         await window.JSZip.loadAsync(await nested.async('arraybuffer')):downloaded;
+      animationArchive=archive;
       const entries=Object.values(archive.files).filter(e=>!e.dir&&/\.fbx$/i.test(e.name));
       if(!entries.length)continue;
       let done=0;
@@ -674,10 +1148,14 @@ async function importAnimation(name,buffer){
   try{
     const source=fbxLoader.parse(buffer,'');
     if(!source.animations?.length)throw Error('FBX sin clip de animación');
-    const adapted=makeAnimationClip(source,source.animations[0],row.name.replace(/\.fbx$/i,''));
+    const adapted=currentCharacter==='archer'?
+      makeArcherAnimationClip(source,source.animations[0],row.name.replace(/\.fbx$/i,'')):
+      makeAnimationClip(source,source.animations[0],row.name.replace(/\.fbx$/i,''));
     if(row.clip&&mixer)mixer.uncacheClip(row.clip);
     row.clip=adapted.clip;row.status='ok';
-    row.details=adapted.matched+' huesos adaptados · '+row.clip.duration.toFixed(2)+' s · '+(adapted.hipMotion?'cadera vertical':'sin curva vertical');
+    row.details=adapted.matched+' huesos adaptados · '+row.clip.duration.toFixed(2)+
+      ' s · '+(adapted.hipMotion?'cadera vertical':'sin curva vertical')+
+      (adapted.diagnostic?' · '+adapted.diagnostic:'');
     await saveAnimToCache(row);
     // No conservar modelos, texturas ni geometría FBX: solo clips de huesos.
     source.traverse(o=>{
@@ -734,14 +1212,18 @@ document.querySelector('#animFiles').addEventListener('change',async e=>{
   }
 });
 renderAnimList();renderSelection();
-new GLTFLoader().load('./chiara_idle.glb',g=>{model=g.scene;scene.add(model);modelBaseZ=model.position.z;shakeButton.disabled=false;let meshes=0,bones=0;model.traverse(o=>{if(o.isMesh){meshes++;originalMaterials.set(o,o.material);o.frustumCulled=false;}if(o.isBone)bones++;});if(g.animations.length){mixer=new THREE.AnimationMixer(model);
-idleOriginal=g.animations[0];
+new GLTFLoader().load('./chiara_idle.glb',g=>{model=g.scene;faroleraModel=model;scene.add(model);modelBaseZ=model.position.z;shakeButton.disabled=false;let meshes=0,bones=0;model.traverse(o=>{if(o.isMesh){meshes++;originalMaterials.set(o,o.material);o.frustumCulled=false;}if(o.isBone)bones++;});if(g.animations.length){mixer=new THREE.AnimationMixer(model);
+idleOriginal=g.animations[0];faroleraIdle=idleOriginal;
 activeAction=mixer.clipAction(idleOriginal).play();
 mixer.update(0);setupArmTuning();setupLantern();setupGroundAnchor();toggle.disabled=false;
 document.querySelector('#animIdle').disabled=false;
 renderAnimList();
 status.textContent='Modelo cargado · Idle en reproducción · probador de animaciones listo';
-recoverAnimCache().then(()=>preloadRepoAnimations());}else {status.textContent='Modelo cargado SIN animación';setupLantern();}details.textContent=`${meshes} mallas · ${bones} huesos · ${g.animations.length} animación(es) · ${g.animations.map(a=>a.name).join(', ')}`;frame();},ev=>{if(ev.total)status.textContent=`Cargando modelo: ${Math.round(ev.loaded/ev.total*100)}%`;},e=>{status.textContent='Error cargando GLB';error.textContent=e.message+' — Comprueba la conexión a Internet y vuelve a cargar esta página.';console.error(e)});
+recoverAnimCache().then(()=>preloadRepoAnimations()).finally(()=>{
+    characterSelect.disabled=false;
+    characterInfo.textContent='Farolera original · '+
+      animationRows.filter(r=>r.clip).length+' animaciones · elige personaje';
+  });}else {status.textContent='Modelo cargado SIN animación';setupLantern();characterSelect.disabled=false;}details.textContent=`${meshes} mallas · ${bones} huesos · ${g.animations.length} animación(es) · ${g.animations.map(a=>a.name).join(', ')}`;frame();},ev=>{if(ev.total)status.textContent=`Cargando modelo: ${Math.round(ev.loaded/ev.total*100)}%`;},e=>{status.textContent='Error cargando GLB';error.textContent=e.message+' — Comprueba la conexión a Internet y vuelve a cargar esta página.';console.error(e)});
 toggle.onclick=()=>{playing=!playing;toggle.textContent=playing?'Pausar':'Reproducir';};document.querySelector('#reset').onclick=frame;
 document.querySelector('#wire').onclick=()=>{wire=!wire;if(!model)return;model.traverse(o=>{if(!o.isMesh)return;if(wire){const m=o.material.clone();m.wireframe=true;o.material=m;}else{o.material.dispose();o.material=originalMaterials.get(o);}})};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
