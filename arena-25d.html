@@ -99,14 +99,14 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.12</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.13</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><strong>Notas de versión · Arena v0.9.12 (01/11/2026):</strong> Standing 13 de la Arquera calibrada según su último fotograma erguido; ahora participa en el ciclo de reaparición desde el suelo (primera pose congelada → incorporación → Idle), igual que Farolera. Sin modificar el GLB, las armas, el daño, el aturdimiento ni las velocidades de ataque y proyectiles.</p>
+    <p><strong>Notas de versión · Arena v0.9.13 (01/11/2026):</strong> Corrección de reacción al daño: los impactos normales se superponen como una capa aditiva independiente y exclusiva de cabeza, cuello y piernas, sin reproducir nunca el clip completo 09 sobre un ataque ni reiniciarlo al terminar. Solo aturdimiento o muerte interrumpen un disparo. Se mantienen Standing de reaparición y el resto de funciones.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas. Invocaciones de escudo/maná/arquera: columnas 3, 5 y 4, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
@@ -2012,8 +2012,12 @@ function updateDeathSequence(c,dt){
 
 // Reacciones simultáneas: el disparo conserva prioridad ABSOLUTA en brazos,
 // hombros, manos, dedos y toda la cadena troncal que los sostiene.
-// La reacción 09 solo anima cabeza/cuello y piernas: son pistas independientes
-// de las rotaciones del ataque. Sin mezclar los brazos ni mover la raíz.
+// El clip 09 original SOLO se usa completo cuando el ataque es interrumpido
+// por un aturdimiento. En golpes normales se aplica como capa ADITIVA a
+// cabeza/cuello/piernas, independientemente de si la unidad ya está
+// atacando, caminando, en Idle o está por comenzar un nuevo ataque.
+// Esto evita el fallo de v0.9.12: golpear justo ANTES de empezar a atacar
+// lanzaba 09 de cuerpo completo y el ataque mezclaba de nuevo los brazos.
 const maskedHitClipCache=new WeakMap();
 const HIT_OVERLAY_BONES=new Set([
   'neck','head','leftupleg','rightupleg','leftleg','rightleg',
@@ -2031,6 +2035,13 @@ function getHitOverlayClip(c){
   }).map(track=>track.clone());
   const clip=tracks.length?
     new THREE.AnimationClip('ROK_HitOverlay_'+c.kind,source.duration,tracks):null;
+  if(clip){
+    // Una reacción normal sustituiría la pose de Neck/Head/Leg durante
+    // el disparo. Convertir a delta respecto al primer fotograma de 09
+    // para SUMAR el estremecimiento a cualquier acción que esté corriendo.
+    THREE.AnimationUtils.makeClipAdditive(clip,0,clip,30);
+    clip.blendMode=THREE.AdditiveAnimationBlendMode;
+  }
   maskedHitClipCache.set(source,clip);
   return clip;
 }
@@ -2044,10 +2055,11 @@ function startHitOverlay(c){
   stopHitOverlay(c);
   const clip=getHitOverlayClip(c);
   if(!clip)return false;
-  const action=c.mixer.clipAction(clip);
+  const action=c.mixer.clipAction(
+    clip,undefined,THREE.AdditiveAnimationBlendMode);
   action.reset();
   action.enabled=true;
-  action.setEffectiveWeight(.8);
+  action.setEffectiveWeight(.85);
   action.setEffectiveTimeScale(1);
   action.setLoop(THREE.LoopOnce,1);
   action.clampWhenFinished=false;
@@ -2057,26 +2069,23 @@ function startHitOverlay(c){
 }
 
 function beginHit(c){
-  if(c.stage==='dying'||c.stage==='restoring')return;
+  if(c.stage==='dying'||c.stage==='restoring'||c.stage==='dead'||
+     c.stage==='vanishing'||c.stage==='stunned')return;
+  // INVARIANTE: daño ordinario no cambia stage, castT, castTarget,
+  // castFired, animId ni animAction. Si la Arquera tiene la flecha
+  // tensada, tampoco se restaura anticipadamente su malla original.
+  // Si está caminando/Idle, no iniciar 09 completo para evitar que
+  // el próximo ataque herede una transición de brazos incorrecta.
   c.hitLeft=Math.max(.25,getCombatClip(c,9)?.duration||.45);
-  if(c.stage==='casting'){
-    // No interrumpir ni reiniciar el ataque: conservar stage, castTarget,
-    // castT, castReleaseClip, castFired, acción y flecha sostenida.
-    // El overlay se reproduce simultáneamente sobre pistas sin brazos.
-    startHitOverlay(c);
-    return;
-  }
-  // Fuera del ataque sigue la reacción de daño original.
-  stopHitOverlay(c);
-  if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=true;
-  setAnim(c,9,{once:true,fade:.08,force:true});
+  startHitOverlay(c);
 }
 function updateHit(c,dt){
   if(c.hitLeft<=0)return false;
   c.hitLeft=Math.max(0,c.hitLeft-dt);
-  if(c.hitLeft===0){
+  if(c.hitLeft<=0){
+    // Termina SOLO el overlay. Nunca forzar setAnim('idle'),
+    // porque eso puede sobrescribir una acción que acaba de iniciarse.
     stopHitOverlay(c);
-    if(c.stage==='active')setAnim(c,'idle',{fade:.1});
   }
   return c.hitLeft>0;
 }
