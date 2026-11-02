@@ -35,7 +35,7 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.21</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.21 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.21: carga el GLB actualizado «ARQUERA DEL DECIERTO GLTF.glb» desde la raíz del repositorio; usa su Idle incorporado. Conserva sin cambios la jerarquía original del arco y la flecha dentro de un contenedor visual independiente. Sin FBX obsoleto, ni reanclajes automáticos. Farolera y la arena permanecen intactas.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.22</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.22 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.22: botón Recargar Arquera para recibir el GLB actualizado sin caché y reconstruir las animaciones compartidas con su rig nuevo. Indica el tamaño real del GLB descargado para verificar la versión. No modifica armas, anclajes, Farolera ni Arena 2.5D.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><button id="archerReload" type="button" style="display:none">Recargar Arquera (GitHub)</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -857,18 +857,27 @@ function inspectArcherMaterials(root,format){
   return summary;
 }
 
-async function loadArcherModel(){
-  if(archerModel)return archerModel;
+async function loadArcherModel(forceReload=false){
+  if(archerModel&&!forceReload)return archerModel;
   // Archivo GLB ORIGINAL publicado por el usuario en la raíz del repo.
   // No reutilizar el FBX antiguo: fue eliminado del repositorio.
   const glbUrl='./ARQUERA%20DEL%20DECIERTO%20GLTF.glb';
-  characterInfo.textContent='Cargando Arquera GLB original desde GitHub…';
-  let gltf;
+  characterInfo.textContent='Descargando la última Arquera GLB publicada…';
+  let gltf,receivedBytes=0;
   try{
-    gltf=await new GLTFLoader().loadAsync(glbUrl);
+    // Un nombre de archivo fijo puede conservar la versión anterior en caché
+    // aunque GitHub haya recibido un commit nuevo. Evitar el cacheado tanto
+    // en el navegador como en la capa CDN para ESTE modelo de desarrollo.
+    const freshUrl=glbUrl+'?rok-glb-reload='+Date.now();
+    const response=await fetch(freshUrl,{cache:'no-store'});
+    if(!response.ok)throw Error('HTTP '+response.status);
+    const buffer=await response.arrayBuffer();
+    receivedBytes=buffer.byteLength;
+    gltf=await new Promise((resolve,reject)=>{
+      new GLTFLoader().parse(buffer,'./',resolve,reject);
+    });
   }catch(err){
-    throw Error('No se pudo cargar '+glbUrl+
-      '. Comprueba el archivo publicado en GitHub. '+
+    throw Error('No se pudo descargar el GLB actualizado ('+glbUrl+'). '+
       (err?.message||String(err)));
   }
   if(!gltf.scene)throw Error('El GLB no contiene una escena 3D');
@@ -880,7 +889,8 @@ async function loadArcherModel(){
   loaded.add(gltf.scene);
   loaded.animations=gltf.animations||[];
   archerAssetFormat='GLB';
-  archerMaterialStatus=inspectArcherMaterials(gltf.scene,'GLB original');
+  archerMaterialStatus=inspectArcherMaterials(gltf.scene,'GLB original')+
+    ' · archivo recibido: '+receivedBytes.toLocaleString('es-ES')+' bytes';
   const box=new THREE.Box3().setFromObject(loaded);
   if(box.isEmpty())throw Error('El GLB no contiene mallas visibles');
   // Escala/centrado del CONTENEDOR, nunca de los objetos del GLB.
@@ -921,8 +931,8 @@ async function loadArcherSharedAnimations(){
   }
   snapshotCharacterClips();
 }
-async function switchCharacter(character){
-  if(characterSwitching||!model||character===currentCharacter)return;
+async function switchCharacter(character,forceReload=false){
+  if(characterSwitching||!model||(character===currentCharacter&&!forceReload))return;
   if(loadingAnimations){
     characterSelect.value=currentCharacter;
     characterInfo.textContent='Termina la importación actual antes de cambiar.';
@@ -931,9 +941,12 @@ async function switchCharacter(character){
   characterSwitching=true;characterSelect.disabled=true;
   try{
     // No retirar Farolera hasta haber cargado correctamente el GLB original.
-    const next=character==='archer'?await loadArcherModel():faroleraModel;
+    const next=character==='archer'?await loadArcherModel(forceReload):faroleraModel;
     if(!next)throw Error('Modelo no disponible');
     snapshotCharacterClips();
+    // Retargeting recalculado contra el esqueleto recién cargado; no
+    // reutilizar pistas de un GLB anterior sobre un rig actualizado.
+    if(forceReload&&character==='archer')characterClips.archer=null;
     if(wire){
       model.traverse(o=>{if(o.isMesh&&originalMaterials.has(o)){
         o.material.dispose?.();o.material=originalMaterials.get(o);
@@ -956,6 +969,8 @@ async function switchCharacter(character){
     pendulum.set(0,0);pendulumVelocity.set(0,0);prevAnchor=null;
     prevAnchorVelocity.set(0,0);
     document.querySelector('#archerRestPose').style.display=
+      character==='archer'?'inline-block':'none';
+    document.querySelector('#archerReload').style.display=
       character==='archer'?'inline-block':'none';
     if(character==='farolera'){
       document.querySelector('#rightArmTuning').style.display='';
@@ -1009,6 +1024,18 @@ async function switchCharacter(character){
   }
 }
 characterSelect.addEventListener('click',()=>switchCharacter(currentCharacter==='farolera'?'archer':'farolera'));
+document.querySelector('#archerReload').addEventListener('click',async()=>{
+  if(currentCharacter!=='archer'||characterSwitching||loadingAnimations)return;
+  const button=document.querySelector('#archerReload');
+  button.disabled=true;
+  button.textContent='Descargando Arquera…';
+  try{
+    await switchCharacter('archer',true);
+  }finally{
+    button.disabled=false;
+    button.textContent='Recargar Arquera (GitHub)';
+  }
+});
 document.querySelector('#archerRestPose').addEventListener('click',()=>{
   if(currentCharacter!=='archer'||!model||!mixer)return;
   mixer.stopAllAction();
