@@ -99,14 +99,14 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.8</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.9</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><strong>Notas de versión · Arena v0.9.8 (01/11/2026):</strong> Arquera del Desierto incorporada a ambos bandos (3 PV, alcance 8, 3 s/ataque); Faroleras atacan cada 2 s. Preparación ralentizada hasta el disparo, remate normal, proyectiles independientes. Se mantienen los duelos 1 contra 1 y los vínculos originales del GLB.</p>
+    <p><strong>Notas de versión · Arena v0.9.9 (01/11/2026):</strong> Balance de Arquera del Desierto en ambos bandos: 3 PV, alcance 9 casillas y 2 de daño por flecha, 3 s por ataque; Faroleras continúan atacando cada 2 s. Preparación ralentizada hasta el disparo, remate normal, proyectiles independientes. Se mantienen los duelos 1 contra 1 y los vínculos originales del GLB.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas. Invocaciones de escudo/maná/arquera: columnas 3, 5 y 4, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
@@ -127,7 +127,7 @@ canvas{display:block;touch-action:none}
     <p>Guardar en GitHub pide un token de acceso de alcance limitado con permiso Contents: Read and write para este repositorio. El token no se almacena. El botón actualiza <a href="https://github.com/dtokurisu-png/rok-3d-test/blob/main/arena-background.css" target="_blank" rel="noopener noreferrer" style="color:#00ffe4">arena-background.css</a>. No compartas tu token. La cuadrícula permanece fija.</p>
     <p>La imagen puede sobresalir de los bordes; la cuadrícula de 9 × 18 permanece fija.</p>
     <p id="fps">FPS: —</p>
-    <p><b>Combate experimental:</b> ambos jugadores tienen una Farolera de escudo (7 PV, alcance 3), una de maná (5 PV, alcance 5, onda 3×3, evasión y aturdimiento) y una Arquera del Desierto (3 PV, alcance 8). Cada caster tiene 12 PV; el maná recupera 1 cada 3 s. No modifica R.O.K. principal.</p>
+    <p><b>Combate experimental:</b> ambos jugadores tienen una Farolera de escudo (7 PV, alcance 3), una de maná (5 PV, alcance 5, onda 3×3, evasión y aturdimiento) y una Arquera del Desierto (3 PV, alcance 9, daño 2). Cada caster tiene 12 PV; el maná recupera 1 cada 3 s. No modifica R.O.K. principal.</p>
     <p><a href="./index.html" style="color:#00ffe4">Volver al visor de Farolera</a></p>
   </div>
 </section>
@@ -358,7 +358,7 @@ const animationNeeds=[2,8,9,12,13,14],archerAnimationNeeds=[2,8,9,10,12,13,14];
 const animationNames={2:'Magic Heal',3:'Frisbee Throw',8:'Sword And Shield Death',9:'Standing React Small From Headshot',
   10:'Standing Aim Recoil',12:'Walk W_ Briefcase',13:'Standing',14:'Standing 2H Magic Area Attack 01'};
 const ATTACK_PROFILES={shield:{period:2,clip:2},mana:{period:2,clip:2},
-  archer:{period:3,clip:10,range:8,hp:3,frameRate:30,windupFrame:6}};
+  archer:{period:3,clip:10,range:9,damage:2,hp:3,frameRate:30,windupFrame:6}};
 const ARROW_FLIGHT_SPEED=9.5;
 const ARCHER_ARM_PROFILE={rightarm:{x:-18,y:58,z:-14},leftarm:{x:20,y:-10,z:5}};
 let archerRigReference=null;
@@ -1748,8 +1748,8 @@ function resetCombatant(c){
   c.hp=c.maxHp;
   c.shieldMax=shield?2:0;
   c.shield=c.shieldMax;
-  c.range=archer?8:shield?3:5;
-  c.attackDamage=shield?2:1;
+  c.range=archer?ATTACK_PROFILES.archer.range:shield?3:5;
+  c.attackDamage=archer?ATTACK_PROFILES.archer.damage:shield?2:1;
   c.speed=shield?2.4:2.15;
   c.stage='intro';c.introT=0;
   c.hitLeft=0;c.castT=0;c.castDuration=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
@@ -2597,7 +2597,7 @@ function updateDuel(dt){
   }else if(missiles.length){
     qs('#phase').textContent=attackMode==='magic'?'✦ Intercambio de hechizos mágicos':'➜ Ataques simples a distancia';
   }else if(combatants.every(c=>c.stage==='active')){
-    qs('#phase').textContent='➜ Avance según alcance: 3 / 5 / 8 casillas';
+    qs('#phase').textContent='➜ Avance según alcance: 3 / 5 / 9 casillas';
   }
   for(const c of [...combatants,...casters])updateNameplate(c);
 }
@@ -2624,7 +2624,7 @@ new GLTFLoader().load('./chiara_idle.glb',async g=>{
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
-  qs('#modelStatus').textContent='4 Faroleras + '+combatants.filter(c=>c.kind==='archer').length+' Arqueras + 2 casters · Arquera: 3 PV, 8 casillas · ataque 3 s / Farolera 2 s';
+  qs('#modelStatus').textContent='4 Faroleras + '+combatants.filter(c=>c.kind==='archer').length+' Arqueras + 2 casters · Arquera: 3 PV, alcance 9, daño 2 · ataque 3 s / Farolera 2 s';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
 },e=>{if(e.total)qs('#sceneStatus').textContent='Cargando modelo '+Math.round(e.loaded/e.total*100)+'%';},err=>{
   qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
