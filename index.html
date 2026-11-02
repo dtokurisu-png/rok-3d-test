@@ -35,7 +35,7 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.20</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.20 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.20: diagnóstico de texturas/materiales reales de Arquera, espacio sRGB de color y luz de relleno neutra exclusiva. Soporte automático para GLB PBR exportado desde Blender (si existe) con alternativa FBX. Sin recolorear mallas ni alterar rig, anclajes, Farolera o arena.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.21</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.21 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.21: carga el GLB actualizado «ARQUERA DEL DECIERTO GLTF.glb» desde la raíz del repositorio; usa su Idle incorporado. Conserva sin cambios la jerarquía original del arco y la flecha dentro de un contenedor visual independiente. Sin FBX obsoleto, ni reanclajes automáticos. Farolera y la arena permanecen intactas.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -811,11 +811,11 @@ function inspectArcherOriginalEquipment(root){
   });
   const status=labeled.length?
     labeled.slice(0,4).join(' · '):
-    'FBX sin nombres de arco/flecha identificables';
+    'GLB sin nombres de arco/flecha identificables';
   const report=status+' · mallas rígidas bajo huesos: '+rigidBoneChildren+
     ' · mallas rígidas sin padre óseo: '+otherRigid+
     ' · ninguna transformación modificada';
-  console.info('[R.O.K.] Armas y vínculos originales del FBX:',report);
+  console.info('[R.O.K.] Armas y vínculos originales del modelo:',report);
   return report;
 }
 // Diagnóstico real de mapas de color, no se inventan texturas ni tonos.
@@ -859,50 +859,50 @@ function inspectArcherMaterials(root,format){
 
 async function loadArcherModel(){
   if(archerModel)return archerModel;
-  // Preferir GLB PBR exportado desde Blender cuando exista; si aún no se
-  // ha publicado, conservar el FBX actual sin alterar su jerarquía.
-  let loaded=null,format='FBX';
-  const glbUrl='./animations/ARQUERA%20DEL%20DECIERTO.glb';
+  // Archivo GLB ORIGINAL publicado por el usuario en la raíz del repo.
+  // No reutilizar el FBX antiguo: fue eliminado del repositorio.
+  const glbUrl='./ARQUERA%20DEL%20DECIERTO%20GLTF.glb';
+  characterInfo.textContent='Cargando Arquera GLB original desde GitHub…';
+  let gltf;
   try{
-    const exists=await fetch(glbUrl,{method:'HEAD',cache:'no-store'});
-    if(exists.ok){
-      const gltf=await new GLTFLoader().loadAsync(glbUrl);
-      loaded=gltf.scene;
-      loaded.animations=gltf.animations;
-      format='GLB';
-    }
-  }catch(e){
-    console.warn('[R.O.K.] Arquera GLB no disponible; cargando FBX original',e);
+    gltf=await new GLTFLoader().loadAsync(glbUrl);
+  }catch(err){
+    throw Error('No se pudo cargar '+glbUrl+
+      '. Comprueba el archivo publicado en GitHub. '+
+      (err?.message||String(err)));
   }
-  if(!loaded){
-    loaded=await new Promise((resolve,reject)=>{
-      fbxLoader.load('./animations/ARQUERA%20DEL%20DECIERTO.fbx',resolve,
-        progress=>{
-          if(progress.total)characterInfo.textContent='Descargando Arquera FBX: '+
-            Math.round(progress.loaded*100/progress.total)+' %';
-        },reject);
-    });
-  }
-  archerAssetFormat=format;
-  archerMaterialStatus=inspectArcherMaterials(loaded,format);
-  const modelRestCorrection=makeArcherRestUpright(loaded);
-  if(modelRestCorrection)console.info('[R.O.K.] Eje del FBX de Arquera corregido '+modelRestCorrection.toFixed(0)+'°');
+  if(!gltf.scene)throw Error('El GLB no contiene una escena 3D');
+  // Crear únicamente un contenedor de presentación. La escena importada,
+  // sus objetos, pivotes, transformaciones y vínculos a huesos quedan
+  // EXACTAMENTE como fueron exportados desde Blender.
+  const loaded=new THREE.Group();
+  loaded.name='ROK_ArcherDisplay';
+  loaded.add(gltf.scene);
+  loaded.animations=gltf.animations||[];
+  archerAssetFormat='GLB';
+  archerMaterialStatus=inspectArcherMaterials(gltf.scene,'GLB original');
   const box=new THREE.Box3().setFromObject(loaded);
-  if(box.isEmpty())throw Error('El archivo FBX no contiene mallas visibles');
-  // Normalizar la representación (sin modificar el modelo que está en GitHub).
-  loaded.scale.multiplyScalar(1.65/Math.max(.001,box.getSize(new THREE.Vector3()).y));
+  if(box.isEmpty())throw Error('El GLB no contiene mallas visibles');
+  // Escala/centrado del CONTENEDOR, nunca de los objetos del GLB.
+  const height=Math.max(.001,box.getSize(new THREE.Vector3()).y);
+  loaded.scale.setScalar(1.65/height);
   loaded.updateMatrixWorld(true);
-  const scaledBox=new THREE.Box3().setFromObject(loaded);
-  const center=scaledBox.getCenter(new THREE.Vector3());
-  loaded.position.x-=center.x;
-  loaded.position.y-=scaledBox.min.y;
-  loaded.position.z-=center.z;
+  const stageBox=new THREE.Box3().setFromObject(loaded);
+  const center=stageBox.getCenter(new THREE.Vector3());
+  loaded.position.set(-center.x,-stageBox.min.y,-center.z);
+  loaded.updateMatrixWorld(true);
   archerRigReference=captureArcherRigReference(loaded);
-  // No modificar posiciones ni parentesco del arco y la flecha.
-  // El vínculo original de Blender se mantiene tal como lo interprete FBXLoader.
+  // Inspección de solo lectura: no mover ni reparentar arco o flecha.
   archerEquipmentStatus=inspectArcherOriginalEquipment(loaded);
   archerModel=loaded;
-  archerIdle=loaded.animations?.[0]||null;
+  archerIdle=gltf.animations?.find(clip=>/idle/i.test(clip.name))||
+    gltf.animations?.[0]||null;
+  if(!archerIdle)console.warn('[R.O.K.] El GLB de Arquera no contiene clips animados');
+  console.info('[R.O.K.] GLB original de Arquera:',{
+    animations:gltf.animations?.map(a=>a.name)||[],
+    equipment:archerEquipmentStatus,
+    materials:archerMaterialStatus
+  });
   return loaded;
 }
 async function loadArcherSharedAnimations(){
@@ -930,7 +930,7 @@ async function switchCharacter(character){
   }
   characterSwitching=true;characterSelect.disabled=true;
   try{
-    // No retirar Farolera hasta haber cargado correctamente el nuevo FBX.
+    // No retirar Farolera hasta haber cargado correctamente el GLB original.
     const next=character==='archer'?await loadArcherModel():faroleraModel;
     if(!next)throw Error('Modelo no disponible');
     snapshotCharacterClips();
@@ -985,7 +985,8 @@ async function switchCharacter(character){
     playing=true;toggle.disabled=false;toggle.textContent='Pausar / Reproducir';
     characterInfo.textContent=(character==='archer'?'Arquera del Desierto':'Farolera original')+
       ' · '+animationRows.filter(r=>r.clip).length+' animaciones disponibles'+
-      (character==='archer'?' · '+archerEquipmentStatus:'');
+      (character==='archer'?' · Idle del GLB: '+
+        (archerIdle?.name||'NO ENCONTRADO')+' · '+archerEquipmentStatus:'');
     const materialInfo=document.querySelector('#archerMaterialInfo');
     materialInfo.style.display=character==='archer'?'block':'none';
     materialInfo.textContent=character==='archer'?archerMaterialStatus:'';
@@ -994,7 +995,8 @@ async function switchCharacter(character){
     let meshes=0,bones=0;
     model.traverse(o=>{if(o.isMesh)meshes++;if(o.isBone)bones++;});
     details.textContent=meshes+' mallas · '+bones+' huesos · modelo: '+
-      (character==='archer'?'Arquera del Desierto':'Farolera');
+      (character==='archer'?'Arquera del Desierto ('+archerAssetFormat+
+        ', Idle: '+(archerIdle?.name||'no encontrado')+')':'Farolera');
     frame();renderAnimList();
   }catch(e){
     characterInfo.textContent='Error al preparar el modelo: '+(e?.message||String(e));
