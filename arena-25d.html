@@ -99,14 +99,14 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.9</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.10</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><strong>Notas de versión · Arena v0.9.9 (01/11/2026):</strong> Balance de Arquera del Desierto en ambos bandos: 3 PV, alcance 9 casillas y 2 de daño por flecha, 3 s por ataque; Faroleras continúan atacando cada 2 s. Preparación ralentizada hasta el disparo, remate normal, proyectiles independientes. Se mantienen los duelos 1 contra 1 y los vínculos originales del GLB.</p>
+    <p><strong>Notas de versión · Arena v0.9.10 (01/11/2026):</strong> La flecha de la Arquera vuela 3 veces más rápido (28,5 casillas/s) y, si impacta, queda clavada en el torso del objetivo y lo acompaña mientras se anima, hasta que esa unidad se reinicie. Mantiene 3 PV, alcance 9, daño 2 y 3 s entre ataques; Farolera y el rig original siguen intactos.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas. Invocaciones de escudo/maná/arquera: columnas 3, 5 y 4, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
@@ -359,7 +359,7 @@ const animationNames={2:'Magic Heal',3:'Frisbee Throw',8:'Sword And Shield Death
   10:'Standing Aim Recoil',12:'Walk W_ Briefcase',13:'Standing',14:'Standing 2H Magic Area Attack 01'};
 const ATTACK_PROFILES={shield:{period:2,clip:2},mana:{period:2,clip:2},
   archer:{period:3,clip:10,range:9,damage:2,hp:3,frameRate:30,windupFrame:6}};
-const ARROW_FLIGHT_SPEED=9.5;
+const ARROW_FLIGHT_SPEED=28.5; // 3 x 9,5 casillas/s; NO modifica la cadencia de ataque.
 const ARCHER_ARM_PROFILE={rightarm:{x:-18,y:58,z:-14},leftarm:{x:20,y:-10,z:5}};
 let archerRigReference=null;
 function getCombatClip(c,id){
@@ -1154,6 +1154,7 @@ function createCaster(baseScene,clip,side){
   return c;
 }
 function resetCaster(c){
+  clearEmbeddedArrows(c);
   c.hp=12;c.maxHp=12;c.stage='active';c.model.visible=true;
   c.outer.position.set(0,0,c.startZ);
   c.outer.rotation.y=c.side==='ally'?Math.PI:0;
@@ -1584,6 +1585,7 @@ function beginSummonEmergence(c){
   releaseSummonDuel(c);
   const winner=c.stage==='restoring'&&c.restorationPhase==='travel';
   if(c.stage!=='summonCasting'&&!winner)return;
+  clearEmbeddedArrows(c); // Una vida nueva no hereda las flechas de la anterior.
   // Reiniciar el mismo contenedor 3D (nuevo ciclo de vida), sin crear
   // copias adicionales ni modificar el modelo original del GLB.
   c.hp=c.maxHp;c.shield=c.shieldMax;c.shieldPulse=0;
@@ -1742,6 +1744,7 @@ function finishNewSummon(c,winner=false){
 }
 
 function resetCombatant(c){
+  clearEmbeddedArrows(c);
   releaseSummonDuel(c);
   const shield=c.kind==='shield',archer=c.kind==='archer';
   c.maxHp=archer?ATTACK_PROFILES.archer.hp:shield?7:5;
@@ -2365,6 +2368,70 @@ function launchSpell(attacker,target){
     duration:Math.max(.32,distance/9.5),area});
   if(attacker.pendV)attacker.pendV.y+=(attacker.side==='ally'?1:-1)*.7;
 }
+
+// Flechas CLAVADAS: crear una unión visual al torso del OBJETIVO, nunca
+// modificar la flecha/arco originales que llegaron desde Blender.
+// Parenteo a hueso animado: la flecha sigue caminar, golpe, caída y giro.
+// Las flechas incrustadas duran hasta renacimiento/reinicio; no caducan
+// arbitrariamente. Límite por unidad para evitar crecimiento de memoria.
+const MAX_EMBEDDED_ARROWS_PER_UNIT=12;
+const arrowDirectionUp=new THREE.Vector3(0,1,0);
+function disposeArrowProjectile(group){
+  group?.parent?.remove(group);
+  group?.traverse(o=>{
+    // Geometría de la flecha compartida entre todos los proyectiles.
+    // Destruir únicamente materiales por instancia, nunca la geometría.
+    if(o.isMesh){
+      const mats=Array.isArray(o.material)?o.material:[o.material];
+      for(const mat of mats)mat?.dispose?.();
+    }
+  });
+}
+function clearEmbeddedArrows(target){
+  if(!target?.embeddedArrows?.length)return;
+  for(const group of target.embeddedArrows)disposeArrowProjectile(group);
+  target.embeddedArrows.length=0;
+}
+function embedArrowOnTarget(m){
+  const target=m.target;
+  if(!target?.model||!m.arrow||!m.group)return false;
+  const attachBone=findBone(target,'spine2')||findBone(target,'spine1')||
+    findBone(target,'spine')||findBone(target,'chest')||
+    findBone(target,'hips');
+  const parent=attachBone||target.model;
+  target.model.updateWorldMatrix(true,true);
+  let chest;
+  if(attachBone){
+    chest=attachBone.getWorldPosition(new THREE.Vector3());
+  }else{
+    // Respaldo para casters/modelos que carezcan de hueso de pecho.
+    const box=new THREE.Box3().setFromObject(target.model);
+    chest=box.isEmpty()?
+      target.outer.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,1,0)):
+      box.getCenter(new THREE.Vector3());
+  }
+  // Orientar siempre con la trayectoria del tiro. La punta penetra
+  // ligeramente en el torso; el eje y la malla quedan visibles por fuera.
+  const direction=new THREE.Vector3(
+    chest.x-m.fromX,chest.y-m.fromY,chest.z-m.fromZ);
+  if(direction.lengthSq()<1e-8)direction.set(
+    m.aimX-m.fromX,.95-m.fromY,m.aimZ-m.fromZ);
+  if(direction.lengthSq()<1e-8)direction.set(0,0,1);
+  direction.normalize();
+  m.group.position.copy(chest).addScaledVector(direction,-.33);
+  m.group.quaternion.setFromUnitVectors(arrowDirectionUp,direction);
+  m.group.updateMatrixWorld(true);
+  // attach() mantiene las transformaciones de mundo y hace que la flecha
+  // reciba los movimientos posteriores del hueso sin volver a calcularlos.
+  parent.attach(m.group);
+  m.group.name='ROK_FlechaClavada';
+  if(!target.embeddedArrows)target.embeddedArrows=[];
+  target.embeddedArrows.push(m.group);
+  while(target.embeddedArrows.length>MAX_EMBEDDED_ARROWS_PER_UNIT)
+    disposeArrowProjectile(target.embeddedArrows.shift());
+  return true;
+}
+
 function updateMagic(dt){
   for(let i=missiles.length-1;i>=0;i--){
     const m=missiles[i];m.age+=dt;
@@ -2388,6 +2455,7 @@ function updateMagic(dt){
         new THREE.Vector3(0,1,0),direction.normalize());
     }else m.core.scale.setScalar(1+.18*Math.sin(m.age*21));
     if(a>=1){
+      let arrowStuck=false;
       // La evasión sucede justo antes del contacto, nunca después del daño.
       if(m.target.role!=='caster'&&m.target.stage==='active'&&
          canAttackSummonTarget(m.attacker,m.target))
@@ -2403,12 +2471,17 @@ function updateMagic(dt){
       }else if(canDamageTarget(m.target)){
         const current=worldToCell(m.target.outer.position.x,m.target.outer.position.z);
         if(current.row===m.impactCell.row&&current.col===m.impactCell.col){
-          damage(m.target,m.attacker.attackDamage,m.attacker);
+          const didHit=damage(m.target,m.attacker.attackDamage,m.attacker);
+          if(m.arrow&&didHit)arrowStuck=embedArrowOnTarget(m);
         }
       }
       if(m.area)qs('#phase').textContent='✦ ONDA EXPANSIVA · 3×3 · PDA aturdimiento 50 %';
-      root.remove(m.group);
-      m.group.traverse(o=>{if(o.material)o.material.dispose?.()});
+      // Si se incrustó, el proyectil ya pertenece al hueso del objetivo:
+      // no destruirlo al terminar el vuelo. Los disparos fallidos sí se limpian.
+      if(!arrowStuck){
+        m.group.parent?.remove(m.group);
+        m.group.traverse(o=>{if(o.material)o.material.dispose?.()});
+      }
       missiles.splice(i,1);
     }
   }
