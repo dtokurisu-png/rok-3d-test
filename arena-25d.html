@@ -99,14 +99,14 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.11</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.12</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><strong>Notas de versión · Arena v0.9.11 (01/11/2026):</strong> El daño normal ya no cancela ataques en preparación: la reacción 09 funciona en una capa que anima cabeza/cuello/piernas, sin reescribir los brazos ni perder el objetivo o el disparo. El aturdimiento sí interrumpe la preparación. Se mantienen la flecha a 28,5 casillas/s, las estadísticas y las animaciones propias de ambos personajes.</p>
+    <p><strong>Notas de versión · Arena v0.9.12 (01/11/2026):</strong> Standing 13 de la Arquera calibrada según su último fotograma erguido; ahora participa en el ciclo de reaparición desde el suelo (primera pose congelada → incorporación → Idle), igual que Farolera. Sin modificar el GLB, las armas, el daño, el aturdimiento ni las velocidades de ataque y proyectiles.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas. Invocaciones de escudo/maná/arquera: columnas 3, 5 y 4, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
@@ -799,6 +799,66 @@ function captureArcherRig(model){
     if(!reference.has(key))throw Error('Hueso ausente en Arquera: '+key);
   return reference;
 }
+
+// La secuencia Standing 13 empieza agachada y termina erguida.
+// Nunca enderezar su PRIMER fotograma (destruiría la incorporación).
+// Corregir una única rotación estática en la pista Hips de la COPIA
+// adaptada para Arquera, usando como referencia el último fotograma.
+function correctArcherStandingOrientation(clip){
+  const live=combatants.find(c=>c.kind==='archer');
+  if(!live)throw Error('No hay Arquera para verificar Standing 13');
+  const probe=cloneSkinned(live.model);
+  const sk=findSkeletonForAnimation(probe);
+  if(!sk)throw Error('Standing 13: rig no disponible');
+  sk.pose();probe.updateMatrixWorld(true);
+  const hips=sk.bones.find(b=>boneKey(b.name)==='hips');
+  const head=sk.bones.find(b=>boneKey(b.name)==='head');
+  if(!hips||!head)throw Error('Standing 13: faltan Hips/Head');
+  const torso=()=>{
+    probe.updateMatrixWorld(true);
+    const dir=head.getWorldPosition(new THREE.Vector3())
+      .sub(hips.getWorldPosition(new THREE.Vector3()));
+    if(dir.lengthSq()<1e-8)throw Error('Standing 13: torso degenerado');
+    return dir.normalize();
+  };
+  const upright=torso();
+  const sampleTime=Math.max(0,clip.duration-.0001);
+  const mixer=new THREE.AnimationMixer(probe);
+  const action=mixer.clipAction(clip);
+  action.setLoop(THREE.LoopOnce,1);
+  action.clampWhenFinished=true;
+  action.play();
+  mixer.setTime(sampleTime);
+  const atEnd=torso();
+  const angle=THREE.MathUtils.radToDeg(upright.angleTo(atEnd));
+  if(angle>36){
+    const name=archerRigReference?.get('hips')?.name+'.quaternion';
+    const track=clip.tracks.find(t=>t.name===name);
+    if(!track)throw Error('Standing 13: falta pista de Hips');
+    const worldCorrection=new THREE.Quaternion().setFromUnitVectors(atEnd,upright);
+    const parentWorld=hips.parent.getWorldQuaternion(new THREE.Quaternion());
+    const localCorrection=parentWorld.clone().invert()
+      .multiply(worldCorrection).multiply(parentWorld).normalize();
+    const q=new THREE.Quaternion();
+    for(let i=0;i<track.times.length;i++){
+      q.fromArray(track.values,i*4).normalize();
+      q.premultiply(localCorrection).normalize();
+      q.toArray(track.values,i*4);
+    }
+    mixer.stopAllAction();mixer.uncacheClip(clip);
+    sk.pose();probe.updateMatrixWorld(true);
+    const verify=new THREE.AnimationMixer(probe);
+    verify.clipAction(clip).setLoop(THREE.LoopOnce,1).play();
+    verify.setTime(sampleTime);
+    const remaining=THREE.MathUtils.radToDeg(upright.angleTo(torso()));
+    verify.stopAllAction();
+    if(remaining>38)throw Error('Standing 13: torso sigue inclinado '+
+      remaining.toFixed(0)+'°; revisar animación/rig');
+  }
+  mixer.stopAllAction();
+  console.info('[R.O.K.] Arquera Standing 13 final calibrado',angle.toFixed(1)+'°');
+}
+
 function adaptArcherClip(source,clip,name){
   if(!archerRigReference)throw Error('Referencia Arquera no disponible');
   const sk=findSkeletonForAnimation(source);
@@ -834,7 +894,10 @@ function adaptArcherClip(source,clip,name){
       track.times.slice(),values));
   }
   if(tracks.length<20)throw Error('Arquera: '+tracks.length+' huesos compatibles en '+name);
-  const out=new THREE.AnimationClip(name,-1,tracks);out.optimize();return out;
+  const out=new THREE.AnimationClip(name,-1,tracks);
+  if(name.trim().toLowerCase()==='standing')
+    correctArcherStandingOrientation(out);
+  out.optimize();return out;
 }
 function applyArcherAttackArms(c){
   if(c.kind!=='archer'||c.animId!==10||c.stage!=='casting')return;
@@ -1612,7 +1675,7 @@ function beginSummonEmergence(c){
   c.mixer.timeScale=1;c.mixer.stopAllAction();
   c.animId=null;c.animAction=null;
   // Standing DEBE congelarse en su primera pose mientras emerge.
-  const hasStanding=c.kind!=='archer'&&!!getCombatClip(c,13);
+  const hasStanding=!!getCombatClip(c,13);
   setAnim(c,hasStanding?13:'idle',{once:hasStanding,fade:0,force:true});
   c.mixer.update(0);
   if(c.animAction)c.animAction.paused=true;
@@ -1625,8 +1688,10 @@ function beginSummonEmergence(c){
   // El primer fotograma de Standing puede desplazar considerablemente
   // las caderas: la restauración no debe recortar ese desplazamiento a 1,2 m.
   // El casteo de una nueva invocación conserva su ajuste anterior.
+  const standingHeightLimit=(winner||c.kind==='archer')?2.8:1.2;
   c.summonBaseY=Number.isFinite(lowest)?
-    THREE.MathUtils.clamp(c.idleFootY-lowest,winner?-2.8:-1.2,winner?2.8:1.2):0;
+    THREE.MathUtils.clamp(c.idleFootY-lowest,
+      -standingHeightLimit,standingHeightLimit):0;
   c.model.position.y=c.summonBaseY-1.65;
   c.groundDelta=c.summonBaseY;
   c.summonProgress=0;
@@ -1652,9 +1717,9 @@ function updateSummonEmergence(c,dt,winner=false){
     c.model.position.y=c.summonBaseY;
     c.groundDelta=c.summonBaseY;
     clearSummonFx(c);
-    if(c.kind!=='archer'&&getCombatClip(c,13)){
+    if(getCombatClip(c,13)){
       // Liberar Standing EN SU PRIMER FRAME, a velocidad original,
-      // cuando la Farolera terminó de salir; después pasar a Idle.
+      // cuando la invocación terminó de salir; después pasar a Idle.
       setAnim(c,13,{once:true,fade:0,force:true});
       if(c.animAction)c.animAction.paused=false;
       c.summonStandingLeft=Math.max(.2,getCombatClip(c,13).duration);
@@ -2018,9 +2083,7 @@ function updateHit(c,dt){
 function startRestoringStanding(c){
   if(c.standingPlayed)return;
   c.standingPlayed=true;
-  // Standing 13 de Arquera sigue en ajuste (inclina la cabeza hacia arriba);
-  // no introducir esa pose defectuosa durante restauración/victoria.
-  if(c.kind==='archer'){setAnim(c,'idle',{fade:.1});return;}
+  // Arquera ya tiene Standing 13 corregida por el fotograma final.
   const clip=getCombatClip(c,13);
   // Animación completa durante la subida final de 0,67 s. El clip original
   // NO se modifica; únicamente se adapta su velocidad en el mixer.
