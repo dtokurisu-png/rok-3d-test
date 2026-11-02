@@ -99,14 +99,14 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.14</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.15</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><strong>Notas de versión · Arena v0.9.14 (01/11/2026):</strong> Los proyectiles a distancia ya disparados conservan su derecho a impactar aunque muera su atacante o se libere el duelo. Una eliminación no inicia la restauración del vencedor mientras tenga disparos enemigos en vuelo hacia él; ambos pueden morir. También se resuelven proyectiles pendientes antes de reiniciar al morir un caster. No cambia daño, cadencia, trayectoria ni animaciones.</p>
+    <p><strong>Notas de versión · Arena v0.9.15 (01/11/2026):</strong> Durante un ataque, la reacción de daño mueve solo cuello y cabeza: brazos y piernas completos permanecen bajo la animación de ataque, sin saltos de pies. Fuera del ataque, la reacción conserva también los muslos, pero nunca mueve directamente rodillas, pantorrillas o pies. Al restaurarse una invocación vencedora conserva exactamente sus PV anteriores; solo una invocación nueva tras morir reaparece con vida completa.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas. Invocaciones de escudo/maná/arquera: columnas 3, 5 y 4, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
@@ -1653,7 +1653,11 @@ function beginSummonEmergence(c){
   // Reiniciar el mismo contenedor 3D (nuevo ciclo de vida), sin crear
   // copias adicionales ni modificar el modelo original del GLB.
   c.pendingRestore=false;
-  c.hp=c.maxHp;c.shield=c.shieldMax;c.shieldPulse=0;
+  // Restituir al VENCEDOR con la misma vida con la que salió del combate.
+  // Solo una invocación NUEVA, después de morir, recibe vida completa.
+  c.hp=winner?(c.restorationHp??c.hp):c.maxHp;
+  c.restorationHp=null;
+  c.shield=c.shieldMax;c.shieldPulse=0;
   c.mana=c.maxMana;c.manaTimer=0;c.dodgeCooldown=0;
   c.stunLeft=0;c.hitLeft=0;c.cooldown=.55;c.specialCooldown=0;
   c.castT=0;c.castTarget=null;c.castFired=false;
@@ -1813,6 +1817,7 @@ function finishNewSummon(c,winner=false){
 function resetCombatant(c){
   clearEmbeddedArrows(c);
   c.pendingRestore=false;
+  c.restorationHp=null;
   stopHitOverlay(c);
   releaseSummonDuel(c);
   const shield=c.kind==='shield',archer=c.kind==='archer';
@@ -1910,6 +1915,10 @@ function startCast(c,target){
   const profile=ATTACK_PROFILES[c.kind];
   const clip=getCombatClip(c,profile.clip);
   c.stage='casting';c.castT=0;c.castTarget=target;c.castFired=false;
+  // Si ya se estaba mostrando un golpe, sustituir solo su máscara
+  // corporal por cabeza/cuello conservando el fotograma del impacto.
+  // La animación de ataque comienza normalmente sin arrastrar los pies.
+  if(c.hitOverlayAction)startHitOverlay(c,c.hitOverlayAction.time);
   c.castDuration=profile.period;
   c.castClip=clip||null;
   c.castReleaseClip=clip?(c.kind==='archer'?
@@ -1963,6 +1972,7 @@ function updateCast(c,dt){
 function beginDeath(c){
   if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
   c.pendingRestore=false;
+  c.restorationHp=null;
   stopHitOverlay(c);
   releaseSummonDuel(c);
   c.stage='dying';c.deathT=0;c.castTarget=null;c.castFired=true;
@@ -2022,30 +2032,39 @@ function updateDeathSequence(c,dt){
 // Esto evita el fallo de v0.9.12: golpear justo ANTES de empezar a atacar
 // lanzaba 09 de cuerpo completo y el ataque mezclaba de nuevo los brazos.
 const maskedHitClipCache=new WeakMap();
+// Fuera del ataque: cabeza, cuello y parte superior de las piernas.
+// Nunca animar directamente rodillas, pantorrillas, tobillos o pies.
 const HIT_OVERLAY_BONES=new Set([
-  'neck','head','leftupleg','rightupleg','leftleg','rightleg',
-  'leftfoot','rightfoot','lefttoebase','righttoebase'
+  'neck','head','leftupleg','rightupleg'
 ]);
+// Durante la preparación y el remate de un disparo, hasta un giro del
+// muslo arrastra físicamente rodillas y pies. Proteger la cadena ENTERA
+// de ambas piernas conserva el apoyo sin impedir el gesto de impacto.
+const ATTACK_HIT_OVERLAY_BONES=new Set(['neck','head']);
 function getHitOverlayClip(c){
   const source=getCombatClip(c,9);
   if(!source)return null;
-  if(maskedHitClipCache.has(source))return maskedHitClipCache.get(source);
+  const attack=c.stage==='casting';
+  let variants=maskedHitClipCache.get(source);
+  if(variants?.has(attack))return variants.get(attack);
+  const mask=attack?ATTACK_HIT_OVERLAY_BONES:HIT_OVERLAY_BONES;
   const tracks=source.tracks.filter(track=>{
     const match=/^(.+)\.quaternion$/.exec(track.name);
     if(!match)return false;
     const bone=boneKey(match[1].replace(/^\.bones\[(.+)\]$/,'$1'));
-    return HIT_OVERLAY_BONES.has(bone);
+    return mask.has(bone);
   }).map(track=>track.clone());
   const clip=tracks.length?
-    new THREE.AnimationClip('ROK_HitOverlay_'+c.kind,source.duration,tracks):null;
+    new THREE.AnimationClip('ROK_HitOverlay_'+c.kind+
+      (attack?'_Attacking':'_Normal'),source.duration,tracks):null;
   if(clip){
-    // Una reacción normal sustituiría la pose de Neck/Head/Leg durante
-    // el disparo. Convertir a delta respecto al primer fotograma de 09
-    // para SUMAR el estremecimiento a cualquier acción que esté corriendo.
+    // La reacción se SUMA a la acción principal, sin reemplazar brazos
+    // ni reiniciar el reloj de ataque.
     THREE.AnimationUtils.makeClipAdditive(clip,0,clip,30);
     clip.blendMode=THREE.AdditiveAnimationBlendMode;
   }
-  maskedHitClipCache.set(source,clip);
+  if(!variants){variants=new Map();maskedHitClipCache.set(source,variants);}
+  variants.set(attack,clip);
   return clip;
 }
 function stopHitOverlay(c){
@@ -2054,7 +2073,7 @@ function stopHitOverlay(c){
     c.hitOverlayAction=null;
   }
 }
-function startHitOverlay(c){
+function startHitOverlay(c,resumeTime=0){
   stopHitOverlay(c);
   const clip=getHitOverlayClip(c);
   if(!clip)return false;
@@ -2066,6 +2085,10 @@ function startHitOverlay(c){
   action.setEffectiveTimeScale(1);
   action.setLoop(THREE.LoopOnce,1);
   action.clampWhenFinished=false;
+  // Si el golpe empezó mientras caminaba, mantener su progreso cuando
+  // inicia el ataque; no reanimar las piernas ni reiniciar el impacto.
+  action.time=THREE.MathUtils.clamp(resumeTime,0,
+    Math.max(0,clip.duration-.000001));
   action.play();
   c.hitOverlayAction=action;
   return true;
@@ -2116,6 +2139,9 @@ function startRestoration(c){
      c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead')return false;
   stopHitOverlay(c);
   releaseSummonDuel(c);
+  // Guardar la vida EXACTA en el momento de restaurar, sin curación.
+  // La secuencia disolver → viajar → emerger → Standing → Idle no la altera.
+  c.restorationHp=c.hp;
   c.stage='restoring';
   c.pendingRestore=false;
   c.restorationPhase='dissolve';
