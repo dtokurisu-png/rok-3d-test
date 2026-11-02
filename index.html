@@ -35,7 +35,26 @@
 .animToolbar button{font-size:11px;padding:7px}
 #animMessage,#animSelection{font-size:11px;line-height:1.35;color:#cee2e2;overflow-wrap:anywhere}
 @media(max-width:700px){.animLab{padding:7px}.animLab h3{font-size:12px}#animList{max-height:28vh}.animRow button{font-size:10px}}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.22</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.22 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.22: botón Recargar Arquera para recibir el GLB actualizado sin caché y reconstruir las animaciones compartidas con su rig nuevo. Indica el tamaño real del GLB descargado para verificar la versión. No modifica armas, anclajes, Farolera ni Arena 2.5D.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><button id="archerReload" type="button" style="display:none">Recargar Arquera (GitHub)</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+
+.archerAttackLab{margin:12px 0;padding:11px;border:1px solid #00bdaa;border-radius:9px;background:#112b35}
+.archerAttackLab h3{margin:0 0 8px;color:#00ffe4;font-size:15px}
+.archerAttackLab label{font-size:12px}
+.archerAttackLab input[type=range]{accent-color:#00ffe4}
+.archerAttackLab button{padding:7px 9px;font-size:12px}
+.archerAttackLab select{background:#122e39;color:#fff;border:1px solid #2b8d89;border-radius:5px;padding:5px}
+.attackNote{color:#bfd3d6;font-size:11px;line-height:1.5;margin:7px 0}
+.attackTools{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.attackLineLabel{display:flex;justify-content:space-between;gap:7px;margin-top:10px;font-weight:bold}
+.attackTimeline{display:block;width:100%;margin:9px 0 5px}
+.attackReadout{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px;color:#d9eeee}
+.attackArmGrid{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}
+.attackArm{border:1px solid #285d66;border-radius:7px;padding:9px;background:#10232d}
+.attackArm>strong{display:block;color:#fff;margin-bottom:7px}
+.attackArm label{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.attackAxes label{margin-top:8px;display:block}
+.attackAxes .attackAxisCaption{display:flex;justify-content:space-between}
+.attackAxes input[type=range]{width:100%}
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.23</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.23 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.23: laboratorio exclusivo Arquera: reproducción y navegación fotograma a fotograma para la animación 10 Standing Aim Recoil a 50 % inicial, FPS de inspección y controles X/Y/Z independientes para brazo, antebrazo y mano de ambos lados; copiar configuración. No modifica el GLB, anclajes ni Farolera/Arena.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><button id="archerReload" type="button" style="display:none">Recargar Arquera (GitHub)</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -45,6 +64,60 @@
 <label>Antebrazo derecho (codo) <input id="rightForearmAngle" type="range" min="-20" max="35" step="1" value="0"><output id="rightForearmAngleValue">0°</output></label>
 <p>Ambos comienzan en 0°. Solo se previsualiza un ajuste cuando tú mueves un control. Manos, dedos y FBX permanecen intactos.</p>
 </div>
+
+<section id="archerAttackLab" class="archerAttackLab" style="display:none" aria-label="Editor de ataque de la Arquera">
+  <h3>Arquera del Desierto · Ataque 10</h3>
+  <p class="attackNote">Standing Aim Recoil · inspección fotograma por fotograma. Los ajustes son <strong>solo previsualización</strong>: no modifican el GLB, las armas ni el recorrido de la flecha.</p>
+  <div class="attackTools">
+    <button type="button" id="archerLoadAttack">Cargar animación 10</button>
+    <button type="button" id="archerAttackPlay">▶ Reproducir</button>
+    <button type="button" id="archerPrevFrame" title="Fotograma anterior">◀ −1 fotograma</button>
+    <button type="button" id="archerNextFrame" title="Fotograma siguiente">+1 fotograma ▶</button>
+  </div>
+  <label class="attackLineLabel" for="archerAttackTimeline">Fotograma <output id="archerFrameInfo">—</output></label>
+  <input id="archerAttackTimeline" class="attackTimeline" type="range" min="0" max="1" step="1" value="0" disabled>
+  <div class="attackReadout">
+    <span id="archerTimeInfo">Tiempo: —</span>
+    <label for="archerFrameRate">FPS de inspección:
+      <select id="archerFrameRate">
+        <option value="24">24</option><option value="30" selected>30</option><option value="60">60</option>
+      </select>
+    </label>
+  </div>
+  <label class="attackLineLabel" for="archerAttackRate">Velocidad global de reproducción:
+    <output id="archerAttackRateValue">50 %</output></label>
+  <input id="archerAttackRate" class="attackTimeline" type="range" min="0.1" max="1.5" step="0.05" value="0.5">
+  <p class="attackNote">La velocidad anterior solo afecta la animación de prueba. No controla la velocidad de vuelo de la flecha. Más adelante marcaremos los tramos de tensión y liberación.</p>
+  <div class="attackArmGrid">
+    <div class="attackArm" data-side="right">
+      <strong>Brazo derecho</strong>
+      <label for="archerRightJoint">Hueso
+        <select id="archerRightJoint">
+          <option value="rightarm">Brazo / hombro</option>
+          <option value="rightforearm">Antebrazo / codo</option>
+          <option value="righthand">Mano / muñeca</option>
+        </select>
+      </label>
+      <div class="attackAxes" id="archerRightAxes"></div>
+      <button id="archerRightReset" type="button">Restaurar brazo derecho</button>
+    </div>
+    <div class="attackArm" data-side="left">
+      <strong>Brazo izquierdo</strong>
+      <label for="archerLeftJoint">Hueso
+        <select id="archerLeftJoint">
+          <option value="leftarm">Brazo / hombro</option>
+          <option value="leftforearm">Antebrazo / codo</option>
+          <option value="lefthand">Mano / muñeca</option>
+        </select>
+      </label>
+      <div class="attackAxes" id="archerLeftAxes"></div>
+      <button id="archerLeftReset" type="button">Restaurar brazo izquierdo</button>
+    </div>
+  </div>
+  <p class="attackNote">Rotaciones X/Y/Z en los ejes locales de cada hueso. Se aplican sin acumulación sobre la pose original del fotograma; las armas siguen sus vínculos exportados de Blender.</p>
+  <div class="attackTools"><button id="archerCopyFrame" type="button">Copiar fotograma y ajustes</button></div>
+  <p id="archerAttackStatus" class="attackNote" role="status">Selecciona «Cargar animación 10» para empezar.</p>
+</section>
 <p id="animMessage" role="status">12 animaciones identificadas en el ZIP recibido · sin asignar a la Farolera.</p>
 <div id="animList"></div>
 <div class="animToolbar"><button type="button" id="animFilter">Ver: todas</button><button type="button" id="animCopy">Copiar números marcados</button><button type="button" id="animClear">Limpiar marcas</button></div>
@@ -725,6 +798,232 @@ function renderSelection(){
   animSelection.textContent=chosen.length?'Seleccionadas: '+chosen.map(row=>String(row.index).padStart(2,'0')).join(', '):
     'Seleccionadas: ninguna.';
 }
+
+// Laboratorio de fotogramas exclusivo de Arquera (animación 10).
+// La frecuencia de inspección numera muestras del clip, NO altera sus pistas.
+// Los ajustes afectan únicamente los huesos de la pose actual en memoria.
+// Ninguna malla, vínculo del arco/flecha ni archivo GLB se modifica.
+const archerAttackUI={
+  panel:document.querySelector('#archerAttackLab'),
+  timeline:document.querySelector('#archerAttackTimeline'),
+  frame:document.querySelector('#archerFrameInfo'),
+  time:document.querySelector('#archerTimeInfo'),
+  fps:document.querySelector('#archerFrameRate'),
+  rate:document.querySelector('#archerAttackRate'),
+  rateOutput:document.querySelector('#archerAttackRateValue'),
+  play:document.querySelector('#archerAttackPlay'),
+  message:document.querySelector('#archerAttackStatus')
+};
+const archerAttackJointNames=[
+  'rightarm','rightforearm','righthand',
+  'leftarm','leftforearm','lefthand'
+];
+const archerArmOffsets=new Map(
+  archerAttackJointNames.map(key=>[key,{x:0,y:0,z:0}]));
+const archerArmBones=new Map(),archerArmUnmodified=new Map();
+let archerAttackBaseValid=false,archerPreviewSpeed=.5;
+function archerAttackIsSelected(){
+  return currentCharacter==='archer'&&activeAnimation===10&&
+    !!animationRows[9]?.clip&&!!activeAction;
+}
+function archerAttackFPS(){return Number(archerAttackUI.fps.value)||30;}
+function archerAttackFrameMax(){
+  if(!archerAttackIsSelected())return 0;
+  return Math.max(0,Math.floor(animationRows[9].clip.duration*archerAttackFPS()+1e-5));
+}
+function archerAttackFrameNumber(){
+  if(!archerAttackIsSelected())return 0;
+  return Math.min(archerAttackFrameMax(),
+    Math.max(0,Math.round(activeAction.time*archerAttackFPS())));
+}
+function archerUpdateAttackUI(){
+  const ready=archerAttackIsSelected();
+  const max=ready?archerAttackFrameMax():0;
+  const frame=ready?archerAttackFrameNumber():0;
+  archerAttackUI.timeline.disabled=!ready;
+  archerAttackUI.timeline.max=String(Math.max(1,max));
+  archerAttackUI.timeline.value=String(frame);
+  archerAttackUI.frame.textContent=ready?frame+' / '+max:'—';
+  archerAttackUI.time.textContent=ready?
+    'Tiempo del clip: '+activeAction.time.toFixed(3)+' s / '+
+    animationRows[9].clip.duration.toFixed(3)+' s':'Tiempo: —';
+  archerAttackUI.play.textContent=ready&&playing?'⏸ Pausar':'▶ Reproducir';
+}
+function archerSetAttackVisible(character){
+  archerAttackUI.panel.style.display=character==='archer'?'block':'none';
+  if(character!=='archer')archerAttackBaseValid=false;
+  archerUpdateAttackUI();
+}
+function archerFindArmBones(){
+  archerArmBones.clear();archerArmUnmodified.clear();
+  archerAttackBaseValid=false;
+  if(currentCharacter!=='archer'||!model)return;
+  model.traverse(o=>{
+    if(o.isBone){
+      const key=normBone(o.name);
+      if(archerArmOffsets.has(key)&&!archerArmBones.has(key))
+        archerArmBones.set(key,o);
+    }
+  });
+  const missing=archerAttackJointNames.filter(x=>!archerArmBones.has(x));
+  if(missing.length)archerAttackUI.message.textContent=
+    'Faltan huesos del GLB: '+missing.join(', ')+
+    '. Los demás controles siguen disponibles.';
+}
+function archerCaptureArmPose(){
+  if(!archerAttackIsSelected())return;
+  archerArmUnmodified.clear();
+  for(const [key,bone] of archerArmBones)
+    archerArmUnmodified.set(key,bone.quaternion.clone());
+  archerAttackBaseValid=true;
+}
+function archerApplyArmPreview(){
+  if(!archerAttackIsSelected()||!archerAttackBaseValid)return;
+  // Restaurar los seis huesos al resultado del AnimationMixer antes de cada
+  // actualización: nunca se acumulan giros entre cuadros ni deslizamientos.
+  for(const [key,bone] of archerArmBones){
+    const base=archerArmUnmodified.get(key);
+    if(base)bone.quaternion.copy(base);
+  }
+  for(const [key,bone] of archerArmBones){
+    const value=archerArmOffsets.get(key);
+    if(!value||(!value.x&&!value.y&&!value.z))continue;
+    const angles=new THREE.Euler(
+      THREE.MathUtils.degToRad(value.x),
+      THREE.MathUtils.degToRad(value.y),
+      THREE.MathUtils.degToRad(value.z),'XYZ');
+    bone.quaternion.multiply(
+      new THREE.Quaternion().setFromEuler(angles)).normalize();
+  }
+  model.updateMatrixWorld(true);
+}
+function archerSeekAttackFrame(value){
+  if(!archerAttackIsSelected())return;
+  const row=animationRows[9],max=archerAttackFrameMax();
+  const frame=THREE.MathUtils.clamp(Math.round(value),0,max);
+  playing=false;
+  // El scrub debe mostrar exactamente ese fotograma, no un crossfade desde
+  // un Idle anterior o la animación previamente seleccionada.
+  mixer.stopAllAction();
+  const action=mixer.clipAction(row.clip);
+  action.reset();action.enabled=true;action.setEffectiveWeight(1);
+  action.setEffectiveTimeScale(archerPreviewSpeed);
+  action.setLoop(THREE.LoopRepeat,Infinity);action.play();
+  action.time=Math.min(frame/archerAttackFPS(),
+    Math.max(0,row.clip.duration-1e-6));
+  activeAction=action;
+  mixer.update(0);
+  archerCaptureArmPose();
+  archerApplyArmPreview();
+  archerUpdateAttackUI();
+}
+function archerOpenAttack(){
+  if(currentCharacter!=='archer')return;
+  if(!animationRows[9]?.clip){
+    archerAttackUI.message.textContent=
+      'La animación 10 aún no está disponible. Espera la importación Mixamo.';
+    return;
+  }
+  if(activeAnimation!==10)playAnimation(10);
+  archerSeekAttackFrame(0);
+  archerAttackUI.message.textContent=
+    'Animación 10 cargada. Usa ◀ ▶ o la barra para elegir el fotograma.';
+}
+function archerUpdatePreviewSpeed(){
+  archerPreviewSpeed=Number(archerAttackUI.rate.value);
+  archerAttackUI.rateOutput.textContent=
+    Math.round(archerPreviewSpeed*100)+' %';
+  if(archerAttackIsSelected())
+    activeAction.setEffectiveTimeScale(archerPreviewSpeed);
+}
+function archerBuildAxes(side){
+  const prefix=side==='right'?'Right':'Left';
+  const select=document.querySelector('#archer'+prefix+'Joint');
+  const target=document.querySelector('#archer'+prefix+'Axes');
+  target.replaceChildren();
+  const value=archerArmOffsets.get(select.value);
+  for(const axis of ['x','y','z']){
+    const label=document.createElement('label');
+    const line=document.createElement('span');
+    line.className='attackAxisCaption';
+    const heading=document.createElement('span');
+    heading.textContent='Rotación '+axis.toUpperCase();
+    const output=document.createElement('output');
+    output.textContent=value[axis]+'°';
+    line.append(heading,output);
+    const slider=document.createElement('input');
+    slider.type='range';slider.min='-90';slider.max='90';
+    slider.step='1';slider.value=String(value[axis]);
+    slider.setAttribute('aria-label',prefix+' '+select.value+' '+axis);
+    slider.addEventListener('input',()=>{
+      const selected=archerArmOffsets.get(select.value);
+      selected[axis]=Number(slider.value);
+      output.textContent=selected[axis]+'°';
+      if(archerAttackIsSelected()){
+        if(!archerAttackBaseValid){
+          mixer.update(0);archerCaptureArmPose();
+        }
+        archerApplyArmPreview();
+      }
+    });
+    label.append(line,slider);target.append(label);
+  }
+}
+function archerResetSide(side){
+  const keys=archerAttackJointNames.filter(k=>k.startsWith(side));
+  for(const key of keys)archerArmOffsets.set(key,{x:0,y:0,z:0});
+  archerBuildAxes(side);
+  archerApplyArmPreview();
+}
+for(const side of ['right','left']){
+  const prefix=side==='right'?'Right':'Left';
+  document.querySelector('#archer'+prefix+'Joint')
+    .addEventListener('change',()=>archerBuildAxes(side));
+  document.querySelector('#archer'+prefix+'Reset')
+    .addEventListener('click',()=>archerResetSide(side));
+  archerBuildAxes(side);
+}
+document.querySelector('#archerLoadAttack').addEventListener('click',archerOpenAttack);
+document.querySelector('#archerPrevFrame').addEventListener('click',()=>{
+  if(!archerAttackIsSelected())archerOpenAttack();
+  if(archerAttackIsSelected())archerSeekAttackFrame(archerAttackFrameNumber()-1);
+});
+document.querySelector('#archerNextFrame').addEventListener('click',()=>{
+  if(!archerAttackIsSelected())archerOpenAttack();
+  if(archerAttackIsSelected())archerSeekAttackFrame(archerAttackFrameNumber()+1);
+});
+document.querySelector('#archerAttackPlay').addEventListener('click',()=>{
+  if(!archerAttackIsSelected()){archerOpenAttack();return;}
+  playing=!playing;
+  archerUpdateAttackUI();
+});
+archerAttackUI.timeline.addEventListener('input',()=>{
+  archerSeekAttackFrame(Number(archerAttackUI.timeline.value));
+});
+archerAttackUI.fps.addEventListener('change',archerUpdateAttackUI);
+archerAttackUI.rate.addEventListener('input',archerUpdatePreviewSpeed);
+document.querySelector('#archerCopyFrame').addEventListener('click',async()=>{
+  if(!archerAttackIsSelected()){archerOpenAttack();if(!archerAttackIsSelected())return;}
+  const rows=['R.O.K. 3D · Arquera · Standing Aim Recoil (10)',
+    'Fotograma: '+archerAttackFrameNumber()+' / '+archerAttackFrameMax()+
+      ' a '+archerAttackFPS()+' FPS',
+    'Tiempo del clip: '+activeAction.time.toFixed(3)+' s',
+    'Velocidad global de prueba: '+Math.round(archerPreviewSpeed*100)+' %'];
+  for(const key of archerAttackJointNames){
+    const v=archerArmOffsets.get(key);
+    rows.push(key+': X '+v.x+'°, Y '+v.y+'°, Z '+v.z+'°');
+  }
+  const result=rows.join('\n');
+  try{
+    await navigator.clipboard.writeText(result);
+    archerAttackUI.message.textContent='Fotograma y ajustes copiados.';
+  }catch{
+    archerAttackUI.message.textContent=
+      'No se pudo copiar automáticamente. '+rows.slice(1,3).join(' · ');
+    console.info('[R.O.K.] Fotograma y ajustes:',result);
+  }
+});
+
 function playAnimation(index){
   const row=animationRows.find(a=>a.index===index);
   if(!row||!row.clip||!mixer)return;
@@ -732,7 +1031,9 @@ function playAnimation(index){
   // Un solo mixer y esqueleto para todas las pruebas: la lámpara conserva
   // su parent y la física que ya existían en este visor.
   const next=mixer.clipAction(row.clip).reset();
-  next.enabled=true;next.setEffectiveWeight(1);next.setEffectiveTimeScale(1);
+  next.enabled=true;next.setEffectiveWeight(1);
+  next.setEffectiveTimeScale(currentCharacter==='archer'&&index===10?
+    archerPreviewSpeed:1);
   next.setLoop(THREE.LoopRepeat,Infinity);
   next.play();
   if(previous&&previous!==next){
@@ -740,10 +1041,12 @@ function playAnimation(index){
     next.fadeIn(.18);
   }else next.setEffectiveWeight(1);
   activeAction=next;activeAnimation=index;
+  archerAttackBaseValid=false;
   playing=true;toggle.textContent='Pausar / Reproducir';
   animMessage.textContent='Animación '+String(index).padStart(2,'0')+' · '+row.name+
     ' · '+row.details+' · vista preliminar';
   renderAnimList();
+  archerUpdateAttackUI();
 }
 function playIdleOriginal(){
   if(!mixer)return;
@@ -759,6 +1062,8 @@ function playIdleOriginal(){
   if(previous&&previous!==action){previous.fadeOut(.18);action.fadeIn(.18);}
   else action.setEffectiveWeight(1);
   activeAction=action;activeAnimation=null;playing=true;
+  archerAttackBaseValid=false;
+  archerUpdateAttackUI();
   toggle.textContent='Pausar / Reproducir';
   animMessage.textContent=currentCharacter==='archer'?
     'Idle original de la Arquera del Desierto.':
@@ -957,10 +1262,12 @@ async function switchCharacter(character,forceReload=false){
     model=next;currentCharacter=character;
     scene.add(model);
     setCharacterLighting(character);
+    archerSetAttackVisible(character);
     mixer=new THREE.AnimationMixer(model);
     idleOriginal=character==='farolera'?faroleraIdle:archerIdle;
     activeAction=null;activeAnimation=null;
     restoreCharacterClips(character);
+    archerFindArmBones();
     originalMaterials=new Map();
     model.traverse(o=>{if(o.isMesh){
       originalMaterials.set(o,o.material);o.frustumCulled=false;
@@ -1042,7 +1349,9 @@ document.querySelector('#archerRestPose').addEventListener('click',()=>{
   findRigSkeleton(model).pose();
   model.updateMatrixWorld(true);
   activeAction=null;activeAnimation=null;
-  animMessage.textContent='Arquera · pose de reposo ORIGINAL del FBX, sin animación';
+  animMessage.textContent='Arquera · pose de reposo ORIGINAL del GLB, sin animación';
+  archerAttackBaseValid=false;
+  archerUpdateAttackUI();
   renderAnimList();
 });
 
@@ -1256,6 +1565,13 @@ recoverAnimCache().then(()=>preloadRepoAnimations()).finally(()=>{
 toggle.onclick=()=>{playing=!playing;toggle.textContent=playing?'Pausar':'Reproducir';};document.querySelector('#reset').onclick=frame;
 document.querySelector('#wire').onclick=()=>{wire=!wire;if(!model)return;model.traverse(o=>{if(!o.isMesh)return;if(wire){const m=o.material.clone();m.wireframe=true;o.material=m;}else{o.material.dispose();o.material=originalMaterials.get(o);}})};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-let prev=performance.now(),t=0,n=0;function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-prev)/1000,.05);prev=now;if(mixer&&playing){mixer.update(dt);captureOriginalArmPose();}
-previewArmAngles();updateGroundAnchor(dt);animateShake(dt);if(lantern&&playing)updateLantern(dt);controls.update();renderer.render(scene,camera);t+=dt;n++;if(t>1){fps.textContent='FPS: '+Math.round(n/t);t=0;n=0}}requestAnimationFrame(tick);
+let prev=performance.now(),t=0,n=0;function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-prev)/1000,.05);prev=now;
+if(mixer&&playing){mixer.update(dt);captureOriginalArmPose();if(archerAttackIsSelected())archerCaptureArmPose();}
+previewArmAngles();
+if(archerAttackIsSelected()){
+  if(!archerAttackBaseValid){mixer.update(0);archerCaptureArmPose();}
+  archerApplyArmPreview();
+  archerUpdateAttackUI();
+}
+updateGroundAnchor(dt);animateShake(dt);if(lantern&&playing)updateLantern(dt);controls.update();renderer.render(scene,camera);t+=dt;n++;if(t>1){fps.textContent='FPS: '+Math.round(n/t);t=0;n=0}}requestAnimationFrame(tick);
 </script></body></html>
