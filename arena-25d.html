@@ -975,13 +975,13 @@ function findBone(c,name){
 function updateCastMarker(c){
   const fx=c.castMarker;
   if(!fx)return;
-  if(c.stage!=='casting'||c.castFired||!c.castHand){
+  if(c.kind==='archer'||c.stage!=='casting'||c.castFired||!c.castHand){
     fx.marker.visible=false;return;
   }
   c.model.updateMatrixWorld(true);
   c.castHand.getWorldPosition(fx.marker.position);
   fx.marker.quaternion.copy(camera.quaternion);
-  const progress=THREE.MathUtils.clamp(c.castT/Math.max(.001,c.castRelease),0,1);
+  const progress=THREE.MathUtils.clamp(c.castT/Math.max(.001,c.castWindupDuration),0,1);
   const size=.78+.30*progress;
   fx.circle.scale.setScalar(size);
   fx.circle.material.opacity=.55+.4*progress;
@@ -1820,41 +1820,64 @@ function liftWalkArm(c){
   const offset=parent.clone().invert().multiply(worldQ).multiply(parent);
   bone.quaternion.premultiply(offset).normalize();
 }
+// Secuenciador de ataque: SOLO la preparación cambia de duración.
+// La parte posterior al hito de lanzamiento conserva velocidad 1x.
+// Arquera: hito provisional al terminar frame 6; Farolera: punto original
+// de Magic Heal detectado en el visor a partir de la mano derecha.
 function startCast(c,target){
-  const clip=combatAnimations.get(2);
-  c.stage='casting';c.castT=0;
-  c.castDuration=clip?Math.max(.5,clip.duration):.65;
-  c.castRelease=c.castDuration*magicReleaseFraction;
-  c.castFired=false;c.castTarget=target;
-  setAnim(c,2,{once:true,fade:.12,force:true});
+  const profile=ATTACK_PROFILES[c.kind];
+  const clip=getCombatClip(c,profile.clip);
+  c.stage='casting';c.castT=0;c.castTarget=target;c.castFired=false;
+  c.castDuration=profile.period;
+  c.castClip=clip||null;
+  c.castReleaseClip=clip?(c.kind==='archer'?
+    Math.min(clip.duration,profile.windupFrame/profile.frameRate):
+    clip.duration*magicReleaseFraction):0;
+  const post=clip?Math.max(0,clip.duration-c.castReleaseClip):0;
+  // Evitar que el remate exceda todo el intervalo si un clip futuro es largo.
+  c.castPostRate=post>profile.period?post/profile.period:1;
+  c.castWindupDuration=Math.max(0,profile.period-post/c.castPostRate);
+  if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=true;
+  setAnim(c,profile.clip,{once:true,fade:.08,force:true});
+  if(c.animId===profile.clip&&c.animAction){
+    c.animAction.paused=true; // La pose la controla el reloj de esta unidad.
+    c.animAction.time=0;c.mixer.update(0);
+    if(c.kind==='archer')applyArcherAttackArms(c);
+  }
   updateCastMarker(c);
-  qs('#phase').textContent='✦ Casteando hechizo · preparación';
 }
 function updateCast(c,dt){
-  c.castT+=dt;
-  // Si un enemigo aparece cerca del caster durante el ataque, cambiar
-  // el blanco antes de disparar sin reiniciar la animación Magic Heal.
+  c.castT=Math.min(c.castDuration,c.castT+dt);
+  const profile=ATTACK_PROFILES[c.kind],pre=c.castWindupDuration;
+  if(c.castClip&&c.animId===profile.clip&&c.animAction){
+    const t=c.castT<pre&&pre>1e-6?
+      c.castT/pre*c.castReleaseClip:
+      c.castReleaseClip+(c.castT-pre)*c.castPostRate;
+    c.animAction.time=THREE.MathUtils.clamp(t,0,
+      Math.max(0,c.castClip.duration-.000001));
+    c.mixer.update(0); // Muestra el fotograma inmediatamente.
+    if(c.kind==='archer')applyArcherAttackArms(c);
+  }
   const priority=selectCombatTarget(c);
-  // No conservar un objetivo antiguo si escapó, murió o quedó bloqueado
-  // por otra invocación mientras se estaba preparando el hechizo.
   c.castTarget=priority&&canDamageTarget(priority)&&
     canAttackSummonTarget(c,priority)?priority:null;
-  // El AnimationMixer se actualiza antes de esta comprobación: la salida
-  // coincide con el fotograma animado que se está mostrando ahora.
-  const animationTime=c.animId===2&&c.animAction?
-    c.animAction.time:c.castT;
-  if(!c.castFired&&animationTime>=c.castRelease){
+  if(!c.castFired&&c.castT>=pre){
     c.castFired=true;
     if(c.castMarker)c.castMarker.marker.visible=false;
-    const target=c.castTarget;
-    if(canDamageTarget(target)&&canAttackSummonTarget(c,target))
-      launchSpell(c,target);
+    if(canDamageTarget(c.castTarget)&&canAttackSummonTarget(c,c.castTarget)){
+      if(c.kind==='archer')launchArrow(c,c.castTarget);
+      else launchSpell(c,c.castTarget);
+    }
+    if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=false;
   }
   if(c.castT>=c.castDuration){
-    c.stage='active';c.castTarget=null;
-    setAnim(c,'idle',{fade:.16});
+    if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=true;
+    if(c.animAction)c.animAction.paused=false;
+    c.stage='active';c.castTarget=null;c.castClip=null;c.cooldown=0;
+    setAnim(c,'idle',{fade:.12});
   }
 }
+
 function beginDeath(c){
   if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
   releaseSummonDuel(c);
@@ -2268,6 +2291,36 @@ function spawnImpact(x,z,aoe,enemySpell){
   burst.position.y=.45;burst.scale.set(.9,.9,1);group.add(burst);
   magicImpacts.push({group,ring,burst,t:0,aoe,flashes,splashes,splashMaterial});
 }
+
+// Flecha de proyectil SEPARADA de la malla. No mueve ni cambia el parent
+// de la flecha exportada de Blender: solo la oculta durante el disparo.
+const arrowShaftGeometry=new THREE.CylinderGeometry(.012,.012,.72,6);
+const arrowPointGeometry=new THREE.ConeGeometry(.040,.14,6);
+function launchArrow(attacker,target){
+  attacker.model.updateMatrixWorld(true);
+  const hand=attacker.castHand;
+  const from=hand?hand.getWorldPosition(new THREE.Vector3()):
+    new THREE.Vector3(attacker.outer.position.x,1.1,attacker.outer.position.z);
+  const cell=worldToCell(target.outer.position.x,target.outer.position.z);
+  const aim=cellToWorld(cell.col,cell.row);
+  const group=new THREE.Group();root.add(group);group.position.copy(from);
+  const shaft=new THREE.Mesh(arrowShaftGeometry,
+    new THREE.MeshStandardMaterial({color:0x9c7340,roughness:.85}));
+  const tip=new THREE.Mesh(arrowPointGeometry,
+    new THREE.MeshStandardMaterial({color:0xc1cbd0,metalness:.6,roughness:.32}));
+  tip.position.y=.43;group.add(shaft,tip);
+  const direction=new THREE.Vector3(aim.x-from.x,.95-from.y,aim.z-from.z);
+  if(direction.lengthSq()>1e-6)group.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0,1,0),direction.normalize());
+  const distance=Math.hypot(from.x-aim.x,from.z-aim.z);
+  missiles.push({group,core:null,halo:null,target,attacker,
+    fromX:from.x,fromY:from.y,fromZ:from.z,
+    aimX:aim.x,aimZ:aim.z,impactCell:cell,age:0,
+    // La velocidad de vuelo NO depende de los 3 segundos entre ataques.
+    duration:Math.max(.02,distance/ARROW_FLIGHT_SPEED),
+    area:false,arrow:true});
+}
+
 function launchSpell(attacker,target){
   // Todas las descargas enemigas tienen daño y efecto de área 3×3.
   // La PDA del 50 % solo se evalúa para el aturdimiento al hacer daño.
@@ -2309,14 +2362,19 @@ function updateMagic(dt){
     }
     m.group.position.x=THREE.MathUtils.lerp(m.fromX,m.aimX,a);
     m.group.position.z=THREE.MathUtils.lerp(m.fromZ,m.aimZ,a);
-    m.group.position.y=THREE.MathUtils.lerp(m.fromY,.95,a)+Math.sin(Math.PI*a)*.25;
-    m.core.scale.setScalar(1+.18*Math.sin(m.age*21));
+    m.group.position.y=THREE.MathUtils.lerp(m.fromY,.95,a)+(m.arrow?0:Math.sin(Math.PI*a)*.25);
+    if(m.arrow){
+      const direction=new THREE.Vector3(m.aimX-m.group.position.x,
+        .95-m.group.position.y,m.aimZ-m.group.position.z);
+      if(direction.lengthSq()>1e-6)m.group.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0,1,0),direction.normalize());
+    }else m.core.scale.setScalar(1+.18*Math.sin(m.age*21));
     if(a>=1){
       // La evasión sucede justo antes del contacto, nunca después del daño.
       if(m.target.role!=='caster'&&m.target.stage==='active'&&
          canAttackSummonTarget(m.attacker,m.target))
         tryEvasion(m.target,m.attacker,m.impactCell);
-      spawnImpact(m.aimX,m.aimZ,m.area,m.attacker.side==='enemy');
+      if(!m.arrow)spawnImpact(m.aimX,m.aimZ,m.area,m.attacker.side==='enemy');
       if(m.area){
         // Nueve casillas tácticas reales, con comprobación de cada unidad.
         for(const c of [...combatants,...casters]){
