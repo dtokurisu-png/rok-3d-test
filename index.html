@@ -54,7 +54,7 @@
 .attackAxes label{margin-top:8px;display:block}
 .attackAxes .attackAxisCaption{display:flex;justify-content:space-between}
 .attackAxes input[type=range]{width:100%}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.23</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.23 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.23: laboratorio exclusivo Arquera: reproducción y navegación fotograma a fotograma para la animación 10 Standing Aim Recoil a 50 % inicial, FPS de inspección y controles X/Y/Z independientes para brazo, antebrazo y mano de ambos lados; copiar configuración. No modifica el GLB, anclajes ni Farolera/Arena.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><button id="archerReload" type="button" style="display:none">Recargar Arquera (GitHub)</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Farolera 3D <span style="font-size:12px;color:#ffdb76">v0.5.24</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.24 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.24: perfil GitHub persistente exclusivo de la Arquera en animación 10 Standing Aim Recoil. Brazo derecho X−18°, Y58°, Z−14°; izquierdo X20°, Y−10°, Z5°. Los controles cargan estos valores de fábrica y Restaurar recupera los guardados. Sin cambios en caminar, Farolera, Arena ni anclajes del GLB.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><button id="archerReload" type="button" style="display:none">Recargar Arquera (GitHub)</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -99,7 +99,7 @@
         </select>
       </label>
       <div class="attackAxes" id="archerRightAxes"></div>
-      <button id="archerRightReset" type="button">Restaurar brazo derecho</button>
+      <button id="archerRightReset" type="button">Restaurar valores guardados (derecho)</button>
     </div>
     <div class="attackArm" data-side="left">
       <strong>Brazo izquierdo</strong>
@@ -111,10 +111,10 @@
         </select>
       </label>
       <div class="attackAxes" id="archerLeftAxes"></div>
-      <button id="archerLeftReset" type="button">Restaurar brazo izquierdo</button>
+      <button id="archerLeftReset" type="button">Restaurar valores guardados (izquierdo)</button>
     </div>
   </div>
-  <p class="attackNote">Rotaciones X/Y/Z en los ejes locales de cada hueso. Se aplican sin acumulación sobre la pose original del fotograma; las armas siguen sus vínculos exportados de Blender.</p>
+  <p class="attackNote">Rotaciones X/Y/Z en los ejes locales de cada hueso. Se aplican sin acumulación sobre la pose original del fotograma; las armas siguen sus vínculos exportados de Blender. <strong>Perfil de la animación 10 guardado en el repositorio:</strong> derecho X −18°, Y 58°, Z −14° · izquierdo X 20°, Y −10°, Z 5°. El perfil no se aplica a caminar ni a otros personajes.</p>
   <div class="attackTools"><button id="archerCopyFrame" type="button">Copiar fotograma y ajustes</button></div>
   <p id="archerAttackStatus" class="attackNote" role="status">Selecciona «Cargar animación 10» para empezar.</p>
 </section>
@@ -818,8 +818,25 @@ const archerAttackJointNames=[
   'rightarm','rightforearm','righthand',
   'leftarm','leftforearm','lefthand'
 ];
+// Perfiles POR PERSONAJE Y POR ANIMACIÓN. Estos valores quedan publicados
+// en GitHub (index.html), no en localStorage ni IndexedDB. El editor solo
+// permite probar ajustes temporales; no escribe al repositorio desde la web.
+// Animación 10, Arquera del Desierto: valores aprobados por el usuario.
+// El segundo grupo de valores se interpreta como brazo IZQUIERDO.
+const characterAnimationArmPresets=Object.freeze({
+  archer:Object.freeze({
+    10:Object.freeze({
+      rightarm:Object.freeze({x:-18,y:58,z:-14}),
+      leftarm:Object.freeze({x:20,y:-10,z:5})
+    })
+  })
+});
+function archerSavedArmOffset(boneName,clipNumber=10){
+  const angles=characterAnimationArmPresets.archer[clipNumber]?.[boneName];
+  return angles?{x:angles.x,y:angles.y,z:angles.z}:{x:0,y:0,z:0};
+}
 const archerArmOffsets=new Map(
-  archerAttackJointNames.map(key=>[key,{x:0,y:0,z:0}]));
+  archerAttackJointNames.map(key=>[key,archerSavedArmOffset(key)]));
 const archerArmBones=new Map(),archerArmUnmodified=new Map();
 let archerAttackBaseValid=false,archerPreviewSpeed=.5;
 function archerAttackIsSelected(){
@@ -971,7 +988,8 @@ function archerBuildAxes(side){
 }
 function archerResetSide(side){
   const keys=archerAttackJointNames.filter(k=>k.startsWith(side));
-  for(const key of keys)archerArmOffsets.set(key,{x:0,y:0,z:0});
+  // Volver a la configuración publicada en GitHub, no a 0°.
+  for(const key of keys)archerArmOffsets.set(key,archerSavedArmOffset(key));
   archerBuildAxes(side);
   archerApplyArmPreview();
 }
