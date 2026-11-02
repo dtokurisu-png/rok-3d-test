@@ -99,16 +99,16 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.7</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.8</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><strong>Notas de versión · Arena v0.9.7 (01/11/2026):</strong> enfrentamientos 1 contra 1: cada invocación puede bloquear solo una invocación rival; las demás eligen otro objetivo libre o al caster. Los duelos se liberan al morir, restaurarse o evadir con teletransporte. La onda 3×3 no daña enemigos ya reservados por otra invocación. Se mantienen las animaciones y la carga automática desde GitHub.</p>
+    <p><strong>Notas de versión · Arena v0.9.8 (01/11/2026):</strong> Arquera del Desierto incorporada a ambos bandos (3 PV, alcance 8, 3 s/ataque); Faroleras atacan cada 2 s. Preparación ralentizada hasta el disparo, remate normal, proyectiles independientes. Se mantienen los duelos 1 contra 1 y los vínculos originales del GLB.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
-    <p>9 columnas × 18 filas. Invocaciones de escudo/maná: columnas 3 y 5, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
+    <p>9 columnas × 18 filas. Invocaciones de escudo/maná/arquera: columnas 3, 5 y 4, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
     <p id="modelStatus">Modelos: cargando…</p>
     <p id="textureStatus">Textura R.O.K.: comprobando…</p>
@@ -127,7 +127,7 @@ canvas{display:block;touch-action:none}
     <p>Guardar en GitHub pide un token de acceso de alcance limitado con permiso Contents: Read and write para este repositorio. El token no se almacena. El botón actualiza <a href="https://github.com/dtokurisu-png/rok-3d-test/blob/main/arena-background.css" target="_blank" rel="noopener noreferrer" style="color:#00ffe4">arena-background.css</a>. No compartas tu token. La cuadrícula permanece fija.</p>
     <p>La imagen puede sobresalir de los bordes; la cuadrícula de 9 × 18 permanece fija.</p>
     <p id="fps">FPS: —</p>
-    <p><b>Combate experimental:</b> ambos jugadores tienen una Farolera de escudo (7 PV, 2 escudo, alcance 3) y otra de maná (5 PV, 10 PM, alcance 5, onda 3×3, aturdimiento 50 %, evasión por 6 PM con 10 s de enfriamiento). Cada caster tiene 12 PV; el maná recupera 1 cada 3 s. No modifica R.O.K. principal.</p>
+    <p><b>Combate experimental:</b> ambos jugadores tienen una Farolera de escudo (7 PV, alcance 3), una de maná (5 PV, alcance 5, onda 3×3, evasión y aturdimiento) y una Arquera del Desierto (3 PV, alcance 8). Cada caster tiene 12 PV; el maná recupera 1 cada 3 s. No modifica R.O.K. principal.</p>
     <p><a href="./index.html" style="color:#00ffe4">Volver al visor de Farolera</a></p>
   </div>
 </section>
@@ -346,15 +346,26 @@ function spawnMark(x,z,color){
 for(const z of [8.5,-8.5]){
   spawnMark(-1,z,z>0?0x00ffe4:0xff8f9b);
   spawnMark(1,z,z>0?0x00ffe4:0xff8f9b);
+  spawnMark(0,z,z>0?0xffc76b:0xf3a8aa);
 }
 
 const ease=x=>{x=THREE.MathUtils.clamp(x,0,1);return x*x*(3-2*x)};
 const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
 const combatants=[];
 const casters=[]; // Los casters no son invocaciones: no se mueven ni se recastean.
-const combatAnimations=new Map();
-const animationNeeds=[2,8,9,12,13,14]; // Frisbee Throw (03) sigue candidata, no activa.
-const animationNames={2:'Magic Heal',3:'Frisbee Throw',8:'Sword And Shield Death',9:'Standing React Small From Headshot',12:'Walk W_ Briefcase',13:'Standing',14:'Standing 2H Magic Area Attack 01'};
+const combatAnimations=new Map(),archerCombatAnimations=new Map();
+const animationNeeds=[2,8,9,12,13,14],archerAnimationNeeds=[2,8,9,10,12,13,14];
+const animationNames={2:'Magic Heal',3:'Frisbee Throw',8:'Sword And Shield Death',9:'Standing React Small From Headshot',
+  10:'Standing Aim Recoil',12:'Walk W_ Briefcase',13:'Standing',14:'Standing 2H Magic Area Attack 01'};
+const ATTACK_PROFILES={shield:{period:2,clip:2},mana:{period:2,clip:2},
+  archer:{period:3,clip:10,range:8,hp:3,frameRate:30,windupFrame:6}};
+const ARROW_FLIGHT_SPEED=9.5;
+const ARCHER_ARM_PROFILE={rightarm:{x:-18,y:58,z:-14},leftarm:{x:20,y:-10,z:5}};
+let archerRigReference=null;
+function getCombatClip(c,id){
+  return id==='idle'?c.idleClip:
+    (c.kind==='archer'?archerCombatAnimations:combatAnimations).get(id);
+}
 
 // Textura procedural circular para partículas. Se comparte entre ambos personajes
 // y evita cargar imágenes o crear geometrías en cada fotograma.
@@ -771,6 +782,79 @@ function adaptAnimationFBX(source,sourceClip,targetModel,name){
   }
   const clip=new THREE.AnimationClip(name,-1,tracks);clip.optimize();return clip;
 }
+
+function captureArcherRig(model){
+  const sk=findSkeletonForAnimation(model);
+  if(!sk)throw Error('GLB de Arquera sin esqueleto');
+  sk.pose();model.updateMatrixWorld(true);
+  const reference=new Map();
+  for(const bone of sk.bones){
+    const key=boneKey(bone.name);
+    if(key&&!reference.has(key))reference.set(key,{
+      name:bone.name,local:bone.quaternion.clone().normalize(),
+      world:bone.getWorldQuaternion(new THREE.Quaternion()).normalize()
+    });
+  }
+  for(const key of ['hips','rightarm','leftarm','righthand','lefthand'])
+    if(!reference.has(key))throw Error('Hueso ausente en Arquera: '+key);
+  return reference;
+}
+function adaptArcherClip(source,clip,name){
+  if(!archerRigReference)throw Error('Referencia Arquera no disponible');
+  const sk=findSkeletonForAnimation(source);
+  if(!sk)throw Error('Rig fuente no disponible');
+  sk.pose();source.updateMatrixWorld(true);
+  const sourceBones=new Map();
+  for(const bone of sk.bones){
+    const k=boneKey(bone.name);if(k&&!sourceBones.has(k))sourceBones.set(k,bone);
+  }
+  const tracks=[],done=new Set();
+  for(const track of clip.tracks){
+    const m=/^(.+)\.quaternion$/.exec(track.name);
+    if(!m||track.values.length!==track.times.length*4)continue;
+    const k=boneKey(m[1].replace(/^\.bones\[(.+)\]$/,'$1'));
+    const src=sourceBones.get(k),dst=archerRigReference.get(k);
+    if(!src||!dst||done.has(k))continue;
+    done.add(k);
+    const srcInv=src.quaternion.clone().normalize().invert();
+    const srcWorld=src.getWorldQuaternion(new THREE.Quaternion()).normalize();
+    const basis=dst.world.clone().invert().multiply(srcWorld).normalize();
+    const basisInv=basis.clone().invert();
+    const input=new THREE.Quaternion(),delta=new THREE.Quaternion(),
+      aligned=new THREE.Quaternion(),output=new THREE.Quaternion();
+    const values=new Float32Array(track.values.length);
+    for(let i=0;i<track.times.length;i++){
+      input.fromArray(track.values,i*4).normalize();
+      delta.copy(srcInv).multiply(input);
+      aligned.copy(basis).multiply(delta).multiply(basisInv);
+      output.copy(dst.local).multiply(aligned).normalize();
+      output.toArray(values,i*4);
+    }
+    tracks.push(new THREE.QuaternionKeyframeTrack(dst.name+'.quaternion',
+      track.times.slice(),values));
+  }
+  if(tracks.length<20)throw Error('Arquera: '+tracks.length+' huesos compatibles en '+name);
+  const out=new THREE.AnimationClip(name,-1,tracks);out.optimize();return out;
+}
+function applyArcherAttackArms(c){
+  if(c.kind!=='archer'||c.animId!==10||c.stage!=='casting')return;
+  for(const [name,offset] of Object.entries(ARCHER_ARM_PROFILE)){
+    const bone=findBone(c,name);
+    if(!bone)continue;
+    bone.quaternion.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(
+      THREE.MathUtils.degToRad(offset.x),THREE.MathUtils.degToRad(offset.y),
+      THREE.MathUtils.degToRad(offset.z),'XYZ'))).normalize();
+  }
+  c.model.updateMatrixWorld(true);
+}
+function findArcherHeldArrow(c){
+  c.heldArrow=null;
+  c.model.traverse(o=>{
+    if(!c.heldArrow&&(o.isMesh||o.isGroup)&&/^(arrow|flecha)(?:[._ -]\d+)?$/i.test(o.name||''))
+      c.heldArrow=o;
+  });
+}
+
 async function preloadCombatAnimationsFromRepo(baseModel){
   // El paquete publicado en GitHub contiene el ZIP original dentro de otro ZIP.
   // Mantener también las rutas antiguas para admitir distribuciones futuras.
@@ -788,15 +872,25 @@ async function preloadCombatAnimationsFromRepo(baseModel){
       const zip=nested?
         await window.JSZip.loadAsync(await nested.async('arraybuffer')):downloaded;
       const fbx=new FBXLoader();
-      for(const id of animationNeeds){
-        if(combatAnimations.has(id))continue;
+      for(const id of new Set([...animationNeeds,...archerAnimationNeeds])){
+        const needFarolera=animationNeeds.includes(id)&&!combatAnimations.has(id);
+        const needArcher=archerAnimationNeeds.includes(id)&&!archerCombatAnimations.has(id);
+        if(!needFarolera&&!needArcher)continue;
         const basename=animationNames[id];
         const file=Object.values(zip.files).find(e=>!e.dir&&(e.name.replace(/.*[\/\\]/g,'').toLowerCase()===basename.toLowerCase()+'.fbx'));
         if(!file)continue;
         try{
           const source=fbx.parse(await file.async('arraybuffer'),'');
-          combatAnimations.set(id,adaptAnimationFBX(source,source.animations[0],baseModel,basename));
-        }catch(err){console.warn('[R.O.K.] FBX '+id+' no se pudo adaptar',err)}
+          if(!source.animations?.length)throw Error('FBX sin clip');
+          if(needFarolera){
+            try{combatAnimations.set(id,adaptAnimationFBX(source,source.animations[0],baseModel,basename))}
+            catch(err){console.warn('[Arena] Clip Farolera '+id,err)}
+          }
+          if(needArcher){
+            try{archerCombatAnimations.set(id,adaptArcherClip(source,source.animations[0],basename))}
+            catch(err){console.warn('[Arena] Clip Arquera '+id,err)}
+          }
+        }catch(err){console.warn('[Arena] FBX '+id,err)}
       }
       break;
     }catch(err){console.warn('[R.O.K.] Paquete de animaciones inválido',err)}
@@ -849,7 +943,7 @@ function detectMagicRelease(clip,baseModel){
   }finally{probeMixer?.stopAllAction()}
 }
 function getAction(c,id){
-  const clip=id==='idle'?c.idleClip:combatAnimations.get(id);
+  const clip=getCombatClip(c,id);
   return clip?c.mixer.clipAction(clip):null;
 }
 function setAnim(c,id,{once=false,speed=1,fade=.14,force=false}={}){
@@ -955,27 +1049,26 @@ function followGround(c,dt){
 }
 async function activateArenaAnimationPack(baseModel){
   const fromCache=await readAnimationsFromViewerCache();
-  if(animationNeeds.some(id=>!combatAnimations.has(id)))await preloadCombatAnimationsFromRepo(baseModel);
-  const ready=animationNeeds.filter(id=>combatAnimations.has(id));
-  magicReleaseFraction=detectMagicRelease(combatAnimations.get(2),combatants[0]?.model||baseModel);
+  if(animationNeeds.some(id=>!combatAnimations.has(id))||
+     archerAnimationNeeds.some(id=>!archerCombatAnimations.has(id)))
+    await preloadCombatAnimationsFromRepo(baseModel);
+  const far=animationNeeds.filter(id=>combatAnimations.has(id));
+  const arch=archerAnimationNeeds.filter(id=>archerCombatAnimations.has(id));
+  magicReleaseFraction=detectMagicRelease(combatAnimations.get(2),combatants.find(c=>c.kind==='mana')?.model||baseModel);
   for(const c of combatants)setAnim(c,'idle',{force:true,fade:.08});
-  qs('#animationStatus').textContent='Animaciones: '+ready.length+'/'+animationNeeds.length+
-    ' · '+(ready.length?'Mixamo: '+ready.join(', '):'solo Idle (sin caché local ni FBX publicado)')+
-    (combatAnimations.has(2)?' · disparo al '+Math.round(magicReleaseFraction*100)+'% de Magic Heal':'');
-  if(!ready.length){
-    qs('#sceneStatus').textContent='Arena activa · Idle disponible. Abre el probador en este mismo navegador para compartir sus animaciones guardadas.';
-  }else{
-    qs('#sceneStatus').textContent='Arena 2.5D lista · '+ready.length+' animaciones Mixamo conectadas'+(fromCache?' desde el probador':'');
-  }
+  qs('#animationStatus').textContent='Farolera '+far.length+'/'+animationNeeds.length+
+    ' · Arquera '+arch.length+'/'+archerAnimationNeeds.length+
+    ' clips'+(fromCache?' · caché de Farolera':'')+
+    (!archerCombatAnimations.has(10)?' · Falta ataque 10':'');
+  qs('#sceneStatus').textContent='Arena 2.5D lista · '+combatants.length+' invocaciones';
 }
-
 function createFighter(baseScene,clip,side,kind){
   const model=cloneSkinned(baseScene);
   const outer=new THREE.Group();root.add(outer);outer.add(model);
   outer.rotation.y=side==='ally'?Math.PI:0;
   // Escudo = columna 3; maná = columna 5.
   const startZ=side==='ally'?8.5:-8.5;
-  const startX=kind==='shield'?-1:1;
+  const startX=kind==='shield'?-1:kind==='mana'?1:0;
   outer.position.set(startX,0,startZ);
   const size=new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
   const factor=1.65/Math.max(.2,size.y);
@@ -1020,7 +1113,9 @@ function createFighter(baseScene,clip,side,kind){
   const c={role:'summon',kind,side,outer,model,startX,startZ,
     endZ:side==='ally'?.72:-.72,mixer,mats,fx,restorationFx,
     glowColor:new THREE.Color(color),shieldShell,shieldPulse:0,lamp:null,pend:null,deathFx,deathMatSnapshot:null};
-  combatants.push(c);setUpAnimationRig(c,clip);initLamp(c);createStunHalo(c);return c;
+  combatants.push(c);setUpAnimationRig(c,clip);
+  if(kind==='archer')findArcherHeldArrow(c);else initLamp(c);
+  createStunHalo(c);return c;
 }
 // Caster inmóvil: clon del mismo GLB, sin escudo, sin hechizos y sin recasteo.
 // Posición: columna 4; fila 16 (aliado, z=+7.5), fila 1 (rival, z=-7.5).
@@ -1504,7 +1599,7 @@ function beginSummonEmergence(c){
   c.mixer.timeScale=1;c.mixer.stopAllAction();
   c.animId=null;c.animAction=null;
   // Standing DEBE congelarse en su primera pose mientras emerge.
-  const hasStanding=combatAnimations.has(13);
+  const hasStanding=c.kind!=='archer'&&!!getCombatClip(c,13);
   setAnim(c,hasStanding?13:'idle',{once:hasStanding,fade:0,force:true});
   c.mixer.update(0);
   if(c.animAction)c.animAction.paused=true;
@@ -1544,12 +1639,12 @@ function updateSummonEmergence(c,dt,winner=false){
     c.model.position.y=c.summonBaseY;
     c.groundDelta=c.summonBaseY;
     clearSummonFx(c);
-    if(combatAnimations.has(13)){
+    if(c.kind!=='archer'&&getCombatClip(c,13)){
       // Liberar Standing EN SU PRIMER FRAME, a velocidad original,
       // cuando la Farolera terminó de salir; después pasar a Idle.
       setAnim(c,13,{once:true,fade:0,force:true});
       if(c.animAction)c.animAction.paused=false;
-      c.summonStandingLeft=Math.max(.2,combatAnimations.get(13).duration);
+      c.summonStandingLeft=Math.max(.2,getCombatClip(c,13).duration);
       c.summonStandingDuration=c.summonStandingLeft;
       c.summonBlending=false;c.summonBlendLeft=0;c.summonBlendDuration=0;
       c.stage=winner?'restoring':'summonStanding';
@@ -1638,23 +1733,23 @@ function finishNewSummon(c,winner=false){
 
 function resetCombatant(c){
   releaseSummonDuel(c);
-  const shield=c.kind==='shield';
-  c.maxHp=shield?7:5;
+  const shield=c.kind==='shield',archer=c.kind==='archer';
+  c.maxHp=archer?ATTACK_PROFILES.archer.hp:shield?7:5;
   c.hp=c.maxHp;
   c.shieldMax=shield?2:0;
   c.shield=c.shieldMax;
-  c.range=shield?3:5;
+  c.range=archer?8:shield?3:5;
   c.attackDamage=shield?2:1;
   c.speed=shield?2.4:2.15;
   c.stage='intro';c.introT=0;
-  c.hitLeft=0;c.castT=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
+  c.hitLeft=0;c.castT=0;c.castDuration=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
   c.restoringT=0;c.stunLeft=0;c.postRestoreStun=0;
   c.restorationPhase=null;c.restorePhaseT=0;c.restoreEmission=0;
   c.restorationStartX=0;c.restorationStartZ=0;
   c.summonCastLeft=0;c.summonProgress=0;c.summonStandingLeft=0;c.summonBaseY=0;
   c.summonBlending=false;c.summonBlendLeft=0;c.summonBlendDuration=0;
   if(c.summonBar)c.summonBar.style.display='none';
-  c.cooldown=c.kind==='mana'?.20:.65;
+  c.cooldown=archer?.45:c.kind==='mana'?.20:.65;
   c.specialCooldown=0;
   c.baseEndZ=c.endZ;
   c.endX=0;
@@ -1670,6 +1765,7 @@ function resetCombatant(c){
   c.teleportT=0;c.teleportMoved=false;c.teleportTo=null;
   if(c.stunHalo){c.stunHalo.group.visible=false;c.stunHalo.phase=0;}
   if(c.castMarker)c.castMarker.marker.visible=false;
+  if(archer&&c.heldArrow)c.heldArrow.visible=true;
   c.outer.position.z=c.startZ;
   c.model.position.y=0;
   c.model.scale.setScalar(c.model.userData.baseScale);
@@ -1763,7 +1859,7 @@ function beginDeath(c){
   if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
   releaseSummonDuel(c);
   c.stage='dying';c.deathT=0;c.castTarget=null;c.castFired=true;
-  c.deathDuration=Math.max(.65,combatAnimations.get(8)?.duration||1.25);
+  c.deathDuration=Math.max(.65,getCombatClip(c,8)?.duration||1.25);
   c.hitLeft=0;c.stunLeft=0;c.mixer.timeScale=1;
   if(c.castMarker)c.castMarker.marker.visible=false;
   if(c.shieldShell)c.shieldShell.visible=false;
@@ -1810,7 +1906,7 @@ function updateDeathSequence(c,dt){
 }
 function beginHit(c){
   if(c.stage==='dying'||c.stage==='restoring')return;
-  c.hitLeft=Math.max(.25,combatAnimations.get(9)?.duration||.45);
+  c.hitLeft=Math.max(.25,getCombatClip(c,9)?.duration||.45);
   c.castTarget=null;c.castFired=true;
   if(c.stage==='casting')c.stage='active';
   setAnim(c,9,{once:true,fade:.08,force:true});
@@ -1824,7 +1920,7 @@ function updateHit(c,dt){
 function startRestoringStanding(c){
   if(c.standingPlayed)return;
   c.standingPlayed=true;
-  const clip=combatAnimations.get(13);
+  const clip=getCombatClip(c,13);
   // Animación completa durante la subida final de 0,67 s. El clip original
   // NO se modifica; únicamente se adapta su velocidad en el mixer.
   const speed=clip?Math.max(.2,clip.duration/.67):1;
@@ -2064,7 +2160,7 @@ function tryEvasion(target,attacker,impactCell){
   releaseSummonDuel(target);
   target.stage='teleporting';
   target.castTarget=null;target.hitLeft=0;
-  const portalClip=combatAnimations.get(14);
+  const portalClip=getCombatClip(target,14);
   setAnim(target,14,{once:true,speed:portalClip?Math.max(1,portalClip.duration/.45):1,fade:.07,force:true});
   target.teleportT=0;
   target.teleportMoved=false;
@@ -2337,7 +2433,7 @@ function updateDuel(dt){
       updateHit(c,dt);
     }
     if(c.stage==='active'){
-      c.cooldown-=dt;
+      c.cooldown=Math.max(0,c.cooldown-dt);
       c.specialCooldown=Math.max(0,c.specialCooldown-dt);
     }
     if(c.shieldShell){
@@ -2354,10 +2450,10 @@ function updateDuel(dt){
     // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
     if(c.stage!=='casting'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
     updateCastMarker(c);
-    if(c.animId===12)liftWalkArm(c);
+    if(c.kind!=='archer'&&c.animId===12)liftWalkArm(c);
     if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
   }
-  if(combatants.length!==4||casters.length!==2)return;
+  if(combatants.length<4||casters.length!==2)return;
   if(!casterLost())for(const c of combatants){
     if(c.stage!=='active')continue;
     const target=selectCombatTarget(c);
@@ -2375,7 +2471,7 @@ function updateDuel(dt){
       setAnim(c,12,{fade:.16});
     }else if(canDamageTarget(target)&&c.cooldown<=0){
       startCast(c,target);
-      c.cooldown=c.kind==='shield'?1.35:1.75;
+      c.cooldown=0; // Un solo reloj de preparación y remate, sin cooldown adicional.
     }else{
       setAnim(c,'idle',{fade:.15});
     }
@@ -2421,19 +2517,28 @@ function updateDuel(dt){
       v.restorationPhase==='rise'?'✧ Restauración · emergiendo entre rayos':
       '✧ Restauración · Standing → Idle';
   }else if(combatants.some(c=>c.stage==='casting')){
-    qs('#phase').textContent='✦ Casteo · proyectil desde la palma al final de Magic Heal';
+    qs('#phase').textContent='✦ Farolera 2 s / Arquera 3 s · preparación variable';
   }else if(missiles.length){
     qs('#phase').textContent=attackMode==='magic'?'✦ Intercambio de hechizos mágicos':'➜ Ataques simples a distancia';
   }else if(combatants.every(c=>c.stage==='active')){
-    qs('#phase').textContent='➜ Avance según alcance: 3 / 5 casillas';
+    qs('#phase').textContent='➜ Avance según alcance: 3 / 5 / 8 casillas';
   }
   for(const c of [...combatants,...casters])updateNameplate(c);
 }
-new GLTFLoader().load('./chiara_idle.glb',g=>{
+new GLTFLoader().load('./chiara_idle.glb',async g=>{
   if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
+  let archerScene=null,archerIdle=null;
+  try{
+    const a=await new GLTFLoader().loadAsync('./ARQUERA%20DEL%20DECIERTO%20GLTF.glb?arena=0.9.8');
+    archerScene=a.scene;
+    archerIdle=a.animations.find(x=>/idle/i.test(x.name))||a.animations[0]||null;
+    if(!archerIdle)throw Error('Falta Idle en GLB de Arquera');
+    archerRigReference=captureArcherRig(archerScene);
+  }catch(e){archerScene=null;console.warn('[R.O.K.] Arquera no cargada',e);}
   for(const side of ['ally','enemy']){
     createFighter(g.scene,g.animations[0],side,'shield');
     createFighter(g.scene,g.animations[0],side,'mana');
+    if(archerScene&&archerIdle)createFighter(archerScene,archerIdle,side,'archer');
     createCaster(g.scene,g.animations[0],side);
   }
   for(const c of combatants)c.model.userData.baseScale=c.model.scale.x;
@@ -2443,7 +2548,7 @@ new GLTFLoader().load('./chiara_idle.glb',g=>{
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
-  qs('#modelStatus').textContent='6 Faroleras: 4 invocaciones (2 escudo + 2 maná) y 2 casters de 12 PV · '+g.animations.length+' Idle · lámpara: '+combatants.filter(c=>c.lamp).length+'/4 invocaciones.';
+  qs('#modelStatus').textContent='4 Faroleras + '+combatants.filter(c=>c.kind==='archer').length+' Arqueras + 2 casters · Arquera: 3 PV, 8 casillas · ataque 3 s / Farolera 2 s';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
 },e=>{if(e.total)qs('#sceneStatus').textContent='Cargando modelo '+Math.round(e.loaded/e.total*100)+'%';},err=>{
   qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
