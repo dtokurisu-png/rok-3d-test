@@ -1056,10 +1056,19 @@ async function activateArenaAnimationPack(baseModel){
   const arch=archerAnimationNeeds.filter(id=>archerCombatAnimations.has(id));
   magicReleaseFraction=detectMagicRelease(combatAnimations.get(2),combatants.find(c=>c.kind==='mana')?.model||baseModel);
   for(const c of combatants)setAnim(c,'idle',{force:true,fade:.08});
+  const magicClip=combatAnimations.get(2),bowClip=archerCombatAnimations.get(10);
+  const magicPost=magicClip?magicClip.duration*(1-magicReleaseFraction):0;
+  const bowPre=bowClip?Math.min(bowClip.duration,ATTACK_PROFILES.archer.windupFrame/
+    ATTACK_PROFILES.archer.frameRate):0;
+  const bowPost=bowClip?Math.max(0,bowClip.duration-bowPre):0;
   qs('#animationStatus').textContent='Farolera '+far.length+'/'+animationNeeds.length+
-    ' · Arquera '+arch.length+'/'+archerAnimationNeeds.length+
-    ' clips'+(fromCache?' · caché de Farolera':'')+
-    (!archerCombatAnimations.has(10)?' · Falta ataque 10':'');
+    ' clips (2 s/ataque'+(magicClip?', carga '+Math.max(0,2-magicPost).toFixed(2)+
+    ' s, remate '+magicPost.toFixed(2)+' s':'')+') · Arquera '+
+    arch.length+'/'+archerAnimationNeeds.length+' clips (3 s/ataque'+
+    (bowClip?', carga '+Math.max(0,3-bowPost).toFixed(2)+
+      ' s, remate '+bowPost.toFixed(2)+' s, liberación provisional f6':'')+')'+
+    (fromCache?' · caché Farolera':'')+
+    (!bowClip?' · falta ataque 10':'');
   qs('#sceneStatus').textContent='Arena 2.5D lista · '+combatants.length+' invocaciones';
 }
 function createFighter(baseScene,clip,side,kind){
@@ -1589,6 +1598,7 @@ function beginSummonEmergence(c){
   c.model.position.y=0;
   c.model.scale.setScalar(c.model.userData.baseScale);
   c.model.visible=true;
+  if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=true;
   setDeathOpacity(c,1);setAppearance(c,0);
   resetDeathFx(c);
   // La estela del vencedor continúa visible mientras empieza a emerger.
@@ -1882,6 +1892,7 @@ function beginDeath(c){
   if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
   releaseSummonDuel(c);
   c.stage='dying';c.deathT=0;c.castTarget=null;c.castFired=true;
+  if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=true;
   c.deathDuration=Math.max(.65,getCombatClip(c,8)?.duration||1.25);
   c.hitLeft=0;c.stunLeft=0;c.mixer.timeScale=1;
   if(c.castMarker)c.castMarker.marker.visible=false;
@@ -1929,6 +1940,7 @@ function updateDeathSequence(c,dt){
 }
 function beginHit(c){
   if(c.stage==='dying'||c.stage==='restoring')return;
+  if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=true;
   c.hitLeft=Math.max(.25,getCombatClip(c,9)?.duration||.45);
   c.castTarget=null;c.castFired=true;
   if(c.stage==='casting')c.stage='active';
@@ -1970,6 +1982,7 @@ function startRestoration(c){
   c.restorationStartZ=c.outer.position.z;
   c.stunLeft=0;c.hitLeft=0;
   c.castTarget=null;c.castFired=true;
+  if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=true;
   if(c.castMarker)c.castMarker.marker.visible=false;
   c.mixer.timeScale=1;
   c.endZ=c.outer.position.z;c.endX=c.outer.position.x;
