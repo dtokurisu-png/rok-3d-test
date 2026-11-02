@@ -99,14 +99,14 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.13</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.14</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><strong>Notas de versión · Arena v0.9.13 (01/11/2026):</strong> Corrección de reacción al daño: los impactos normales se superponen como una capa aditiva independiente y exclusiva de cabeza, cuello y piernas, sin reproducir nunca el clip completo 09 sobre un ataque ni reiniciarlo al terminar. Solo aturdimiento o muerte interrumpen un disparo. Se mantienen Standing de reaparición y el resto de funciones.</p>
+    <p><strong>Notas de versión · Arena v0.9.14 (01/11/2026):</strong> Los proyectiles a distancia ya disparados conservan su derecho a impactar aunque muera su atacante o se libere el duelo. Una eliminación no inicia la restauración del vencedor mientras tenga disparos enemigos en vuelo hacia él; ambos pueden morir. También se resuelven proyectiles pendientes antes de reiniciar al morir un caster. No cambia daño, cadencia, trayectoria ni animaciones.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas. Invocaciones de escudo/maná/arquera: columnas 3, 5 y 4, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
     <p id="animationStatus">Animaciones: comprobando las del probador…</p>
@@ -1652,6 +1652,7 @@ function beginSummonEmergence(c){
   clearEmbeddedArrows(c); // Una vida nueva no hereda las flechas de la anterior.
   // Reiniciar el mismo contenedor 3D (nuevo ciclo de vida), sin crear
   // copias adicionales ni modificar el modelo original del GLB.
+  c.pendingRestore=false;
   c.hp=c.maxHp;c.shield=c.shieldMax;c.shieldPulse=0;
   c.mana=c.maxMana;c.manaTimer=0;c.dodgeCooldown=0;
   c.stunLeft=0;c.hitLeft=0;c.cooldown=.55;c.specialCooldown=0;
@@ -1811,6 +1812,7 @@ function finishNewSummon(c,winner=false){
 
 function resetCombatant(c){
   clearEmbeddedArrows(c);
+  c.pendingRestore=false;
   stopHitOverlay(c);
   releaseSummonDuel(c);
   const shield=c.kind==='shield',archer=c.kind==='archer';
@@ -1960,6 +1962,7 @@ function updateCast(c,dt){
 
 function beginDeath(c){
   if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
+  c.pendingRestore=false;
   stopHitOverlay(c);
   releaseSummonDuel(c);
   c.stage='dying';c.deathT=0;c.castTarget=null;c.castFired=true;
@@ -2114,6 +2117,7 @@ function startRestoration(c){
   stopHitOverlay(c);
   releaseSummonDuel(c);
   c.stage='restoring';
+  c.pendingRestore=false;
   c.restorationPhase='dissolve';
   c.restorePhaseT=0;
   c.restoreEmission=0;
@@ -2361,9 +2365,56 @@ function tryEvasion(target,attacker,impactCell){
 }
 // La tirada PDA es independiente por cada impacto efectivo del enemigo.
 // Estar protegido por escudo no convierte el impacto en una restauración.
-function damage(target,value,source){
-  if(matchRestartLeft!==null||!canDamageTarget(target)||
-     !canAttackSummonTarget(source,target))return false;
+
+// Un disparo adquiere su validez en el momento de salir de la mano.
+// No depende de que el atacante siga vivo ni de que persista su duelo
+// al llegar al objetivo. Las ondas conservan los candidatos permitidos
+// al lanzar, por lo que no atraviesan duelos ajenos posteriores.
+function captureCommittedShot(attacker){
+  return new Set([...combatants,...casters].filter(target=>
+    target.side!==attacker.side&&canDamageTarget(target)&&
+    canAttackSummonTarget(attacker,target)));
+}
+function canResolveCommittedShot(m,target){
+  return !!m.committedTargets?.has(target)&&
+    target.side!==m.attacker.side&&canDamageTarget(target);
+}
+function incomingCommittedProjectile(target){
+  const targetCell=worldToCell(target.outer.position.x,target.outer.position.z);
+  return missiles.some(m=>m.attacker.side!==target.side&&
+    m.committedTargets?.has(target)&&
+    (m.target===target||
+      (m.area&&cellRadius(targetCell,m.impactCell)<=1)));
+}
+function requestVictoriousRestoration(source){
+  if(!source||source.role!=='summon'||source.hp<=0)return;
+  if(incomingCommittedProjectile(source)){
+    // La victoria se decide cuando se hayan resuelto los tiros ya lanzados.
+    // Hasta entonces la unidad permanece vulnerable al daño (sin restauración).
+    source.pendingRestore=true;
+    return;
+  }
+  startRestoration(source);
+}
+function resolvePendingVictories(){
+  for(const c of combatants){
+    if(!c.pendingRestore)continue;
+    if(c.hp<=0||c.stage==='dying'||c.stage==='vanishing'||
+       c.stage==='dead'||c.stage==='restoring'){
+      c.pendingRestore=false;continue;
+    }
+    if(!incomingCommittedProjectile(c)){
+      c.pendingRestore=false;
+      requestVictoriousRestoration(c);
+    }
+  }
+}
+
+function damage(target,value,source,{committed=false}={}){
+  // La validez del duelo quedó fijada al lanzar el proyectil.
+  // Incluso si un caster ya cayó, los tiros que estaban en vuelo se resuelven.
+  if((matchRestartLeft!==null&&!committed)||!canDamageTarget(target)||
+     (!committed&&!canAttackSummonTarget(source,target)))return false;
   if(target.role==='caster'){
     target.hp=Math.max(0,target.hp-value);
     if(target.hp===0){
@@ -2372,7 +2423,10 @@ function damage(target,value,source){
       if(matchRestartLeft===null)matchRestartLeft=CASTER_RESTART_DELAY;
       const label=nameplates.get(target);
       if(label)label.classList.add('defeated');
-      qs('#phase').textContent='★ Caster '+(target.side==='enemy'?'rival':'aliado')+' derrotado · '+(target.side==='enemy'?'victoria':'derrota');
+      qs('#phase').textContent=casters.every(c=>c.stage==='defeated')?
+        '★ EMPATE · ambos casters derrotados':
+        '★ Caster '+(target.side==='enemy'?'rival':'aliado')+
+        ' derrotado · '+(target.side==='enemy'?'victoria':'derrota');
     }
     return true;
   }
@@ -2386,9 +2440,10 @@ function damage(target,value,source){
   }
   if(target.hp<=0){
     beginDeath(target);
-    // La derrotada sigue muriendo y desapareciendo. SOLO el responsable
-    // vivo de la eliminación recupera su estado mediante la restauración.
-    if(source&&source!==target&&source.hp>0)startRestoration(source);
+    // Antes de restaurar al vencedor, resolver los ataques enemigos que
+    // habían sido disparados: los dos combatientes pueden morir.
+    if(source&&source!==target&&source.hp>0)
+      requestVictoriousRestoration(source);
   }else {
     beginHit(target);
     if(source?.kind==='mana'&&Math.random()<.50)applyStun(target);
@@ -2480,6 +2535,8 @@ function launchArrow(attacker,target){
     new THREE.Vector3(0,1,0),direction.normalize());
   const distance=Math.hypot(from.x-aim.x,from.z-aim.z);
   missiles.push({group,core:null,halo:null,target,attacker,
+    committedTargets:captureCommittedShot(attacker),
+    committedDamage:attacker.attackDamage,
     fromX:from.x,fromY:from.y,fromZ:from.z,
     aimX:aim.x,aimZ:aim.z,impactCell:cell,age:0,
     // La velocidad de vuelo NO depende de los 3 segundos entre ataques.
@@ -2511,6 +2568,8 @@ function launchSpell(attacker,target){
   halo.scale.set(.64,.64,1);group.add(halo);
   const distance=Math.hypot(fromX-impact.x,fromZ-impact.z);
   missiles.push({group,core,halo,target,attacker,fromX,fromY,fromZ,
+    committedTargets:captureCommittedShot(attacker),
+    committedDamage:attacker.attackDamage,
     aimX:impact.x,aimZ:impact.z,impactCell:cell,age:0,
     duration:Math.max(.32,distance/9.5),area});
   if(attacker.pendV)attacker.pendV.y+=(attacker.side==='ally'?1:-1)*.7;
@@ -2605,20 +2664,22 @@ function updateMagic(dt){
       let arrowStuck=false;
       // La evasión sucede justo antes del contacto, nunca después del daño.
       if(m.target.role!=='caster'&&m.target.stage==='active'&&
-         canAttackSummonTarget(m.attacker,m.target))
+         canResolveCommittedShot(m,m.target))
         tryEvasion(m.target,m.attacker,m.impactCell);
       if(!m.arrow)spawnImpact(m.aimX,m.aimZ,m.area,m.attacker.side==='enemy');
       if(m.area){
         // Nueve casillas tácticas reales, con comprobación de cada unidad.
         for(const c of [...combatants,...casters]){
-          if(c.side===m.attacker.side||!canDamageTarget(c))continue;
+          if(!canResolveCommittedShot(m,c))continue;
           const current=worldToCell(c.outer.position.x,c.outer.position.z);
-          if(cellRadius(current,m.impactCell)<=1)damage(c,m.attacker.attackDamage,m.attacker);
+          if(cellRadius(current,m.impactCell)<=1)
+            damage(c,m.committedDamage,m.attacker,{committed:true});
         }
-      }else if(canDamageTarget(m.target)){
+      }else if(canResolveCommittedShot(m,m.target)){
         const current=worldToCell(m.target.outer.position.x,m.target.outer.position.z);
         if(current.row===m.impactCell.row&&current.col===m.impactCell.col){
-          const didHit=damage(m.target,m.attacker.attackDamage,m.attacker);
+          const didHit=damage(m.target,m.committedDamage,m.attacker,
+            {committed:true});
           if(m.arrow&&didHit)arrowStuck=embedArrowOnTarget(m);
         }
       }
@@ -2669,8 +2730,17 @@ function updateMagic(dt){
 }
 function updateDuel(dt){
   if(matchRestartLeft!==null){
+    // Un caster derrotado no anula proyectiles que YA habían salido.
+    // Esperar su impacto antes de reiniciar permite también el empate.
+    updateMagic(dt);
+    resolvePendingVictories();
     matchRestartLeft-=dt;
-    if(matchRestartLeft<=0)resetDemoCombat();
+    if(matchRestartLeft<=0){
+      if(missiles.length)matchRestartLeft=.05;
+      else resetDemoCombat();
+    }
+    if(casters.every(c=>c.stage==='defeated'))
+      qs('#phase').textContent='★ EMPATE · ambos casters derrotados';
     return;
   }
   for(const c of combatants){
@@ -2776,6 +2846,9 @@ function updateDuel(dt){
     }
   }
   updateMagic(dt);
+  // El orden del bucle ya no determina quién sobrevive: esperar hasta
+  // concluir TODOS los proyectiles de este fotograma.
+  resolvePendingVictories();
   updatePortalEffects(dt);
   for(const caster of casters){
     if(caster.stage==='active')caster.mixer.update(dt);
@@ -2790,8 +2863,10 @@ function updateDuel(dt){
   const stunned=combatants.find(c=>c.stage==='stunned');
   if(casterLost()){
     const lost=casters.find(c=>c.stage==='defeated');
-    qs('#phase').textContent='★ Caster '+(lost.side==='enemy'?'rival':'aliado')+
-      ' derrotado · '+(lost.side==='enemy'?'VICTORIA':'DERROTA');
+    qs('#phase').textContent=casters.every(c=>c.stage==='defeated')?
+      '★ EMPATE · ambos casters derrotados':
+      '★ Caster '+(lost.side==='enemy'?'rival':'aliado')+
+        ' derrotado · '+(lost.side==='enemy'?'VICTORIA':'DERROTA');
   }else if(stunned){
     const count=Math.min(5,Math.ceil((stunned.stunLeft-1e-5)/.5));
     qs('#phase').textContent='★ ATURDIDO · '+count+' estrellas · '+stunned.stunLeft.toFixed(1)+' s';
