@@ -1,12 +1,16 @@
 /* R.O.K. 3D Studio · tester visual scenario overlay (stage 5).
    Strictly decorative: never touches the arena's combatants, colliders or tiles. */
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {createSceneBackground,normalizeSceneBackground} from './scene-background.js';
 import {ARENA_COLUMNS,ARENA_ROWS,SCENERY_BOUNDS,assertPlacement} from './scene-placement-rules.js';
 
 export function createArenaSceneOverlay({THREE,root,renderStatus}){
  const catalog=new Map(), cache=new Map();
  const loader=new GLTFLoader();
  const scenery=new THREE.Group();scenery.name='ROK_scenery_visual_only';root.add(scenery);
+ const background=createSceneBackground(THREE,{onStatus:renderStatus});
+ // Keep this independent of the prop swap: a failed scene must not replace it.
+ root.add(background.group);background.show(false);
  const effects=new Set(['glow','light','particles','fog','pulse']);
  const objects=[];
  let generation=0,sceneName='',visible=true;
@@ -36,7 +40,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
     rotation:finite(raw.rotation,-3600,3600),scale:finite(raw.scale,.05,5,1),
     effects:raw.effects.map(fxClean)};
   });
-  return {name:String(data.name||'Escenario').slice(0,70),entries};
+  return {name:String(data.name||'Escenario').slice(0,70),background:normalizeSceneBackground(data.background||{}),entries};
  };
  async function init(){
   const response=await fetch('./assets/manifests/model-library.json',{cache:'no-cache'});
@@ -149,7 +153,8 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
    scenery.add(nextRoot);
    objects.length=0;objects.push(...nextObjects);
    sceneName=normalized.name;
-   scenery.visible=visible;
+   background.build(normalized.background);
+   scenery.visible=visible;background.group.visible=visible&&normalized.background.enabled;
    say('Escenario activo: '+sceneName+' · '+objects.length+' objetos');
    return true;
   }catch(error){
@@ -162,9 +167,9 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
   ++generation;
   const current=scenery.children[0];
   if(current){scenery.remove(current);clearGroup(current,objects);}
-  objects.length=0;sceneName='';say('Escenario original · sin decoraciones');
+  objects.length=0;sceneName='';background.show(false);say('Escenario original · sin decoraciones');
  }
- function show(value){visible=!!value;scenery.visible=visible;}
+ function show(value){visible=!!value;scenery.visible=visible;background.group.visible=visible&&background.config.enabled&&!!sceneName;}
  function update(time){
   if(!scenery.visible)return;
   for(const obj of objects)for(const fx of obj.animated){
