@@ -1906,6 +1906,8 @@ function resetCombatant(c){
   setAnim(c,'idle',{force:true,fade:0});
 }
 function resetDemoCombat(){
+  // A new match invalidates any in-progress manual attack/cooldown.
+  casterMovement?.disable();
   matchRestartLeft=null;
   clearFloatingWords();
   clearPortalEffects();
