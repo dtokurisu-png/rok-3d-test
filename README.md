@@ -60,6 +60,9 @@ La [Arena 2.5D](./arena-25d.html) utiliza velocidad inicial **3.8**, un ataque c
 ## Casters — Etapa 8: alcance 3 y disparo confirmado al pulsar Espacio
 En la [Arena 2.5D v0.9.24](./arena-25d.html), Chiara y Lioren tienen **alcance 3** y un círculo de radio 3 que se vuelve visible conforme una invocación enemiga se aproxima (comienza a 5.5). La marca de objetivo aparece al entrar en las 3 unidades. **Espacio solo activa el ataque si había un enemigo en alcance cuando se pulsó**: si no hay objetivo no hay animación ni disparo ni cooldown. Si sí había objetivo, queda fijado y el proyectil se lanza al llegar al fotograma de liberación **aunque el caster se haya alejado y salido del alcance entretanto**. Movimiento 3.8 y ataque 1 s se conservan. [Reglas exactas](./docs/CASTER_LAYERED_ACTIONS.md).
 
+## Casters — Corrección de alcance v0.9.25
+En la [Arena 2.5D](./arena-25d.html), el círculo de alcance **3** y la diana se actualizan para el caster seleccionado **aunque no se haya pulsado WASD**. También se corrigió un segundo problema: un ataque autorizado al pulsar Espacio podía fallar cuando el objetivo salía de la casilla de impacto. El disparo manual ahora conserva el objetivo comprometido y lo sigue hasta el impacto, sin alterar la mecánica de proyectiles de las invocaciones ni las flechas. Un ataque iniciado **fuera del alcance** sigue bloqueado, sin animación ni cooldown. [Diagnóstico](./docs/CASTER_LAYERED_ACTIONS.md).
+
 ## Animaciones
 El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 y 20 excluidos. Solo quedan **17 disponibles**. El rechazo no renumera las animaciones para proteger referencias de código. Las antiguas 04/05 permanecen dentro del ZIP original compartido; las cuatro FBX 17–20 ya habían sido eliminadas.
 
