@@ -9,6 +9,10 @@
 
 > **Instrucción de continuidad:** al abrir un chat nuevo, leer este documento y `docs/PENDIENTES_ROK_3D.md` antes de realizar cambios. Revisar los archivos actuales directamente en GitHub, no suponer que las líneas o versiones de documentos históricos siguen vigentes. Avanzar una función o bloque pequeño por vez, sin rehacer lo aprobado ni cambiar sistemas no relacionados.
 
+## Actualización posterior — Contenedor de background gótico
+
+**Hecho después de la lista original:** existe un contenedor ambiental 3D independiente, hecho de paredes rectangulares y techo arqueado. Código nuevo en `scene-background.js`, controles en `scene-editor.html`/`scene-editor.js`, lectura de JSON en `arena-scene-overlay.js`. Dimensiones iniciales **70×140**, muros **18**, bóveda **+12** (altura máxima 30); editable el ancho en **30–120** y largo = ancho × 2. Suelo exterior al nivel de la arena, sin pisar la zona jugable 15×30. **No modifica cámaras ni combate.** La ruta exacta de la textura «panorama gótica de vitrales zafiro» no se pudo verificar; hay un campo de ruta pero no se ha aplicado la imagen de manera confirmada. La implementación necesita prueba visual en WebGL. Las **dos cámaras predeterminadas** siguen aplazadas.
+
 ## 1. Estado exacto al cerrar este chat
 
 - [x] El usuario **decidió detener temporalmente todo trabajo de animaciones**: no modificar el visor, los ajustes de huesos, las compuestas ni la mecánica animada hasta nueva instrucción.
