@@ -798,7 +798,11 @@ function renderAnimList(){
     el.className='animRow '+(row.clip?'ok ':'')+(row.status==='error'?'error ':'')+
       (activeAnimation===row.index?'active ':'')+row.role;
     const play=document.createElement('button');
-    play.type='button';play.disabled=!model||row.status==='loading';
+    const casterSelected=currentCharacter==='chiara'||currentCharacter==='lioren';
+    const legacyCasterUnloaded=casterSelected&&row.source==='pack'&&!row.clip;
+    play.type='button';
+    play.disabled=!model||row.status==='loading'||
+      (!row.clip&&row.source!=='repository'&&!legacyCasterUnloaded);
     play.textContent=String(row.index).padStart(2,'0')+' · '+row.name.replace(/\.fbx$/i,'');
     if(faroleraRoles[row.index]||candidateRoles[row.index]){
       const tag=document.createElement('small');tag.className='animRole';
@@ -806,14 +810,18 @@ function renderAnimList(){
       play.append(tag);
     }
     play.title=row.details||(row.source==='repository'?
-      'Archivo FBX ya publicado en GitHub. Pulsa para reproducirlo.':
+      'Archivo FBX publicado en GitHub. Pulsa para reproducirlo.':
+      legacyCasterUnloaded?'Animación del paquete original. Pulsa para adaptarla a este Kaster.':
       'Animación del paquete original.');
     play.addEventListener('click',()=>{
       if(row.clip)playAnimation(row.index);
       else if(row.source==='repository')void loadNewAnimation(row,true);
+      else if(legacyCasterUnloaded)void loadOldCasterAnimation(row,true);
     });
     const state=document.createElement('span');state.className='animNo';
-    state.textContent=row.status==='error'?'⚠ Error':row.clip?'✓ Lista':row.status==='loading'?'… Cargando':row.source==='repository'?'✓ GitHub':'—';
+    state.textContent=row.status==='error'?'⚠ Error':row.clip?'✓ Lista':
+      row.status==='loading'?'… Cargando':
+      row.source==='repository'?'✓ GitHub':legacyCasterUnloaded?'↻ Cargar':'—';
     state.title=row.source==='repository'?
       (row.status==='error'?'Existe en GitHub, pero no se pudo adaptar a este modelo':
        row.clip?'Reproducción preparada':'Archivo existente en GitHub; se prepara al cargar el modelo'):
@@ -1411,6 +1419,9 @@ async function switchCharacter(character,forceReload=false){
       (character==='archer'?'Arquera del Desierto ('+archerAssetFormat+
         ', Idle: '+(archerIdle?.name||'no encontrado')+')':character==='chiara'?'Chiara · Kaster':character==='lioren'?'Lioren · Kaster':'Farolera');
     frame();renderAnimList();
+    if(character==='chiara'||character==='lioren'){
+      await preloadOldCasterAnimations(character);
+    }
     void preloadNewAnimationsForCharacter();
   }catch(e){
     characterInfo.textContent='Error al preparar el modelo: '+(e?.message||String(e));
@@ -1558,6 +1569,68 @@ async function recoverAnimCache(){
 // Cargar desde el repo cuando la carpeta de assets esté disponible.
 // Si GitHub todavía no contiene los FBX, no se simula una carga exitosa.
 // Carga las nueve FBX directamente desde GitHub en el mismo listado numerado.
+// Las 14 animaciones originales también se adaptan por rig para ambos
+// Kasters. No es válido copiar el AnimationClip de Farolera o Arquera.
+function findOldAnimationInArchive(name){
+  if(!animationArchive)return null;
+  const normalize=value=>{
+    const file=value.split('/').pop().toLowerCase();
+    if(file==='standing (1).fbx')return 'standing.fbx';
+    if(file==='standing 2h magic area attack 01 (1).fbx')
+      return 'standing 2h magic area attack 01.fbx';
+    return file;
+  };
+  return Object.values(animationArchive.files).find(entry=>
+    !entry.dir&&normalize(entry.name)===name.toLowerCase())||null;
+}
+async function loadOldCasterAnimation(row,playAfter=false){
+  const selected=currentCharacter;
+  if(!model||row.source!=='pack'||!['chiara','lioren'].includes(selected))return;
+  if(row.clip){if(playAfter)playAnimation(row.index);return;}
+  if(row.status==='loading')return;
+  row.status='loading';row.details='Preparando FBX original para '+selected+'…';
+  renderAnimList();
+  try{
+    if(!animationArchive)await preloadRepoAnimations();
+    if(currentCharacter!==selected)return;
+    if(row.clip){if(playAfter)playAnimation(row.index);return;}
+    const source=findOldAnimationInArchive(row.name);
+    if(!source)throw Error('No se encontró el archivo en el pack Mixamo original');
+    await importAnimation(row.name,await source.async('arraybuffer'));
+    if(currentCharacter!==selected)return;
+    if(!row.clip)throw Error(row.details||'Esqueleto no compatible');
+    if(playAfter)playAnimation(row.index);
+  }catch(error){
+    if(currentCharacter!==selected)return;
+    row.status='error';row.details=String(error.message||error);
+    renderAnimList();
+  }
+}
+async function preloadOldCasterAnimations(selected){
+  if(currentCharacter!==selected)return;
+  const original=animationRows.filter(row=>row.source==='pack');
+  if(!animationArchive)await preloadRepoAnimations();
+  if(currentCharacter!==selected)return;
+  if(!animationArchive){
+    animMessage.textContent='No se pudo leer el pack original de GitHub. '+ 
+      'Prueba tocar una animación 01–14 para reintentar.';
+    renderAnimList();
+    return;
+  }
+  for(let i=0;i<original.length;i++){
+    if(currentCharacter!==selected)return;
+    if(original[i].clip)continue;
+    animMessage.textContent='Adaptando clips 01–14 de '+selected+' · '+(i+1)+'/14';
+    await loadOldCasterAnimation(original[i]);
+  }
+  if(currentCharacter===selected){
+    const ready=original.filter(row=>!!row.clip).length;
+    const errors=original.filter(row=>row.status==='error').length;
+    animMessage.textContent='Animaciones originales de '+selected+': '+ready+'/14 listas'+
+      (errors?' · '+errors+' requieren revisión':'')+'.';
+    renderAnimList();
+  }
+}
 async function loadNewAnimation(row,playAfter=false){
   if(!model||row.source!=='repository')return;
   if(row.clip){if(playAfter)playAnimation(row.index);return;}
