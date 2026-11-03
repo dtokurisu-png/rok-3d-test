@@ -129,7 +129,7 @@ function refreshList(){
  }
  const active=layers.find(x=>x.id===selectedFx);
  $('effectControls').hidden=!active;
- if(active)updateFields(active);
+ if(active){updateFields(active);$('effectToggle').textContent=active.enabled?'Ocultar capa':'Mostrar capa';}
 }
 function updateFields(x){
  fields.name.value=x.name;fields.color.value=x.color;fields.intensity.value=x.intensity;fields.size.value=x.size;fields.height.value=x.height;fields.x.value=x.x;fields.z.value=x.z;
@@ -145,6 +145,7 @@ function changeFX(){
 }
 Object.values(fields).forEach(field=>field.addEventListener('input',changeFX));
 $('effectAdd').addEventListener('click',()=>{const l=newLayer($('effectKind').value);layers.push(l);selectedFx=l.id;refreshFX();refreshList();});
+$('effectToggle').addEventListener('click',()=>{const item=layers.find(x=>x.id===selectedFx);if(!item)return;item.enabled=!item.enabled;refreshFX();refreshList();});
 $('effectRemove').addEventListener('click',()=>{layers=layers.filter(x=>x.id!==selectedFx);selectedFx=layers[0]?.id||null;refreshFX();refreshList();});
 $('assetSearch').addEventListener('input',renderLibrary);
 $('assetCategory').addEventListener('change',renderLibrary);
