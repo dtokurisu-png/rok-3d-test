@@ -63,6 +63,10 @@ En la [Arena 2.5D v0.9.24](./arena-25d.html), Chiara y Lioren tienen **alcance 3
 ## Casters — Corrección de alcance v0.9.25
 En la [Arena 2.5D](./arena-25d.html), el círculo de alcance **3** y la diana se actualizan para el caster seleccionado **aunque no se haya pulsado WASD**. También se corrigió un segundo problema: un ataque autorizado al pulsar Espacio podía fallar cuando el objetivo salía de la casilla de impacto. El disparo manual ahora conserva el objetivo comprometido y lo sigue hasta el impacto, sin alterar la mecánica de proyectiles de las invocaciones ni las flechas. Un ataque iniciado **fuera del alcance** sigue bloqueado, sin animación ni cooldown. [Diagnóstico](./docs/CASTER_LAYERED_ACTIONS.md).
 
+## Estado de trabajo actual (3 de noviembre de 2026)
+
+La **[lista maestra de implementaciones y pendientes de R.O.K. 3D](./docs/DEVELOPMENT_STATUS.md#lista-maestra-actualizada--2026-11-03--arena-v0926)** distingue funciones incorporadas y pendientes de comprobación. Última prioridad implementada: **v0.9.26, primera unidad enemiga que entre realmente en el alcance de una invocación**. Próxima tarea prioritaria: **reacción a recibir daño 09 de ambos casters**. También quedó anotado el diseño futuro de **modos de combate por tipo de carta**, colisiones, ocupación de nexos, arena 15×30, composición y corrección de animaciones del visor, ajustes universales de huesos y aviso ¡! de amenaza.
+
 ## Animaciones
 El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 y 20 excluidos. Solo quedan **17 disponibles**. El rechazo no renumera las animaciones para proteger referencias de código. Las antiguas 04/05 permanecen dentro del ZIP original compartido; las cuatro FBX 17–20 ya habían sido eliminadas.
 
