@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-03",
+  "description": "Published R.O.K. scene JSON files available in the Arena tester. Add entries only after committing validated scene JSON under assets/scenes/.",
+  "scenes": []
+}
