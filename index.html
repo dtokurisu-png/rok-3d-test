@@ -118,9 +118,9 @@
   <div class="attackTools"><button id="archerCopyFrame" type="button">Copiar fotograma y ajustes</button></div>
   <p id="archerAttackStatus" class="attackNote" role="status">Selecciona «Cargar animación 10» para empezar.</p>
 </section>
-<p id="animMessage" role="status">12 animaciones identificadas en el ZIP recibido · sin asignar a la Farolera.</p>
+<p id="animMessage" role="status">Catálogo de 23 animaciones: 14 originales y 9 FBX nuevas en GitHub.</p>
 <div id="animList"></div>
-<div class="animToolbar"><button type="button" id="animFilter">Ver: todas</button><button type="button" id="animCopy">Copiar números marcados</button><button type="button" id="animClear">Limpiar marcas</button></div>
+<div class="animToolbar"><button type="button" id="animFilter">Ver: todas</button><button type="button" id="animCopy">Copiar números marcados</button><button type="button" id="animClear">Limpiar marcas</button><button type="button" id="animExport">Exportar selección JSON</button></div>
 <p id="animSelection">Seleccionadas: ninguna.</p>
 <p>Idle principal: el del GLB original. Los roles son asignaciones del probador, no cambios en la arena. La caché depende del navegador y del dispositivo.</p>
 </section><p class="meta" id="groundInfo">Suelo: esperando el modelo…</p><p class="meta" id="fps">FPS: —</p><p class="meta" id="lampInfo">Lámpara: esperando GLB…</p><p class="meta" id="debugInfo">Detección v2: pendiente</p><p class="meta" id="error"></p></div><div id="mobileActions"><button id="shakeModel" type="button" disabled>↔ Probar balanceo</button><button id="quickPhysics" type="button">Física: ON</button></div><div class="help">1 dedo: girar · 2 dedos: zoom y desplazar</div><script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script><script type="module">
@@ -290,6 +290,7 @@ const candidateRoles={3:'Candidata: lanzamiento del farol'};
 const animationRows=animCatalog.map((name,index)=>({
   index:index+1,name,clip:null,status:index<14?'pending':'available',details:'',
   source:index<14?'pack':'repository',
+  review:'undecided',
   keep:!!faroleraRoles[index+1],
   role:faroleraRoles[index+1]?'farolera':candidateRoles[index+1]?'candidate':'other'
 }));
@@ -818,11 +819,26 @@ function renderAnimList(){
        row.clip?'Reproducción preparada':'Archivo existente en GitHub; se prepara al cargar el modelo'):
       (row.clip?'Animación preparada':'Pendiente de cargar el pack original');
     const keep=document.createElement('label');keep.className='animKeep';
-    const check=document.createElement('input');
-    check.type='checkbox';check.checked=row.keep;
-    check.setAttribute('aria-label','Seleccionar animación '+row.index);
-    check.addEventListener('change',()=>{row.keep=check.checked;renderSelection();});
-    keep.append(check,document.createTextNode('Elegir'));
+    if(row.source==='repository'){
+      const decision=document.createElement('select');
+      decision.setAttribute('aria-label','Decisión sobre animación '+row.index);
+      for(const [value,label] of [['undecided','Sin elegir'],['keep','Conservar'],['discard','Descartar']]){
+        const opt=document.createElement('option');opt.value=value;opt.textContent=label;
+        decision.append(opt);
+      }
+      decision.value=row.review||'undecided';
+      decision.style.cssText='background:#143f48;color:#fff;border:1px solid #00bdaa;border-radius:5px;padding:5px;max-width:115px';
+      decision.addEventListener('change',()=>{
+        row.review=decision.value;row.keep=decision.value==='keep';renderSelection();
+      });
+      keep.append(decision);
+    }else{
+      const check=document.createElement('input');
+      check.type='checkbox';check.checked=row.keep;
+      check.setAttribute('aria-label','Seleccionar animación '+row.index);
+      check.addEventListener('change',()=>{row.keep=check.checked;renderSelection();});
+      keep.append(check,document.createTextNode('Elegir'));
+    }
     el.append(play,state,keep);animList.append(el);
   }
 }
@@ -1124,7 +1140,10 @@ function playIdleOriginal(){
 
 function snapshotCharacterClips(){
   characterClips[currentCharacter]=animationRows.map(row=>({
-    clip:row.clip,status:row.status,details:row.details
+    clip:row.clip,
+    status:row.status==='loading'?(row.source==='repository'?'repo':'pending'):row.status,
+    details:row.status==='loading'?'':row.details,
+    keep:row.keep,review:row.review
   }));
 }
 function restoreCharacterClips(character){
@@ -1134,6 +1153,8 @@ function restoreCharacterClips(character){
     animationRows[i].clip=snapshot?.clip||null;
     animationRows[i].status=snapshot?.status||(animationRows[i].source==='repository'?'available':'pending');
     animationRows[i].details=snapshot?.details||'';
+    animationRows[i].review=snapshot?.review||'undecided';
+    animationRows[i].keep=snapshot?.keep??(character==='farolera'&&!!faroleraRoles[i+1]);
   }
   renderAnimList();
 }
@@ -1390,7 +1411,7 @@ async function switchCharacter(character,forceReload=false){
       (character==='archer'?'Arquera del Desierto ('+archerAssetFormat+
         ', Idle: '+(archerIdle?.name||'no encontrado')+')':character==='chiara'?'Chiara · Kaster':character==='lioren'?'Lioren · Kaster':'Farolera');
     frame();renderAnimList();
-    await preloadNewAnimationsForCharacter();
+    void preloadNewAnimationsForCharacter();
   }catch(e){
     characterInfo.textContent='Error al preparar el modelo: '+(e?.message||String(e));
     console.warn('[R.O.K.] Cambio de personaje:',e);
@@ -1445,6 +1466,23 @@ document.querySelector('#animCopy').addEventListener('click',async()=>{
   }catch{
     animMessage.textContent='Copiado no disponible. Envíame estos números: '+selection;
   }
+});
+// Las decisiones son independientes del estado de descarga/adaptación.
+document.querySelector('#animExport').addEventListener('click',()=>{
+  const selections=['farolera','archer','chiara','lioren'].flatMap(character=>{
+    const rows=character===currentCharacter?animationRows:characterClips[character]||[];
+    return newAnimationPaths.map((name,i)=>{
+      const entry=rows[14+i];
+      return {character,index:15+i,filename:name,
+        decision:entry?.review||'undecided'};
+    });
+  });
+  const payload={schemaVersion:1,repository:'dtokurisu-png/rok-3d-test',
+    catalog:'index.html',selections};
+  const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
+  const link=document.createElement('a');link.href=url;link.download='rok-animation-decisions.json';link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  animMessage.textContent='Selección exportada. Envíame ese JSON para aplicar las decisiones en GitHub.';
 });
 document.querySelector('#animClear').addEventListener('click',()=>{
   for(const row of animationRows)row.keep=false;
