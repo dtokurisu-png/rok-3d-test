@@ -15,6 +15,7 @@
 #archerMaterialInfo{display:none;width:100%;font-size:11px;color:#ffdfa8;line-height:1.35;overflow-wrap:anywhere}
 .animRow.farolera{border-left:3px solid #00ffe4}
 .animRow.candidate{border-left:3px solid #ffce6b}
+.animLegend{display:flex;flex-wrap:wrap;gap:7px;font-size:11px;margin:6px 0}.animLegendAttack{color:#dec1ff}.animLegendDefense{color:#9ad9ff}
 .animRow.composite-attack{border-left:4px solid #b98cff;background:#231b37}
 .animRow.composite-defense{border-left:4px solid #61b4ff;background:#152d42}
 .animRow.composite-attack .animRole,.animRow.composite-attack .animNo{color:#dec1ff}
@@ -146,7 +147,7 @@
 <div class="viewerMoveButtons"><button type="button" data-wasd="KeyW">W ↑</button><button type="button" data-wasd="KeyA">A ←</button><button type="button" data-wasd="KeyS">S ↓</button><button type="button" data-wasd="KeyD">D →</button></div>
 <p>W avance (07) · S retroceso (06) · A izquierda (15) · D derecha (16) · Soltar: Standing Idle.</p>
 <p>Teclas: <span id="viewerMoveKeys">—</span></p><p id="viewerMoveStatus" role="status">Selecciona Chiara o Lioren.</p></section>
-<div id="animList"></div>
+<p class="animLegend"><span class="animLegendAttack">◆ Violeta · Compuestas de ataque 24–28</span><span class="animLegendDefense">◆ Azul · Compuestas de defensa 29–33</span></p><div id="animList"></div>
 <div class="animToolbar"><button type="button" id="animFilter">Ver: todas</button><button type="button" id="animCopy">Copiar números marcados</button><button type="button" id="animClear">Limpiar marcas</button><button type="button" id="animExport">Exportar selección JSON</button></div>
 <p id="animSelection">Seleccionadas: ninguna.</p>
 <p>Idle principal: el del GLB original. Los roles son asignaciones del probador, no cambios en la arena. La caché depende del navegador y del dispositivo.</p>
