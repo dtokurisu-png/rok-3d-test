@@ -3084,6 +3084,7 @@ casterMovement=createCasterMobility({
  THREE,getCaster:side=>casters.find(c=>c.side===side),
  prepareClips:movementLoader.load,
  layers:casterLayers,
+ bounds:{x:MAX_X,z:MAX_Z},
  reviveCaster:c=>{if(c&&c.stage!=='active')resetCaster(c);},
  getAttackTarget:casterAttackTarget,
  onAttack:(c,lockedTarget)=>{
