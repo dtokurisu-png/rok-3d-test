@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-02",
-  "purpose": "Catálogo de las últimas animaciones FBX con identidad estable. Mantener fuente root hasta verificar referencias. No inferir duplicación por nombre.",
+  "generatedAt": "2026-11-03",
+  "purpose": "Catálogo de clips shared con IDs estables; nuevas animaciones pendientes de revisión y asignación; rechazos históricos preservados.",
   "models": [
     {
       "id": "chiara",
@@ -94,6 +94,14 @@
       "status": "review",
       "group": "reaction",
       "previousPath": "Sword And Shield Impact.fbx"
+    },
+    {
+      "id": "standing-idle",
+      "path": "assets/animations/casters/shared/Standing Idle.fbx",
+      "sha": "1556c66da7b751b6f34c84bc29c7d4d0fb040e58",
+      "status": "review",
+      "group": "idle",
+      "previousPath": null
     }
   ],
   "rejectedLegacy": [
