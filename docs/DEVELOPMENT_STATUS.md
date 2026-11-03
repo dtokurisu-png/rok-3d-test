@@ -1,5 +1,44 @@
 # R.O.K. 3D Tester — Estado para continuar
-Fecha: 2026-11-02
+Fecha de última revisión: 2026-11-03
+
+## Lista maestra actualizada — 2026-11-03 · Arena v0.9.26
+
+**Esta lista sustituye las listas parciales anteriores como referencia operativa.** Las secciones históricas que siguen documentan lo ocurrido en cada etapa; pueden contener estados anteriores y no deben interpretarse como el estado actual. «Implementado» significa que existe en el código; «probado por usuario» solo se utiliza cuando existe confirmación expresa. No marcar como completada una animación que no se ha visto funcionar.
+
+### Completado / incorporado
+
+- [x] **Controles manuales de ambos casters:** WASD mueve, **Espacio ataca** y **Shift defiende**. El combate general de las invocaciones sigue funcionando mientras se controla un caster.
+- [x] **Velocidad de desplazamiento de Chiara y Lioren = 3.8** unidades/s de inicio; deslizador manual permanece configurable.
+- [x] **Ciclo de ataque de los casters = 1 segundo**, manteniendo el movimiento de piernas durante la acción.
+- [x] **Alcance de ataque de ambos casters = 3:** círculo de radio 3, aparición gradual desde distancia 5.5 de una invocación rival, y pequeña marca sobre la invocación que entra en rango.
+- [x] **Ataque solo cuando el objetivo está en alcance al pulsar Espacio:** fuera de rango no inicia animación ni consume cooldown; dentro del rango, el objetivo queda comprometido aunque el caster se desplace durante la preparación. La actualización v0.9.25 reparó también la visibilidad del círculo estando quieto y el seguimiento del proyectil manual hasta el impacto.
+- [x] **Animaciones por capas:** locomoción de cadera y piernas independiente de acciones de torso y brazos para Chiara y Lioren.
+- [x] **Defensa frontal con Shift:** círculo de escudo delante del caster, animación de defensa 23 acelerada a 1.8×, sin repetición y reteniendo el último fotograma mientras se mantenga pulsado. El bloqueo de daño al 100 % sigue siendo un valor **provisional de pruebas**, no de balance final.
+- [x] **Selección básica de blancos de invocaciones — v0.9.26 (probada por el usuario):** seleccionar el enemigo más cercano que **ya esté realmente dentro del alcance**, sea invocación o caster; sin enemigos a rango, avanzar hacia el caster rival sin fijar como objetivo una invocación remota; las reservas de duelo no deben atraer blancos lejanos. Durante el casteo, la selección también respeta el rango.
+- [x] **Fuentes originales y lógica principal conservadas:** las transformaciones de clips se crean sobre pistas adaptadas, sin editar los FBX originales; no se reemplazó R.O.K. Lite.
+
+### Pendientes prioritarios — hacer uno por uno
+
+- [ ] **P1. Reacción a recibir daño de los casters (animación 09):** aunque hay una capa aditiva inicial de cabeza y cuello en el código, **el usuario reporta que todavía no se aprecia o no funciona**. Diagnosticar en los GLB reales, aplicar la reacción correcta y comprobar ambas versiones: daño normal reproduce reacción; con **Shift** activo no reproduce reacción y mantiene defensa.
+- [ ] **P2. Modos de combate según tipo de carta:** nueva tarea acordada. Definir configuraciones específicas por clase de invocación o carta (movimiento, selección, estrategia, prioridades y facultades) **después** de estabilizar la prioridad base. No inventar comportamientos tácticos ni reactivar persecución a larga distancia sin diseño y aprobación.
+- [ ] **P3. Colisiones físicas entre invocaciones:** evitar atravesarse y ocupar el mismo espacio; navegación y rodeo de otras unidades. Conservar efectos de animación, duelo y movimiento.
+- [ ] **P4. Invocación sobre nexo ocupado:** prohibir crear una nueva invocación en un nexo físicamente ocupado por otra unidad; permitir atravesar nexos vacíos, que **no tienen collider**.
+- [ ] **P5. Ampliar tablero de la Arena de 9 × 18 a 15 × 30:** actualizar dimensiones, cuadrícula, límites de desplazamiento, distribución de nexos, coordenadas, validaciones de alcance y cámara; no solo ampliar la textura decorativa.
+- [ ] **P6. Animaciones compuestas en el catálogo del visor:** incluir las combinaciones reales de caminar + atacar/defender como animaciones seleccionables y ensayables **en el set de animaciones existente**, no en un editor o catálogo paralelo.
+- [ ] **P7. Ajustar el ataque compuesto de caster:** evitar el movimiento de protocolo y el regreso extraño a la pose base antes/después del ataque. Probar una variante que actúe principalmente sobre **un brazo**, con inicio y recuperación adecuados, sin cancelar las piernas.
+- [ ] **P8. Corregir direcciones invertidas en el visor:** avance/retroceso y desplazamientos laterales de Chiara/Lioren deben coincidir con la dirección de las animaciones y la traslación real; verificar eje por eje.
+- [ ] **P9. Controles universales de ajustes de huesos bajo el reproductor del visor:** piernas y pantorrillas, hombros, brazos y antebrazos, muñecas/manos, pies, cabeza y un par de huesos del torso. Ajustes pequeños de rotación/posición, aplicables por animación sin destruir los originales, con manera explícita de conservar los valores. Los dedos individuales no son prioritarios.
+- [ ] **P10. Indicador de amenaza enemiga ¡!:** cuando una invocación rival tenga a un caster dentro de su rango ofensivo, mostrar una pequeña advertencia **¡!** para facilitar la defensa. Pendiente, no confundir con la diana del ataque del propio caster.
+
+### Reglas de desarrollo y verificación
+
+- Cambiar y probar **una etapa o un par de parámetros estrechamente relacionados** por vez, sin tocar otras áreas del motor.
+- Si una acción existe en código pero no funciona en el navegador del usuario, **permanece pendiente** hasta corregirla y comprobarla.
+- Conservar controles actuales: WASD / Espacio / Shift; velocidad 3.8; ataque 1 s; alcance 3, salvo nuevas instrucciones.
+- No declarar «validación WebGL» cuando solo se haya ejecutado una simulación o revisión de sintaxis.
+- Actualizar los estados de esta lista maestra y después, si corresponde, el historial técnico al cerrar cada etapa.
+
+---
 
 ## Objetivo del usuario
 Usar tester como laboratorio para aprobar casters, animaciones, HUD y escenarios antes de importarlos al juego R.O.K. Lite.
