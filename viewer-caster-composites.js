@@ -78,7 +78,7 @@ export function buildCasterCompositeClip(THREE,{preset,motionClip,actionClip,idl
  // Keep the LEFT arm on its locomotion/idle track during attacking.
  // Without these tracks the arm would fall back to the rig bind pose.
  if(!defending){
-  for(const track of motionUpper.values()){
+  for(const track of new Map([...idleUpper,...motionUpper]).values()){
    if(!isLeftArm(track.name)||upperNames.has(track.name))continue;
    const interp=track.createInterpolant(),value=[];
    for(const t of times)value.push(...interp.evaluate(baseTime(t)));
