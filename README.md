@@ -30,6 +30,9 @@ Todos los modelos y FBX aprobados ya están en las carpetas anteriores, conserva
 ## Etapa 2 — Biblioteca de modelos
 El inventario contiene 18 GLB: 4 casters y 14 props. Ambos editores consumen `assets/manifests/model-library.json` mediante `model-library.js`. La biblioteca del creador de assets muestra los 18; la del creador de escenarios muestra solo los 12 props generales. Las dos variantes `fantasy statue 3d model*.glb` se reservaron para Chiara y Lioren; cuál corresponde a cada uno aún no está asignado. Los editores permiten buscar, filtrar y seleccionar modelos; la previsualización/colocación 3D y el guardado corresponden a etapas posteriores. No se han movido ni modificado binarios originales.
 
+## Etapa 3 — Creador de assets 3D
+El [editor de assets](./asset-editor.html) carga los GLB del catálogo en un visor Three.js real. Permite añadir resplandor, luz puntual, partículas, niebla local y pulsos de energía, con parámetros de color, intensidad, tamaño y posición. El guardado exporta una composición JSON reutilizable; importar permite continuar la edición. [Contrato de composición y publicación segura](./assets/compositions/README.md). **La descarga JSON no publica directamente en GitHub**; se requiere un commit autenticado fuera del navegador. La integración del creador de escenarios queda para la etapa 4.
+
 ## Animaciones
 El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 y 20 excluidos. Solo quedan **17 disponibles**. El rechazo no renumera las animaciones para proteger referencias de código. Las antiguas 04/05 permanecen dentro del ZIP original compartido; las cuatro FBX 17–20 ya habían sido eliminadas.
 
