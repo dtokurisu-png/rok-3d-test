@@ -207,3 +207,25 @@ test('Space fires without loaded animation 02 and Shift guards only while held',
   ctrl.disable();
  }finally{globalThis.document=previousDocument;globalThis.window=previousWindow;}
 });
+
+test('Shift guard blocks real caster damage; releasing Shift restores damage',async()=>{
+ const arena=await read('arena-25d.html');
+ const start=arena.indexOf('function damage(target,value,source,{committed=false}={}){');
+ const end=arena.indexOf('const squareTileGeometry',start);
+ assert.ok(start>0&&end>start);
+ const target={role:'caster',stage:'active',side:'enemy',hp:12,manualDefending:true};
+ const hud={textContent:'',title:''};
+ const create=new Function('canDamageTarget','canAttackSummonTarget','qs',
+  'casterMovement','matchRestartLeft','playCasterDeath',
+  'CASTER_RESTART_DELAY','nameplates','casters',
+  arena.slice(start,end)+'\nreturn damage;');
+ const damage=create(()=>true,()=>true,()=>hud,{caster:target},
+  null,()=>{},1.8,new Map(),[target]);
+ const attacker={role:'caster',side:'ally'};
+ assert.equal(damage(target,1,attacker),true);
+ assert.equal(target.hp,12,'guard must prevent incoming damage');
+ assert.match(hud.textContent,/bloqueado/);
+ target.manualDefending=false;
+ assert.equal(damage(target,1,attacker),true);
+ assert.equal(target.hp,11,'unprotected target takes normal damage');
+});
