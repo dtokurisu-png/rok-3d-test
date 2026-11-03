@@ -33,6 +33,9 @@ El inventario contiene 18 GLB: 4 casters y 14 props. Ambos editores consumen `as
 ## Etapa 3 — Creador de assets 3D
 El [editor de assets](./asset-editor.html) carga los GLB del catálogo en un visor Three.js real. Permite añadir resplandor, luz puntual, partículas, niebla local y pulsos de energía, con parámetros de color, intensidad, tamaño y posición. El guardado exporta una composición JSON reutilizable; importar permite continuar la edición. [Contrato de composición y publicación segura](./assets/compositions/README.md). **La descarga JSON no publica directamente en GitHub**; se requiere un commit autenticado fuera del navegador. La integración del creador de escenarios queda para la etapa 4.
 
+## Etapa 4 — Creador de escenarios 3D
+El [Creador de escenarios](./scene-editor.html) reutiliza la geometría 9 × 18 de la Arena 2.5D y su fondo compartido sin combate ni HUD. Permite añadir los 12 props generales, colocarlos, moverlos con arrastre, rotarlos, escalarlos, duplicarlos y eliminarlos. Acepta composiciones JSON procedentes del creador de assets con efectos y exporta/importa el escenario mediante JSON. [Contrato de escenarios](./assets/scenes/README.md). **No escribe directamente en GitHub desde el navegador**. La integración con el tester es la etapa 5.
+
 ## Animaciones
 El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 y 20 excluidos. Solo quedan **17 disponibles**. El rechazo no renumera las animaciones para proteger referencias de código. Las antiguas 04/05 permanecen dentro del ZIP original compartido; las cuatro FBX 17–20 ya habían sido eliminadas.
 
