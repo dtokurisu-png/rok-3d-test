@@ -133,7 +133,7 @@ export function createViewerCasterMovement({
   loading.set('motion:'+kind,promise);
  }
  async function startAttack(){
-  if(!enabled||!prepared||defending||attackRemaining>0||attackCooldown>0||attackLoading)return false;
+  if(!enabled||!prepared||defending||guardLoading||guards.size>0||attackRemaining>0||attackCooldown>0||attackLoading)return false;
   const st=prepared,ticket=revision;
   attackLoading=true;
   try{
