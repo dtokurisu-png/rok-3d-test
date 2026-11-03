@@ -19,7 +19,7 @@ test('Arena has only the compact lower-right D-pad, no wide Studio bar or activa
  assert.match(css,/#casterMobilityPanel\{[^}]*position:fixed/);
  assert.match(css,/bottom:calc\(77px/);
  assert.match(css,/width:158px/);
- assert.match(html,/v0\.9\.20 · Espacio / Shift/);
+ assert.match(html,/v0\.9\.21 · Ataque / Defensa/);
 });
 
 test('WASD automatically activates and moves before animation loading completes',async()=>{
@@ -113,7 +113,7 @@ test('Caster combat action 02 uses an actual clip and existing ranged projectile
  assert.match(arena,/c\.attackDamage=1/);
  assert.match(loader,/attack:\{name:'Magic Heal\.fbx',id:2\}/);
  assert.match(loader,/death:\{name:'Sword And Shield Death\.fbx',id:8\}/);
- assert.match(loader,/if\(role==='attack'\|\|role==='death'\)/);
+ assert.match(loader,/if\(role==='attack'\|\|role==='death'\|\|role==='defense'\)/);
 });
 test('Caster 08 death playback and match restart do not stop summon animation updates',async()=>{
  const arena=await read('arena-25d.html');
@@ -156,11 +156,54 @@ test('F fires exactly once during clip 02 and does not freeze the animation mixe
  }finally{globalThis.document=oldDoc;globalThis.window=oldWindow;}
 });
 
-test('F is no longer attack; both Shift keys identify defense as pending',async()=>{
+test('F is no longer attack; Shift activates real guard without inventing composite clip',async()=>{
  const [arena,control]=await Promise.all([read('arena-25d.html'),read('caster-mobility.js')]);
  assert.doesNotMatch(control,/KeyF/);
  assert.doesNotMatch(arena,/Ataque · F/);
  assert.match(arena,/Ataque · Espacio/);
  assert.match(arena,/Defensa · Shift/);
- assert.match(control,/Defensa Shift: composición 23 pendiente/);
+ assert.match(control,/setDefense\(true\)/);
+ assert.match(control,/setDefense\(false\)/);
+ assert.match(arena,/if\(target\.manualDefending&&target\.stage==='active'\)/);
+ assert.match(arena,/golpe bloqueado/);
+});
+
+test('Space fires without loaded animation 02 and Shift guards only while held',async()=>{
+ const code=await read('caster-mobility.js');
+ const {createCasterMobility}=await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(code));
+ const handlers={},nodes={};
+ const node=(value='')=>({value,textContent:'',title:'',dataset:{},events:{},
+  addEventListener(name,fn){this.events[name]=fn;},blur(){},setPointerCapture(){}});
+ for(const [id,value] of [['casterMoveSide','ally'],['casterMoveSpeed','2.2'],
+  ['casterMoveSpeedText','2.2'],['casterMoveStatus',''],
+  ['casterAttackButton',''],['casterDefenseButton','']])nodes[id]=node(value);
+ const buttons=['KeyW','KeyA','KeyS','KeyD'].map(k=>{const b=node();b.dataset.moveKey=k;return b;});
+ const previousDocument=globalThis.document,previousWindow=globalThis.window;
+ globalThis.document={getElementById:id=>nodes[id],querySelectorAll:()=>buttons,
+  addEventListener:(type,fn)=>handlers[type]=fn,hidden:false};
+ globalThis.window={addEventListener(){}};
+ const three={LoopOnce:1,LoopRepeat:2,MathUtils:{clamp:(x,lo,hi)=>Math.min(hi,Math.max(lo,x))}};
+ const action={reset(){return this;},setLoop(){return this;},play(){return this;},
+  setEffectiveWeight(){},setEffectiveTimeScale(){},fadeIn(){},fadeOut(){},isRunning(){return true}};
+ const caster={side:'ally',stage:'active',outer:{position:{x:0,z:7.5}},
+  model:{userData:{rokCasterAsset:'Lioren'}},idleClip:{name:'Idle'},
+  mixer:{stopAllAction(){},clipAction(){return action;},update(){}},userData:{}};
+ const key=(code,repeat=false)=>({code,repeat,target:null,preventDefault(){}});
+ let shots=0;
+ try{
+  const ctrl=createCasterMobility({THREE:three,getCaster:()=>caster,
+   prepareClips:()=>new Promise(()=>{}),onModeChange:()=>true,onAttack:()=>{shots++;}});
+  handlers.keydown(key('Space'));
+  for(let i=0;i<17;i++)ctrl.step(.05);
+  assert.equal(shots,1,'Space fires even when FBX02 never completes');
+  handlers.keydown(key('ShiftLeft'));
+  assert.equal(caster.manualDefending,true);
+  handlers.keyup(key('ShiftLeft'));
+  assert.equal(caster.manualDefending,false);
+  nodes.casterDefenseButton.events.pointerdown({pointerId:1,preventDefault(){}});
+  assert.equal(caster.manualDefending,true);
+  nodes.casterDefenseButton.events.pointerup({pointerId:1});
+  assert.equal(caster.manualDefending,false);
+  ctrl.disable();
+ }finally{globalThis.document=previousDocument;globalThis.window=previousWindow;}
 });
