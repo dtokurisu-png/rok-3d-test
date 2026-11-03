@@ -1,6 +1,18 @@
 # R.O.K. 3D Tester — Estado para continuar
 Fecha de última revisión: 2026-11-03
 
+## Estado operativo actualizado — 2026-11-03 · Arena v0.9.27
+
+La lista vigente de trabajos activos y aplazados está guardada por separado en **[PENDIENTES_ROK_3D.md](./PENDIENTES_ROK_3D.md)**. Las listas antiguas de este documento quedan como historial, no como prioridades actuales.
+
+**Confirmado como resuelto por el usuario:** reacción de daño de ambos casters (09), incluyendo supresión visual durante la defensa; priorización base por primer enemigo en alcance real; movilidad WASD, velocidad 3.8, ataque 1 s, alcance 3, escudo frontal y animaciones por capas.
+
+**Etapa 5 implementada en código, pendiente prueba visual de usuario:** Arena ampliada de **9 × 18 a 15 × 30**, con 450 casillas en lugar de 162, 15 filas por jugador, posiciones de aparición en z=±14.5, casters en z=±13.5, cámara adaptada, conversión de casillas, límites de movimiento y evasión ampliados. El fondo decorativo conserva sus controles independientes de porcentaje.
+
+**Orden siguiente:** 6) animaciones compuestas en catálogo del visor; 7) depurar ataque de un brazo y transición; 8) corregir direcciones invertidas; 9) controles de huesos bajo reproductor.
+
+**Aplazados:** colisiones entre invocaciones, ocupación de nexos, aviso de amenaza ¡!; **modos de combate por tipo de carta se implementarán AL FINAL**, como sistema independiente.
+
 ## Lista maestra actualizada — 2026-11-03 · Arena v0.9.26
 
 **Esta lista sustituye las listas parciales anteriores como referencia operativa.** Las secciones históricas que siguen documentan lo ocurrido en cada etapa; pueden contener estados anteriores y no deben interpretarse como el estado actual. «Implementado» significa que existe en el código; «probado por usuario» solo se utiliza cuando existe confirmación expresa. No marcar como completada una animación que no se ha visto funcionar.
