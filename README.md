@@ -42,6 +42,9 @@ La [Arena 2.5D](./arena-25d.html) incluye ahora **Escenario 3D** en Opciones. Pu
 ## Animaciones de casters — Etapa 2 (Inspector universal)
 El [visor de animaciones](./index.html) tiene ahora un inspector universal para el clip activo: adelantar/retroceder fotogramas, elegir muestreo 24/30/60 FPS, ajustar velocidad, marcar inicio/final y exportar intervalos JSON. **No altera los clips originales ni reemplaza el inspector especial de Arquera 10.** Consulta [instrucciones, formato y límites](./docs/UNIVERSAL_FRAME_INSPECTOR.md) y la [auditoría previa](./docs/CASTER_ANIMATION_AUDIT.md).
 
+## Casters — Etapa 4: control manual WASD
+La [Arena 2.5D](./arena-25d.html) incluye un panel en **Opciones → Movilidad**. Permite seleccionar Lioren o Chiara y activar un modo WASD independiente del combate automático: W (07), S (06), A (15), D (16) y reposo `Standing Idle.fbx`, con respaldo al Idle original del GLB. Al activar el modo manual se pausa la simulación autónoma. No se han creado todavía las composiciones de ataque, casteo ni defensa; las definirá el usuario caso por caso. Véase [uso y limitaciones](./docs/CASTER_MANUAL_MOVEMENT.md). **La reproducción real de los FBX y el retarget en navegador todavía requieren comprobación.**
+
 ## Animaciones
 El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 y 20 excluidos. Solo quedan **17 disponibles**. El rechazo no renumera las animaciones para proteger referencias de código. Las antiguas 04/05 permanecen dentro del ZIP original compartido; las cuatro FBX 17–20 ya habían sido eliminadas.
 
