@@ -25,3 +25,13 @@ Comprobaciones de sintaxis y referencias a los archivos de la arena y el control
 - **Shift izquierdo o derecho**: defensa, reservada para la composición 23 definida posteriormente con el usuario; **aún no reduce daño ni reproduce una defensa definitiva**.
 - **F**: sin asignación de ataque.
 - El alcance definitivo del caster no se ha configurado en esta corrección.
+
+## Corrección funcional v0.9.21 — Espacio y Shift
+
+- **Espacio** ejecuta la lógica del ataque desde el primer fotograma, incluso si el FBX 02 no ha terminado de descargarse o falla el retarget. El proyectil sale al 55 % de un tiempo lógico de **0,8 s** si el clip real no está disponible; cuando está cargado, se usa su duración.
+- **Shift izquierdo / derecho mantenido** activa `manualDefending` en el caster seleccionado. Al levantar ambas teclas termina la defensa. El botón compacto **Defensa · Shift** admite mantener pulsado con ratón o dedo.
+- La defensa provisional **bloquea el 100 % del daño entrante** mientras esté activa; esto permite probarla claramente sin decidir aún el balance definitivo. Se evalúa en la función central `damage()`, también para proyectiles comprometidos. Se restablece en cada reinicio/cambio de caster.
+- Si el FBX 23 se adapta, se reproduce provisionalmente durante la defensa. Si no está disponible, el bloqueo **sigue funcionando** sin el clip visual.
+- Defenderse interrumpe un ataque todavía en preparación para evitar disparar mientras se mantiene la guardia.
+- Estas mecánicas de prueba **no son la composición final** de 23 ni el alcance, ventana de guardia, consumo de recursos, reducción definitiva o clips combinados que definirá el usuario.
+- Revisión estática y simulación de eventos de Espacio y Shift completadas; **la comprobación visual en WebGL sigue pendiente**.
