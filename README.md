@@ -48,6 +48,9 @@ En [Animaciones](./index.html), selecciona **Chiara** o **Lioren**, activa **Mov
 ## Casters — Etapa 4: WASD compacto en Arena 2.5D
 La [Arena 2.5D](./arena-25d.html) usa un pad compacto de **cuatro botones en la esquina inferior derecha**, selector pequeño Chiara/Lioren y velocidad. La barra de navegación que cubría toda la parte superior **se eliminó solo del tester**. El movimiento W (07), S (06), A (15), D (16) **se activa automáticamente al pulsar una tecla o mantener un botón**, sin casillas; **el resto del combate y sus animaciones continúan normalmente** durante el control manual (corrección v0.9.18). El desplazamiento comienza aunque los FBX todavía estén cargándose, usando el Idle como respaldo. Soltar vuelve a reposo. El modo manual puede terminarse usando los controles originales de pausa/repetir. [Detalles y límites](./docs/CASTER_MANUAL_MOVEMENT.md). El renderizado y retarget real aún deben probarse en navegador.
 
+## Casters — Etapa 5: ataque manual y muerte
+La [Arena 2.5D](./arena-25d.html) admite el ataque provisional con **F** o el pequeño botón **✦ Ataque · F** debajo del pad WASD. Usa la animación **02** y lanza un proyectil mágico con el motor actual hacia el caster rival (1 daño de prueba). La animación **08** se reproduce al ser derrotado si se adapta correctamente. Los controles y animaciones de las demás unidades permanecen activos. La defensa compuesta **23**, el casteo **21+22** y la composición de daño siguen pendientes hasta recibir los segmentos y máscaras elegidos por el usuario. [Alcance y limitaciones](./docs/CASTER_MANUAL_ATTACK.md).
+
 ## Animaciones
 El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 y 20 excluidos. Solo quedan **17 disponibles**. El rechazo no renumera las animaciones para proteger referencias de código. Las antiguas 04/05 permanecen dentro del ZIP original compartido; las cuatro FBX 17–20 ya habían sido eliminadas.
 
