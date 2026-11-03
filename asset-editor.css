@@ -1,0 +1,32 @@
+/* R.O.K. Asset Composer 0.3 */
+html,body{margin:0;min-height:100%;background:#08121d;color:#ebffff;font:13px system-ui,Arial,sans-serif}
+*{box-sizing:border-box}button,input,select{font:inherit}
+.assetStudio{display:grid;grid-template-columns:minmax(205px,275px) minmax(280px,1fr) minmax(260px,330px);gap:10px;padding:66px 12px 12px;height:100dvh;min-height:520px}
+.assetPanel{min-height:0;background:#0d2331;border:1px solid #2a6570;border-radius:11px;padding:12px;overflow-y:auto;scrollbar-color:#176b72 #0d2331}
+.assetPanel h2{color:#00ffe4;font-size:15px;margin:0 0 12px}
+.assetPanel h3{font-size:12px;color:#c3ece8;margin:14px 0 7px}
+.assetSubtle{color:#a4c3c8;font-size:11px;line-height:1.5}
+.assetFilters{display:flex;gap:5px}.assetFilters input{width:50%;min-width:0;flex:1}.assetFilters select{max-width:112px}
+.assetPanel input:not([type=range]):not([type=color]):not([type=file]),.assetPanel select{min-width:0;border-radius:7px;background:#0a1a27;color:white;border:1px solid #376c76;padding:8px}
+.assetModelList,.effectList{display:flex;flex-direction:column;gap:6px;margin-top:9px}
+.assetModelList{max-height:calc(100dvh - 183px);overflow:auto}
+.assetModelList button,.effectList button{color:#e9fffd;text-align:left;border:1px solid #2d626d;background:#103340;border-radius:7px;padding:9px;cursor:pointer;display:flex;flex-direction:column;gap:4px}
+.assetModelList button[aria-pressed=true],.effectList button[aria-pressed=true]{border-color:#00ffe4;background:#075b56}
+.assetModelList small,.effectList small{color:#a6caca;font-size:10px}
+.assetViewport{position:relative;min-height:0;border-radius:12px;overflow:hidden;border:1px solid #2a6570;background:#0b1b28}
+.assetCanvas{width:100%;height:100%;touch-action:none}.assetCanvas canvas{display:block;width:100%;height:100%}
+.assetViewportTop,.assetViewportBottom{position:absolute;z-index:2;left:9px;right:9px;display:flex;align-items:center;gap:10px;background:#091a25df;padding:9px 10px;border-radius:8px;pointer-events:none}
+.assetViewportTop{top:9px;justify-content:space-between}.assetViewportTop strong{color:#dff}.assetViewportTop span{color:#a5cad0;font-size:11px;text-align:right}
+.assetViewportBottom{bottom:9px;justify-content:flex-start}.assetViewportBottom>*{pointer-events:auto}.assetViewportBottom span{font-size:10px;color:#b2d5d5}
+button{background:#153a44;border:1px solid #2a8180;border-radius:7px;color:#f5ffff;padding:8px 10px;cursor:pointer}
+button:hover{border-color:#00ffe4}button:disabled{opacity:.4;cursor:not-allowed}
+.assetField{display:flex;flex-direction:column;gap:5px;margin:7px 0;flex:1;min-width:0;font-size:11px;color:#bed9db}
+.assetRow{display:flex;align-items:end;gap:8px}.assetRow>button{margin-bottom:7px;flex-shrink:0}
+.assetField input[type=range]{width:100%;accent-color:#00ffe4}
+.assetField input[type=color]{height:35px;min-width:48px;width:100%;padding:0;border:1px solid #376c76;border-radius:6px;background:none}
+.effectControls{margin:10px 0;padding:10px;border:1px solid #31716f;border-radius:9px;background:#0a1c2a}
+.effectControls[hidden]{display:none}
+.assetDanger{border-color:#a64f58;color:#ffc6c6}.assetPrimary{background:#00786f;border-color:#00ffe4}
+.assetActions{display:flex;flex-wrap:wrap;gap:7px}
+@media(max-width:1050px){.assetStudio{grid-template-columns:220px minmax(200px,1fr);grid-template-rows:minmax(330px,1fr) auto;height:auto;min-height:100dvh}.assetEffects{grid-column:1/-1;max-height:none}.assetModels{max-height:550px}.assetViewport{min-height:430px}}
+@media(max-width:650px){.assetStudio{grid-template-columns:1fr;grid-template-rows:auto 390px auto;padding-top:68px}.assetModels{max-height:265px}.assetModelList{max-height:150px}.assetEffects{grid-column:auto}.assetViewport{min-height:390px}.assetViewportBottom span{display:none}}
