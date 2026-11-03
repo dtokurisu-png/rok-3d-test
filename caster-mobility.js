@@ -2,7 +2,7 @@
  * All actions share the original caster mixer and keep the rest of combat live.
  */
 export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
- onModeChange,reviveCaster,onAttack,layers}){
+ onModeChange,reviveCaster,getAttackTarget,onAttack,layers}){
  const $=id=>document.getElementById(id);
  const select=$('casterMoveSide'),speed=$('casterMoveSpeed'),speedText=$('casterMoveSpeedText'),
   status=$('casterMoveStatus'),attackButton=$('casterAttackButton'),defenseButton=$('casterDefenseButton');
@@ -15,6 +15,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
  const ATTACK_PERIOD=1;
  const WALK_SPEED=3.8;
  let priorPlaying=false,attackElapsed=0,attackDuration=0,attackReleased=false,attackCooldown=0;
+ let committedAttackTarget=null;
  let defending=false,shown='';
  const notify=message=>{
   status.textContent=message;status.title=message;
@@ -68,6 +69,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   if(!enabled)return;
   setDefense(false);
   attackDuration=0;attackElapsed=0;attackReleased=false;attackCooldown=0;
+  committedAttackTarget=null;
   if(caster){
    caster.manualDefending=false;
    layers.shield(caster,false);
@@ -88,7 +90,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
    caster.manualDefending=value;
    if(value){
     // Guard supersedes attack, but never suspends leg motion.
-    attackDuration=0;attackReleased=false;
+    attackDuration=0;attackReleased=false;committedAttackTarget=null;
     layers.endUpper(caster,'attack');
     const clip=clips.get('defense')||caster.model?.userData?.rokDefenseClip;
     if(clip)layers.upper(caster,'defense',clip,1.8);
@@ -106,6 +108,11 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   if(!engage())return false;
   const c=caster;
   if(c.stage!=='active'||defending||attackDuration>0||attackCooldown>0)return false;
+  // Validate ON PRESS, not at projectile release. A caster can move away
+  // during wind-up without cancelling the already accepted attack.
+  const target=getAttackTarget?.(c)||null;
+  if(!target){notify('Sin enemigo al alcance · ataque no iniciado');return false;}
+  committedAttackTarget=target;
   const clip=clips.get('attack')||c.model?.userData?.rokAttackClip;
   if(clip?.duration>0)layers.upper(c,'attack',clip,clip.duration/ATTACK_PERIOD);
   attackElapsed=0;attackReleased=false;
@@ -137,10 +144,10 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
    attackElapsed+=dt;
    if(!attackReleased&&attackElapsed>=attackDuration*.55){
     attackReleased=true;
-    onAttack?.(c);
+    onAttack?.(c,committedAttackTarget);
    }
    if(attackElapsed>=attackDuration){
-    attackDuration=0;
+    attackDuration=0;committedAttackTarget=null;
     layers.endUpper(c,'attack');
     notify('WASD · ataque terminado');
    }
