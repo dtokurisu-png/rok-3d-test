@@ -6,7 +6,7 @@
  */
 export function createViewerCasterMovement({
  getCharacter,getModel,getMixer,ensureClip,getClip,ensureIdle,
- getActionClip,makeLayers,onMessage
+ getActionClip,makeLayers,playIdle,onMessage
 }){
  const $=id=>document.getElementById(id);
  const toggle=$('viewerMoveEnable'),status=$('viewerMoveStatus');
@@ -55,10 +55,12 @@ export function createViewerCasterMovement({
    previous.layers.endUpper(previous.caster);
    previous.layers.reset(previous.caster);
    previous.mixer.stopAllAction();
-   if(previous.idle)previous.mixer.clipAction(previous.idle).reset().play();
    if(previous.model===getModel()){
     if(originalPosition)previous.model.position.copy(originalPosition);
     if(originalRotation!==null)previous.model.rotation.y=originalRotation;
+    // Return control to the original viewer/player and its frame inspector.
+    if(playIdle)playIdle(previous.idle);
+    else if(previous.idle)previous.mixer.clipAction(previous.idle).reset().play();
    }
   }
   originalPosition=null;originalRotation=null;
