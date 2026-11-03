@@ -1250,7 +1250,7 @@ async function loadArcherModel(forceReload=false){
   if(archerModel&&!forceReload)return archerModel;
   // Archivo GLB ORIGINAL publicado por el usuario en la raíz del repo.
   // No reutilizar el FBX antiguo: fue eliminado del repositorio.
-  const glbUrl='./ARQUERA%20DEL%20DECIERTO%20GLTF.glb';
+  const glbUrl='./assets/models/casters/arquera/ARQUERA%20DEL%20DECIERTO%20GLTF.glb';
   characterInfo.textContent='Descargando la última Arquera GLB publicada…';
   let gltf,receivedBytes=0;
   try{
@@ -1324,7 +1324,7 @@ async function loadNewCaster(character){
   if(newCasterModels.has(character))return newCasterModels.get(character);
   const filename=character==='chiara'?'chiara kaster.glb':character==='lioren'?'lioren kaster.glb':null;
   if(!filename)throw Error('Modelo desconocido');
-  const gltf=await new GLTFLoader().loadAsync('./'+encodeURIComponent(filename));
+  const gltf=await new GLTFLoader().loadAsync('./assets/models/casters/'+character+'/'+encodeURIComponent(filename));
   const group=new THREE.Group();group.add(gltf.scene);
   const box=new THREE.Box3().setFromObject(group);
   if(box.isEmpty())throw Error('Modelo vacío');
@@ -1647,7 +1647,7 @@ async function loadNewAnimation(row,playAfter=false){
   try{
     let buffer=newAnimationBuffers.get(row.name);
     if(!buffer){
-      const response=await fetch('./'+encodeURIComponent(row.name),{cache:'force-cache'});
+      const response=await fetch('./assets/animations/casters/shared/'+encodeURIComponent(row.name),{cache:'force-cache'});
       if(!response.ok)throw Error('HTTP '+response.status);
       buffer=await response.arrayBuffer();
       newAnimationBuffers.set(row.name,buffer);
@@ -1682,7 +1682,7 @@ async function preloadNewAnimationsForCharacter(){
 async function preloadRepoAnimations(){
   if(!model)return;
   // El archivo de GitHub es un ZIP contenedor con el pack Mixamo dentro.
-  const candidates=['./ROK_PUBLICAR_ANIMACIONES.zip',
+  const candidates=['./assets/animations/casters/farolera/ROK_PUBLICAR_ANIMACIONES.zip',
     './animations/Farolera_Mixamo_14_animaciones.zip',
     './assets/Farolera_Mixamo_14_animaciones.zip'];
   for(const url of candidates){
@@ -1785,7 +1785,7 @@ document.querySelector('#animFiles').addEventListener('change',async e=>{
   }
 });
 renderAnimList();renderSelection();
-new GLTFLoader().load('./chiara_idle.glb',g=>{model=g.scene;faroleraModel=model;scene.add(model);modelBaseZ=model.position.z;shakeButton.disabled=false;let meshes=0,bones=0;model.traverse(o=>{if(o.isMesh){meshes++;originalMaterials.set(o,o.material);o.frustumCulled=false;}if(o.isBone)bones++;});if(g.animations.length){mixer=new THREE.AnimationMixer(model);
+new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',g=>{model=g.scene;faroleraModel=model;scene.add(model);modelBaseZ=model.position.z;shakeButton.disabled=false;let meshes=0,bones=0;model.traverse(o=>{if(o.isMesh){meshes++;originalMaterials.set(o,o.material);o.frustumCulled=false;}if(o.isBone)bones++;});if(g.animations.length){mixer=new THREE.AnimationMixer(model);
 idleOriginal=g.animations[0];faroleraIdle=idleOriginal;
 activeAction=mixer.clipAction(idleOriginal).play();
 mixer.update(0);setupArmTuning();setupLantern();setupGroundAnchor();toggle.disabled=false;
