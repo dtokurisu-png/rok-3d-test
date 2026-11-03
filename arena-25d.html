@@ -99,7 +99,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.27 · Arena 15×30</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.28 · Escudo sin duplicados</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -3038,6 +3038,10 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
       model.userData.baseY=-bounds.min.y*scale;
       model.position.y=model.userData.baseY;
       model.traverse(o=>{if(o.isMesh)o.frustumCulled=false;});
+      // A provisional rig may have been guarding while the GLB loaded.
+      // Release it and hide its shield before replacing the model.
+      if(casterMovement?.caster===caster)casterMovement.disable();
+      casterLayers.shield(caster,false);
       caster.outer.remove(caster.model);
       caster.mixer.stopAllAction();
       caster.model=model;caster.outer.add(model);
