@@ -4,9 +4,9 @@
 export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onModeChange,reviveCaster,onAttack}){
  const $=id=>document.getElementById(id);
  const select=$('casterMoveSide'),speed=$('casterMoveSpeed'),speedText=$('casterMoveSpeedText'),
-  status=$('casterMoveStatus'),attackButton=$('casterAttackButton');
+  status=$('casterMoveStatus'),attackButton=$('casterAttackButton'),defenseButton=$('casterDefenseButton');
  const buttons=[...document.querySelectorAll('#casterMobilityPanel [data-move-key]')];
- if(!select||!speed||!speedText||!status||!attackButton||buttons.length!==4)
+ if(!select||!speed||!speedText||!status||!attackButton||!defenseButton||buttons.length!==4)
   throw Error('Faltan botones o control de velocidad WASD');
  const directions={KeyW:'forward',KeyS:'backward',KeyA:'left',KeyD:'right'};
  const held=new Set(),clips=new Map();
@@ -148,9 +148,14 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   c.mixer.update(dt);
  }
  function inputKey(event,down){
-  if(event.code==='KeyF'){
+  if(event.code==='Space'){
+   if(down&&event.target?.closest?.('textarea,select,[contenteditable="true"],input:not([type="range"])'))return;
    if(down&&!event.repeat)startAttack();
    event.preventDefault();return;
+  }
+  if(event.code==='ShiftLeft'||event.code==='ShiftRight'){
+   if(down&&!event.repeat)notify('Defensa Shift: composición 23 pendiente');
+   return;
   }
   if(!Object.hasOwn(directions,event.code))return;
   if(down&&event.target?.closest?.('textarea,select,[contenteditable="true"],input:not([type="range"])'))return;
@@ -175,6 +180,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   button.addEventListener('lostpointercapture',release);
  }
  attackButton.addEventListener('click',()=>{attackButton.blur();startAttack();});
+ defenseButton.addEventListener('click',()=>{defenseButton.blur();notify('Defensa Shift: composición 23 pendiente');});
  window.addEventListener('blur',clearKeys);
  document.addEventListener('visibilitychange',()=>{if(document.hidden)clearKeys();});
  select.addEventListener('change',()=>{stop();select.blur();});
