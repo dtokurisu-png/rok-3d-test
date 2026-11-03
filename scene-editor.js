@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {createSceneBackground,normalizeSceneBackground} from './scene-background.js';
 import {ARENA_COLUMNS,ARENA_ROWS,SCENERY_BOUNDS,footprint,
  placeOutsidePlayable,assertPlacement,validPlacement} from './scene-placement-rules.js';
 
@@ -70,6 +71,45 @@ const outsideGround=new THREE.Mesh(new THREE.PlaneGeometry(
 outsideGround.rotation.x=-Math.PI/2;outsideGround.position.y=-.005;scene.add(outsideGround);
 scene.add(border);
 const level=new THREE.Group();scene.add(level);
+// Environmental shell is a separate visual layer, never a movable prop or collider.
+const environment=createSceneBackground(THREE,{onStatus:status});
+scene.add(environment.group);
+function backgroundInputs(){
+ return {
+  enabled:$('sceneBackgroundEnabled').checked,type:'gothic-vault',
+  width:$('sceneBackgroundWidth').value,
+  height:$('sceneBackgroundHeight').value,
+  archRise:$('sceneBackgroundArch').value,
+  texture:$('sceneBackgroundTexture').value
+ };
+}
+function showBackgroundFields(config){
+ const c=normalizeSceneBackground(config);
+ $('sceneBackgroundEnabled').checked=c.enabled;
+ $('sceneBackgroundWidth').value=String(c.width);
+ $('sceneBackgroundWidthValue').textContent=String(c.width);
+ $('sceneBackgroundLengthValue').textContent=String(c.length);
+ $('sceneBackgroundHeight').value=String(c.height);
+ $('sceneBackgroundArch').value=String(c.archRise);
+ $('sceneBackgroundTexture').value=c.texture;
+}
+function applyBackground(){
+ try{
+  const cfg=normalizeSceneBackground(backgroundInputs());
+  environment.build(cfg);showBackgroundFields(cfg);
+  status('Background: '+cfg.width+' × '+cfg.length+
+   ' · paredes '+cfg.height+' · arco '+cfg.archRise);
+ }catch(error){status('Background: '+error.message);}
+}
+$('sceneBackgroundWidth').addEventListener('input',()=>{
+ $('sceneBackgroundWidthValue').textContent=$('sceneBackgroundWidth').value;
+ $('sceneBackgroundLengthValue').textContent=String(Number($('sceneBackgroundWidth').value)*2);
+});
+$('sceneBackgroundEnabled').addEventListener('change',()=>{
+ environment.show($('sceneBackgroundEnabled').checked);
+});
+$('sceneBackgroundApply').addEventListener('click',applyBackground);
+showBackgroundFields(environment.config);
 const pointer=new THREE.Vector2(),raycaster=new THREE.Raycaster(),groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const hitPoint=new THREE.Vector3();
 const modelCatalog=new Map(),cache=new Map(),compositions=new Map();
@@ -317,7 +357,7 @@ function sceneDocument(){
   const middle=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());
   assertPlacement(middle.x,middle.z,size.x/2,size.z/2);
  }
- return {schemaVersion:1,kind:'rok3d.scene',name:$('sceneName').value.trim().slice(0,70)||'Escenario',arena:{columns:W,rows:D},objects:objects.map(serializeObject)};
+ return {schemaVersion:1,kind:'rok3d.scene',name:$('sceneName').value.trim().slice(0,70)||'Escenario',arena:{columns:W,rows:D},background:normalizeSceneBackground(backgroundInputs()),objects:objects.map(serializeObject)};
 }
 function downloadJSON(obj){
  const name=(obj.name||'escenario').normalize('NFKD').replace(/[^a-z0-9 _-]/gi,'').trim().replace(/\s+/g,'-').toLowerCase().slice(0,55)||'escenario';
@@ -329,7 +369,7 @@ $('sceneSave').addEventListener('click',()=>{
  try{downloadJSON(sceneDocument());status('Escenario JSON descargado · cuadrícula jugable despejada');}
  catch(error){status('No se pudo guardar: '+error.message);}
 });
-$('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear un escenario nuevo y descartar los cambios sin exportar?'))return;removeAll();$('sceneName').value='Nuevo escenario';status('Escenario vacío');});
+$('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear un escenario nuevo y descartar los cambios sin exportar?'))return;removeAll();$('sceneName').value='Nuevo escenario';environment.build();showBackgroundFields(environment.config);status('Escenario vacío');});
 $('sceneOpen').addEventListener('click',()=>$('sceneFile').click());
 async function readJSONFile(file){
  if(!file||file.size>500000)throw Error('Archivo JSON ausente o demasiado grande');
@@ -344,13 +384,13 @@ function verifyScene(json){
   if(!Array.isArray(raw.effects)||raw.effects.length>40)throw Error('Lista de efectos inválida');
   result.push({id:newId(),modelId:raw.modelId,name:String(raw.name||model.name).slice(0,70),compositionId:raw.compositionId?String(raw.compositionId).slice(0,70):null,effects:raw.effects.map(cleanFx),x:num(raw.x,-SCENERY_BOUNDS.halfWidth,SCENERY_BOUNDS.halfWidth),y:num(raw.y,-10,20),z:num(raw.z,-SCENERY_BOUNDS.halfDepth,SCENERY_BOUNDS.halfDepth),rotation:num(raw.rotation,-3600,3600),scale:num(raw.scale,.05,5,1)});
  }
- return {name:String(json.name||'Escenario').slice(0,70),objects:result};
+ return {name:String(json.name||'Escenario').slice(0,70),background:normalizeSceneBackground(json.background||{}),objects:result};
 }
 $('sceneFile').addEventListener('change',async e=>{
  const file=e.target.files?.[0];e.target.value='';if(!file)return;
  try{
   const next=verifyScene(await readJSONFile(file));
-  removeAll();$('sceneName').value=next.name;
+  removeAll();$('sceneName').value=next.name;environment.build(next.background);showBackgroundFields(environment.config);
   const generation=loadGeneration;
   let adjusted=0,omitted=0;
   for(const data of next.objects){
