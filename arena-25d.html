@@ -1322,51 +1322,35 @@ function canAttackSummonTarget(attacker,target){
   if(lockedAttacker&&lockedAttacker!==target)return false;
   return true;
 }
-// Defender al caster si una invocación enemiga LIBRE amenaza atacarlo;
-// si no hay un enemigo libre, avanzar contra el caster rival.
+// Prioridad base: el primer rival que entra realmente al alcance.
+ // Sin un rival a rango, avanzar hacia el caster enemigo, SIN reservar ni
+ // perseguir una invocación remota que acaba de aparecer.
 function selectCombatTarget(c){
   if(!c||c.role!=='summon'||!canDamageTarget(c))return null;
-  const enemyCaster=casters.find(o=>o.side!==c.side);
-  if(!enemyCaster||!canDamageTarget(enemyCaster))return null;
+  const enemyCaster=casters.find(other=>other.side!==c.side&&canDamageTarget(other));
+  if(!enemyCaster)return null;
+  const distanceTo=other=>Math.hypot(
+    other.outer.position.x-c.outer.position.x,
+    other.outer.position.z-c.outer.position.z);
+  const withinRange=other=>distanceTo(other)<=c.range+.005;
   const assigned=currentSummonDuel(c);
-  if(assigned)return assigned; // Mantener el duelo, incluso durante aturdimiento.
-  if(c.stage==='stunned')return null; // No reservar duelos nuevos estando aturdida.
-  const ownCaster=casters.find(o=>o.side===c.side);
-  const here=c.outer.position;
-  const distanceTo=e=>Math.hypot(
-    e.outer.position.x-here.x,e.outer.position.z-here.z
-  );
-  const available=combatants.filter(e=>
-    e.side!==c.side&&canDamageTarget(e)&&!currentSummonDuel(e)
-  );
-  const threats=ownCaster&&ownCaster.stage==='active'?
-    available.filter(e=>Math.hypot(
-      e.outer.position.x-ownCaster.outer.position.x,
-      e.outer.position.z-ownCaster.outer.position.z
-    )<=e.range+.25):[];
-  let selected=null;
-  if(threats.length){
-    threats.sort((a,b)=>{
-      const da=Math.hypot(
-        a.outer.position.x-ownCaster.outer.position.x,
-        a.outer.position.z-ownCaster.outer.position.z
-      );
-      const db=Math.hypot(
-        b.outer.position.x-ownCaster.outer.position.x,
-        b.outer.position.z-ownCaster.outer.position.z
-      );
-      return da-db||distanceTo(a)-distanceTo(b);
-    });
-    selected=threats[0];
-  }else{
-    const candidates=[...available,enemyCaster];
-    candidates.sort((a,b)=>distanceTo(a)-distanceTo(b)||
-      (a.role==='caster'?1:0)-(b.role==='caster'?1:0));
-    selected=candidates[0]||null;
+  // Preserve one-on-one combat while the two opponents are actually engaged.
+  if(assigned&&withinRange(assigned))return assigned;
+  if(assigned&&c.stage!=='casting')releaseSummonDuel(c);
+  if(c.stage==='stunned')return null;
+
+  // Never acquire a distant summon. Both casters and summons are eligible
+  // strictly according to physical distance, not spawn order or role.
+  const inRange=[...combatants,...casters].filter(other=>
+    other.side!==c.side&&canDamageTarget(other)&&withinRange(other)&&
+    (other.role!=='summon'||!currentSummonDuel(other)));
+  inRange.sort((a,b)=>distanceTo(a)-distanceTo(b));
+  for(const target of inRange){
+    if(target.role!=='summon'||reserveSummonDuel(c,target))return target;
   }
-  if(selected?.role==='summon'&&!reserveSummonDuel(c,selected))
-    return enemyCaster;
-  return selected;
+  // No enemy in weapon range: navigate to rival caster as a DESTINATION.
+  // This is not an acquired enemy to attack until the caster comes in range.
+  return enemyCaster;
 }
 let loaded=false,playing=true,tm=0,prevTime=performance.now();
 const CASTER_RESTART_DELAY=1.8; // Mostrar victoria/derrota antes de reiniciar.
