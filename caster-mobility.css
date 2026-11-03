@@ -37,3 +37,9 @@
  color:#f3ffff;font-size:11px;font-weight:700;background:#134b51;
  border:1px solid #32a89e;border-radius:6px;cursor:pointer}
 #casterAttackButton:active{background:#008c78;border-color:#00ffe4}
+
+#casterMobilityPanel .casterActionButtons{display:flex;gap:4px;margin-top:5px}
+#casterMobilityPanel .casterActionButtons button{flex:1;min-width:0;padding:6px 2px;
+ font-size:9px;font-weight:700;color:#eaffff;border-radius:6px;cursor:pointer}
+#casterDefenseButton{background:#293947;border:1px solid #778a99}
+#casterDefenseButton:active{background:#3e566c}
