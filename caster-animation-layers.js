@@ -23,7 +23,7 @@ export function createCasterLayerSystem(THREE){
   let st=states.get(c.model);
   if(st)return st;
   st={model:c.model,clips:{idle:c.idleClip},cache:new WeakMap(),movement:null,
-   lowerAction:null,upperAction:null,overlay:null,overlayKind:null,
+   lowerAction:null,upperAction:null,overlay:null,overlayKind:null,refreshBase:false,
    overlayClip:null,shield:null,hitAction:null};
   states.set(c.model,st);return st;
  }
@@ -54,11 +54,12 @@ export function createCasterLayerSystem(THREE){
  function register(c,clips){
   const st=state(c);
   st.clips={...st.clips,...Object.fromEntries(Object.entries(clips||{}).filter(([k,v])=>k!=='_unavailable'&&v))};
+  st.refreshBase=true;
   return st;
  }
  function movement(c,kind){
   const st=state(c);
-  if(st.movement===kind)return;
+  if(st.movement===kind&&!st.refreshBase)return;
   const source=st.clips[kind]||st.clips.idle||c.idleClip;
   if(!source)return;
   if(st.movement===null){
@@ -68,7 +69,7 @@ export function createCasterLayerSystem(THREE){
   const upperClip=prepared(st,source,'upper');
   if(lowerClip)st.lowerAction=switchAction(c,st.lowerAction,lowerClip);
   if(!st.overlayKind&&upperClip)st.upperAction=switchAction(c,st.upperAction,upperClip);
-  st.movement=kind;
+  st.movement=kind;st.refreshBase=false;
  }
  function upper(c,kind,source,speed=1){
   const st=state(c);
@@ -157,7 +158,7 @@ export function createCasterLayerSystem(THREE){
   if(!st)return;
   shield(c,false);cancelHit(c);
   st.lowerAction=null;st.upperAction=null;st.overlay=null;st.overlayKind=null;
-  st.movement=null;
+  st.movement=null;st.refreshBase=false;
  }
  return {register,movement,upper,endUpper,shield,hit,cancelHit,reset};
 }
