@@ -1,27 +1,38 @@
-# rok-3d-test
+# R.O.K. 3D — Tester y organización de recursos
 
-R.O.K. — tester original con dos vistas: [Visor de animaciones 3D](./index.html) y [Arena 2.5D](./arena-25d.html).
+El proyecto conserva sus dos páginas originales: [Visor de animaciones 3D](./index.html) y [Arena 2.5D](./arena-25d.html).
 
-## Visor original de animaciones
-- Desplegable: **Farolera, Arquera del Desierto, Chiara y Lioren**.
-- **Un solo catálogo numerado de 23 animaciones**: las 14 anteriores mantienen índices 01–14 y las nueve FBX subidas se añaden como 15–23, con los nombres originales, incluidas las variantes «(1)», «(2)» y «(3)».
-- Las FBX nuevas se descargan automáticamente desde las rutas del repositorio al preparar el modelo. El catálogo distingue **✓ cargada y reproducible**, **☁ publicada en GitHub, por cargar**, **… descargando**, y **⚠ error de adaptación**.
-- En las nueve filas nuevas se puede elegir Conservar / Descartar / Sin elegir. Esa decisión es **independiente** de la carga del archivo y se recuerda temporalmente por modelo durante la sesión. **Exportar selección JSON** permite enviarla para su registro en GitHub.
-- No existe ya un panel separado de nuevas animaciones ni un módulo opcional externo de revisión.
+## Estructura de recursos efectiva
+```text
+assets/
+  models/
+    casters/
+      farolera/chiara_idle.glb
+      arquera/ARQUERA DEL DECIERTO GLTF.glb
+      chiara/chiara kaster.glb
+      lioren/lioren kaster.glb
+    props/
+      arcane-temple/             # 9 modelos decorativos GLB
+  animations/
+    casters/
+      farolera/ROK_PUBLICAR_ANIMACIONES.zip
+      shared/                    # 5 animaciones FBX conservadas
+  manifests/
+    asset-paths.json            # inventario y hashes de 19 activos
+    caster-animations.json      # catálogo con variantes aprobadas/rechazadas
+```
 
-## Arena
-El tester de [arena 2.5D](./arena-25d.html) conserva su combate, los casters y las herramientas de prueba que ya existían. El **HUD definitivo de jugador sigue pendiente**: el HUD inicial de Spellbook pertenece a R.O.K. Lite, no al tester.
+Todos los modelos y FBX aprobados ya están en las carpetas anteriores, conservando sus nombres de origen. Las rutas del visor y de la arena, el archivo JSON de Farolera y el iniciador local PowerShell se actualizaron para usar las rutas canónicas.
 
-## Organización
-- [Inventario Git y hashes de FBX](./assets/manifests/caster-animations.json)
-- [Plan de recursos](./docs/ASSET_ORGANIZATION.md)
-- [Estado de implementación](./docs/DEVELOPMENT_STATUS.md)
+**Compatibilidad:** la raíz conserva por ahora alias de los cuatro GLB de personajes, cinco FBX y ZIP Mixamo hasta que la carga se haya comprobado visualmente en todas las pantallas. Los nueve GLB decorativos se trasladaron y se retiraron de la raíz tras verificar que no estaban referidos por las páginas.
 
-No se borraron los GLB, FBX o animaciones antiguas. **Sintaxis JS verificada; reproducción en navegador/retarget GLB necesita prueba visual.**
+## Animaciones
+El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 y 20 excluidos. Solo quedan **17 disponibles**. El rechazo no renumera las animaciones para proteger referencias de código. Las antiguas 04/05 permanecen dentro del ZIP original compartido; las cuatro FBX 17–20 ya habían sido eliminadas.
 
-## Depuración de animaciones — 2026-11-03
-- El usuario descartó exclusivamente las animaciones **04, 05, 17, 18, 19 y 20**: carrera diagonal hacia atrás. **La 03 sigue conservada**.
-- El catálogo del visor 3D muestra ahora **17 entradas seleccionables** y conserva los índices originales (sin renumerar las restantes, por compatibilidad con la lógica de animaciones).
-- La arena 2.5D filtra las cuatro variantes nuevas descartadas según el manifiesto.
-- Los cuatro archivos FBX individuales 17–20 se eliminaron del repositorio. Las animaciones 04 y 05 permanecen físicamente dentro del ZIP compartido de animaciones antiguas, para no romper las demás; el visor las omite al cargar, mostrar y reproducir.
-- El manifiesto `assets/manifests/caster-animations.json` registra los rechazos para auditoría. Reversible mediante historial de Git.
+## Documentación y revisión
+- [Inventario canónico de recursos](./assets/manifests/asset-paths.json)
+- [Reglas de organización y migración](./docs/ASSET_ORGANIZATION.md)
+- [Progreso y pendientes](./docs/DEVELOPMENT_STATUS.md)
+- [R.O.K. Lite](https://github.com/dtokurisu-png/rok-lirte-html) mantiene su migración de imágenes independiente.
+
+**Validado estáticamente:** rutas nuevas presentes, SHA idénticos a los de origen al copiar, y sintaxis JavaScript del visor/arena correcta. **Pendiente:** ejecución WebGL y comprobación visual desde el navegador.
