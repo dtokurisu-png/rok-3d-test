@@ -5,6 +5,7 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
   idle:{path:'assets/animations/casters/shared/Standing Idle.fbx',id:'standing-idle'},
   attack:{name:'Magic Heal.fbx',id:2},
   death:{name:'Sword And Shield Death.fbx',id:8},
+  defense:{path:'assets/animations/casters/shared/Sword And Shield Impact.fbx',id:23},
   backward:{name:'Running Backward.fbx',id:6},
   forward:{name:'Running.fbx',id:7},
   left:{path:'assets/animations/casters/shared/Right Strafe.fbx',id:15},
@@ -52,7 +53,7 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
      // A missing FBX must never prevent the user from moving the caster.
      // The model can still translate with Idle until a compatible clip is available.
      result._unavailable.push(String(def.id));
-     if(role==='attack'||role==='death'){
+     if(role==='attack'||role==='death'||role==='defense'){
       // Never replace a combat action with Idle and pretend the correct clip played.
       result[role]=null;
      }else{
@@ -65,6 +66,7 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
     // retarget tasks must not delay attack or death playback.
     if(role==='attack')model.userData.rokAttackClip=result.attack||null;
     if(role==='death')model.userData.rokDeathClip=result.death||null;
+    if(role==='defense')model.userData.rokDefenseClip=result.defense||null;
     if(role==='idle'){
      caster.idleClip=result.idle;
      const controller=getManualController();
