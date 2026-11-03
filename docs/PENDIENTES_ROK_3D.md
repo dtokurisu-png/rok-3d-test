@@ -14,7 +14,7 @@ Actualizado: 2026-11-03. Estos trabajos se posponen deliberadamente y **no deben
 - [x] **5. Ampliar arena 9 × 18 → 15 × 30** — implementada en Arena v0.9.27; pendiente validación visual WebGL por el usuario.
 - [x] **6. Incluir animaciones compuestas en el catálogo existente del visor** — implementadas en código las entradas 24–33: cinco de ataque violeta y cinco de defensa azul, clips combinados de piernas/torso generados en memoria y reproducibles con el inspector existente. **Pendiente validación visual con los GLB reales del usuario**.
 - [x] **7. Depurar el ataque compuesto del visor (24–28)** — implementado en código: ataque 02 desde fotograma 13 (30 FPS), entrada y recuperación suaves de 0.20 s, sin pistas de ataque en el brazo izquierdo (conserva locomoción/idle). **Pendiente aprobación visual de ambos GLB**.
-- [ ] **8. Corregir desplazamiento invertido en el visor** en los ejes adelante/atrás y derecha/izquierda.
+- [x] **8. Controles completos del visor y desplazamientos corregidos** — implementado en el visor v0.5.26: WASD a 3.8, orientación uniforme de avance, inversión lateral de los clips 15/16 corregida, Espacio para ataque compuesto y Shift mantenido para defensa por capas. **Solo animaciones**, sin proyectiles, escudo FX ni daño; reutiliza clips ya cargados y prepara los faltantes bajo demanda. Pendiente comprobación visual con Chiara y Lioren.
 - [ ] **9. Controles universales de huesos bajo el reproductor**: hombros, brazos, antebrazos, muñecas/manos, torso, cabeza, muslos, pantorrillas y pies; corrección por animación y guardado explícito.
 
 ## Completado previamente
