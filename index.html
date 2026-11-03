@@ -56,7 +56,7 @@
 .attackAxes input[type=range]{width:100%}
 </style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Visor de animaciones 3D <span style="font-size:12px;color:#ffdb76">v0.5.25</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.25 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.25: Standing 13 de Arquera corregida al calibrar el último fotograma (de pie), sin enderezar indebidamente la primera postura de incorporación. El resto de las animaciones, ángulos de ataque, Farolera y vínculos de armas permanecen intactos.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled style="display:none">Cambiar a Arquera del Desierto</button><select id="casterDropdown" disabled aria-label="Modelo 3D" style="background:#123b43;color:white;border:1px solid #00bdaa;border-radius:7px;padding:9px"><option value="farolera">Farolera</option><option value="archer">Arquera del Desierto</option><option value="chiara">Chiara · Kaster</option><option value="lioren">Lioren · Kaster</option></select><button id="archerRestPose" type="button">Ver pose original</button><button id="archerReload" type="button" style="display:none">Recargar Arquera (GitHub)</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 23</h3>
-<p>Las 14 originales conservan su numeración. Las nueve nuevas (15–23) se encuentran en GitHub y se cargan automáticamente para cada modelo. ✓ = reproducible · ☁ = disponible en el repo · ⚠ = error. «Elegir» significa conservar, no cargar.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
+<p>Las 14 originales conservan su numeración. Las nueve nuevas (15–23) YA ESTÁN EN GITHUB. Se cargan automáticamente al seleccionar un modelo. «✓ GitHub» confirma que existe el archivo; «✓ Lista» confirma que su animación está preparada para reproducir; «⚠ Error» indica un problema de lectura o compatibilidad, no que falte el archivo. «Elegir» marca qué animaciones quieres conservar.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
 <div id="rightArmTuning">
 <strong>Farolera · animación 12 original · ajuste manual</strong>
@@ -288,7 +288,7 @@ const faroleraRoles={
 };
 const candidateRoles={3:'Candidata: lanzamiento del farol'};
 const animationRows=animCatalog.map((name,index)=>({
-  index:index+1,name,clip:null,status:index<14?'pending':'repo',details:'',
+  index:index+1,name,clip:null,status:index<14?'pending':'available',details:'',
   source:index<14?'pack':'repository',
   keep:!!faroleraRoles[index+1],
   role:faroleraRoles[index+1]?'farolera':candidateRoles[index+1]?'candidate':'other'
@@ -805,13 +805,18 @@ function renderAnimList(){
       play.append(tag);
     }
     play.title=row.details||(row.source==='repository'?
-      'FBX en GitHub: pulsa para cargar y reproducir':'Carga el ZIP para reproducir');
+      'Archivo FBX ya publicado en GitHub. Pulsa para reproducirlo.':
+      'Animación del paquete original.');
     play.addEventListener('click',()=>{
       if(row.clip)playAnimation(row.index);
       else if(row.source==='repository')void loadNewAnimation(row,true);
     });
     const state=document.createElement('span');state.className='animNo';
-    state.textContent=row.status==='error'?'⚠':row.clip?'✓':row.status==='loading'?'…':row.source==='repository'?'☁':'—';
+    state.textContent=row.status==='error'?'⚠ Error':row.clip?'✓ Lista':row.status==='loading'?'… Cargando':row.source==='repository'?'✓ GitHub':'—';
+    state.title=row.source==='repository'?
+      (row.status==='error'?'Existe en GitHub, pero no se pudo adaptar a este modelo':
+       row.clip?'Reproducción preparada':'Archivo existente en GitHub; se prepara al cargar el modelo'):
+      (row.clip?'Animación preparada':'Pendiente de cargar el pack original');
     const keep=document.createElement('label');keep.className='animKeep';
     const check=document.createElement('input');
     check.type='checkbox';check.checked=row.keep;
@@ -1127,7 +1132,7 @@ function restoreCharacterClips(character){
   for(let i=0;i<animationRows.length;i++){
     const snapshot=stored?.[i];
     animationRows[i].clip=snapshot?.clip||null;
-    animationRows[i].status=snapshot?.status||(animationRows[i].source==='repository'?'repo':'pending');
+    animationRows[i].status=snapshot?.status||(animationRows[i].source==='repository'?'available':'pending');
     animationRows[i].details=snapshot?.details||'';
   }
   renderAnimList();
@@ -1520,7 +1525,7 @@ async function loadNewAnimation(row,playAfter=false){
   if(row.clip){if(playAfter)playAnimation(row.index);return;}
   if(row.status==='loading')return;
   const selected=currentCharacter;
-  row.status='loading';row.details='Descargando FBX desde GitHub…';renderAnimList();
+  row.status='loading';row.details='Archivo en GitHub · cargando y adaptando para '+selected+'…';renderAnimList();
   try{
     let buffer=newAnimationBuffers.get(row.name);
     if(!buffer){
