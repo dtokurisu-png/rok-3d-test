@@ -108,7 +108,7 @@ test('compact Arena controls and live combat are unchanged',async()=>{
  assert.match(arena,/id="casterDefenseButton"/);
  assert.match(arena,/if\(loaded&&playing&&!casterReview\.active\)updateDuel\(dt\)/);
  assert.match(arena,/if\(loaded&&casterMovement\?\.enabled\)casterMovement\.step\(dt\)/);
- assert.match(arena,/v0\.9\.24 · Alcance 3/);
+ assert.match(arena,/v0\.9\.25 · Alcance reparado/);
  for(const [path,id] of [['Magic Heal.fbx',2],['Sword And Shield Impact.fbx',23],
   ['Standing React Small From Headshot.fbx',9],['Sword And Shield Death.fbx',8]])
   assert.ok(loader.includes(path)&&loader.includes('id:'+id),path);
@@ -311,4 +311,22 @@ test('Space validates range once on press and retains target after moving out',a
   assert.equal(checks,2,'never recheck range at release');
   ctl.disable();
  }finally{ui.restore();}
+});
+
+test('range indicator updates while selected caster stands idle; no WASD activation required',async()=>{
+ const arena=await read('arena-25d.html');
+ assert.match(arena,/const side=qs\('#casterMoveSide'\)\.value/);
+ assert.match(arena,/const selectedCaster=casters\.find\(c=>c\.side===side\)/);
+ assert.match(arena,/if\(c===selectedCaster\)casterRangeIndicator\.update\(c,/);
+ assert.doesNotMatch(arena,/const controlled=casterMovement\?\.enabled\?casterMovement\.caster:null/);
+});
+
+test('accepted range-three caster spell keeps target and resolves impact after movement',async()=>{
+ const arena=await read('arena-25d.html');
+ assert.match(arena,/launchSpell\(c,lockedTarget,\{manualCasterShot:true\}\)/);
+ assert.match(arena,/function launchSpell\(attacker,target,\{manualCasterShot=false\}=\{\}\)/);
+ assert.match(arena,/manualCasterShot,\s*aimX:impact\.x/);
+ assert.match(arena,/m\.manualCasterShot\|\|a<\.85/);
+ assert.match(arena,/if\(m\.manualCasterShot\|\|/);
+ assert.match(arena,/if\(current\.row===m\.impactCell\.row&&current\.col===m\.impactCell\.col\)/);
 });
