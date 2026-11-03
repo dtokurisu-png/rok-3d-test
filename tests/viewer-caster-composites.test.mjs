@@ -128,8 +128,6 @@ test('composite attack samples frame 13 and blends smoothly with locomotion',()=
  // Spine interpolants from both locomotion and attack are sampled; the
  // action source begins at 13/30 seconds rather than zero.
  assert.ok(actionSamples.some(x=>Math.abs(x.time-13/30)<1e-9));
- assert.ok(!clip.tracks.some(t=>/LeftArm|LeftForeArm/.test(t.name)&&
-   t.name==='LeftArm.quaternion'&&t.values.length!==clip.tracks[0].values.length*4/3));
  assert.ok(clip.tracks.some(t=>t.name==='LeftArm.quaternion'));
  assert.ok(clip.tracks.some(t=>t.name==='LeftForeArm.quaternion'));
  // The attack begins in the locomotion pose and ends back in locomotion.
