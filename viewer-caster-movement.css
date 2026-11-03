@@ -1,0 +1,7 @@
+#viewerMovePanel{margin:10px 0;padding:10px;border:1px solid #238c83;background:#0a2731;border-radius:10px}
+#viewerMovePanel h3{color:#00ffe4;font-size:13px;margin:0 0 8px}
+#viewerMovePanel .viewerMoveOption,#viewerMovePanel .viewerMoveSpeed{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px;color:#d4eeed;margin:8px 0}
+#viewerMovePanel input[type=checkbox],#viewerMovePanel input[type=range]{accent-color:#00ffe4}
+#viewerMovePanel input[type=range]{flex:1;min-width:85px}
+#viewerMovePanel p{font-size:11px;line-height:1.5;margin:7px 0;color:#bbd8db}
+#viewerMoveStatus{font-weight:700;color:#c9f7ed!important}
