@@ -44,3 +44,12 @@ Se verificaron sintaxis JS, referencias y máscaras; una simulación del sistema
 
 ### Pendiente nuevo (no implementado)
 **Alerta de amenaza rival:** cuando una invocación enemiga tenga al caster dentro de su alcance efectivo, mostrar un pequeño símbolo **¡!** junto al caster como advertencia para defenderse. Debe utilizar el alcance real de la invocación y actualizarse al cambiar la distancia, el objetivo o la vida. No confundir esta futura alerta con el marcador dorado de objetivo del ataque propio.
+
+## Etapa v0.9.24 — Alcance 3 y ataque comprometido al presionar Espacio
+
+- El alcance efectivo de **ambos casters** sube de **2 a 3 unidades**.
+- El círculo de radio **3** inicia la aparición progresiva desde **5.5 unidades** y alcanza la visibilidad máxima a 3. La pequeña diana de invocación rival aparece solamente cuando entra en el alcance real de 3.
+- **Validación de ataque en el instante de pulsar Espacio:** se busca la invocación rival en rango más cercana; a falta de ella, el caster enemigo en rango. Si no existe un objetivo válido, **no se reproduce animación 02, no se dispara y no se consume cooldown**.
+- **Objetivo bloqueado durante preparación:** al aceptarse el ataque se guarda una referencia al objetivo. La animación continúa y el proyectil **se lanza aunque el propio caster se aleje y salga del radio 3 durante la preparación**. No se vuelve a comprobar la distancia al liberar el disparo. El objetivo puede seguir desplazándose; el sistema existente de proyectiles mantiene su resolución.
+- Las velocidades anteriores quedan intactas: movimiento **3.8**, ciclo de ataque **1 segundo**. WASD sigue moviendo las piernas durante la preparación.
+- La advertencia de amenaza enemiga **¡!** continúa como pendiente, sin cambios.
