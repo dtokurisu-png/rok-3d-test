@@ -1,6 +1,6 @@
 /* R.O.K. caster animation assets: original numbered sources, no clip mutation.
  * Uses the arena's existing FBX retargeter, compiled separately for each GLB rig. */
-export function createCasterMovementLoader({FBXLoader,adaptClip,getManualController}){
+export function createCasterMovementLoader({FBXLoader,adaptClip,getManualController,onClipReady}){
  const definitions={
   idle:{path:'assets/animations/casters/shared/Standing Idle.fbx',id:'standing-idle'},
   attack:{name:'Magic Heal.fbx',id:2},
@@ -69,6 +69,7 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
     if(role==='death')model.userData.rokDeathClip=result.death||null;
     if(role==='defense')model.userData.rokDefenseClip=result.defense||null;
     if(role==='hit')model.userData.rokHitClip=result.hit||null;
+    if(result[role])onClipReady?.(caster,role,result[role]);
     if(role==='idle'){
      caster.idleClip=result.idle;
      const controller=getManualController();
