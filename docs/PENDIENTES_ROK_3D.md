@@ -8,6 +8,17 @@ Actualizado: 2026-11-03. Estos trabajos se posponen deliberadamente y **no deben
 
 **Ahora:** continuar completando el **sistema de escenarios de Arena 2.5D**. El usuario indicará los ajustes concretos del escenario. No tocar el visor ni modificar las animaciones durante esta etapa.
 
+## Próxima etapa: gestor de escenarios 15 × 30 (decisión de producto, aún no implementada)
+
+**Orden de trabajo acordado (2026-11-03):**
+
+1. [ ] **Unificar las dimensiones del editor con la arena:** 15 columnas × 30 filas (450 casillas); corregir el esquema JSON y las conversiones espaciales para que el escenario encaje en el tester y, después, en R.O.K. Conservar compatibilidad o definir una migración explícita para escenarios anteriores de 9×18. **Incompatibilidad detectada:** `arena-scene-overlay.js` todavía exige JSON `arena.columns === 9` y `arena.rows === 18` aunque la arena ya es 15×30.
+2. [ ] **Área jugable despejada:** ningún prop, pared, pilar, estatua ni decoración debe intersectar ni ocupar las 450 casillas jugables. Colocar toda arquitectura y decoraciones fuera del perímetro de juego. La única excepción futura serán los **guardianes**, todavía no implementados. Aplicar restricciones reales de colocación y validar también escenarios JSON importados.
+3. [ ] **Background ambiental propio de cada escenario:** una envolvente externa independiente del tablero. Primer tipo: **recinto interior rectangular proporcional a la arena, más grande que ella, paredes altas y techo arqueado/de bóveda**; piso a la misma cota del piso de la arena, sin interferir con las cámaras. Interior texturizado con la imagen del repositorio **«panorama gótica de vitrales zafiro»**, cuya ruta/extensión concreta deben verificarse antes de conectarla. Controles para cambiar el ancho y mantener proporciones razonables del recinto; permitir en el futuro backgrounds de interior y exterior como montañas/horizontes. No generar colisiones de combate ni ocupar casillas por esta envolvente.
+4. [ ] **CÁMARAS — después de estabilizar el escenario:** diseñar y ajustar las **dos vistas predeterminadas** mencionadas por el usuario, sus límites, encuadres, clipping y convivencia con el background. **No alterar cámaras en esta primera fase** hasta cerrar el diseño y dimensiones del escenario.
+
+**Estado:** tareas especificadas y guardadas; no se ha modificado código del escenario, visor ni la arena en esta conversación. El usuario pidió primero comprobar que entendimos estas tres tareas y guardar la cámara como siguiente pendiente.
+
 ## Proyecto aplazado: Creador de animaciones
 
 - [ ] **Añadir en el futuro un botón/sección «Creador de animaciones»**, separado del flujo de prueba actual. **NO implementarlo todavía**.
