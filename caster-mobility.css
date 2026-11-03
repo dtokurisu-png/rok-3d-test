@@ -1,0 +1,9 @@
+#casterMobilityPanel{border:1px solid #298a83;background:#0a2931;border-radius:10px;padding:10px;margin:10px 0;font-size:11px}
+#casterMobilityPanel strong{color:#00ffe4}
+#casterMobilityPanel .casterMoveRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:9px 0}
+#casterMobilityPanel select{background:#103a41;color:#fff;border:1px solid #277e79;border-radius:6px;padding:6px;font-size:11px}
+#casterMobilityPanel input[type=range]{flex:1;min-width:80px;accent-color:#00ffe4}
+#casterMobilityPanel input[type=checkbox]{accent-color:#00ffe4}
+#casterMobilityPanel .casterMoveToggle{display:flex;gap:6px;align-items:center}
+#casterMobilityPanel p{font-size:11px;margin:5px 0;color:#b8dcdd}
+#casterMoveStatus{font-weight:650;color:#cbffef!important}
