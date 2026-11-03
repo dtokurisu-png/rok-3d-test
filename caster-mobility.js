@@ -61,7 +61,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
    prepareClips(caster).then(result=>{
     if(ticket!==requested||!enabled||selected()!==caster||caster.model!==model)return;
     clips.clear();for(const name of ['idle','forward','backward','left','right'])if(result[name])clips.set(name,result[name]);
-    cReset(caster);playClip(caster,'idle');
+    cReset(caster);lastMotion='';playClip(caster,'idle');
     const missing=result._unavailable||[];
     showReady(missing.length?'● Parcial':'● Listo');
     announce(missing.length?'WASD funciona; clips '+missing.join(', ')+' usan Idle de respaldo.':'Listo: usa el teclado o mantén pulsadas las flechas.');
