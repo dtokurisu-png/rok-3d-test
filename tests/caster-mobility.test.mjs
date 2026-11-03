@@ -122,3 +122,34 @@ test('Caster 08 death playback and match restart do not stop summon animation up
  assert.match(arena,/if\(loaded&&playing&&!casterReview\.active\)updateDuel\(dt\)/);
  assert.match(arena,/if\(loaded&&casterMovement\?\.enabled\)casterMovement\.step\(dt\)/);
 });
+
+test('F fires exactly once during clip 02 and does not freeze the animation mixer',async()=>{
+ const code=await read('caster-mobility.js');
+ const {createCasterMobility}=await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(code));
+ const handlers={},nodes={};
+ const create=(value='')=>({value,textContent:'',title:'',dataset:{},events:{},
+  addEventListener(name,fn){this.events[name]=fn;},blur(){},setPointerCapture(){}});
+ for(const [name,value] of [['casterMoveSide','ally'],['casterMoveSpeed','2.2'],['casterMoveSpeedText','2.2'],['casterMoveStatus',''],['casterAttackButton','']])
+  nodes[name]=create(value);
+ const buttons=['KeyW','KeyA','KeyS','KeyD'].map(key=>{const b=create();b.dataset.moveKey=key;return b;});
+ const oldDoc=globalThis.document,oldWindow=globalThis.window;
+ globalThis.document={getElementById:id=>nodes[id],querySelectorAll:()=>buttons,
+  addEventListener:(name,fn)=>handlers[name]=fn,hidden:false};
+ globalThis.window={addEventListener(){}};
+ const three={LoopRepeat:1,LoopOnce:2,MathUtils:{clamp:(x,a,b)=>Math.min(b,Math.max(a,x))}};
+ let updates=0,hits=0;
+ const action={reset(){return this;},setLoop(){return this;},play(){return this;},
+  setEffectiveWeight(){},setEffectiveTimeScale(){},fadeIn(){},fadeOut(){},isRunning(){return true}};
+ const caster={stage:'active',side:'ally',outer:{position:{x:0,z:7.5}},
+  model:{userData:{rokCasterAsset:'Lioren',rokAttackClip:{duration:1}}},idleClip:{duration:1},
+  mixer:{clipAction(){return action;},stopAllAction(){},update(){updates++;}},userData:{}};
+ try{
+  const ctl=createCasterMobility({THREE:three,getCaster:()=>caster,
+   prepareClips:()=>new Promise(()=>{}),onModeChange:()=>true,onAttack:()=>hits++});
+  handlers.keydown({code:'KeyF',repeat:false,target:null,preventDefault(){}});
+  for(let n=0;n<20;n++)ctl.step(.05);
+  assert.equal(hits,1,'the spell is launched only once');
+  assert.ok(updates>=19,'the caster mixer continues running');
+  ctl.disable();
+ }finally{globalThis.document=oldDoc;globalThis.window=oldWindow;}
+});
