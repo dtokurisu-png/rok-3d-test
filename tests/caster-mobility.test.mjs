@@ -23,7 +23,8 @@ test('Arena has only the compact lower-right D-pad, no wide Studio bar or activa
 });
 
 test('WASD automatically activates and moves before animation loading completes',async()=>{
- const {createCasterMobility}=await import('../caster-mobility.js');
+ const code=await read('caster-mobility.js');
+ const {createCasterMobility}=await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(code));
  const handlers={},nodes={};
  const makeNode=(name,value='')=>({
   name,value,textContent:'',title:'',dataset:{},listeners:{},
