@@ -185,3 +185,14 @@ Se corrigió `index.html` para permitir probar los clips originales 01–14 con 
 - No se vuelve a descargar el repertorio entero al activar el modo: el controlador usa las animaciones y el mixer que ya tiene el visor. Si falta un clip, solicita **solamente ese clip** al usarlo. Los clips en precarga se esperan para evitar descargas duplicadas. El estado muestra cuándo se está preparando un ataque o defensa.
 - Se añadieron `tests/viewer-caster-controls.test.mjs` para probar movimiento, teclas, botones y reutilización de clips. La prueba lógica simulada de W/D/Espacio/Shift pasó sin descargas cuando las fuentes estaban listas, y la comprobación de sintaxis JS también pasó. **Pendiente prueba visual de los rig/FBX originales de Chiara y Lioren en navegador.**
 - La **etapa 9**, controles universales de ajuste de huesos bajo el reproductor, continúa pendiente. Las tareas aplazadas siguen en `docs/PENDIENTES_ROK_3D.md`.
+
+## 2026-11-03 — Escenarios: zona jugable despejada y colocación exterior (etapa 2)
+
+- Se actualizó el **editor real de escenarios** (`scene-editor.html` y `scene-editor.js`) de 9×18 a **15×30** para que coincida con el tester. El tablero contiene 450 celdas; la mitad de cada equipo comprende 15 filas.
+- La arena completa **X±7.5, Z±15** se reserva a gameplay. No se permite colocar decoración encima ni atravesar sus bordes con parte de una malla. Se añadió margen de seguridad y un borde naranja visible.
+- Los props nuevos aparecen automáticamente fuera del tablero; arrastre, edición manual de posición, rotación, escala y duplicación respetan la región exterior. Se amplió el espacio de decoración a **X±45, Z±65** y la cámara del **editor** para permitir trabajar sobre esa área. No se modificaron las cámaras del juego.
+- La validación considera el **volumen transformado completo** del objeto, incluidos FX visibles, no solo su centro; si resulta demasiado grande para la zona exterior, se evita colocarlo.
+- El cargador del tester (`arena-scene-overlay.js`) valida ahora JSON de **15×30**, admite coordenadas exteriores y **rechaza** decoraciones que invadan las celdas jugables. El editor puede desplazar hacia afuera objetos de un JSON 15×30 si sus posiciones invaden la arena.
+- Contrato geométrico compartido en `scene-placement-rules.js`; prueba de regresión `tests/scene-placement-rules.test.mjs`.
+- **Solo comprobación de sintaxis y pruebas de lógica de posición**, pendiente de validar visualmente editor WebGL, arrastre y carga de archivos con modelos GLB reales.
+- **Pendiente siguiente:** construir background interior tipo recinto gótico rectangular de techo arqueado usando textura zafiro, sin tocar visor/animaciones; más tarde, trabajo independiente sobre dos cámaras del juego.
