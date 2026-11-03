@@ -31,29 +31,32 @@ export function createCasterRangeIndicator({THREE,range=2,approach=4.5}){
  }
  function clear(st){
   if(st.mark?.parent)st.mark.parent.remove(st.mark);
-  st.marked=null;st.mark=null;
+  st.marked=null;
  }
  function mark(st,target){
   if(st.marked===target)return;
   clear(st);
   if(!target)return;
-  const group=new THREE.Group();
-  group.name='ROK_Caster_Target_In_Range';
-  group.position.y=.085;
-  group.add(makeRing(.37,.43,0xffd46e,.9));
-  group.add(makeRing(.18,.205,0xffd46e,.58));
-  // Short radial ticks make the small target distinguishable from the range ring.
-  for(let i=0;i<4;i++){
-   const tick=new THREE.Mesh(new THREE.PlaneGeometry(.12,.028),
-    new THREE.MeshBasicMaterial({color:0xffe9a8,transparent:true,opacity:.9,
-     depthWrite:false,side:THREE.DoubleSide}));
-   tick.rotation.x=-Math.PI/2;tick.rotation.z=i*Math.PI/2;
-   tick.position.x=Math.cos(i*Math.PI/2)*.51;
-   tick.position.z=Math.sin(i*Math.PI/2)*.51;
-   group.add(tick);
+  // Reuse the same marker when enemies enter and leave range; no GPU leaks.
+  if(!st.mark){
+   const group=new THREE.Group();
+   group.name='ROK_Caster_Target_In_Range';
+   group.position.y=.085;
+   group.add(makeRing(.37,.43,0xffd46e,.9));
+   group.add(makeRing(.18,.205,0xffd46e,.58));
+   for(let i=0;i<4;i++){
+    const tick=new THREE.Mesh(new THREE.PlaneGeometry(.12,.028),
+     new THREE.MeshBasicMaterial({color:0xffe9a8,transparent:true,opacity:.9,
+      depthWrite:false,side:THREE.DoubleSide}));
+    tick.rotation.x=-Math.PI/2;tick.rotation.z=i*Math.PI/2;
+    tick.position.x=Math.cos(i*Math.PI/2)*.51;
+    tick.position.z=Math.sin(i*Math.PI/2)*.51;
+    group.add(tick);
+   }
+   st.mark=group;
   }
-  target.outer.add(group);
-  st.marked=target;st.mark=group;
+  target.outer.add(st.mark);
+  st.marked=target;
  }
  function choose(c,enemies,allowed){
   if(!c||c.stage!=='active')return {nearest:null,distance:Infinity,target:null};
