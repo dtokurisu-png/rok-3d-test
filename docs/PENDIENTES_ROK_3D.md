@@ -12,7 +12,7 @@ Actualizado: 2026-11-03. Estos trabajos se posponen deliberadamente y **no deben
 ## Trabajos activos (orden aprobado)
 
 - [x] **5. Ampliar arena 9 × 18 → 15 × 30** — implementada en Arena v0.9.27; pendiente validación visual WebGL por el usuario.
-- [ ] **6. Incluir animaciones compuestas en el catálogo existente del visor** para reproducirlas y evaluarlas.
+- [x] **6. Incluir animaciones compuestas en el catálogo existente del visor** — implementadas en código las entradas 24–33: cinco de ataque violeta y cinco de defensa azul, clips combinados de piernas/torso generados en memoria y reproducibles con el inspector existente. **Pendiente validación visual con los GLB reales del usuario**.
 - [ ] **7. Depurar el ataque de caster**: principalmente un brazo, sin movimientos extraños de preparación ni regreso a pose base.
 - [ ] **8. Corregir desplazamiento invertido en el visor** en los ejes adelante/atrás y derecha/izquierda.
 - [ ] **9. Controles universales de huesos bajo el reproductor**: hombros, brazos, antebrazos, muñecas/manos, torso, cabeza, muslos, pantorrillas y pies; corrección por animación y guardado explícito.
