@@ -54,7 +54,7 @@
 .attackAxes label{margin-top:8px;display:block}
 .attackAxes .attackAxisCaption{display:flex;justify-content:space-between}
 .attackAxes input[type=range]{width:100%}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script><link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./universal-frames.css"></head><body data-studio-page="animations"><div class="hud mobile-closed"><h2>R.O.K. · Visor de animaciones 3D <span style="font-size:12px;color:#ffdb76">v0.5.25</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.25 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.25: Standing 13 de Arquera corregida al calibrar el último fotograma (de pie), sin enderezar indebidamente la primera postura de incorporación. El resto de las animaciones, ángulos de ataque, Farolera y vínculos de armas permanecen intactos.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled style="display:none">Cambiar a Arquera del Desierto</button><select id="casterDropdown" disabled aria-label="Modelo 3D" style="background:#123b43;color:white;border:1px solid #00bdaa;border-radius:7px;padding:9px"><option value="farolera">Farolera</option><option value="archer">Arquera del Desierto</option><option value="chiara">Chiara · Kaster</option><option value="lioren">Lioren · Kaster</option></select><button id="archerRestPose" type="button">Ver pose original</button><button id="archerReload" type="button" style="display:none">Recargar Arquera (GitHub)</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script><link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./universal-frames.css"><link rel="stylesheet" href="./viewer-caster-movement.css"></head><body data-studio-page="animations"><div class="hud mobile-closed"><h2>R.O.K. · Visor de animaciones 3D <span style="font-size:12px;color:#ffdb76">v0.5.25</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.25 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.25: Standing 13 de Arquera corregida al calibrar el último fotograma (de pie), sin enderezar indebidamente la primera postura de incorporación. El resto de las animaciones, ángulos de ataque, Farolera y vínculos de armas permanecen intactos.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled style="display:none">Cambiar a Arquera del Desierto</button><select id="casterDropdown" disabled aria-label="Modelo 3D" style="background:#123b43;color:white;border:1px solid #00bdaa;border-radius:7px;padding:9px"><option value="farolera">Farolera</option><option value="archer">Arquera del Desierto</option><option value="chiara">Chiara · Kaster</option><option value="lioren">Lioren · Kaster</option></select><button id="archerRestPose" type="button">Ver pose original</button><button id="archerReload" type="button" style="display:none">Recargar Arquera (GitHub)</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones</h3>
 <p>Las animaciones conservan su numeración original. Se retiraron 04, 05, 17, 18, 19 y 20 por decisión del usuario; las otras 17 siguen disponibles. Se cargan automáticamente al seleccionar un modelo. «✓ GitHub» confirma que existe el archivo; «✓ Lista» confirma que su animación está preparada para reproducir; «⚠ Error» indica un problema de lectura o compatibilidad, no que falte el archivo. «Elegir» marca qué animaciones quieres conservar.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -131,6 +131,13 @@
 <p id="ufStatus" class="ufStatus" role="status"></p><p class="ufNote">Selecciona una animación de la lista. Marca los fotogramas que combinaremos después. No modifica los FBX originales.</p>
 </section>
 <p id="animMessage" role="status">Catálogo activo: 17 animaciones. Retiradas: 04, 05, 17, 18, 19 y 20.</p>
+<section id="viewerMovePanel" aria-label="Control WASD en visor">
+<h3>Movilidad · Chiara / Lioren</h3>
+<label class="viewerMoveOption"><input id="viewerMoveEnable" type="checkbox"> Activar WASD en el visor</label>
+<label class="viewerMoveSpeed">Velocidad <input id="viewerMoveSpeed" type="range" min=".5" max="6" step=".1" value="2.2"><output id="viewerMoveSpeedValue">2.2 u/s</output></label>
+<div class="viewerMoveButtons"><button type="button" data-wasd="KeyW">W ↑</button><button type="button" data-wasd="KeyA">A ←</button><button type="button" data-wasd="KeyS">S ↓</button><button type="button" data-wasd="KeyD">D →</button></div>
+<p>W avance (07) · S retroceso (06) · A izquierda (15) · D derecha (16) · Soltar: Standing Idle.</p>
+<p>Teclas: <span id="viewerMoveKeys">—</span></p><p id="viewerMoveStatus" role="status">Selecciona Chiara o Lioren.</p></section>
 <div id="animList"></div>
 <div class="animToolbar"><button type="button" id="animFilter">Ver: todas</button><button type="button" id="animCopy">Copiar números marcados</button><button type="button" id="animClear">Limpiar marcas</button><button type="button" id="animExport">Exportar selección JSON</button></div>
 <p id="animSelection">Seleccionadas: ninguna.</p>
@@ -142,6 +149,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {clone as cloneSkinned,retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createUniversalFrameInspector} from './universal-frames.js';
+import {createViewerCasterMovement} from './viewer-caster-movement.js';
 const status=document.querySelector('#status'), details=document.querySelector('#details'),error=document.querySelector('#error'),fps=document.querySelector('#fps'),toggle=document.querySelector('#toggle');
 const mobileToggle=document.querySelector('#mobileToggle'), hud=document.querySelector('.hud');mobileToggle.addEventListener('click',()=>{const closed=hud.classList.toggle('mobile-closed');mobileToggle.textContent=closed?'Mostrar controles':'Ocultar controles';mobileToggle.setAttribute('aria-expanded',String(!closed));});
 // Prueba de desplazamiento amortiguado: la cámara permanece fija; el personaje se mueve sobre Z.
@@ -1115,7 +1123,50 @@ document.querySelector('#archerCopyFrame').addEventListener('click',async()=>{
   }
 });
 
+// WASD en el visor, compartiendo las acciones del AnimationMixer actual.
+const viewerIdleCache=new WeakMap();
+async function loadViewerStandingIdle(){
+ const captured=model,character=currentCharacter;
+ if(viewerIdleCache.has(captured))return viewerIdleCache.get(captured);
+ const response=await fetch('./assets/animations/casters/shared/Standing%20Idle.fbx',{cache:'force-cache'});
+ if(!response.ok)throw Error('Standing Idle HTTP '+response.status);
+ const fbx=fbxLoader.parse(await response.arrayBuffer(),'');
+ if(!fbx.animations?.length)throw Error('Standing Idle sin clip');
+ const adapted=makeAnimationClip(fbx,fbx.animations[0],'Standing Idle');
+ if(captured!==model||character!==currentCharacter)throw Error('Modelo cambiado durante la adaptación');
+ viewerIdleCache.set(captured,adapted.clip);return adapted.clip;
+}
+function viewerLocomotionAction(clip,id){
+ if(!clip||!mixer)return;
+ const previous=activeAction,next=mixer.clipAction(clip).reset();
+ next.enabled=true;next.setEffectiveWeight(1);next.setEffectiveTimeScale(1);
+ next.setLoop(THREE.LoopRepeat,Infinity);next.play();
+ if(previous&&previous!==next){previous.fadeOut(.14);next.fadeIn(.14);}
+ activeAction=next;activeAnimation=id;playing=true;
+ toggle.textContent='Pausar / Reproducir';
+ renderAnimList();archerUpdateAttackUI();
+}
+const viewerCasterMovement=createViewerCasterMovement({
+ getCharacter:()=>currentCharacter,getModel:()=>model,
+ getClip:id=>animationRows.find(row=>row.index===id)?.clip||null,
+ async ensureClip(id){
+  const row=animationRows.find(row=>row.index===id);
+  if(!row)throw Error('Animación '+id+' no encontrada');
+  if(!row.clip){
+   if(row.status==='loading'){
+    for(let i=0;i<200&&row.status==='loading';i++)await new Promise(r=>setTimeout(r,100));
+   }else if(row.source==='pack')await loadOldCasterAnimation(row);
+   else await loadNewAnimation(row);
+  }
+  if(!row.clip)throw Error(row.details||'Clip '+id+' no disponible');
+ },
+ ensureIdle:loadViewerStandingIdle,
+ playClip:id=>viewerLocomotionAction(animationRows.find(row=>row.index===id)?.clip,id),
+ playIdle:clip=>viewerLocomotionAction(clip||idleOriginal,null)
+});
+
 function playAnimation(index){
+  if(viewerCasterMovement.enabled)viewerCasterMovement.disable();
   const row=animationRows.find(a=>a.index===index);
   if(!row||rejectedAnimationIds.has(index)||!row.clip||!mixer)return;
   const previous=activeAction;
@@ -1394,6 +1445,7 @@ async function loadNewCaster(character){
   return result;
 }
 async function switchCharacter(character,forceReload=false){
+  viewerCasterMovement.disable();
   if(characterSwitching||!model||(character===currentCharacter&&!forceReload))return;
   if(loadingAnimations){
     characterSelect.value=currentCharacter;
@@ -1864,5 +1916,5 @@ if(archerAttackIsSelected()){
   archerApplyArmPreview();
   archerUpdateAttackUI();
 }
-universalInspector.update();updateGroundAnchor(dt);animateShake(dt);if(lantern&&playing)updateLantern(dt);controls.update();renderer.render(scene,camera);t+=dt;n++;if(t>1){fps.textContent='FPS: '+Math.round(n/t);t=0;n=0}}requestAnimationFrame(tick);
+universalInspector.update();viewerCasterMovement.update(dt);updateGroundAnchor(dt);animateShake(dt);if(lantern&&playing)updateLantern(dt);controls.update();renderer.render(scene,camera);t+=dt;n++;if(t>1){fps.textContent='FPS: '+Math.round(n/t);t=0;n=0}}requestAnimationFrame(tick);
 </script><script src="./studio.js"></script></body></html>
