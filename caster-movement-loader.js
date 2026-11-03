@@ -52,8 +52,13 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
      // A missing FBX must never prevent the user from moving the caster.
      // The model can still translate with Idle until a compatible clip is available.
      result._unavailable.push(String(def.id));
-     result[role]=result.idle||caster.idleClip;
-     if(!result[role])throw Error('No se encontró un Idle de respaldo');
+     if(role==='attack'||role==='death'){
+      // Never replace a combat action with Idle and pretend the correct clip played.
+      result[role]=null;
+     }else{
+      result[role]=result.idle||caster.idleClip;
+      if(!result[role])throw Error('No se encontró un Idle de respaldo');
+     }
     }
     if(caster.model!==model)throw Error('Se reemplazó el rig durante la carga');
     if(role==='idle'){
