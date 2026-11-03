@@ -3,7 +3,7 @@
  * visible at actual attack range. The nearest hostile summon in range
  * receives a ground target marker. Purely visual; never changes pathfinding.
  */
-export function createCasterRangeIndicator({THREE,range=2,approach=4.5}){
+export function createCasterRangeIndicator({THREE,range=3,approach=5.5}){
  const instances=new WeakMap();
  const opacity=(mesh,value)=>{if(mesh)mesh.material.opacity=value;};
  function makeRing(inner,outer,color,alpha){
@@ -19,7 +19,7 @@ export function createCasterRangeIndicator({THREE,range=2,approach=4.5}){
  function state(c){
   if(instances.has(c))return instances.get(c);
   const radius=new THREE.Group();
-  radius.name='ROK_Caster_Range_Radius_2';
+  radius.name='ROK_Caster_Range_Radius_3';
   radius.position.y=.042;
   const ring=makeRing(range-.035,range+.035,0x00ffe4,0);
   const accent=makeRing(range-.13,range-.12,0x00ffe4,0);
