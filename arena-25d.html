@@ -3036,6 +3036,7 @@ const movementLoader=createCasterMovementLoader({
 casterMovement=createCasterMobility({
  THREE,getCaster:side=>casters.find(c=>c.side===side),
  prepareClips:movementLoader.load,
+ reviveCaster:c=>{if(c&&c.stage!=='active')resetCaster(c);},
  onModeChange:(enabled,previous)=>{
   if(enabled){
    if(casterReview.active)finishCasterReview();
