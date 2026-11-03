@@ -108,7 +108,7 @@ test('compact Arena controls and live combat are unchanged',async()=>{
  assert.match(arena,/id="casterDefenseButton"/);
  assert.match(arena,/if\(loaded&&playing&&!casterReview\.active\)updateDuel\(dt\)/);
  assert.match(arena,/if\(loaded&&casterMovement\?\.enabled\)casterMovement\.step\(dt\)/);
- assert.match(arena,/v0\.9\.25 · Alcance reparado/);
+ assert.match(arena,/v0\.9\.26 · Prioridad real/);
  for(const [path,id] of [['Magic Heal.fbx',2],['Sword And Shield Impact.fbx',23],
   ['Standing React Small From Headshot.fbx',9],['Sword And Shield Death.fbx',8]])
   assert.ok(loader.includes(path)&&loader.includes('id:'+id),path);
@@ -329,4 +329,52 @@ test('accepted range-three caster spell keeps target and resolves impact after m
  assert.match(arena,/m\.manualCasterShot\|\|a<\.85/);
  assert.match(arena,/if\(m\.manualCasterShot\|\|/);
  assert.match(arena,/if\(current\.row===m\.impactCell\.row&&current\.col===m\.impactCell\.col\)/);
+});
+
+test('summons attack the first enemy actually within their range, not distant spawned summons',async()=>{
+ const html=await read('arena-25d.html');
+ const begin=html.indexOf('function selectCombatTarget(c){');
+ const end=html.indexOf('let loaded=false,playing=true',begin);
+ assert.ok(begin>0&&end>begin,'targeting function should be present');
+ const make=(side,z,role='summon',range=1.5,x=0)=>({
+  role,side,stage:'active',hp:3,range,outer:{position:{x,z}}
+ });
+ const ally=make('ally',5);
+ const caster=make('enemy',-7.5,'caster');
+ const closeSummon=make('enemy',3.6);
+ const remoteSummon=make('enemy',-3);
+ const combatants=[ally,closeSummon,remoteSummon],casters=[caster];
+ const valid=c=>c.stage==='active'&&c.hp>0;
+ const current=c=>c.duelOpponent||null;
+ const release=c=>{
+  if(c.duelOpponent){c.duelOpponent.duelOpponent=null;c.duelOpponent=null;}
+ };
+ const reserve=(a,b)=>{
+  if(b.duelOpponent)return false;
+  a.duelOpponent=b;b.duelOpponent=a;return true;
+ };
+ const select=new Function('combatants','casters','canDamageTarget',
+  'currentSummonDuel','reserveSummonDuel','releaseSummonDuel',
+  html.slice(begin,end)+'\nreturn selectCombatTarget;')(
+  combatants,casters,valid,current,reserve,release
+ );
+ assert.equal(select(ally),closeSummon,'attack opponent in actual reach');
+ assert.equal(ally.duelOpponent,closeSummon,'duel reservation occurs only in range');
+ closeSummon.outer.position.z=-1;
+ assert.equal(select(ally),caster,'head to enemy caster instead of chasing distant summons');
+ assert.equal(ally.duelOpponent,null,'release distant duel lock');
+ assert.equal(remoteSummon.duelOpponent,undefined,'distant summons never reserved');
+ caster.outer.position.z=4.5;
+ assert.equal(select(ally),caster,'caster is attackable when encountered first');
+ const nearer=make('enemy',4.7);
+ combatants.push(nearer);
+ assert.equal(select(ally),nearer,'nearest encountered enemy wins in attack range');
+});
+
+test('summon casting does not fire at enemy caster outside actual attack range',async()=>{
+ const html=await read('arena-25d.html');
+ assert.match(html,/const inCastRange=priority&&Math\.hypot\(/);
+ assert.match(html,/priority\.outer\.position\.z-c\.outer\.position\.z\)<=c\.range\+\.005/);
+ assert.match(html,/c\.castTarget=inCastRange&&canDamageTarget\(priority\)/);
+ assert.doesNotMatch(html,/const candidates=\[\.\.\.available,enemyCaster\]/);
 });
