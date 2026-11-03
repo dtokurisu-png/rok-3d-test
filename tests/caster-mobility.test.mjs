@@ -108,7 +108,7 @@ test('compact Arena controls and live combat are unchanged',async()=>{
  assert.match(arena,/id="casterDefenseButton"/);
  assert.match(arena,/if\(loaded&&playing&&!casterReview\.active\)updateDuel\(dt\)/);
  assert.match(arena,/if\(loaded&&casterMovement\?\.enabled\)casterMovement\.step\(dt\)/);
- assert.match(arena,/v0\.9\.26 · Prioridad real/);
+ assert.match(arena,/v0\.9\.27 · Arena 15×30/);
  for(const [path,id] of [['Magic Heal.fbx',2],['Sword And Shield Impact.fbx',23],
   ['Standing React Small From Headshot.fbx',9],['Sword And Shield Death.fbx',8]])
   assert.ok(loader.includes(path)&&loader.includes('id:'+id),path);
@@ -377,4 +377,39 @@ test('summon casting does not fire at enemy caster outside actual attack range',
  assert.match(html,/priority\.outer\.position\.z-c\.outer\.position\.z\)<=c\.range\+\.005/);
  assert.match(html,/c\.castTarget=inCastRange&&canDamageTarget\(priority\)/);
  assert.doesNotMatch(html,/const candidates=\[\.\.\.available,enemyCaster\]/);
+});
+
+test('Arena 15x30 has consistent grid, spawns, coordinate conversions and movement bounds',async()=>{
+ const [html,mob,overlay]=await Promise.all([
+  read('arena-25d.html'),read('caster-mobility.js'),read('arena-scene-overlay.js')
+ ]);
+ assert.match(html,/const W=15,D=30/);
+ assert.match(html,/const HALF_W=\(W-1\)\/2,HALF_D=\(D-1\)\/2/);
+ assert.match(html,/const SPAWN_Z=HALF_D,CASTER_Z=HALF_D-1/);
+ assert.match(html,/for\(let row=0;row<D;row\+\+\)for\(let col=0;col<W;col\+\+\)/);
+ assert.match(html,/row<D\/2\?'enemy':'ally'/);
+ assert.match(html,/for\(let row=0;row<D;row\+\+\)for\(let col=0;col<W;col\+\+\)/);
+ assert.match(html,/function inBoard\(col,row\)\{return col>=0&&col<W&&row>=0&&row<D;/);
+ assert.match(html,/Math\.round\(x\+HALF_W\)/);
+ assert.match(html,/Math\.round\(z\+HALF_D\)/);
+ assert.match(html,/cellToWorld\(col,row\)\{return \{x:col-HALF_W,z:row-HALF_D\}/);
+ assert.match(html,/bounds:\{x:MAX_X,z:MAX_Z\}/);
+ assert.match(mob,/bounds=\{x:7\.25,z:14\.75\}/);
+ assert.match(mob,/,-bounds\.x,bounds\.x\)/);
+ assert.match(mob,/,-bounds\.z,bounds\.z\)/);
+ assert.match(overlay,/x:finite\(raw\.x,-7\.5,7\.5\)/);
+ assert.match(overlay,/z:finite\(raw\.z,-15,15\)/);
+ assert.doesNotMatch(html,/const W=9,D=18/);
+ assert.doesNotMatch(html,/for\(let row=0;row<18;row\+\+\)/);
+ assert.doesNotMatch(html,/for\(let col=0;col<9;col\+\+\)/);
+ const W=15,D=30,HW=(W-1)/2,HD=(D-1)/2;
+ const w2c=(x,z)=>({col:Math.max(0,Math.min(W-1,Math.round(x+HW))),
+  row:Math.max(0,Math.min(D-1,Math.round(z+HD)))});
+ const c2w=(col,row)=>({x:col-HW,z:row-HD});
+ for(const [col,row] of [[0,0],[14,29],[7,14],[7,15],[1,25]]){
+  const p=c2w(col,row);
+  assert.deepEqual(w2c(p.x,p.z),{col,row});
+ }
+ assert.deepEqual(w2c(0,14.5),{col:7,row:29});
+ assert.deepEqual(w2c(0,-14.5),{col:7,row:0});
 });
