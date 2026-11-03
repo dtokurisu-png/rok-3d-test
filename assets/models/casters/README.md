@@ -1,10 +1,8 @@
-# Modelos 3D de Kasters
-Carpeta canónica para futuras versiones aprobadas de modelos.
-Por compatibilidad, los modelos subidos el 2026-11-02 permanecen temporalmente en la raíz:
-- `/chiara kaster.glb` (SHA Git 7a85a701c23c1c5386d519b708980c5bb90e7f70).
-- `/lioren kaster.glb` (SHA Git d8a11255579f3286db126110dd13801744693e96).
+# Modelos canónicos de personajes
 
-`/caster-lab.html` los carga para comparar animaciones.
-`/arena-25d.html` los utiliza como casters visuales.
+- `farolera/chiara_idle.glb` — invocación Farolera (modelo anterior).
+- `arquera/ARQUERA DEL DECIERTO GLTF.glb` — Arquera del Desierto.
+- `chiara/chiara kaster.glb` — Chiara, caster.
+- `lioren/lioren kaster.glb` — Lioren, caster.
 
-No mover/renombrar hasta actualizar y probar ambas referencias. Nuevos modelos aprobados: `assets/models/casters/<caster-id>/<version>.glb`.
+Los archivos están físicamente en estas carpetas y **ya no en la raíz**. Visor 3D, arena 2.5D e iniciador PowerShell usan estas rutas. Consulta SHA y tamaño en `../../manifests/asset-paths.json`. Nuevos modelos deben ir a su carpeta correspondiente, nunca en la raíz.
