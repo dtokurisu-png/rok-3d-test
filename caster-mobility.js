@@ -12,6 +12,8 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
  const directions={KeyW:'forward',KeyS:'backward',KeyA:'left',KeyD:'right'};
  const held=new Set(),defenseKeys=new Set(),clips=new Map();
  let enabled=false,caster=null,loadedModel=null,loadingModel=null,revision=0;
+ const ATTACK_PERIOD=1;
+ const WALK_SPEED=3.8;
  let priorPlaying=false,attackElapsed=0,attackDuration=0,attackReleased=false,attackCooldown=0;
  let defending=false,shown='';
  const notify=message=>{
@@ -105,11 +107,11 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   const c=caster;
   if(c.stage!=='active'||defending||attackDuration>0||attackCooldown>0)return false;
   const clip=clips.get('attack')||c.model?.userData?.rokAttackClip;
-  if(clip?.duration>0)layers.upper(c,'attack',clip,1);
+  if(clip?.duration>0)layers.upper(c,'attack',clip,clip.duration/ATTACK_PERIOD);
   attackElapsed=0;attackReleased=false;
   // Logical projectile timing works even if the FBX is still loading.
-  attackDuration=clip?.duration>0?Math.max(.1,clip.duration):.8;
-  attackCooldown=Math.max(1.6,attackDuration);
+  attackDuration=ATTACK_PERIOD;
+  attackCooldown=ATTACK_PERIOD;
   requestClips(c);
   notify(clip?'Ataque superior 02':'Ataque activo · preparando FBX 02');
   return true;
@@ -123,7 +125,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   attackCooldown=Math.max(0,attackCooldown-dt);
   const {forward,lateral,kind}=motion();
   if(forward||lateral){
-   const len=Math.hypot(forward,lateral),v=Number(speed.value)||2.2;
+   const len=Math.hypot(forward,lateral),v=Number(speed.value)||WALK_SPEED;
    const sign=c.side==='ally'?-1:1;
    const delta=Math.min(.05,Math.max(0,dt));
    c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+lateral/len*v*delta,-4.25,4.25);
