@@ -35,7 +35,7 @@ export function placeOutsidePlayable(x,z,halfX=0,halfZ=0){
  const minZ=ARENA_HALF_DEPTH+PLAYABLE_CLEARANCE+halfZ;
  const boundX=SCENERY_BOUNDS.halfWidth-halfX;
  const boundZ=SCENERY_BOUNDS.halfDepth-halfZ;
- if(boundX<minX&&boundZ<minZ)
+ if(boundX<0||boundZ<0||(boundX<minX&&boundZ<minZ))
   throw Error('El objeto es demasiado grande para la zona exterior del escenario');
  const px=clamp(finite(x),-boundX,boundX),pz=clamp(finite(z),-boundZ,boundZ);
  if(isOutsidePlayable(px,pz,halfX,halfZ))return {x:px,z:pz};
