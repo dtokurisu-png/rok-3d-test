@@ -196,3 +196,14 @@ Se corrigió `index.html` para permitir probar los clips originales 01–14 con 
 - Contrato geométrico compartido en `scene-placement-rules.js`; prueba de regresión `tests/scene-placement-rules.test.mjs`.
 - **Solo comprobación de sintaxis y pruebas de lógica de posición**, pendiente de validar visualmente editor WebGL, arrastre y carga de archivos con modelos GLB reales.
 - **Pendiente siguiente:** construir background interior tipo recinto gótico rectangular de techo arqueado usando textura zafiro, sin tocar visor/animaciones; más tarde, trabajo independiente sobre dos cámaras del juego.
+
+## 2026-11-03 — Contenedor background gótico para editor y tester
+
+- Nueva pieza visual independiente `scene-background.js`, con **paredes laterales y frontales, techo arqueado tipo bóveda de cañón y cuatro secciones de suelo exterior**. No añade ningún collider, prop ni geometría sobre la cuadrícula 15×30.
+- Dimensiones iniciales: **ancho 70, largo 140, paredes 18 de altura, alzada del techo 12, cumbre 30**. El largo permanece proporcional (2 × ancho); el ancho editable entre 30 y 120.
+- El background se encuentra al mismo nivel de suelo de la arena y ocupa la periferia, no las casillas. Su material renderiza el **interior del recinto**; es independiente de los objetos colocables y de la cámara.
+- Se incorporaron al inspector de `scene-editor.html` controles de **mostrar/ocultar, ancho, altura de pared, altura del arco, ruta opcional de textura y botón Aplicar**. Se guardan estos valores en `background` del documento JSON `rok3d.scene` existente, sin cambiar `schemaVersion:1`.
+- El tester `arena-scene-overlay.js` ahora reconstruye la misma envolvente al cargar ese JSON, y la oculta al restaurar la arena. La envolvente nunca modifica cuadrícula, IA, combate o colisiones.
+- La carga de textura acepta rutas locales verificables bajo `assets/texturas/` o `assets/textures/`. **No se verificó la ruta exacta de «panorama gótica de vitrales zafiro»**, por lo que la primera versión usa material azul provisional; el campo permite asignar la ruta cuando se conozca. No afirmar que la textura está aplicada.
+- Prueba `tests/scene-background.test.mjs`: estructura del recinto, altura real de la bóveda, controles de JSON, límites proporcionales y actualización del tester. Sintaxis verificada y geometría comprobada con Three.js simulado. **Pendiente prueba visual WebGL**.
+- Las dos cámaras predeterminadas siguen pendientes por decisión del usuario; no se modificaron.
