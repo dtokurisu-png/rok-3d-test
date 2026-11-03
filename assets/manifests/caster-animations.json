@@ -6,30 +6,34 @@
     {
       "id": "chiara",
       "name": "Chiara",
-      "path": "chiara kaster.glb",
-      "sha": "7a85a701c23c1c5386d519b708980c5bb90e7f70"
+      "path": "assets/models/casters/chiara/chiara kaster.glb",
+      "sha": "7a85a701c23c1c5386d519b708980c5bb90e7f70",
+      "previousPath": "chiara kaster.glb"
     },
     {
       "id": "lioren",
       "name": "Lioren",
-      "path": "lioren kaster.glb",
-      "sha": "d8a11255579f3286db126110dd13801744693e96"
+      "path": "assets/models/casters/lioren/lioren kaster.glb",
+      "sha": "d8a11255579f3286db126110dd13801744693e96",
+      "previousPath": "lioren kaster.glb"
     }
   ],
   "animations": [
     {
       "id": "right-strafe",
-      "path": "Right Strafe.fbx",
+      "path": "assets/animations/casters/shared/Right Strafe.fbx",
       "sha": "1cbc9f79ea33138c2b2b3ad287335c72f903ca61",
       "status": "review",
-      "group": "lateral"
+      "group": "lateral",
+      "previousPath": "Right Strafe.fbx"
     },
     {
       "id": "right-strafe-1",
-      "path": "Right Strafe (1).fbx",
+      "path": "assets/animations/casters/shared/Right Strafe (1).fbx",
       "sha": "08a8b416aa0ecac4b67ef23cf814eacad37834d7",
       "status": "review",
-      "group": "lateral"
+      "group": "lateral",
+      "previousPath": "Right Strafe (1).fbx"
     },
     {
       "id": "backward-arc-right",
@@ -69,24 +73,27 @@
     },
     {
       "id": "cast-spell-1h",
-      "path": "Standing 1H Cast Spell 01.fbx",
+      "path": "assets/animations/casters/shared/Standing 1H Cast Spell 01.fbx",
       "sha": "0bdcd258dae55e74b804987aa412348106f0cdae",
       "status": "review",
-      "group": "magic"
+      "group": "magic",
+      "previousPath": "Standing 1H Cast Spell 01.fbx"
     },
     {
       "id": "magic-area-2h-02-1",
-      "path": "Standing 2H Magic Area Attack 02 (1).fbx",
+      "path": "assets/animations/casters/shared/Standing 2H Magic Area Attack 02 (1).fbx",
       "sha": "88cbd505ac74c1cafa270e53d8afb40bb3e67e63",
       "status": "review",
-      "group": "magic"
+      "group": "magic",
+      "previousPath": "Standing 2H Magic Area Attack 02 (1).fbx"
     },
     {
       "id": "sword-shield-impact",
-      "path": "Sword And Shield Impact.fbx",
+      "path": "assets/animations/casters/shared/Sword And Shield Impact.fbx",
       "sha": "17cab28b37689081e739a5ab80ca968bc0ee10ba",
       "status": "review",
-      "group": "reaction"
+      "group": "reaction",
+      "previousPath": "Sword And Shield Impact.fbx"
     }
   ],
   "rejectedLegacy": [
@@ -98,5 +105,7 @@
       "number": 5,
       "name": "Running Backward Arc.fbx"
     }
-  ]
+  ],
+  "assetRoot": "assets",
+  "migrationStatus": "canonical paths active; previous root aliases temporarily retained"
 }
