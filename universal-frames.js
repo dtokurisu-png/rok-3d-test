@@ -35,6 +35,7 @@ export function createUniversalFrameInspector(adapter){
   observedClip=s?.clip||null;observedMixer=s?.mixer||null;
   observedCharacter=s?.character||'';
   rangeStart=0;rangeEnd=s?maximum(s):0;changedRange=false;
+  if(s){const effective=Number(s.action.getEffectiveTimeScale?.())||1;ui.speed.value=String(clamp(effective,.25,2));}
  }
  function setStatus(value){ui.status.textContent=value;}
  function update(){
