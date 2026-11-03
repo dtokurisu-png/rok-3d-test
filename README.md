@@ -24,7 +24,7 @@ assets/
 
 Todos los modelos y FBX aprobados ya están en las carpetas anteriores, conservando sus nombres de origen. Las rutas del visor y de la arena, el archivo JSON de Farolera y el iniciador local PowerShell se actualizaron para usar las rutas canónicas.
 
-**Compatibilidad:** la raíz conserva por ahora alias de los cuatro GLB de personajes, cinco FBX y ZIP Mixamo hasta que la carga se haya comprobado visualmente en todas las pantallas. Los nueve GLB decorativos se trasladaron y se retiraron de la raíz tras verificar que no estaban referidos por las páginas.
+**Limpieza terminada:** los 19 binarios (4 GLB de personajes, 9 props, 5 FBX y 1 ZIP) ya no están en la raíz. Se verificaron sus SHA Git en las rutas nuevas antes de eliminarlos. Hay una rama de respaldo: `backup-before-asset-root-cleanup-2026-11-03`. La carga visual WebGL todavía debe probarse en el navegador.
 
 ## Animaciones
 El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 y 20 excluidos. Solo quedan **17 disponibles**. El rechazo no renumera las animaciones para proteger referencias de código. Las antiguas 04/05 permanecen dentro del ZIP original compartido; las cuatro FBX 17–20 ya habían sido eliminadas.
@@ -36,3 +36,6 @@ El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 
 - [R.O.K. Lite](https://github.com/dtokurisu-png/rok-lirte-html) mantiene su migración de imágenes independiente.
 
 **Validado estáticamente:** rutas nuevas presentes, SHA idénticos a los de origen al copiar, y sintaxis JavaScript del visor/arena correcta. **Pendiente:** ejecución WebGL y comprobación visual desde el navegador.
+
+## Verificación automática
+Pruebas en `tests/asset-integrity.test.mjs` y workflow `.github/workflows/asset-integrity.yml`: existencia de las 19 rutas, SHA Git, exclusión de binarios en la raíz y referencias del visor y la arena. La prueba está configurada para ejecutarse en GitHub Actions; no se ha confirmado aún una ejecución exitosa.
