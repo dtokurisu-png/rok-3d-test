@@ -154,6 +154,17 @@ function updateTransform(entry){
  entry.root.position.set(entry.x,entry.y,entry.z);
  entry.root.rotation.y=THREE.MathUtils.degToRad(entry.rotation);
  entry.root.scale.setScalar(entry.scale);
+ // Protect the ENTIRE visible footprint, including attached FX, not just the
+ // pivot or center of a large mesh. All transforms use the same check.
+ entry.root.updateMatrixWorld(true);
+ const box=new THREE.Box3().setFromObject(entry.root);
+ if(box.isEmpty())throw Error('Objeto sin geometría visible');
+ const center=box.getCenter(new THREE.Vector3());
+ const size=box.getSize(new THREE.Vector3());
+ const safe=placeOutsidePlayable(center.x,center.z,size.x/2,size.z/2);
+ entry.x+=safe.x-center.x;
+ entry.z+=safe.z-center.z;
+ entry.root.position.set(entry.x,entry.y,entry.z);
 }
 function renderObjects(){
  $('sceneObjectCount').textContent=String(objects.length);
@@ -258,8 +269,10 @@ renderer.domElement.addEventListener('pointermove',event=>{
  const at=positionOnFloor(event);if(!at)return;
  const {x,z}=exteriorPosition(at.x+drag.dx,at.z+drag.dz,
   drag.obj.model,drag.obj.rotation,drag.obj.scale);
- if(Math.abs(x-drag.obj.x)+Math.abs(z-drag.obj.z)>.001)drag.moved=true;
- drag.obj.x=x;drag.obj.z=z;updateTransform(drag.obj);fillControls();
+ try{
+  if(Math.abs(x-drag.obj.x)+Math.abs(z-drag.obj.z)>.001)drag.moved=true;
+  drag.obj.x=x;drag.obj.z=z;updateTransform(drag.obj);fillControls();
+ }catch(error){status('Límite de colocación: '+error.message);}
 });
 function endDrag(event){if(!drag||event.pointerId!==drag.id)return;drag=null;controls.enabled=true;renderObjects();}
 renderer.domElement.addEventListener('pointerup',endDrag);
@@ -299,7 +312,11 @@ $('sceneCamera').addEventListener('click',()=>{camera.position.set(32,37,51);con
 $('sceneGrid').addEventListener('click',()=>{grid.visible=!grid.visible;$('sceneGrid').setAttribute('aria-pressed',String(grid.visible));});
 function serializeObject(o){return {id:o.id,name:o.name,modelId:o.modelId,compositionId:o.compositionId,effects:o.effects.map(x=>({...x})),x:o.x,y:o.y,z:o.z,rotation:o.rotation,scale:o.scale};}
 function sceneDocument(){
- for(const obj of objects)ensureExterior(obj.x,obj.z,obj.model,obj.rotation,obj.scale);
+ for(const obj of objects){
+  const box=new THREE.Box3().setFromObject(obj.root);
+  const middle=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());
+  assertPlacement(middle.x,middle.z,size.x/2,size.z/2);
+ }
  return {schemaVersion:1,kind:'rok3d.scene',name:$('sceneName').value.trim().slice(0,70)||'Escenario',arena:{columns:W,rows:D},objects:objects.map(serializeObject)};
 }
 function downloadJSON(obj){
