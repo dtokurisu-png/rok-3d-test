@@ -1259,7 +1259,7 @@ function createCaster(baseScene,clip,side){
   const mixer=new THREE.AnimationMixer(model);
   mixer.clipAction(clip).play();mixer.update(0);
   const c={role:'caster',side,outer,model,mixer,idleClip:clip,
-    startZ,hp:12,maxHp:12,stage:'active'};
+    startZ,hp:12,maxHp:12,stage:'active',attackRange:2,moveSpeed:3.8,attackPeriod:1};
   casters.push(c);
   return c;
 }
@@ -3070,8 +3070,12 @@ const casterLayers=createCasterLayerSystem(THREE);
 const casterRangeIndicator=createCasterRangeIndicator({THREE,range:2,approach:4.5});
 function casterAttackTarget(c){
  if(!c||c.stage!=='active')return null;
- const enemies=[...combatants,...casters].filter(e=>e.side!==c.side&&canDamageTarget(e));
- return casterRangeIndicator.choose(c,enemies,canDamageTarget).target;
+ // Match the target marker: prioritize the closest hostile summon in radius 2.
+ const enemies=combatants.filter(e=>e.side!==c.side&&canDamageTarget(e));
+ const summon=casterRangeIndicator.choose(c,enemies,canDamageTarget).target;
+ if(summon)return summon;
+ const enemyCasters=casters.filter(e=>e.side!==c.side&&canDamageTarget(e));
+ return casterRangeIndicator.choose(c,enemyCasters,canDamageTarget).target;
 }
 // Mode for manually controlling the real Chiara/Lioren models.
 let casterMovement=null;
