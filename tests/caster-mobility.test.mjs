@@ -88,7 +88,10 @@ test('WASD automatically activates and moves before animation loading completes'
 
 test('Arena still keeps combat simulation separated from manual movement and retains original FBX sources',async()=>{
  const [html,loader]=await Promise.all([read('arena-25d.html'),read('caster-movement-loader.js')]);
- assert.match(html,/!casterMovement\?\.enabled\)\{updateDuel\(dt\);\}/);
+ assert.match(html,/if\(loaded&&playing&&!casterReview\.active\)updateDuel\(dt\)/);
+ assert.doesNotMatch(html,/playing=false;qs\('#pause'\)/);
+ assert.match(html,/if\(caster\.stage==='active'&&!?\(casterMovement\?\.enabled&&casterMovement\.caster===caster\)\)/);
+ assert.match(html,/if\(loaded&&casterMovement\?\.enabled\)casterMovement\.step\(dt\)/);
  assert.match(html,/casterMovement\.step\(dt\)/);
  assert.match(html,/reviveCaster:c=>/);
  for(const original of ['Standing Idle.fbx','Running Backward.fbx','Running.fbx','Right Strafe.fbx','Right Strafe (1).fbx'])
