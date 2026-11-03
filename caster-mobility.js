@@ -60,11 +60,11 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
    const ticket=requested,model=caster.model,character=controls.side.value;
    prepareClips(caster).then(result=>{
     if(ticket!==requested||!enabled||selected()!==caster||caster.model!==model)return;
-    clips.clear();for(const [name,clip] of Object.entries(result))if(clip)clips.set(name,clip);
+    clips.clear();for(const name of ['idle','forward','backward','left','right'])if(result[name])clips.set(name,result[name]);
     cReset(caster);playClip(caster,'idle');
-    const missing=['idle','forward','backward','left','right'].filter(name=>!clips.has(name));
-    showReady(missing.length?'● Incompleto':'● Listo');
-    announce(missing.length?'Faltan clips: '+missing.join(', '):'Listo: usa el teclado o mantén pulsadas las flechas.');
+    const missing=result._unavailable||[];
+    showReady(missing.length?'● Parcial':'● Listo');
+    announce(missing.length?'WASD funciona; clips '+missing.join(', ')+' usan Idle de respaldo.':'Listo: usa el teclado o mantén pulsadas las flechas.');
    }).catch(err=>{
     if(ticket!==requested)return;
     disable();showReady('● Error');
@@ -95,7 +95,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   if(!enabled)return;
   const c=selected();
   if(!c||c!==activeCaster||c.stage!=='active')return;
-  if(!clips.has('idle')||!clips.has('forward')||!clips.has('backward')||!clips.has('left')||!clips.has('right'))return;
+  // Movement is responsive even while FBX files load. Idle acts as a safe fallback.
   const move=chooseAction(),speed=Number(controls.speed.value)||2.2;
   if(move.kind!=='idle'){
    const length=Math.hypot(move.lateral,move.forward)||1;
