@@ -30,6 +30,7 @@ class FakeGroup{
  constructor(){this.children=[];this.position={set:(...xyz)=>this.xyz=xyz};this.visible=true;this.parent=null;}
  add(item){this.children.push(item);item.parent=this;}
  remove(item){this.children=this.children.filter(x=>x!==item);item.parent=null;}
+ traverse(cb){cb(this);for(const child of this.children)child.traverse?.(cb);}
 }
 class FakeMaterial{
  constructor(options){this.options=options;}
@@ -108,7 +109,7 @@ test('compact Arena controls and live combat are unchanged',async()=>{
  assert.match(arena,/id="casterDefenseButton"/);
  assert.match(arena,/if\(loaded&&playing&&!casterReview\.active\)updateDuel\(dt\)/);
  assert.match(arena,/if\(loaded&&casterMovement\?\.enabled\)casterMovement\.step\(dt\)/);
- assert.match(arena,/v0\.9\.27 · Arena 15×30/);
+ assert.match(arena,/v0\.9\.28 · Escudo sin duplicados/);
  for(const [path,id] of [['Magic Heal.fbx',2],['Sword And Shield Impact.fbx',23],
   ['Standing React Small From Headshot.fbx',9],['Sword And Shield Death.fbx',8]])
   assert.ok(loader.includes(path)&&loader.includes('id:'+id),path);
@@ -412,4 +413,48 @@ test('Arena 15x30 has consistent grid, spawns, coordinate conversions and moveme
  }
  assert.deepEqual(w2c(0,14.5),{col:7,row:29});
  assert.deepEqual(w2c(0,-14.5),{col:7,row:0});
+});
+
+test('caster guard creates exactly one shield, hides it on Shift release, and reuses it across GLB swaps',async()=>{
+ const {createCasterLayerSystem}=await moduleFrom('caster-animation-layers.js');
+ const layers=createCasterLayerSystem(three),c=makeCaster();
+ c.outer=new FakeGroup();
+ layers.shield(c,false);
+ assert.equal(c.outer.children.length,0,'no shield before Shift');
+ layers.shield(c,true);
+ const shield=c.outer.children[0];
+ assert.equal(shield.name,'ROK_Caster_Front_Defense');
+ assert.equal(shield.visible,true);
+ layers.shield(c,false);
+ assert.equal(shield.visible,false,'release hides shield');
+ const previous=c.model;
+ c.model={userData:{rokCasterAsset:'Lioren'}};
+ layers.shield(c,false);
+ layers.shield(c,true);
+ assert.equal(c.outer.children.filter(child=>child.name==='ROK_Caster_Front_Defense').length,1,
+  'changing model must NOT create a second shield');
+ assert.equal(c.outer.children[0],shield,'same visual reused after replacing GLB');
+ layers.reset(c);
+ assert.equal(shield.visible,false,'reset always hides shield even for a new model');
+ assert.notEqual(previous,c.model);
+});
+test('caster shield never leaves duplicate visual groups in the persistent outer',async()=>{
+ const {createCasterLayerSystem}=await moduleFrom('caster-animation-layers.js');
+ const layers=createCasterLayerSystem(three),c=makeCaster();
+ c.outer=new FakeGroup();
+ const old=new FakeGroup();old.name='ROK_Caster_Front_Defense';old.visible=true;
+ const duplicate=new FakeGroup();duplicate.name='ROK_Caster_Front_Defense';duplicate.visible=true;
+ c.outer.add(old);c.outer.add(duplicate);
+ layers.shield(c,false);
+ assert.equal(c.outer.children.length,1);
+ assert.equal(c.outer.children[0],old);
+ assert.equal(old.visible,false);
+ layers.shield(c,true);
+ assert.equal(c.outer.children.length,1);
+ assert.equal(old.visible,true);
+ layers.shield(c,false);
+ assert.equal(old.visible,false);
+ const html=await read('arena-25d.html');
+ assert.match(html,/if\(casterMovement\?\.caster===caster\)casterMovement\.disable\(\)/);
+ assert.match(html,/casterLayers\.shield\(caster,false\);\s*caster\.outer\.remove\(caster\.model\)/);
 });
