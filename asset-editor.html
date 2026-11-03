@@ -28,7 +28,7 @@
    <label class="assetField">Tamaño / Radio <output id="fxSizeValue">1.0</output><input id="fxSize" type="range" min=".1" max="6" value="1" step=".1"></label>
    <label class="assetField">Altura <output id="fxHeightValue">0.0</output><input id="fxHeight" type="range" min="-3" max="6" value="0" step=".1"></label>
    <div class="assetRow"><label class="assetField">Desplazar X<input id="fxX" type="number" min="-20" max="20" step=".1" value="0"></label><label class="assetField">Desplazar Z<input id="fxZ" type="number" min="-20" max="20" step=".1" value="0"></label></div>
-   <button id="effectRemove" type="button" class="assetDanger">Quitar capa</button>
+   <div class="assetActions"><button id="effectToggle" type="button">Ocultar capa</button><button id="effectRemove" type="button" class="assetDanger">Quitar capa</button></div>
   </div>
   <h3>Archivo de composición</h3>
   <div class="assetActions"><button id="assetSave" type="button" class="assetPrimary">Guardar JSON</button><button id="assetImport" type="button">Importar JSON</button><button id="assetClear" type="button">Nueva composición</button><input id="assetImportFile" type="file" accept=".json,application/json" hidden></div>
