@@ -97,9 +97,9 @@ canvas{display:block;touch-action:none}
 @media(min-width:760px){#versionProof{top:72px;left:16px;transform:none}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
+<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.16 · WASD</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.17 · WASD</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -159,22 +159,16 @@ canvas{display:block;touch-action:none}
 <div id="summonCastLayer" aria-hidden="true"></div>
 <div id="phase">Preparando combate…</div>
 <div id="hint">1 dedo: girar · 2 dedos: zoom<br>Arriba: rival · Abajo: aliado</div>
-<section id="casterMobilityPanel" aria-label="Control manual visible de casters">
- <div class="casterMoveHeading"><strong>CONTROL DEL CASTER · WASD</strong><span id="casterMoveReady" aria-live="polite">● Esperando</span></div>
- <div class="casterMoveRow casterMoveChoice">
-  <label for="casterMoveSide">Personaje</label>
-  <select id="casterMoveSide"><option value="ally">Lioren · aliado</option><option value="enemy">Chiara · rival</option></select>
+<section id="casterMobilityPanel" aria-label="Mover caster con WASD">
+ <select id="casterMoveSide" aria-label="Caster controlado"><option value="ally">Lioren</option><option value="enemy">Chiara</option></select>
+ <div class="casterMovePad" aria-label="Direcciones; mantén pulsado para moverte">
+  <button type="button" data-move-key="KeyW" aria-label="Avanzar">W ↑</button>
+  <button type="button" data-move-key="KeyA" aria-label="Izquierda">A ←</button>
+  <button type="button" data-move-key="KeyS" aria-label="Atrás">S ↓</button>
+  <button type="button" data-move-key="KeyD" aria-label="Derecha">D →</button>
  </div>
- <label class="casterMoveToggle" for="casterMoveEnable"><input type="checkbox" id="casterMoveEnable"><span>ACTIVAR CONTROL MANUAL</span></label>
- <div class="casterMovePad" aria-label="Botones para mover al caster">
-  <button type="button" data-move-key="KeyW" aria-label="Avanzar (W)">W <span>↑</span></button>
-  <button type="button" data-move-key="KeyA" aria-label="Izquierda (A)">A <span>←</span></button>
-  <button type="button" data-move-key="KeyS" aria-label="Retroceder (S)">S <span>↓</span></button>
-  <button type="button" data-move-key="KeyD" aria-label="Derecha (D)">D <span>→</span></button>
- </div>
- <div class="casterMoveRow casterMoveSpeedRow"><label for="casterMoveSpeed">Velocidad</label><input type="range" id="casterMoveSpeed" min=".5" max="6" step=".1" value="2.2"><output id="casterMoveSpeedText">2.2 u/s</output></div>
- <div class="casterMoveFooter">Teclas: <strong id="casterMoveKeys">—</strong></div>
- <p id="casterMoveStatus" role="status">Selecciona un caster y activa el control.</p>
+ <label class="casterMoveSpeedRow" for="casterMoveSpeed">Vel. <input type="range" id="casterMoveSpeed" min=".5" max="6" step=".1" value="2.2"><output id="casterMoveSpeedText">2.2</output></label>
+ <span id="casterMoveStatus" role="status" title="WASD mueve al caster automáticamente">WASD listo</span>
 </section>
 <div id="bottom">
   <button class="primary" id="repeat" disabled>↻ Repetir</button>
@@ -3190,5 +3184,5 @@ function loop(now){
 requestAnimationFrame(loop);
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,innerWidth<700?1.5:2));renderer.setSize(innerWidth,innerHeight);});
 </script>
-<script src="./studio.js"></script></body>
+</body>
 </html>
