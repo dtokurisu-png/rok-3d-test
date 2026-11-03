@@ -97,3 +97,28 @@ test('Arena still keeps combat simulation separated from manual movement and ret
  for(const original of ['Standing Idle.fbx','Running Backward.fbx','Running.fbx','Right Strafe.fbx','Right Strafe (1).fbx'])
   assert.ok(loader.includes(original),original);
 });
+
+test('Caster combat action 02 uses an actual clip and existing ranged projectile pipeline',async()=>{
+ const [arena,control,loader]=await Promise.all([
+  read('arena-25d.html'),read('caster-mobility.js'),read('caster-movement-loader.js')
+ ]);
+ assert.match(arena,/id="casterAttackButton"/);
+ assert.match(control,/if\(event\.code==='KeyF'\)/);
+ assert.match(control,/attackElapsed>=attackDuration\*\.55/);
+ assert.match(control,/onAttack\?\.\(c\)/);
+ assert.match(arena,/onAttack:c=>\{/);
+ assert.match(arena,/launchSpell\(c,enemy\)/);
+ assert.match(arena,/c\.attackDamage=1/);
+ assert.match(loader,/attack:\{name:'Magic Heal\.fbx',id:2\}/);
+ assert.match(loader,/death:\{name:'Sword And Shield Death\.fbx',id:8\}/);
+ assert.match(loader,/if\(role==='attack'\|\|role==='death'\)/);
+});
+test('Caster 08 death playback and match restart do not stop summon animation updates',async()=>{
+ const arena=await read('arena-25d.html');
+ assert.match(arena,/function playCasterDeath\(target\)/);
+ assert.match(arena,/target\.mixer\.clipAction\(clip\)/);
+ assert.match(arena,/target\.stage='defeated';\s*playCasterDeath\(target\)/);
+ assert.match(arena,/if\(c\.stage==='defeated'&&c\.deathAnimationActive\)c\.mixer\.update\(dt\)/);
+ assert.match(arena,/if\(loaded&&playing&&!casterReview\.active\)updateDuel\(dt\)/);
+ assert.match(arena,/if\(loaded&&casterMovement\?\.enabled\)casterMovement\.step\(dt\)/);
+});
