@@ -3,12 +3,12 @@
 export function createCasterMovementLoader({FBXLoader,adaptClip,getManualController}){
  const definitions={
   idle:{path:'assets/animations/casters/shared/Standing Idle.fbx',id:'standing-idle'},
+  attack:{name:'Magic Heal.fbx',id:2},
+  death:{name:'Sword And Shield Death.fbx',id:8},
   backward:{name:'Running Backward.fbx',id:6},
   forward:{name:'Running.fbx',id:7},
   left:{path:'assets/animations/casters/shared/Right Strafe.fbx',id:15},
-  right:{path:'assets/animations/casters/shared/Right Strafe (1).fbx',id:16},
-  attack:{name:'Magic Heal.fbx',id:2},
-  death:{name:'Sword And Shield Death.fbx',id:8}
+  right:{path:'assets/animations/casters/shared/Right Strafe (1).fbx',id:16}
  };
  const cache=new WeakMap();
  let zipPromise=null;
