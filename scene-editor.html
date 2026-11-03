@@ -16,9 +16,9 @@
   <div id="sceneCompositions" class="sceneAssetList"></div>
  </aside>
  <section class="sceneMain" aria-label="Vista 3D sin combate">
-   <div class="sceneTop"><strong>Editor de escenarios · 9 × 18</strong><button id="sceneCamera" type="button">Centrar</button><button id="sceneGrid" type="button" aria-pressed="true">Cuadrícula</button></div>
+   <div class="sceneTop"><strong>Editor de escenarios · 15 × 30</strong><button id="sceneCamera" type="button">Centrar</button><button id="sceneGrid" type="button" aria-pressed="true">Cuadrícula</button></div>
    <div id="sceneCanvas"></div>
-   <div class="sceneBottom"><span>Seleccionar y arrastrar: mover · Vacío: orbitar · Rueda: zoom</span><span id="sceneStatus" role="status">Inicializando…</span></div>
+   <div class="sceneBottom"><span>450 casillas reservadas para jugar · Coloca decoración FUERA del borde naranja · Arrastrar: mover · Rueda: zoom</span><span id="sceneStatus" role="status">Inicializando…</span></div>
  </section>
  <aside class="scenePanel sceneInspector" aria-label="Objetos y propiedades">
   <h2>Escenario</h2>
@@ -29,7 +29,7 @@
   <section id="sceneTransform" hidden>
    <h3>Transformación</h3>
    <label class="sceneField">Nombre<input id="sceneObjectName" maxlength="70"></label>
-   <div class="sceneRow"><label class="sceneField">X<input id="scenePosX" type="number" min="-4.5" max="4.5" step=".1"></label><label class="sceneField">Y<input id="scenePosY" type="number" min="-10" max="20" step=".1"></label><label class="sceneField">Z<input id="scenePosZ" type="number" min="-9" max="9" step=".1"></label></div>
+   <div class="sceneRow"><label class="sceneField">X<input id="scenePosX" type="number" min="-45" max="45" step=".1"></label><label class="sceneField">Y<input id="scenePosY" type="number" min="-10" max="20" step=".1"></label><label class="sceneField">Z<input id="scenePosZ" type="number" min="-65" max="65" step=".1"></label></div>
    <label class="sceneField">Rotación Y (grados)<input id="sceneRotation" type="number" min="-3600" max="3600" step="5"></label>
    <label class="sceneField">Escala <output id="sceneScaleValue">1.00</output><input id="sceneScale" type="range" min=".05" max="5" value="1" step=".05"></label>
    <div class="sceneTools"><button id="sceneDuplicate">Duplicar</button><button id="sceneDelete">Eliminar</button></div>
