@@ -25,7 +25,7 @@ export function createViewerCasterMovement({
  let attackRemaining=0,attackCooldown=0;
  let pendingAttack=false;
  function report(message){status.textContent=message;onMessage?.(message);}
- const valid=()=>['chiara','lioren'].includes(getCharacter())&&!!getModel()&&!!getMixer();
+ const valid=()=>['chiara','lioren','astarium','controladora','semillera','kariona','telepate'].includes(getCharacter())&&!!getModel()&&!!getMixer();
  const suspendedTarget=target=>target?.closest?.('textarea,select,[contenteditable="true"],input:not([type="range"])');
  const displayKeys=()=>{
   keysOut.textContent=[...held,...guards].map(k=>k.startsWith('Key')?k.slice(3):'Shift').join(' + ')||'—';
