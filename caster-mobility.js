@@ -95,7 +95,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   if(!engage())return false;
   const c=selected();
   if(c!==caster||c.stage!=='active'||attackCooldown>0||attackAction)return false;
-  const clip=clips.get('attack');
+  const clip=clips.get('attack')||c.model?.userData?.rokAttackClip;
   if(!clip||clip.duration<=0){notify('Ataque 02 cargando…');requestClips(c);return false;}
   c.mixer.stopAllAction();
   const action=c.mixer.clipAction(clip);
