@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-03",
+  "repository": "dtokurisu-png/rok-3d-test",
+  "mode": "canonical assets with temporary root compatibility copies; originals and new paths share identical Git blob SHA",
+  "totals": {
+    "models": 13,
+    "clips": 5,
+    "archives": 1
+  },
+  "assets": [
+    {
+      "type": "archive",
+      "path": "assets/animations/casters/farolera/ROK_PUBLICAR_ANIMACIONES.zip",
+      "legacyPath": "ROK_PUBLICAR_ANIMACIONES.zip",
+      "gitBlobSha": "7e5e9abb9be82e1a49be7c80233b80dd3e6b1fb2",
+      "sizeBytes": 18253956
+    },
+    {
+      "type": "animation",
+      "path": "assets/animations/casters/shared/Right Strafe (1).fbx",
+      "legacyPath": "Right Strafe (1).fbx",
+      "gitBlobSha": "08a8b416aa0ecac4b67ef23cf814eacad37834d7",
+      "sizeBytes": 1811376
+    },
+    {
+      "type": "animation",
+      "path": "assets/animations/casters/shared/Right Strafe.fbx",
+      "legacyPath": "Right Strafe.fbx",
+      "gitBlobSha": "1cbc9f79ea33138c2b2b3ad287335c72f903ca61",
+      "sizeBytes": 1811376
+    },
+    {
+      "type": "animation",
+      "path": "assets/animations/casters/shared/Standing 1H Cast Spell 01.fbx",
+      "legacyPath": "Standing 1H Cast Spell 01.fbx",
+      "gitBlobSha": "0bdcd258dae55e74b804987aa412348106f0cdae",
+      "sizeBytes": 1992816
+    },
+    {
+      "type": "animation",
+      "path": "assets/animations/casters/shared/Standing 2H Magic Area Attack 02 (1).fbx",
+      "legacyPath": "Standing 2H Magic Area Attack 02 (1).fbx",
+      "gitBlobSha": "88cbd505ac74c1cafa270e53d8afb40bb3e67e63",
+      "sizeBytes": 2106224
+    },
+    {
+      "type": "animation",
+      "path": "assets/animations/casters/shared/Sword And Shield Impact.fbx",
+      "legacyPath": "Sword And Shield Impact.fbx",
+      "gitBlobSha": "17cab28b37689081e739a5ab80ca968bc0ee10ba",
+      "sizeBytes": 1819408
+    },
+    {
+      "type": "model",
+      "path": "assets/models/casters/arquera/ARQUERA DEL DECIERTO GLTF.glb",
+      "legacyPath": "ARQUERA DEL DECIERTO GLTF.glb",
+      "gitBlobSha": "af1fc47703cdb03ba8acd560f47acd11a9919c45",
+      "sizeBytes": 31530904
+    },
+    {
+      "type": "model",
+      "path": "assets/models/casters/chiara/chiara kaster.glb",
+      "legacyPath": "chiara kaster.glb",
+      "gitBlobSha": "7a85a701c23c1c5386d519b708980c5bb90e7f70",
+      "sizeBytes": 4252840
+    },
+    {
+      "type": "model",
+      "path": "assets/models/casters/farolera/chiara_idle.glb",
+      "legacyPath": "chiara_idle.glb",
+      "gitBlobSha": "0fe5e330bde70cc8f30201a5ec8246c09f4a5ce1",
+      "sizeBytes": 4901316
+    },
+    {
+      "type": "model",
+      "path": "assets/models/casters/lioren/lioren kaster.glb",
+      "legacyPath": "lioren kaster.glb",
+      "gitBlobSha": "d8a11255579f3286db126110dd13801744693e96",
+      "sizeBytes": 7779480
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/fantasy banner 3d model.glb",
+      "legacyPath": "fantasy banner 3d model.glb",
+      "gitBlobSha": "88ae67faa5af63b4a46e5fde949ae3b246aada99",
+      "sizeBytes": 4115440
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/fantasy crystal tower 3d model.glb",
+      "legacyPath": "fantasy crystal tower 3d model.glb",
+      "gitBlobSha": "c5322b82be9283e58e37641d1e1790fa12dda856",
+      "sizeBytes": 5097976
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/fantasy gate 3d model.glb",
+      "legacyPath": "fantasy gate 3d model.glb",
+      "gitBlobSha": "fd164d19eeee976dc6215dc977e85f6423397f48",
+      "sizeBytes": 5281040
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/fantasy wizard 3d model.glb",
+      "legacyPath": "fantasy wizard 3d model.glb",
+      "gitBlobSha": "99089f5aeefb35b68a6345be36ca0b2dbea0f0a4",
+      "sizeBytes": 4683628
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/fantasy wizard statue 3d model (1).glb",
+      "legacyPath": "fantasy wizard statue 3d model (1).glb",
+      "gitBlobSha": "cf8523dd0d3efdaef2eb9043a9ee6911ac2ca340",
+      "sizeBytes": 4804600
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/fantasy wizard statue 3d model.glb",
+      "legacyPath": "fantasy wizard statue 3d model.glb",
+      "gitBlobSha": "af7c5a5a1575f0ef99444d21a719226938cd0fcc",
+      "sizeBytes": 4053928
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/magic book pedestal 3d model.glb",
+      "legacyPath": "magic book pedestal 3d model.glb",
+      "gitBlobSha": "b8399e82a73c54aa6ecf7aafe1d790c21c5cadc2",
+      "sizeBytes": 4706556
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/ornate pedestal 3d model.glb",
+      "legacyPath": "ornate pedestal 3d model.glb",
+      "gitBlobSha": "e220a5a5d68ebe1f9eaaff0858062de54d47254b",
+      "sizeBytes": 3861124
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/wizard statue 3d model.glb",
+      "legacyPath": "wizard statue 3d model.glb",
+      "gitBlobSha": "920915fbef1a3bdba7f75d5a0c98d52ebbbbdd85",
+      "sizeBytes": 5046452
+    }
+  ]
+}
