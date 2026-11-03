@@ -3045,7 +3045,7 @@ async function playReviewedAnimation(animation){
   try{
     let adapted=casterReview.clips.get(cacheKey);
     if(!adapted){
-      const source=await new FBXLoader().loadAsync('./assets/animations/casters/shared/'+encodeURIComponent(animation.path));
+      const source=await new FBXLoader().loadAsync('./'+animation.path.split('/').map(encodeURIComponent).join('/'));
       if(!source.animations?.length)throw Error('El FBX no contiene un clip');
       adapted=adaptAnimationFBX(source,source.animations[0],caster.model,animation.id);
       casterReview.clips.set(cacheKey,adapted);
