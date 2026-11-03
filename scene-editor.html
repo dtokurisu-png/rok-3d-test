@@ -23,6 +23,23 @@
  <aside class="scenePanel sceneInspector" aria-label="Objetos y propiedades">
   <h2>Escenario</h2>
   <label class="sceneField">Nombre<input id="sceneName" maxlength="70" value="Templo arcano"></label>
+  <section class="sceneBackgroundPanel" aria-label="Contenedor de background">
+   <h3>Background · recinto gótico</h3>
+   <label class="sceneBackgroundEnable"><input id="sceneBackgroundEnabled" type="checkbox" checked> Mostrar recinto envolvente</label>
+   <label class="sceneField">Ancho del recinto <output id="sceneBackgroundWidthValue">70</output>
+    <input id="sceneBackgroundWidth" type="range" min="30" max="120" step="2" value="70">
+   </label>
+   <p class="sceneQuiet">El largo se calcula automáticamente al doble del ancho: <output id="sceneBackgroundLengthValue">140</output>. La cuadrícula jugable sigue siendo 15 × 30.</p>
+   <div class="sceneRow">
+    <label class="sceneField">Altura paredes<input id="sceneBackgroundHeight" type="number" min="10" max="40" step="1" value="18"></label>
+    <label class="sceneField">Altura arco<input id="sceneBackgroundArch" type="number" min="4" max="25" step="1" value="12"></label>
+   </div>
+   <label class="sceneField">Textura interior (ruta publicada en assets/texturas)
+    <input id="sceneBackgroundTexture" type="text" placeholder="assets/texturas/panorama...png" spellcheck="false">
+   </label>
+   <button type="button" id="sceneBackgroundApply">Aplicar background</button>
+   <p class="sceneQuiet">Paredes y bóveda independientes del combate. El piso exterior está al nivel de la arena. Puedes dejar la textura vacía para probar primero la geometría.</p>
+  </section>
   <div class="sceneTools"><button id="sceneSave" type="button" class="primary">Guardar JSON</button><button id="sceneOpen" type="button">Abrir JSON</button><button id="sceneNew" type="button">Nuevo</button><input id="sceneFile" type="file" accept=".json,application/json" hidden></div>
   <div class="sceneMeasure"><span>Elementos</span><strong id="sceneObjectCount">0</strong></div>
   <h3>Objetos colocados</h3><div id="sceneInstances" class="sceneInstances"></div>
