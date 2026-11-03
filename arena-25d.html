@@ -97,7 +97,7 @@ canvas{display:block;touch-action:none}
 @media(min-width:760px){#versionProof{top:72px;left:16px;transform:none}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./arena-scene-overlay.css"></head>
+<link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
 <div id="versionProof" aria-label="Versión de la arena">v0.9.15</div>
 <section id="top">
@@ -115,6 +115,7 @@ canvas{display:block;touch-action:none}
       <div class="sceneTesterButtons"><button id="testerSceneApply" type="button" disabled>Cargar publicado</button><label class="sceneTesterLine"><input id="testerSceneVisible" type="checkbox" checked> Decoraciones visibles</label></div>
       <p id="testerSceneStatus" class="sceneTesterStatus" role="status">Preparando biblioteca…</p>
     </section>
+    <section id="casterMobilityPanel" aria-label="Control manual de casters"><strong>Movilidad · Chiara / Lioren</strong><div class="casterMoveRow"><label for="casterMoveSide">Caster</label><select id="casterMoveSide"><option value="ally">Lioren · aliado</option><option value="enemy">Chiara · rival</option></select><label class="casterMoveToggle"><input type="checkbox" id="casterMoveEnable"> Control manual</label></div><div class="casterMoveRow"><label for="casterMoveSpeed">Velocidad</label><input type="range" id="casterMoveSpeed" min=".5" max="6" step=".1" value="2.2"><output id="casterMoveSpeedText">2.2 u/s</output></div><p>W: adelante (07) · S: atrás (06) · A: izquierda (15) · D: derecha (16). Reposo: Standing Idle.</p><p>Teclas: <span id="casterMoveKeys">—</span></p><p id="casterMoveStatus" role="status">Control manual desactivado.</p></section>
     <section id="casterAnimationReview" aria-label="Animaciones de los Kasters" style="border:1px solid #277e7c;border-radius:10px;padding:10px;margin:10px 0;background:#0c2731">
       <strong style="color:#00ffe4">KASTERS · ANIMACIONES EN ESTA ARENA</strong>
       <p>Prueba los movimientos sobre los Kasters del campo actual. El combate se pausa mientras revisas; no se modifica ninguna regla.</p>
@@ -175,6 +176,8 @@ import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js';
+import {createCasterMobility} from './caster-mobility.js';
+import {createCasterMovementLoader} from './caster-movement-loader.js';
 
 const qs=s=>document.querySelector(s);
 const hud=qs('#top'), head=qs('#head');
@@ -3000,7 +3003,8 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
       caster.idleClip=gltf.animations.find(clip=>/idle|standing/i.test(clip.name))||
         gltf.animations[0]||new THREE.AnimationClip('Reposo',1,[]);
       caster.mixer.clipAction(caster.idleClip).reset().play();
-      qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' cargado · animaciones en revisión';
+      void movementLoader.load(caster).catch(err=>{qs('#casterMoveStatus').textContent='FBX caster: '+err.message;});
+       qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' cargado · animaciones en revisión';
     }).catch(error=>console.warn('[R.O.K.] Caster '+spec.label+' sigue provisional',error));
   }
   activateArenaAnimationPack(g.scene).catch(err=>console.warn('[R.O.K.] Paquete Mixamo no disponible:',err));
@@ -3014,6 +3018,22 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   console.error(err);
 });
 
+// Mode for manually controlling the real Chiara/Lioren models.
+let casterMovement=null;
+const movementLoader=createCasterMovementLoader({
+ FBXLoader,adaptClip:adaptAnimationFBX,getManualController:()=>casterMovement
+});
+casterMovement=createCasterMobility({
+ THREE,getCaster:side=>casters.find(c=>c.side===side),
+ prepareClips:movementLoader.load,
+ onModeChange:(enabled,previous)=>{
+  if(enabled){
+   if(casterReview.active)finishCasterReview();
+   const prior=playing;playing=false;qs('#pause').textContent='▶ Reanudar';return prior;
+  }
+  playing=!!previous;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';
+ }
+});
 // Revisión in situ: MISMA arena, mismos modelos, mixers y sistema de cámara.
 // Las selecciones no modifican ni eliminan ficheros; exportación para revisión GitHub.
 const casterReview={items:[], decisions:new Map(),clips:new Map(),active:false,wasPlaying:false,
@@ -3047,6 +3067,7 @@ function reviewData(){
 }
 async function playReviewedAnimation(animation){
   const caster=reviewedCaster();
+  if(casterMovement?.enabled)casterMovement.disable();
   if(!caster){reviewMessage('Esperando modelos de Kasters.');return;}
   if(!caster.model?.userData?.rokCasterAsset || !caster.mixer){reviewMessage('Esperando al GLB real de '+(reviewSide()==='ally'?'Lioren':'Chiara')+'; aún no se puede probar el FBX.');return;}
   finishCasterReview();
@@ -3133,13 +3154,14 @@ fetch('./assets/manifests/caster-animations.json',{cache:'no-store'}).then(respo
   reviewMessage('Lista de '+casterReview.items.length+' animaciones · selecciona Probar en esta arena.');}
 ).catch(error=>reviewMessage('No se pudo cargar catálogo: '+String(error.message||error)));
 
-qs('#repeat').onclick=()=>{playing=true;qs('#pause').textContent='Ⅱ Pausar';resetDemoCombat();};
-qs('#pause').onclick=()=>{playing=!playing;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';};
+qs('#repeat').onclick=()=>{casterMovement?.disable();playing=true;qs('#pause').textContent='Ⅱ Pausar';resetDemoCombat();};
+qs('#pause').onclick=()=>{if(casterMovement?.enabled){casterMovement.disable();return;}playing=!playing;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';};
 let fpsTime=0,fpsCount=0;
 function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
-  if(loaded&&playing&&!casterReview.active){updateDuel(dt);}
+  if(loaded&&playing&&!casterReview.active&&!casterMovement?.enabled){updateDuel(dt);}
+   if(loaded&&casterMovement?.enabled)casterMovement.step(dt);
   if(casterReview.active&&casterReview.previousCaster)casterReview.previousCaster.mixer.update(dt);
   if(loaded){
     for(const c of combatants){updateNameplate(c);updateSummonCountdown(c);}
