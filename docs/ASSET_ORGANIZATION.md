@@ -26,11 +26,14 @@ Los cuatro modelos de personaje, nueve objetos del templo, cinco FBX aprobados y
 4. No borrar ni renumerar clips por coincidir su nombre. El catálogo conserva IDs 01–23, bloqueando por decisión del usuario 04, 05, 17, 18, 19 y 20.
 5. Nuevos props del templo deben ir en `assets/models/props/arcane-temple/`, o en una subcarpeta de escenario cuando se apruebe.
 6. Las dos interfaces existentes (visor y arena) siguen siendo independientes; no crear un tercer entorno.
-7. Solo eliminar una ruta antigua si se actualizaron las referencias, se comprobó el hash de destino y pasó la prueba de carga. Por ahora los activos de personaje y animación mantienen **alias temporales en raíz**; los props de templo no.
+7. Solo eliminar una ruta antigua si se actualizaron las referencias, se comprobó el hash de destino y pasó la prueba de carga. Tras verificar hashes y referencias, los **19 recursos binarios se retiraron de la raíz**, incluyendo los de personajes y animaciones. El historial Git y la rama de respaldo permiten recuperar los originales.
 8. Para el juego R.O.K. Lite, clasificar las ilustraciones de cartas, tokens, hechizos, skins, fondos, casters, invocaciones y UI en `assets/images/`; no tocar archivos en `version-anterior/`.
 
 ## Estado de verificación
 - Copia exacta de 19 recursos: verificada por SHA Git y árbol.
-- Nueve GLB decorativos retirados de la raíz con sus destinos confirmados.
+- Los 19 archivos binarios retirados de la raíz con sus destinos confirmados.
 - Referencias del visor y arena actualizadas, sintaxis JS comprobada.
 - Pruebas WebGL, carga real y retarget de animaciones: **pendientes de prueba en navegador**.
+
+## Verificación reproducible
+`node --test tests/asset-integrity.test.mjs` comprueba rutas, hashes SHA y ausencia de binarios en la raíz. También se creó `.github/workflows/asset-integrity.yml` para verificarlo automáticamente en cambios futuros. Falta confirmar la ejecución del workflow y una prueba visual completa de WebGL.
