@@ -65,6 +65,8 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
      }
     }
    }
+   // Keep the safely retargeted death clip available even when this caster is AI-controlled.
+   if(caster.model===model)model.userData.rokDeathClip=result.death||null;
    return result;
   })().catch(e=>{cache.delete(model);throw e;});
   cache.set(model,promise);return promise;
