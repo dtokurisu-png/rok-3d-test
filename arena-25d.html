@@ -936,7 +936,7 @@ function findArcherHeldArrow(c){
 async function preloadCombatAnimationsFromRepo(baseModel){
   // El paquete publicado en GitHub contiene el ZIP original dentro de otro ZIP.
   // Mantener también las rutas antiguas para admitir distribuciones futuras.
-  const candidates=['./ROK_PUBLICAR_ANIMACIONES.zip',
+  const candidates=['./assets/animations/casters/farolera/ROK_PUBLICAR_ANIMACIONES.zip',
     './animations/Farolera_Mixamo_14_animaciones.zip',
     './assets/Farolera_Mixamo_14_animaciones.zip'];
   for(const url of candidates){
@@ -2940,11 +2940,11 @@ function updateDuel(dt){
   }
   for(const c of [...combatants,...casters])updateNameplate(c);
 }
-new GLTFLoader().load('./chiara_idle.glb',async g=>{
+new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g=>{
   if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
   let archerScene=null,archerIdle=null;
   try{
-    const a=await new GLTFLoader().loadAsync('./ARQUERA%20DEL%20DECIERTO%20GLTF.glb?arena=0.9.8');
+    const a=await new GLTFLoader().loadAsync('./assets/models/casters/arquera/ARQUERA%20DEL%20DECIERTO%20GLTF.glb?arena=0.9.8');
     archerScene=a.scene;
     archerIdle=a.animations.find(x=>/idle/i.test(x.name))||a.animations[0]||null;
     if(!archerIdle)throw Error('Falta Idle en GLB de Arquera');
@@ -2968,7 +2968,7 @@ new GLTFLoader().load('./chiara_idle.glb',async g=>{
   ]){
     const caster=casters.find(c=>c.side===spec.side);
     if(!caster)continue;
-    new GLTFLoader().loadAsync('./'+encodeURIComponent(spec.path)).then(gltf=>{
+    new GLTFLoader().loadAsync('./assets/models/casters/'+(spec.side==='ally'?'lioren':'chiara')+'/'+encodeURIComponent(spec.path)).then(gltf=>{
       const model=cloneSkinned(gltf.scene);
       const bounds=new THREE.Box3().setFromObject(model);
       const h=bounds.getSize(new THREE.Vector3()).y;
@@ -3045,7 +3045,7 @@ async function playReviewedAnimation(animation){
   try{
     let adapted=casterReview.clips.get(cacheKey);
     if(!adapted){
-      const source=await new FBXLoader().loadAsync('./'+encodeURIComponent(animation.path));
+      const source=await new FBXLoader().loadAsync('./assets/animations/casters/shared/'+encodeURIComponent(animation.path));
       if(!source.animations?.length)throw Error('El FBX no contiene un clip');
       adapted=adaptAnimationFBX(source,source.animations[0],caster.model,animation.id);
       casterReview.clips.set(cacheKey,adapted);
