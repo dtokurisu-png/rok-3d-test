@@ -26,6 +26,16 @@ test('manual caster mode has independent controls and pauses autonomous combat',
  assert.match(loader,/Running\.fbx/);
  assert.match(loader,/Right Strafe\.fbx/);
  assert.match(loader,/Right Strafe \(1\)\.fbx/);
- assert.match(loader,/result\.idle=caster\.idleClip/);
+ assert.match(loader,/result\[role\]=result\.idle\|\|caster\.idleClip/);
+ assert.match(loader,/result\._unavailable\.push/);
+ const panelPosition=arena.indexOf('<section id="casterMobilityPanel"');
+ const closedOptions=arena.indexOf('<div id="nameplateLayer"');
+ const barPosition=arena.indexOf('<div id="bottom"');
+ assert.ok(panelPosition>closedOptions&&panelPosition<barPosition,'WASD panel must be outside hidden options and before bottom bar');
+ for(const code of ['KeyW','KeyA','KeyS','KeyD'])assert.match(arena,new RegExp('data-move-key="'+code+'"'));
+ assert.match(controller,/setPointerCapture/);
+ assert.match(controller,/pointercancel/);
+ assert.match(controller,/lostpointercapture/);
+ assert.match(controller,/showReady/);
  assert.doesNotMatch(controller,/localStorage|indexedDB|Authorization/);
 });
