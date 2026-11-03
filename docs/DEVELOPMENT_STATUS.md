@@ -54,3 +54,10 @@ El usuario informó que el visor 3D dejó de funcionar después de convertir el 
 - Estado explícito para cada nueva animación: «✓ GitHub» archivo existente; «… Cargando» lectura y retarget; «✓ Lista» clip listo para reproducir; «⚠ Error» problema de compatibilidad/lectura. La casilla «Elegir» es una decisión de conservar y NO una condición de disponibilidad.
 - La carga de FBX nuevos se intenta automáticamente al entrar con cada modelo; el click también permite cargar/reintentar uno concreto. Las versiones 01–14 y sus ajustes especiales siguen intactos.
 - Se verificó sintaxis JavaScript del visor con V8 y referencias del catálogo; pendiente prueba visual real de cada rig en navegador. Se conserva el código de arena 2.5D sin modificaciones.
+
+## 2026-11-03 — Corrección: catálogo único de 23 animaciones
+- Según la aclaración del usuario, el visor `index.html` conserva un **solo catálogo**, ampliado de 14 a 23, con las nueve nuevas FBX 15–23. Se eliminó el panel independiente para clips nuevos y su módulo JS `lab/embedded-animation-review.js`.
+- Se agregaron rutas explícitas de las nueve FBX originales publicadas en raíz y carga automática por modelo, con reprocesamiento del rig al cambiar de caster. Se conserva la asignación 01–14 y el pack de Farolera original.
+- Los estados de carga distinguen archivos publicados en GitHub, en descarga, listos y fallos. «Pendiente» no indica ausencia en el repo; se sustituyó la decisión de selección por «Sin elegir / Conservar / Descartar», separada del estado técnico.
+- Las decisiones se guardan en memoria durante la sesión por personaje y pueden exportarse mediante **Exportar selección JSON** en la misma barra de herramientas del catálogo.
+- Script pasado por comprobación de sintaxis JS antes de publicar. No hay pruebas visuales del retarget en navegador. Ningún archivo 3D se movió o borró. Arena 2.5D y R.O.K. Lite no modificados en este ajuste.
