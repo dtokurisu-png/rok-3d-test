@@ -1,61 +1,36 @@
-# R.O.K. 3D — Política de recursos y limpieza segura
-Fecha: 2026-11-02
+# R.O.K. 3D — Organización de recursos (2026-11-03)
 
-## Separación de desarrollo
-- Tester (`rok-3d-test`): pruebas, modelos, clips, escenarios, futuros HUD y manifest de selección.
-- Juego principal (`rok-lirte-html`): importar únicamente recursos aprobados; no transferir estados de prueba.
-
-## Carpetas objetivo
+## Carpetas canónicas, ya creadas
 ```text
 assets/
   models/
-    casters/<id>/
-    summons/<id>/
-    props/
+    casters/farolera/
+    casters/arquera/
+    casters/chiara/
+    casters/lioren/
+    props/arcane-temple/
   animations/
-    casters/<id>/{idle,walk,strafe,run,attack,cast,hit,death}/
-    summons/<id>/
-  images/
-    cards/
-      casters/
-      summons/
-      spells/
-      skins/
-      backgrounds/
-    ui/
-      icons/
-      hud/
-    arenas/
-      water/
-  scenes/
-    water/
+    casters/farolera/
+    casters/shared/
   manifests/
+    asset-paths.json
     caster-animations.json
-    approved-assets.json
-lab/
-  caster-lab.js
-  caster-lab.css
-docs/
-  ASSET_ORGANIZATION.md
 ```
 
-## Estado real
-- Carpeta `assets/manifests/` e inventario FBX creados.
-- `assets/models/casters/` y `assets/animations/casters/` preparadas para activos definitivos.
-- Las 2 GLB y las 9 FBX recién subidas siguen **en la raíz**, porque `arena-25d.html` y el laboratorio necesitan esas rutas; **no se han movido ni borrado**.
-- Sus hashes Git son distintos entre los nueve FBX; nombres semejantes NO prueban duplicados visuales.
-- El selector recoge decisiones, permite copiar o exportar JSON; no guarda credenciales, no usa localStorage y no aplica cambios a GitHub por sí solo.
+Los cuatro modelos de personaje, nueve objetos del templo, cinco FBX aprobados y ZIP original están copiados físicamente en esas rutas. Las páginas `index.html` y `arena-25d.html` consumen las rutas nuevas. `animations/farolera-pack.json` documenta el ZIP y el modelo de Farolera. El iniciador `INICIAR_VISOR.ps1` sirve `/assets/` con comprobación de directorio y extensiones permitidas.
 
-## Migración segura por lotes
-1. Inventariar todos los usos de cada ruta (JS, CSS, HTML, mapas y manifest).
-2. Identificar archivos repetidos por SHA *y* comportamiento visual en el laboratorio.
-3. Obtener aprobación de conservar/retirar y guardar decisiones en un manifest versionado.
-4. Añadir las rutas canónicas nuevas manteniendo copia/alias del origen.
-5. Cambiar referencias por lotes pequeños; comprobar página de tester, arena, móvil, precarga y animaciones.
-6. Cuando ninguna ruta refiera al origen, borrar el antiguo en un commit independiente reversible.
+## Reglas
+1. Un modelo GLB va en `assets/models/`, no en la raíz.
+2. Una animación FBX o ZIP va en `assets/animations/`; un único clip puede servir a varios personajes y entonces va en `shared/`.
+3. Cada archivo posee un `gitBlobSha` registrado en `assets/manifests/asset-paths.json`; los nombres y variantes permanecen intactos hasta aprobación expresa.
+4. No borrar ni renumerar clips por coincidir su nombre. El catálogo conserva IDs 01–23, bloqueando por decisión del usuario 04, 05, 17, 18, 19 y 20.
+5. Nuevos props del templo deben ir en `assets/models/props/arcane-temple/`, o en una subcarpeta de escenario cuando se apruebe.
+6. Las dos interfaces existentes (visor y arena) siguen siendo independientes; no crear un tercer entorno.
+7. Solo eliminar una ruta antigua si se actualizaron las referencias, se comprobó el hash de destino y pasó la prueba de carga. Por ahora los activos de personaje y animación mantienen **alias temporales en raíz**; los props de templo no.
+8. Para el juego R.O.K. Lite, clasificar las ilustraciones de cartas, tokens, hechizos, skins, fondos, casters, invocaciones y UI en `assets/images/`; no tocar archivos en `version-anterior/`.
 
-## Regla para R.O.K. Lite
-El repo principal contiene recursos bajo `assets/` e importantes referencias a rutas antiguas desde `game.js` (archivo extenso). No mover masivamente ese árbol. Primero inventario de referencias, luego migración por grupos: `images/cards/casters`, `images/cards/summons`, `images/cards/spells`, `images/cards/skins`, `images/cards/backgrounds`, `images/ui`, `images/arenas`; verificar todas las rutas antes de retirar originales.
-
-## Corrección de diseño (2026-11-02)
-El usuario especificó que el selector de Kasters, la audición de animaciones y las decisiones deben estar **en la arena 2.5D existente**, no en una página nueva. Se eliminó el laboratorio separado y se integraron los controles en el panel Opciones del escenario. Pendiente QA interactivo.
+## Estado de verificación
+- Copia exacta de 19 recursos: verificada por SHA Git y árbol.
+- Nueve GLB decorativos retirados de la raíz con sus destinos confirmados.
+- Referencias del visor y arena actualizadas, sintaxis JS comprobada.
+- Pruebas WebGL, carga real y retarget de animaciones: **pendientes de prueba en navegador**.
