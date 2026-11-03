@@ -1,164 +1,136 @@
-/* R.O.K. 3D · Minimal manual WASD for the Arena 2.5D.
-   Press W/A/S/D or hold a D-pad button to take control immediately.
-   No activation checkbox; FBX loading is nonblocking and affects only pose. */
-export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onModeChange,reviveCaster,onAttack}){
+/* R.O.K. Arena 2.5D: WASD locomotion + independent upper-body attack/guard.
+ * All actions share the original caster mixer and keep the rest of combat live.
+ */
+export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
+ onModeChange,reviveCaster,onAttack,layers}){
  const $=id=>document.getElementById(id);
  const select=$('casterMoveSide'),speed=$('casterMoveSpeed'),speedText=$('casterMoveSpeedText'),
   status=$('casterMoveStatus'),attackButton=$('casterAttackButton'),defenseButton=$('casterDefenseButton');
  const buttons=[...document.querySelectorAll('#casterMobilityPanel [data-move-key]')];
- if(!select||!speed||!speedText||!status||!attackButton||!defenseButton||buttons.length!==4)
-  throw Error('Faltan botones o control de velocidad WASD');
+ if(!select||!speed||!speedText||!status||!attackButton||!defenseButton||buttons.length!==4||!layers)
+  throw Error('Controles WASD o sistema de capas de caster incompletos');
  const directions={KeyW:'forward',KeyS:'backward',KeyA:'left',KeyD:'right'};
- const held=new Set(),clips=new Map();
- let enabled=false,caster=null,lastMotion=null,previousPlaying=false;
- let preparedModel=null,loadingModel=null,revision=0,shownMessage='';
- let attackAction=null,attackElapsed=0,attackDuration=0,attackReleased=false,attackCooldown=0;
- let defending=false;
- const defenseKeys=new Set();
- const notify=(message)=>{
+ const held=new Set(),defenseKeys=new Set(),clips=new Map();
+ let enabled=false,caster=null,loadedModel=null,loadingModel=null,revision=0;
+ let priorPlaying=false,attackElapsed=0,attackDuration=0,attackReleased=false,attackCooldown=0;
+ let defending=false,shown='';
+ const notify=message=>{
   status.textContent=message;status.title=message;
-  if(message!==shownMessage){shownMessage=message;onStatus?.(message);}
+  if(message!==shown){shown=message;onStatus?.(message);}
  };
  const selected=()=>getCaster(select.value);
+ function clearMovement(){
+  held.clear();
+  for(const button of buttons)button.dataset.held='false';
+ }
  function motion(){
   const forward=(held.has('KeyW')?1:0)-(held.has('KeyS')?1:0);
   const lateral=(held.has('KeyD')?1:0)-(held.has('KeyA')?1:0);
-  const kind=forward>0?'forward':forward<0?'backward':lateral<0?'left':lateral>0?'right':'idle';
-  return {forward,lateral,kind};
+  return {forward,lateral,kind:forward>0?'forward':forward<0?'backward':
+   lateral<0?'left':lateral>0?'right':'idle'};
  }
- function keyLabel(){
-  for(const button of buttons)button.dataset.held=String(held.has(button.dataset.moveKey));
+ function engage(){
+  if(enabled&&caster===selected()&&caster?.model)return true;
+  const c=selected();
+  if(!c){notify('Cargando caster…');return false;}
+  if(c.stage!=='active')reviveCaster?.(c);
+  if(c.stage!=='active'){notify('Caster no disponible');return false;}
+  caster=c;enabled=true;
+  layers.register(c,{idle:c.idleClip});
+  layers.movement(c,'idle');
+  priorPlaying=onModeChange?.(true)??false;
+  notify('WASD · listo');
+  return true;
  }
- function clearKeys(){held.clear();defenseKeys.clear();keyLabel();setDefense(false);}
- function cancelAttack(){attackAction=null;attackElapsed=0;attackDuration=0;attackReleased=false;attackCooldown=0;}
+ function requestClips(c){
+  if(!c?.model?.userData?.rokCasterAsset||loadingModel===c.model||loadedModel===c.model)return;
+  const model=c.model,ticket=++revision;
+  loadingModel=model;
+  Promise.resolve().then(()=>prepareClips(c)).then(result=>{
+   if(ticket!==revision||!enabled||caster!==c||c.model!==model)return;
+   for(const role of ['idle','forward','backward','left','right','attack','death','defense','hit'])
+    if(result?.[role])clips.set(role,result[role]);
+   layers.register(c,result);
+   loadedModel=model;loadingModel=null;
+   const missing=result?._unavailable||[];
+   notify(missing.length?'WASD listo · algunos FBX sin cargar':'WASD · animaciones listas');
+  }).catch(e=>{
+   if(ticket!==revision||!enabled)return;
+   loadedModel=model;loadingModel=null;
+   notify('WASD operativo · FBX: '+String(e?.message||e));
+  });
+ }
+ function stop(){
+  ++revision;
+  clearMovement();defenseKeys.clear();
+  if(!enabled)return;
+  setDefense(false);
+  attackDuration=0;attackElapsed=0;attackReleased=false;attackCooldown=0;
+  if(caster){
+   caster.manualDefending=false;
+   layers.shield(caster,false);
+   layers.reset(caster);
+   caster.mixer?.stopAllAction();
+   if(caster.idleClip)caster.mixer?.clipAction(caster.idleClip).reset().play();
+  }
+  enabled=false;caster=null;loadedModel=null;loadingModel=null;clips.clear();
+  onModeChange?.(false,priorPlaying);
+  notify('WASD · listo');
+ }
  function setDefense(value){
-  if(value&&(!engage()||!caster||caster.stage!=='active'))return false;
+  if(value&&(!engage()||caster.stage!=='active'))return false;
   if(value===defending)return defending;
   defending=value;
   defenseButton.dataset.held=String(value);
   if(caster){
    caster.manualDefending=value;
    if(value){
-    // Defense has priority: cancel any attack still in its wind-up phase.
-    attackAction=null;attackDuration=0;attackElapsed=0;attackReleased=false;
+    // Guard supersedes attack, but never suspends leg motion.
+    attackDuration=0;attackReleased=false;
+    layers.endUpper(caster,'attack');
     const clip=clips.get('defense')||caster.model?.userData?.rokDefenseClip;
-    if(clip&&caster.mixer){
-     caster.mixer.stopAllAction();
-     const action=caster.mixer.clipAction(clip);
-     action.reset().setLoop(THREE.LoopRepeat,Infinity).play();
-     caster.userData=caster.userData||{};caster.userData.manualAction=action;
-    }
-    lastMotion=null;
+    if(clip)layers.upper(caster,'defense',clip,1.8);
+    layers.cancelHit(caster);
+    layers.shield(caster,true);
    }else{
-    lastMotion=null;
+    layers.shield(caster,false);
+    layers.endUpper(caster,'defense');
    }
   }
-  notify(value?'Defensa activa · daño bloqueado':'Defensa finalizada');
-  return defending;
+  notify(value?'Defensa activa · escudo frontal':'WASD · defensa finalizada');
+  return value;
  }
- function stopAction(c){
-  if(!c?.mixer)return;
-  c.mixer.stopAllAction();
-  if(c.userData)delete c.userData.manualAction;
-  if(c.idleClip)c.mixer.clipAction(c.idleClip).reset().play();
- }
- function stop(){
-  ++revision;clearKeys();
-  if(!enabled)return;
-  cancelAttack();
-  if(caster)caster.manualDefending=false;
-  stopAction(caster);
-  enabled=false;caster=null;lastMotion=null;preparedModel=null;loadingModel=null;clips.clear();
-  onModeChange?.(false,previousPlaying);
-  notify('WASD · listo');
- }
- function engage(){
-  if(enabled)return true;
-  const next=selected();
-  if(!next){notify('Cargando caster…');return false;}
-  if(next.stage!=='active')reviveCaster?.(next);
-  if(next.stage!=='active'){notify('Caster no disponible');return false;}
-  caster=next;enabled=true;lastMotion=null;
-  cancelAttack();
-  previousPlaying=onModeChange?.(true)??false;
-  notify('Control manual activo');
-  return true;
- }
- function requestClips(c){
-  if(!c?.model?.userData?.rokCasterAsset||preparedModel===c.model||loadingModel===c.model)return;
-  const model=c.model,ticket=++revision;
-  loadingModel=model;
-  notify('Moviendo · cargando animaciones…');
-  Promise.resolve().then(()=>prepareClips(c)).then(result=>{
-   if(ticket!==revision||!enabled||selected()!==c||c.model!==model)return;
-   clips.clear();
-   for(const name of ['idle','forward','backward','left','right','attack','death','defense'])
-    if(result?.[name])clips.set(name,result[name]);
-   preparedModel=model;loadingModel=null;lastMotion=null;
-   const missing=result?._unavailable||[];
-   notify(missing.length?'WASD · FBX '+missing.join(', ')+' en respaldo':'WASD · animaciones listas');
-  }).catch(error=>{
-   if(ticket!==revision||!enabled)return;
-   loadingModel=null;preparedModel=model;lastMotion=null;
-   notify('WASD activo · sin FBX: '+String(error.message||error));
-  });
- }
- function animate(c,kind){
-  if(!c?.mixer||kind===lastMotion)return;
-  const clip=clips.get(kind)||c.idleClip;
-  if(!clip)return;
-  const old=c.userData?.manualAction||null;
-  const next=c.mixer.clipAction(clip);
-  if(old!==next){
-   next.reset();next.enabled=true;next.setEffectiveWeight(1);next.setEffectiveTimeScale(1);
-   next.setLoop(THREE.LoopRepeat,Infinity);next.play();
-   if(old){old.fadeOut(.12);next.fadeIn(.12);}
-  }else if(!next.isRunning())next.play();
-  c.userData=c.userData||{};
-  c.userData.manualAction=next;
-  lastMotion=kind;
- }
- // Attack 02 is a simple provisional ranged action; NOT a composed 21/22/23 clip.
  function startAttack(){
   if(!engage())return false;
-  const c=selected();
-  if(c!==caster||c.stage!=='active'||attackCooldown>0||attackDuration>0||defending)return false;
+  const c=caster;
+  if(c.stage!=='active'||defending||attackDuration>0||attackCooldown>0)return false;
   const clip=clips.get('attack')||c.model?.userData?.rokAttackClip;
-  // Logical attack starts immediately, even when FBX 02 is still downloading.
-  // The projectile is never gated on the visual animation.
-  if(clip?.duration>0&&c.mixer){
-   c.mixer.stopAllAction();
-   const action=c.mixer.clipAction(clip);
-   action.reset().setLoop(THREE.LoopOnce,1);
-   action.clampWhenFinished=true;
-   action.enabled=true;action.setEffectiveWeight(1);action.setEffectiveTimeScale(1);action.play();
-   c.userData=c.userData||{};c.userData.manualAction=action;
-   attackAction=action;
-  }else{
-   attackAction=null;
-   requestClips(c);
-  }
-  attackElapsed=0;
+  if(clip?.duration>0)layers.upper(c,'attack',clip,1);
+  attackElapsed=0;attackReleased=false;
+  // Logical projectile timing works even if the FBX is still loading.
   attackDuration=clip?.duration>0?Math.max(.1,clip.duration):.8;
-  attackReleased=false;attackCooldown=Math.max(1.6,attackDuration);
-  lastMotion=null;
-  notify(clip?'Ataque 02 · lanzamiento':'Ataque activo · FBX 02 aún cargando');
+  attackCooldown=Math.max(1.6,attackDuration);
+  requestClips(c);
+  notify(clip?'Ataque superior 02':'Ataque activo · preparando FBX 02');
   return true;
  }
  function step(dt){
-  if(!enabled){
-   if(held.size&&!engage())return;
-   if(!enabled)return;
-  }
+  if(!enabled){if(held.size&&!engage())return;if(!enabled)return;}
   const c=selected();
-  if(!c||c!==caster)return;
-  if(c.stage!=='active')return;
-  if(preparedModel!==c.model){
-   if(loadingModel&&loadingModel!==c.model){loadingModel=null;clips.clear();lastMotion=null;}
-   requestClips(c);
-  }
+  if(!c||c!==caster||c.stage!=='active')return;
+  // A real GLB may replace the initial provisional model asynchronously.
+  if(c.model!==loadedModel&&c.model!==loadingModel)requestClips(c);
   attackCooldown=Math.max(0,attackCooldown-dt);
   const {forward,lateral,kind}=motion();
+  if(forward||lateral){
+   const len=Math.hypot(forward,lateral),v=Number(speed.value)||2.2;
+   const sign=c.side==='ally'?-1:1;
+   const delta=Math.min(.05,Math.max(0,dt));
+   c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+lateral/len*v*delta,-4.25,4.25);
+   c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+forward/len*sign*v*delta,-8.75,8.75);
+  }
+  // Always update hips + legs, even while upper-body attack or guard plays.
+  layers.movement(c,kind);
   if(attackDuration>0){
    attackElapsed+=dt;
    if(!attackReleased&&attackElapsed>=attackDuration*.55){
@@ -166,24 +138,14 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
     onAttack?.(c);
    }
    if(attackElapsed>=attackDuration){
-    attackAction=null;attackDuration=0;lastMotion=null;
-    notify('WASD · ataque disponible');
+    attackDuration=0;
+    layers.endUpper(c,'attack');
+    notify('WASD · ataque terminado');
    }
-   c.mixer.update(dt);
-   return; // Attack takes priority over locomotion until release.
   }
-  if(defending){c.mixer.update(dt);return;}
-  if(forward||lateral){
-   const length=Math.hypot(forward,lateral),v=Number(speed.value)||2.2;
-   const sign=c.side==='ally'?-1:1;
-   const maxDt=Math.min(Math.max(dt,0),.05);
-   c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+lateral/length*v*maxDt,-4.25,4.25);
-   c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+forward/length*sign*v*maxDt,-8.75,8.75);
-  }
-  animate(c,kind);
   c.mixer.update(dt);
  }
- function inputKey(event,down){
+ function key(event,down){
   if(event.code==='Space'){
    if(down&&event.target?.closest?.('textarea,select,[contenteditable="true"],input:not([type="range"])'))return;
    if(down&&!event.repeat)startAttack();
@@ -198,39 +160,40 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   if(!Object.hasOwn(directions,event.code))return;
   if(down&&event.target?.closest?.('textarea,select,[contenteditable="true"],input:not([type="range"])'))return;
   if(down)held.add(event.code);else held.delete(event.code);
+  for(const button of buttons)button.dataset.held=String(held.has(button.dataset.moveKey));
   event.preventDefault();
-  keyLabel();
   if(down)engage();
  }
- document.addEventListener('keydown',e=>inputKey(e,true));
- document.addEventListener('keyup',e=>inputKey(e,false));
+ document.addEventListener('keydown',e=>key(e,true));
+ document.addEventListener('keyup',e=>key(e,false));
  for(const button of buttons){
   const code=button.dataset.moveKey;
-  if(!Object.hasOwn(directions,code))throw Error('Tecla direccional no válida');
-  const release=()=>{held.delete(code);keyLabel();};
+  if(!Object.hasOwn(directions,code))throw Error('Botón direccional inválido');
+  const release=()=>{held.delete(code);button.dataset.held='false';};
   button.addEventListener('pointerdown',e=>{
-   e.preventDefault();held.add(code);keyLabel();
+   e.preventDefault();
+   held.add(code);button.dataset.held='true';
    if(typeof button.setPointerCapture==='function')button.setPointerCapture(e.pointerId);
    engage();
   });
-  button.addEventListener('pointerup',release);
-  button.addEventListener('pointercancel',release);
-  button.addEventListener('lostpointercapture',release);
+  for(const event of ['pointerup','pointercancel','lostpointercapture'])
+   button.addEventListener(event,release);
  }
  attackButton.addEventListener('click',()=>{attackButton.blur();startAttack();});
- // Pointer hold mirrors holding Shift; pointerup restores normal movement.
  defenseButton.addEventListener('pointerdown',e=>{
   e.preventDefault();
   if(typeof defenseButton.setPointerCapture==='function')defenseButton.setPointerCapture(e.pointerId);
   setDefense(true);
  });
- for(const type of ['pointerup','pointercancel','lostpointercapture'])
-  defenseButton.addEventListener(type,()=>setDefense(false));
- defenseButton.addEventListener('click',()=>{defenseButton.blur();});
- window.addEventListener('blur',clearKeys);
- document.addEventListener('visibilitychange',()=>{if(document.hidden)clearKeys();});
+ for(const event of ['pointerup','pointercancel','lostpointercapture'])
+  defenseButton.addEventListener(event,()=>setDefense(false));
+ defenseButton.addEventListener('click',()=>defenseButton.blur());
+ function releaseAll(){clearMovement();defenseKeys.clear();setDefense(false);}
+ window.addEventListener('blur',releaseAll);
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseAll();});
  select.addEventListener('change',()=>{stop();select.blur();});
  speed.addEventListener('input',()=>{speedText.textContent=Number(speed.value).toFixed(1);});
  notify('WASD · listo');
- return {step,disable:stop,startAttack,setDefense,get defending(){return defending;},get enabled(){return enabled;},get caster(){return caster;}};
+ return {step,disable:stop,startAttack,setDefense,get enabled(){return enabled;},
+  get defending(){return defending;},get caster(){return caster;}};
 }
