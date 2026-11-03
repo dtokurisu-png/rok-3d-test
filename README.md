@@ -1,17 +1,13 @@
 # rok-3d-test
-R.O.K. — tester existente de arena 2.5D y visor de animaciones 3D.
+R.O.K. — tester de arena 2.5D y visor de animaciones 3D.
 
-## Herramientas existentes
-- [Arena 2.5D](./arena-25d.html): tablero, combate y **Opciones → Kasters / Animaciones** para probar los nuevos FBX sobre los casters del campo y marcar decisiones por personaje.
-- [Visor de animaciones 3D](./index.html): **ahora tiene un selector desplegable** con Farolera, Arquera del Desierto, Chiara y Lioren. Conserva los controles anteriores y añade las nueve FBX nuevas con selección por personaje.
+## Entradas
+- [Visor de animaciones 3D](./index.html): **restaurado al archivo estable anterior** tras una regresión al intentar añadir el selector de 4 modelos. Conserva el botón original Farolera / Arquera; todavía no se reintrodujeron Chiara/Lioren en este visor.
+- [Arena 2.5D](./arena-25d.html): tablero de combate con las herramientas de prueba de Chiara/Lioren añadidas en Opciones; pendiente QA visual.
 
-## HUD: distinción importante
-Las barras de vida y controles técnicos de la arena son los del tester. **El HUD final del jugador aún no está creado en la arena 2.5D**.
-El HUD inicial del Spellbook estaba en el repositorio principal `rok-lirte-html/nueva-version/frontend/`, NO en este tester. No confundir ambos.
+## Animaciones / organización
+- [Inventario SHA de FBX](./assets/manifests/caster-animations.json).
+- [Plan de carpetas](./docs/ASSET_ORGANIZATION.md).
+- [Estado técnico](./docs/DEVELOPMENT_STATUS.md).
 
-## Recursos
-- [Inventario SHA de animaciones nuevas](./assets/manifests/caster-animations.json).
-- [Plan de organización](./docs/ASSET_ORGANIZATION.md).
-- [Estado de desarrollo](./docs/DEVELOPMENT_STATUS.md).
-
-Ninguna decisión de conservar/descartar borra archivos. Exporta el JSON y compártelo para fijar decisiones en GitHub. No se han migrado binarios existentes de la raíz.
+**Importante:** el HUD final del jugador para arena 2.5D sigue pendiente. El HUD inicial de Spellbook pertenece al repositorio principal R.O.K. Lite, no a este tester. No eliminar ni mover binarios hasta verificar referencias.
