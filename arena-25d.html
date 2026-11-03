@@ -2747,7 +2747,7 @@ function updateMagic(dt){
     // queda fijada para que la evasión pueda esquivar el proyectil.
     // La flecha sigue una trayectoria fija a velocidad constante.
     // Solo los proyectiles mágicos conservan su seguimiento anterior.
-    if(!m.arrow&&a<.85&&canDamageTarget(m.target)){
+    if(!m.arrow&&(m.manualCasterShot||a<.85)&&canDamageTarget(m.target)){
       m.impactCell=worldToCell(m.target.outer.position.x,m.target.outer.position.z);
       const aim=cellToWorld(m.impactCell.col,m.impactCell.row);
       m.aimX=aim.x;m.aimZ=aim.z;
