@@ -1,6 +1,7 @@
 /* R.O.K. 3D Studio · tester visual scenario overlay (stage 5).
    Strictly decorative: never touches the arena's combatants, colliders or tiles. */
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {ARENA_COLUMNS,ARENA_ROWS,SCENERY_BOUNDS,assertPlacement} from './scene-placement-rules.js';
 
 export function createArenaSceneOverlay({THREE,root,renderStatus}){
  const catalog=new Map(), cache=new Map();
@@ -21,7 +22,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
   return {type:fx.type,color:/^#[\da-fA-F]{6}$/.test(fx.color)?fx.color:'#00ffe4',intensity:finite(fx.intensity,0,3,1),size:finite(fx.size,.1,6,1),height:finite(fx.height,-3,6,0),x:finite(fx.x,-20,20),z:finite(fx.z,-20,20),enabled:fx.enabled!==false};
  };
  const normalize=(data)=>{
-  if(data?.kind!=='rok3d.scene'||data.schemaVersion!==1||data.arena?.columns!==9||data.arena?.rows!==18||!Array.isArray(data.objects)||data.objects.length>250)throw Error('Escenario JSON incompatible');
+  if(data?.kind!=='rok3d.scene'||data.schemaVersion!==1||data.arena?.columns!==ARENA_COLUMNS||data.arena?.rows!==ARENA_ROWS||!Array.isArray(data.objects)||data.objects.length>250)throw Error('Escenario JSON incompatible');
   const ids=new Set();
   const entries=data.objects.map((raw,i)=>{
    if(!raw||typeof raw!=='object'||typeof raw.modelId!=='string')throw Error('Objeto inválido #'+(i+1));
@@ -31,7 +32,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
    if(raw.id&&ids.has(raw.id))throw Error('ID de objeto duplicado');
    ids.add(raw.id||'item-'+i);
    return {name:String(raw.name||m.name).slice(0,70),modelId:m.id,model:m,
-    x:finite(raw.x,-7.5,7.5),y:finite(raw.y,-10,20),z:finite(raw.z,-15,15),
+    x:finite(raw.x,-SCENERY_BOUNDS.halfWidth,SCENERY_BOUNDS.halfWidth),y:finite(raw.y,-10,20),z:finite(raw.z,-SCENERY_BOUNDS.halfDepth,SCENERY_BOUNDS.halfDepth),
     rotation:finite(raw.rotation,-3600,3600),scale:finite(raw.scale,.05,5,1),
     effects:raw.effects.map(fxClean)};
   });
@@ -127,6 +128,16 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
      const entry=buildFx(fx,template.dimension);
      instance.add(entry.group);animated.push(entry);
     }
+    // Reject untrusted JSON with scenery that intrudes into ANY playable
+    // cell, considering the world-space footprint after rotation/scale/FX.
+    instance.updateMatrixWorld(true);
+    const bounds=new THREE.Box3().setFromObject(instance);
+    if(bounds.isEmpty())throw Error('Objeto de escenario sin geometría: '+item.name);
+    const center=bounds.getCenter(new THREE.Vector3());
+    const size=bounds.getSize(new THREE.Vector3());
+    try{assertPlacement(center.x,center.z,size.x/2,size.z/2);}
+    catch(error){throw Error('Escenario rechazado: '+item.name+
+      ' invade la arena 15×30 o queda fuera del área exterior');}
     nextRoot.add(instance);nextObjects.push({animated});
    }
    if(token!==generation){clearGroup(nextRoot,nextObjects);return false;}
