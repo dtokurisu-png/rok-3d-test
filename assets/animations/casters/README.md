@@ -1,9 +1,9 @@
-# Animaciones de Kasters
-Destino canónico para clips FBX aprobados.
-La subida original se encuentra actualmente en la raíz del repositorio por compatibilidad.
+# Animaciones canónicas de personajes
 
-El catálogo con nombre, SHA e identificador inmutable está en `/assets/manifests/caster-animations.json`.
-El laboratorio `/caster-lab.html` permite probar y marcar `keep`, `discard` o `pending`; ninguna selección borra archivos.
-Para aplicar decisiones, exportar JSON y compartirlo en la conversación. No almacenar credenciales de GitHub en el navegador.
+- `farolera/ROK_PUBLICAR_ANIMACIONES.zip` — paquete Mixamo original compartido, incluidas las animaciones antiguas 04/05 que se excluyen por decisión del usuario sin romper las demás.
+- `shared/Right Strafe.fbx` y `shared/Right Strafe (1).fbx` — variantes conservadas.
+- `shared/Standing 1H Cast Spell 01.fbx`
+- `shared/Standing 2H Magic Area Attack 02 (1).fbx`
+- `shared/Sword And Shield Impact.fbx`
 
-Después de la aprobación: ubicar archivos definitivos en `assets/animations/casters/<caster-id>/<accion>/<nombre-revisado>.fbx`, actualizar manifest y rutas y **solo al final** retirar duplicados comprobados.
+Los archivos aprobados se trasladaron físicamente; ya no hay binarios en raíz. Los cuatro FBX de retirada diagonal hacia atrás 17–20 fueron descartados y retirados anteriormente. No renumerar los IDs del catálogo 01–23. Consulta el manifiesto `../../manifests/caster-animations.json` y el inventario `../../manifests/asset-paths.json`.
