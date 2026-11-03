@@ -54,14 +54,7 @@
 .attackAxes label{margin-top:8px;display:block}
 .attackAxes .attackAxisCaption{display:flex;justify-content:space-between}
 .attackAxes input[type=range]{width:100%}
-</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Visor de animaciones 3D <span style="font-size:12px;color:#ffdb76">v0.5.25</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.25 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.25: Standing 13 de Arquera corregida al calibrar el último fotograma (de pie), sin enderezar indebidamente la primera postura de incorporación. El resto de las animaciones, ángulos de ataque, Farolera y vínculos de armas permanecen intactos.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><select id="characterSelect" aria-label="Seleccionar modelo 3D" disabled style="background:#123b43;color:#fff;border:1px solid #00bdaa;border-radius:7px;padding:9px;max-width:100%"><option value="farolera">Farolera</option><option value="archer">Arquera del Desierto</option><option value="chiara">Chiara · Kaster</option><option value="lioren">Lioren · Kaster</option></select><button id="archerRestPose" type="button">Ver pose original</button><button id="archerReload" type="button" style="display:none">Recargar Arquera (GitHub)</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" id="newCasterAnimations" aria-label="Animaciones nuevas para Kasters">
-<h3>Animaciones nuevas · Chiara / Lioren</h3>
-<p>Reproduce las variantes descargadas sobre el modelo elegido arriba, sin abandonar este visor. Marca conservar o descartar por Kaster. No se borrará ningún archivo.</p>
-<div id="newCasterClipList" style="display:grid;gap:6px"></div>
-<div class="buttons"><button type="button" id="newCasterCopy">Copiar decisiones</button><button type="button" id="newCasterExport">Exportar JSON</button></div>
-<p id="newCasterStatus" role="status">Cargando catálogo de GitHub…</p>
-</section>
-<section class="animLab" aria-label="Probador de animaciones de Mixamo">
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script></head><body><div class="hud mobile-closed"><h2>R.O.K. · Visor de animaciones 3D <span style="font-size:12px;color:#ffdb76">v0.5.25</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.25 · 01/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 01/11/2026:</strong> visor 3D v0.5.25: Standing 13 de Arquera corregida al calibrar el último fotograma (de pie), sin enderezar indebidamente la primera postura de incorporación. El resto de las animaciones, ángulos de ataque, Farolera y vínculos de armas permanecen intactos.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled>Cambiar a Arquera del Desierto</button><button id="archerRestPose" type="button">Ver pose original</button><button id="archerReload" type="button" style="display:none">Recargar Arquera (GitHub)</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones Mixamo · catálogo de 14</h3>
 <p>Pack de Farolera: 02 hechizos · 08 muerte · 09 daño · 12 caminar · 13 restauración · 14 portal. La 03 es candidata para lanzar el farol. Las demás siguen disponibles.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
@@ -185,7 +178,6 @@ let model,mixer,playing=true, wire=false, originalMaterials=new Map(), bounds;
 const characterSelect=document.querySelector('#characterSelect');
 const characterInfo=document.querySelector('#characterInfo');
 let currentCharacter='farolera',faroleraModel=null,faroleraIdle=null,archerModel=null,archerIdle=null;
-const extraCasterModels=new Map();
 let animationArchive=null,characterSwitching=false;
 let archerRigReference=null; // Captura inmutable del rig en bind pose, antes de animar.
 let archerEquipmentStatus='accesorios sin comprobar';
@@ -1199,32 +1191,6 @@ function inspectArcherMaterials(root,format){
   return summary;
 }
 
-async function loadExtraCaster(character){
-  if(extraCasterModels.has(character))return extraCasterModels.get(character);
-  const names={chiara:'chiara kaster.glb',lioren:'lioren kaster.glb'};
-  if(!names[character])throw Error('Modelo no registrado');
-  characterInfo.textContent='Cargando '+character+' desde el repositorio…';
-  const file='./'+encodeURIComponent(names[character]);
-  const gltf=await new GLTFLoader().loadAsync(file);
-  const container=new THREE.Group();
-  container.name='ROK_'+character+'_preview';
-  container.add(gltf.scene);
-  const box=new THREE.Box3().setFromObject(container);
-  if(box.isEmpty())throw Error('El GLB está vacío');
-  const height=box.getSize(new THREE.Vector3()).y;
-  if(!Number.isFinite(height)||height<.001)throw Error('Modelo sin altura válida');
-  container.scale.setScalar(1.65/height);
-  container.updateMatrixWorld(true);
-  const adjusted=new THREE.Box3().setFromObject(container);
-  const center=adjusted.getCenter(new THREE.Vector3());
-  container.position.set(-center.x,-adjusted.min.y,-center.z);
-  container.traverse(node=>{if(node.isMesh)node.frustumCulled=false;});
-  const idle=gltf.animations?.find(clip=>/idle|standing/i.test(clip.name))||
-    gltf.animations?.[0]||null;
-  const data={model:container,idle};
-  extraCasterModels.set(character,data);
-  return data;
-}
 async function loadArcherModel(forceReload=false){
   if(archerModel&&!forceReload)return archerModel;
   // Archivo GLB ORIGINAL publicado por el usuario en la raíz del repo.
@@ -1299,102 +1265,7 @@ async function loadArcherSharedAnimations(){
   }
   snapshotCharacterClips();
 }
-async 
-/* Variantes nuevas, en el visor ORIGINAL; no se crea una página independiente.
-   Inventario Git versionado, decisiones por Kaster y exportación explícita.
-   Las elecciones no borran ni modifican FBX del repositorio. */
-let newCasterCatalog=[];
-const newCasterDecisions=new Map();
-let newCasterBusy=false;
-function newCasterReviewKey(id){return currentCharacter+':'+id;}
-function newCasterDecisionExport(){
-  return {schemaVersion:1,source:'rok-3d-test/index.html',decisions:
-    ['farolera','archer','chiara','lioren'].flatMap(character=>
-      newCasterCatalog.map(entry=>({character,id:entry.id,path:entry.path,sha:entry.sha,
-        decision:newCasterDecisions.get(character+':'+entry.id)||'pending'})))};
-}
-function renderNewCasterRows(){
-  const node=document.querySelector('#newCasterClipList');
-  if(!node)return;
-  node.replaceChildren();
-  for(const clip of newCasterCatalog){
-    const wrap=document.createElement('div');wrap.style.cssText=
-      'border:1px solid #346269;border-radius:8px;padding:7px;background:#112b35';
-    const line=document.createElement('div');line.style.cssText=
-      'display:flex;align-items:center;justify-content:space-between;gap:6px';
-    const title=document.createElement('span');title.textContent=clip.path;
-    title.style.cssText='font-size:11px;overflow-wrap:anywhere;font-weight:bold';
-    const play=document.createElement('button');play.type='button';play.textContent='▶ Probar';
-    play.disabled=newCasterBusy||characterSwitching||!model;
-    const note=document.createElement('div');
-    note.style.cssText='font-size:10px;color:#bcdbd9;overflow-wrap:anywhere';
-    note.textContent='SHA '+clip.sha.slice(0,10)+' · '+clip.group;
-    play.onclick=async()=>{
-      if(newCasterBusy||characterSwitching||!model)return;
-      newCasterBusy=true;renderNewCasterRows();
-      const current=currentCharacter;
-      const feedback=document.querySelector('#newCasterStatus');
-      feedback.textContent='Cargando '+clip.path+' para '+current+'…';
-      try{
-        const response=await fetch('./'+encodeURIComponent(clip.path),{cache:'force-cache'});
-        if(!response.ok)throw Error('HTTP '+response.status);
-        const bytes=await response.arrayBuffer();
-        if(currentCharacter!==current)throw Error('El Kaster cambió antes de terminar la descarga');
-        await importAnimation(clip.path,bytes);
-        const row=animationRows.find(x=>x.name===clip.path);
-        if(!row?.clip)throw Error(row?.details||'No se consiguió adaptar el clip al esqueleto');
-        playAnimation(row.index);
-        feedback.textContent='Reproduciendo '+clip.path+' · '+row.details+
-          ' · selecciona Conservar o Descartar para '+current+'.';
-      }catch(error){
-        feedback.textContent='No se pudo reproducir '+clip.path+': '+String(error.message||error);
-      }finally{newCasterBusy=false;renderNewCasterRows();}
-    };
-    line.append(title,play);
-    const choices=document.createElement('div');choices.style.cssText=
-      'display:flex;gap:10px;flex-wrap:wrap;margin-top:5px';
-    for(const [decision,label] of [['pending','Pendiente'],['keep','Conservar'],['discard','Descartar']]){
-      const option=document.createElement('label');option.style.fontSize='11px';
-      const radio=document.createElement('input');radio.type='radio';
-      radio.name='new-clip-'+currentCharacter+'-'+clip.id;
-      radio.checked=(newCasterDecisions.get(newCasterReviewKey(clip.id))||'pending')===decision;
-      radio.onchange=()=>{newCasterDecisions.set(newCasterReviewKey(clip.id),decision);
-        document.querySelector('#newCasterStatus').textContent=
-          'Selección marcada para '+currentCharacter+'; exporta JSON para guardarla en GitHub.';};
-      option.append(radio,document.createTextNode(' '+label));choices.append(option);
-    }
-    wrap.append(line,note,choices);node.append(wrap);
-  }
-}
-document.querySelector('#newCasterCopy').onclick=async()=>{
-  try{await navigator.clipboard.writeText(JSON.stringify(newCasterDecisionExport(),null,2));
-    document.querySelector('#newCasterStatus').textContent=
-      'Selección copiada. Pégala en el chat para conservar las decisiones.';}
-  catch{document.querySelector('#newCasterStatus').textContent=
-    'No se pudo copiar. Puedes exportar el JSON.';}
-};
-document.querySelector('#newCasterExport').onclick=()=>{
-  const json=new Blob([JSON.stringify(newCasterDecisionExport(),null,2)],{type:'application/json'});
-  const href=URL.createObjectURL(json);
-  const anchor=document.createElement('a');anchor.href=href;
-  anchor.download='rok-visor-animation-decisions.json';anchor.click();
-  setTimeout(()=>URL.revokeObjectURL(href),2000);
-  document.querySelector('#newCasterStatus').textContent=
-    'JSON exportado. Envíamelo para registrar las decisiones en GitHub.';
-};
-fetch('./assets/manifests/caster-animations.json',{cache:'no-store'})
-  .then(response=>{if(!response.ok)throw Error('Catálogo no disponible');return response.json();})
-  .then(manifest=>{
-    newCasterCatalog=manifest.animations||[];
-    renderNewCasterRows();
-    document.querySelector('#newCasterStatus').textContent=
-      newCasterCatalog.length+' animaciones detectadas. Elige un Kaster y pulsa Probar.';
-  }).catch(error=>{
-    document.querySelector('#newCasterStatus').textContent=
-      'Error al leer catálogo: '+String(error.message||error);
-  });
-
-function switchCharacter(character,forceReload=false){
+async function switchCharacter(character,forceReload=false){
   if(characterSwitching||!model||(character===currentCharacter&&!forceReload))return;
   if(loadingAnimations){
     characterSelect.value=currentCharacter;
@@ -1404,8 +1275,7 @@ function switchCharacter(character,forceReload=false){
   characterSwitching=true;characterSelect.disabled=true;
   try{
     // No retirar Farolera hasta haber cargado correctamente el GLB original.
-    const extra=['chiara','lioren'].includes(character)?await loadExtraCaster(character):null;
-    const next=extra?extra.model:character==='archer'?await loadArcherModel(forceReload):faroleraModel;
+    const next=character==='archer'?await loadArcherModel(forceReload):faroleraModel;
     if(!next)throw Error('Modelo no disponible');
     snapshotCharacterClips();
     // Retargeting recalculado contra el esqueleto recién cargado; no
@@ -1423,7 +1293,7 @@ function switchCharacter(character,forceReload=false){
     setCharacterLighting(character);
     archerSetAttackVisible(character);
     mixer=new THREE.AnimationMixer(model);
-    idleOriginal=extra?extra.idle:character==='farolera'?faroleraIdle:archerIdle;
+    idleOriginal=character==='farolera'?faroleraIdle:archerIdle;
     activeAction=null;activeAnimation=null;
     restoreCharacterClips(character);
     archerFindArmBones();
@@ -1464,30 +1334,32 @@ function switchCharacter(character,forceReload=false){
       document.querySelector('#animIdle').textContent='↺ Idle (11)';
     }else document.querySelector('#animIdle').textContent='↺ Idle original';
     playing=true;toggle.disabled=false;toggle.textContent='Pausar / Reproducir';
-    characterInfo.textContent=(character==='archer'?'Arquera del Desierto':character==='chiara'?'Chiara · Kaster':character==='lioren'?'Lioren · Kaster':'Farolera original')+
+    characterInfo.textContent=(character==='archer'?'Arquera del Desierto':'Farolera original')+
       ' · '+animationRows.filter(r=>r.clip).length+' animaciones disponibles'+
       (character==='archer'?' · Idle del GLB: '+
         (archerIdle?.name||'NO ENCONTRADO')+' · '+archerEquipmentStatus:'');
     const materialInfo=document.querySelector('#archerMaterialInfo');
     materialInfo.style.display=character==='archer'?'block':'none';
     materialInfo.textContent=character==='archer'?archerMaterialStatus:'';
-    status.textContent=(character==='archer'?'Arquera del Desierto':character==='chiara'?'Chiara':character==='lioren'?'Lioren':'Farolera')+
+    status.textContent=(character==='archer'?'Arquera del Desierto':'Farolera')+
       ' · visor listo';
     let meshes=0,bones=0;
     model.traverse(o=>{if(o.isMesh)meshes++;if(o.isBone)bones++;});
     details.textContent=meshes+' mallas · '+bones+' huesos · modelo: '+
       (character==='archer'?'Arquera del Desierto ('+archerAssetFormat+
-        ', Idle: '+(archerIdle?.name||'no encontrado')+')':character==='farolera'?'Farolera':character);
-    frame();renderAnimList();renderNewCasterRows();
+        ', Idle: '+(archerIdle?.name||'no encontrado')+')':'Farolera');
+    frame();renderAnimList();
   }catch(e){
     characterInfo.textContent='Error al preparar el modelo: '+(e?.message||String(e));
     console.warn('[R.O.K.] Cambio de personaje:',e);
   }finally{
     characterSelect.value=currentCharacter;
+    characterSelect.textContent=currentCharacter==='farolera'?
+      'Cambiar a Arquera del Desierto':'Cambiar a Farolera';
     characterSelect.disabled=false;characterSwitching=false;
   }
 }
-characterSelect.addEventListener('change',()=>{void switchCharacter(characterSelect.value);});
+characterSelect.addEventListener('click',()=>switchCharacter(currentCharacter==='farolera'?'archer':'farolera'));
 document.querySelector('#archerReload').addEventListener('click',async()=>{
   if(currentCharacter!=='archer'||characterSwitching||loadingAnimations)return;
   const button=document.querySelector('#archerReload');
