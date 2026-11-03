@@ -23,6 +23,21 @@ const boneKey=name=>String(name).replace(/^.*?mixamorig[:_]?/i,'')
 const trackBone=name=>boneKey(name.replace(/\.(quaternion|position|scale)$/,'').replace(/^\.bones\[(.*)\]$/,'$1'));
 function motionTrack(track){return lower.has(trackBone(track.name));}
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const ATTACK_START_FRAME=13;
+const ATTACK_SOURCE_FPS=30;
+const ATTACK_BLEND_IN=.20;
+const ATTACK_BLEND_OUT=.20;
+const leftArmBones=new Set(['leftshoulder','leftarm','leftforearm','lefthand',
+ 'lefthandthumb1','lefthandthumb2','lefthandthumb3','lefthandindex1',
+ 'lefthandmiddle1','lefthandring1','lefthandpinky1']);
+const isLeftArm=name=>{
+ const bone=trackBone(name);
+ return leftArmBones.has(bone)||bone.startsWith('leftfinger')||
+  bone.startsWith('lefthand')||bone.startsWith('leftthumb')||
+  bone.startsWith('leftindex')||bone.startsWith('leftmiddle')||
+  bone.startsWith('leftring')||bone.startsWith('leftpinky');
+};
+const smoothstep=x=>{const t=clamp(x,0,1);return t*t*(3-2*t);};
 export function buildCasterCompositeClip(THREE,{preset,motionClip,actionClip,idleClip,fps=30}){
  if(!preset||!motionClip||!actionClip)throw Error('Faltan clips para la composición');
  const defending=preset.action==='defense';
@@ -33,7 +48,8 @@ export function buildCasterCompositeClip(THREE,{preset,motionClip,actionClip,idl
  const movement=motionClip.tracks.filter(t=>
   motionTrack(t)&&/\.(quaternion|position)$/.test(t.name));
  const sourceUpper=actionClip.tracks.filter(t=>
-  !motionTrack(t)&&/\.quaternion$/.test(t.name));
+  !motionTrack(t)&&/\.quaternion$/.test(t.name)&&
+  (defending||!isLeftArm(t.name)));
  if(!movement.length||!sourceUpper.length)throw Error('El rig no tiene pistas de piernas y torso compatibles');
  const idleUpper=new Map((idleClip?.tracks||[]).filter(t=>
   !motionTrack(t)&&/\.quaternion$/.test(t.name)).map(t=>[t.name,t]));
@@ -56,21 +72,44 @@ export function buildCasterCompositeClip(THREE,{preset,motionClip,actionClip,idl
   }
   appendTrack(track,value);
  }
+ const baseTime=t=>Math.min(Math.max(.0001,motionClip.duration)-.000001,
+  t%Math.max(.0001,motionClip.duration));
+ const upperNames=new Set(sourceUpper.map(t=>t.name));
+ // Keep the LEFT arm on its locomotion/idle track during attacking.
+ // Without these tracks the arm would fall back to the rig bind pose.
+ if(!defending){
+  for(const track of motionUpper.values()){
+   if(!isLeftArm(track.name)||upperNames.has(track.name))continue;
+   const interp=track.createInterpolant(),value=[];
+   for(const t of times)value.push(...interp.evaluate(baseTime(t)));
+   appendTrack(track,value);
+   upperNames.add(track.name);
+  }
+ }
+ const attackStart=Math.min(Math.max(0,actionClip.duration-.000001),
+  ATTACK_START_FRAME/ATTACK_SOURCE_FPS);
+ const attackSpan=Math.max(.000001,actionClip.duration-attackStart);
  for(const attackTrack of sourceUpper){
   const interp=attackTrack.createInterpolant();
   const base=motionUpper.get(attackTrack.name)||idleUpper.get(attackTrack.name);
   const baseInterp=base?.createInterpolant();
   const value=[];
   for(const t of times){
+   // Attack uses only source frames 13→end, normalized into the first second.
+   // Defense keeps its original fast hold-last-frame sampling unchanged.
    const attackTime=defending?
     Math.min(actionClip.duration-.000001,t*1.8):
-    Math.min(actionClip.duration-.000001,t*actionClip.duration);
+    Math.min(actionClip.duration-.000001,attackStart+
+      Math.min(1,t)*attackSpan);
    const result=Array.from(interp.evaluate(Math.max(0,attackTime)));
-   if(!defending&&t>1&&baseInterp){
-    const desired=Array.from(baseInterp.evaluate(Math.min(Math.max(.0001,motionClip.duration)-.000001,
-     t%Math.max(.0001,motionClip.duration))));
-    const q1=new THREE.Quaternion().fromArray(result),q2=new THREE.Quaternion().fromArray(desired);
-    q1.slerp(q2,clamp((t-1)/.2,0,1));q1.toArray(result);
+   if(!defending&&baseInterp){
+    const baseValue=Array.from(baseInterp.evaluate(baseTime(t)));
+    // Smoothly ease in from the current locomotion pose and ease back to it.
+    const weight=smoothstep(t/ATTACK_BLEND_IN)*
+      (1-smoothstep((t-1)/ATTACK_BLEND_OUT));
+    const baseline=new THREE.Quaternion().fromArray(baseValue);
+    baseline.slerp(new THREE.Quaternion().fromArray(result),weight);
+    baseline.toArray(result);
    }
    value.push(...result);
   }
@@ -80,6 +119,9 @@ export function buildCasterCompositeClip(THREE,{preset,motionClip,actionClip,idl
  // AnimationClip usable by the shared viewer timeline/frame inspector.
  const clip=new THREE.AnimationClip(preset.name,period,baked);
  clip.userData={rokComposite:true,kind:preset.action,motion:preset.motion,
-  origin:motionClip.name,actionSource:actionClip.name};
+  origin:motionClip.name,actionSource:actionClip.name,
+  ...(defending?{}:{attackStartFrame:ATTACK_START_FRAME,
+    attackSourceFPS:ATTACK_SOURCE_FPS,excludeLeftArm:true,
+    blendIn:ATTACK_BLEND_IN,blendOut:ATTACK_BLEND_OUT})};
  return clip;
 }
