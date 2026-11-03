@@ -1,7 +1,7 @@
 /* R.O.K. 3D · Minimal manual WASD for the Arena 2.5D.
    Press W/A/S/D or hold a D-pad button to take control immediately.
    No activation checkbox; FBX loading is nonblocking and affects only pose. */
-export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onModeChange}){
+export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onModeChange,reviveCaster}){
  const $=id=>document.getElementById(id);
  const select=$('casterMoveSide'),speed=$('casterMoveSpeed'),speedText=$('casterMoveSpeedText'),
   status=$('casterMoveStatus');
@@ -45,7 +45,8 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   if(enabled)return true;
   const next=selected();
   if(!next){notify('Cargando caster…');return false;}
-  if(next.stage!=='active'){notify('Caster fuera de combate; reinicia la arena');return false;}
+  if(next.stage!=='active')reviveCaster?.(next);
+  if(next.stage!=='active'){notify('Caster no disponible');return false;}
   caster=next;enabled=true;lastMotion=null;
   previousPlaying=onModeChange?.(true)??false;
   notify('Control manual activo');
