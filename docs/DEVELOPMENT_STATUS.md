@@ -39,3 +39,11 @@ El usuario informó que el visor 3D dejó de funcionar después de convertir el 
 - **El selector de Chiara/Lioren y las nuevas FBX en el visor 3D ya NO están activos.** No afirmar que siguen allí.
 - Causa exacta de la regresión: pendiente de aislar y verificar; no especular sin consola/ejecución.
 - Siguiente paso: comprobar con usuario la recuperación del visor original, y reimplementar por cambios pequeños con pruebas de sintaxis e interacción antes de publicar.
+
+## 2026-11-02 — Reimplementación aislada del visor existente (tras rollback)
+- Se modificó solamente `index.html` del visor de animaciones 3D anterior, manteniendo el antiguo botón de alternar oculto como compatibilidad y agregando desplegable con Farolera, Arquera, Chiara y Lioren.
+- Los modelos adicionales `chiara kaster.glb` y `lioren kaster.glb` se cargan bajo demanda antes de reemplazar al modelo visible. Si su descarga falla, se conserva el anterior.
+- Se creó `lab/embedded-animation-review.js`, cargado por **import dinámico con catch**. Muestra nueve FBX del manifiesto, permite probarlas en Chiara/Lioren y seleccionar conservar/descartar/pendiente individualmente, con exportación JSON. El catálogo y la lógica original de 14 clips siguen presentes.
+- Se comprobó sintaxis JS con el motor V8 antes de cada actualización del visor; el primer borrador produjo un error de sintaxis y fue descartado sin publicar. El arreglo posterior pasó la revisión de sintaxis.
+- **Sin prueba real de WebGL ni del retarget en navegador** desde esta sesión; no declarar la interacción o los GLB validados hasta que el usuario los pruebe.
+- La arena 2.5D no se modificó durante esta fase. El HUD definitivo sigue pendiente.
