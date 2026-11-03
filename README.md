@@ -57,6 +57,9 @@ En la [Arena 2.5D v0.9.22](./arena-25d.html), **Chiara y Lioren** usan ahora ani
 ## Casters — Etapa 7: velocidad, ataque y percepción de alcance
 La [Arena 2.5D](./arena-25d.html) utiliza velocidad inicial **3.8**, un ataque cada **1 segundo**, y alcance efectivo **2** para Chiara y Lioren. Un anillo turquesa de radio 2 aparece gradualmente al acercarse una invocación rival (desde distancia 4.5, pleno al llegar a 2); una pequeña diana dorada marca a la invocación cuando ya está dentro del alcance. El disparo prioriza enemigos invocados dentro del alcance real y, en ausencia de ellos, al caster rival en el mismo radio; no dispara hacia objetivos lejanos. **Pendiente:** símbolo **¡!** cuando una invocación enemiga tenga al caster a tiro. [Detalles y pendientes](./docs/CASTER_LAYERED_ACTIONS.md).
 
+## Casters — Etapa 8: alcance 3 y disparo confirmado al pulsar Espacio
+En la [Arena 2.5D v0.9.24](./arena-25d.html), Chiara y Lioren tienen **alcance 3** y un círculo de radio 3 que se vuelve visible conforme una invocación enemiga se aproxima (comienza a 5.5). La marca de objetivo aparece al entrar en las 3 unidades. **Espacio solo activa el ataque si había un enemigo en alcance cuando se pulsó**: si no hay objetivo no hay animación ni disparo ni cooldown. Si sí había objetivo, queda fijado y el proyectil se lanza al llegar al fotograma de liberación **aunque el caster se haya alejado y salido del alcance entretanto**. Movimiento 3.8 y ataque 1 s se conservan. [Reglas exactas](./docs/CASTER_LAYERED_ACTIONS.md).
+
 ## Animaciones
 El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 y 20 excluidos. Solo quedan **17 disponibles**. El rechazo no renumera las animaciones para proteger referencias de código. Las antiguas 04/05 permanecen dentro del ZIP original compartido; las cuatro FBX 17–20 ya habían sido eliminadas.
 
