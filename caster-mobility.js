@@ -13,6 +13,8 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
  let enabled=false,caster=null,lastMotion=null,previousPlaying=false;
  let preparedModel=null,loadingModel=null,revision=0,shownMessage='';
  let attackAction=null,attackElapsed=0,attackDuration=0,attackReleased=false,attackCooldown=0;
+ let defending=false;
+ const defenseKeys=new Set();
  const notify=(message)=>{
   status.textContent=message;status.title=message;
   if(message!==shownMessage){shownMessage=message;onStatus?.(message);}
@@ -27,8 +29,31 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
  function keyLabel(){
   for(const button of buttons)button.dataset.held=String(held.has(button.dataset.moveKey));
  }
- function clearKeys(){held.clear();keyLabel();}
+ function clearKeys(){held.clear();defenseKeys.clear();keyLabel();setDefense(false);}
  function cancelAttack(){attackAction=null;attackElapsed=0;attackDuration=0;attackReleased=false;attackCooldown=0;}
+ function setDefense(value){
+  if(value&&(!engage()||!caster||caster.stage!=='active'))return false;
+  if(value===defending)return defending;
+  defending=value;
+  defenseButton.dataset.held=String(value);
+  if(caster){
+   caster.manualDefending=value;
+   if(value){
+    const clip=clips.get('defense')||caster.model?.userData?.rokDefenseClip;
+    if(clip&&caster.mixer){
+     caster.mixer.stopAllAction();
+     const action=caster.mixer.clipAction(clip);
+     action.reset().setLoop(THREE.LoopRepeat,Infinity).play();
+     caster.userData=caster.userData||{};caster.userData.manualAction=action;
+    }
+    lastMotion=null;
+   }else{
+    lastMotion=null;
+   }
+  }
+  notify(value?'Defensa activa · daño bloqueado':'Defensa finalizada');
+  return defending;
+ }
  function stopAction(c){
   if(!c?.mixer)return;
   c.mixer.stopAllAction();
@@ -39,6 +64,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   ++revision;clearKeys();
   if(!enabled)return;
   cancelAttack();
+  if(caster)caster.manualDefending=false;
   stopAction(caster);
   enabled=false;caster=null;lastMotion=null;preparedModel=null;loadingModel=null;clips.clear();
   onModeChange?.(false,previousPlaying);
@@ -64,7 +90,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   Promise.resolve().then(()=>prepareClips(c)).then(result=>{
    if(ticket!==revision||!enabled||selected()!==c||c.model!==model)return;
    clips.clear();
-   for(const name of ['idle','forward','backward','left','right','attack','death'])
+   for(const name of ['idle','forward','backward','left','right','attack','death','defense'])
     if(result?.[name])clips.set(name,result[name]);
    preparedModel=model;loadingModel=null;lastMotion=null;
    const missing=result?._unavailable||[];
@@ -94,20 +120,27 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
  function startAttack(){
   if(!engage())return false;
   const c=selected();
-  if(c!==caster||c.stage!=='active'||attackCooldown>0||attackAction)return false;
+  if(c!==caster||c.stage!=='active'||attackCooldown>0||attackDuration>0||defending)return false;
   const clip=clips.get('attack')||c.model?.userData?.rokAttackClip;
-  if(!clip||clip.duration<=0){notify('Ataque 02 cargando…');requestClips(c);return false;}
-  c.mixer.stopAllAction();
-  const action=c.mixer.clipAction(clip);
-  action.reset().setLoop(THREE.LoopOnce,1);
-  action.clampWhenFinished=true;
-  action.enabled=true;action.setEffectiveWeight(1);action.setEffectiveTimeScale(1);action.play();
-  c.userData=c.userData||{};c.userData.manualAction=action;
-  attackAction=action;attackElapsed=0;
-  attackDuration=Math.max(.1,clip.duration);
+  // Logical attack starts immediately, even when FBX 02 is still downloading.
+  // The projectile is never gated on the visual animation.
+  if(clip?.duration>0&&c.mixer){
+   c.mixer.stopAllAction();
+   const action=c.mixer.clipAction(clip);
+   action.reset().setLoop(THREE.LoopOnce,1);
+   action.clampWhenFinished=true;
+   action.enabled=true;action.setEffectiveWeight(1);action.setEffectiveTimeScale(1);action.play();
+   c.userData=c.userData||{};c.userData.manualAction=action;
+   attackAction=action;
+  }else{
+   attackAction=null;
+   requestClips(c);
+  }
+  attackElapsed=0;
+  attackDuration=clip?.duration>0?Math.max(.1,clip.duration):.8;
   attackReleased=false;attackCooldown=Math.max(1.6,attackDuration);
   lastMotion=null;
-  notify('Ataque 02 · lanzamiento');
+  notify(clip?'Ataque 02 · lanzamiento':'Ataque activo · FBX 02 aún cargando');
   return true;
  }
  function step(dt){
@@ -124,19 +157,20 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   }
   attackCooldown=Math.max(0,attackCooldown-dt);
   const {forward,lateral,kind}=motion();
-  if(attackAction){
+  if(attackDuration>0){
    attackElapsed+=dt;
    if(!attackReleased&&attackElapsed>=attackDuration*.55){
     attackReleased=true;
     onAttack?.(c);
    }
    if(attackElapsed>=attackDuration){
-    attackAction=null;lastMotion=null;
+    attackAction=null;attackDuration=0;lastMotion=null;
     notify('WASD · ataque disponible');
    }
    c.mixer.update(dt);
    return; // Attack takes priority over locomotion until release.
   }
+  if(defending){c.mixer.update(dt);return;}
   if(forward||lateral){
    const length=Math.hypot(forward,lateral),v=Number(speed.value)||2.2;
    const sign=c.side==='ally'?-1:1;
@@ -154,8 +188,10 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
    event.preventDefault();return;
   }
   if(event.code==='ShiftLeft'||event.code==='ShiftRight'){
-   if(down&&!event.repeat)notify('Defensa Shift: composición 23 pendiente');
-   return;
+   if(down)defenseKeys.add(event.code);else defenseKeys.delete(event.code);
+   if(down)setDefense(true);
+   else if(!defenseKeys.size)setDefense(false);
+   event.preventDefault();return;
   }
   if(!Object.hasOwn(directions,event.code))return;
   if(down&&event.target?.closest?.('textarea,select,[contenteditable="true"],input:not([type="range"])'))return;
@@ -180,11 +216,19 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   button.addEventListener('lostpointercapture',release);
  }
  attackButton.addEventListener('click',()=>{attackButton.blur();startAttack();});
- defenseButton.addEventListener('click',()=>{defenseButton.blur();notify('Defensa Shift: composición 23 pendiente');});
+ // Pointer hold mirrors holding Shift; pointerup restores normal movement.
+ defenseButton.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  if(typeof defenseButton.setPointerCapture==='function')defenseButton.setPointerCapture(e.pointerId);
+  setDefense(true);
+ });
+ for(const type of ['pointerup','pointercancel','lostpointercapture'])
+  defenseButton.addEventListener(type,()=>setDefense(false));
+ defenseButton.addEventListener('click',()=>{defenseButton.blur();});
  window.addEventListener('blur',clearKeys);
  document.addEventListener('visibilitychange',()=>{if(document.hidden)clearKeys();});
  select.addEventListener('change',()=>{stop();select.blur();});
  speed.addEventListener('input',()=>{speedText.textContent=Number(speed.value).toFixed(1);});
  notify('WASD · listo');
- return {step,disable:stop,startAttack,get enabled(){return enabled;},get caster(){return caster;}};
+ return {step,disable:stop,startAttack,setDefense,get defending(){return defending;},get enabled(){return enabled;},get caster(){return caster;}};
 }
