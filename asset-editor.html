@@ -1,20 +1,39 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#081720">
-<title>R.O.K. 3D — Creador de assets</title><link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./model-library.css"></head>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#081720">
+<title>R.O.K. 3D — Creador de assets</title>
+<link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./asset-editor.css">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
+</head>
 <body data-studio-page="assets">
-<main class="libraryPage">
-<header class="libraryHeading"><div><h1>Creador de assets</h1><p>Selecciona cualquier modelo, incluidos personajes y elementos reservados. Los efectos y composiciones se integrarán en la etapa 3.</p></div></header>
-<div class="libraryGrid">
-<aside class="libraryPanel" aria-label="Biblioteca de modelos"><h2>Biblioteca GLB</h2>
-<div class="libraryControls"><input id="librarySearch" type="search" autocomplete="off" placeholder="Buscar modelo…" aria-label="Buscar modelos">
-<select id="libraryFilter" aria-label="Filtrar modelos"><option value="all">Todos</option></select></div>
-<div id="librarySummary" role="status">Cargando catálogo…</div>
-<div id="libraryList"></div></aside>
-<section class="libraryPanel libraryWorkspace" aria-label="Área de trabajo">
-<div class="librarySelectionTitle">Modelo seleccionado</div><div id="librarySelection">Ninguno</div><div id="libraryPath"></div>
-<a id="libraryOpen" aria-disabled="true" href="#" target="_blank" rel="noopener noreferrer">Abrir archivo GLB</a>
-<div class="stage"><div><strong>Área de composición del asset</strong>
-<p>Preparada para combinar el modelo con efectos visuales en la etapa 3.</p></div></div>
-<p class="libraryNote">Esta etapa incorpora la biblioteca navegable. La selección no carga todavía una vista previa 3D ni guarda cambios.</p>
-</section></div></main>
-<script src="./studio.js"></script><script src="./model-library.js"></script></body></html>
+<main class="assetStudio">
+ <aside class="assetPanel assetModels" aria-label="Modelos">
+  <h2>Modelos GLB</h2>
+  <div class="assetFilters"><input id="assetSearch" type="search" placeholder="Buscar…" aria-label="Buscar modelo"><select id="assetCategory" aria-label="Categoría"><option value="all">Todos</option><option value="prop">Escenario</option><option value="caster">Personajes</option><option value="reserved">Especiales</option></select></div>
+  <div id="assetCount" class="assetSubtle" role="status">Cargando…</div>
+  <div id="assetModels" class="assetModelList" aria-label="Modelos disponibles"></div>
+ </aside>
+ <section class="assetViewport" aria-label="Visor tridimensional">
+  <div class="assetViewportTop"><strong id="assetTitle">Creador de assets</strong><span id="assetStatus" role="status">Preparando visor…</span></div>
+  <div id="assetCanvas" class="assetCanvas"></div>
+  <div class="assetViewportBottom"><button id="assetFrame" type="button">Centrar</button><button id="assetGrid" type="button" aria-pressed="true">Cuadrícula</button><span>Arrastrar: orbitar · Rueda: zoom</span></div>
+ </section>
+ <aside class="assetPanel assetEffects" aria-label="Composición de efectos">
+  <h2>Composición</h2>
+  <label class="assetField">Nombre<input id="assetName" type="text" maxlength="70" placeholder="Nuevo asset"></label>
+  <div class="assetRow"><label class="assetField">Efecto<select id="effectKind"><option value="glow">Resplandor</option><option value="light">Luz puntual</option><option value="particles">Partículas</option><option value="fog">Niebla local</option><option value="pulse">Pulso de energía</option></select></label><button id="effectAdd" type="button">+ Añadir</button></div>
+  <h3>Capas visuales</h3><div id="effectList" class="effectList"><p class="assetSubtle">Sin efectos.</p></div>
+  <div id="effectControls" class="effectControls" hidden>
+   <label class="assetField">Nombre de capa<input id="fxName" maxlength="48"></label>
+   <div class="assetRow"><label class="assetField">Color<input type="color" id="fxColor" value="#00ffe4"></label><label class="assetField">Intensidad <output id="fxIntensityValue">1.0</output><input id="fxIntensity" type="range" min="0" max="3" value="1" step=".1"></label></div>
+   <label class="assetField">Tamaño / Radio <output id="fxSizeValue">1.0</output><input id="fxSize" type="range" min=".1" max="6" value="1" step=".1"></label>
+   <label class="assetField">Altura <output id="fxHeightValue">0.0</output><input id="fxHeight" type="range" min="-3" max="6" value="0" step=".1"></label>
+   <div class="assetRow"><label class="assetField">Desplazar X<input id="fxX" type="number" min="-20" max="20" step=".1" value="0"></label><label class="assetField">Desplazar Z<input id="fxZ" type="number" min="-20" max="20" step=".1" value="0"></label></div>
+   <button id="effectRemove" type="button" class="assetDanger">Quitar capa</button>
+  </div>
+  <h3>Archivo de composición</h3>
+  <div class="assetActions"><button id="assetSave" type="button" class="assetPrimary">Guardar JSON</button><button id="assetImport" type="button">Importar JSON</button><button id="assetClear" type="button">Nueva composición</button><input id="assetImportFile" type="file" accept=".json,application/json" hidden></div>
+  <p class="assetSubtle">El JSON conserva el modelo y las capas para reutilizarlos en escenarios. Guardarlo aquí descarga un archivo; publicar en GitHub requiere una operación autenticada fuera del navegador.</p>
+ </aside>
+</main>
+<script src="./studio.js"></script><script type="module" src="./asset-editor.js"></script>
+</body></html>
