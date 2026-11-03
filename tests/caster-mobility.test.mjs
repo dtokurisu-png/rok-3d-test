@@ -108,7 +108,7 @@ test('compact Arena controls and live combat are unchanged',async()=>{
  assert.match(arena,/id="casterDefenseButton"/);
  assert.match(arena,/if\(loaded&&playing&&!casterReview\.active\)updateDuel\(dt\)/);
  assert.match(arena,/if\(loaded&&casterMovement\?\.enabled\)casterMovement\.step\(dt\)/);
- assert.match(arena,/v0\.9\.23 · Alcance 2/);
+ assert.match(arena,/v0\.9\.24 · Alcance 3/);
  for(const [path,id] of [['Magic Heal.fbx',2],['Sword And Shield Impact.fbx',23],
   ['Standing React Small From Headshot.fbx',9],['Sword And Shield Death.fbx',8]])
   assert.ok(loader.includes(path)&&loader.includes('id:'+id),path);
@@ -168,7 +168,8 @@ test('WASD motion never stops during attack or held Shift; releasing restores up
  try{
   const c=createCasterMobility({
    THREE:three,layers,getCaster:()=>caster,
-   prepareClips:()=>new Promise(()=>{}),onModeChange:()=>true,onAttack:()=>shots++
+   prepareClips:()=>new Promise(()=>{}),onModeChange:()=>true,
+   getAttackTarget:()=>({id:'enemy'}),onAttack:()=>shots++
   });
   ui.handlers.keydown(keyboard('KeyW'));
   c.step(.05);const forward=caster.outer.position.z;
@@ -214,7 +215,7 @@ test('guard prevents damage and releasing it restores normal damage in Arena dam
 test('caster movement 3.8 and attacks every 1 second',async()=>{
  const [arena,control]=await Promise.all([read('arena-25d.html'),read('caster-mobility.js')]);
  assert.match(arena,/id="casterMoveSpeed"[^>]*value="3\.8"/);
- assert.match(arena,/attackRange:2,moveSpeed:3\.8,attackPeriod:1/);
+ assert.match(arena,/attackRange:3,moveSpeed:3\.8,attackPeriod:1/);
  assert.match(control,/const ATTACK_PERIOD=1/);
  assert.match(control,/const WALK_SPEED=3\.8/);
  const [{createCasterLayerSystem},{createCasterMobility}]=await Promise.all([
@@ -224,7 +225,8 @@ test('caster movement 3.8 and attacks every 1 second',async()=>{
  let shots=0;
  try{
   const ctl=createCasterMobility({THREE:three,layers,getCaster:()=>caster,
-   prepareClips:()=>new Promise(()=>{}),onAttack:()=>shots++,onModeChange:()=>true});
+   prepareClips:()=>new Promise(()=>{}),onAttack:()=>shots++,onModeChange:()=>true,
+   getAttackTarget:()=>({id:'enemy'})});
   ui.handlers.keydown(keyboard('KeyW'));
   ctl.step(.05);
   assert.ok(Math.abs(caster.outer.position.z-(7.5-3.8*.05))<1e-7);
@@ -238,25 +240,25 @@ test('caster movement 3.8 and attacks every 1 second',async()=>{
   ctl.disable();
  }finally{ui.restore();}
 });
-test('ring fades on approach and target marker appears only within 2',async()=>{
+test('ring fades on approach and target marker appears only within 3',async()=>{
  const {createCasterRangeIndicator}=await moduleFrom('caster-range-indicator.js');
- const indicator=createCasterRangeIndicator({THREE:three,range:2,approach:4.5});
+ const indicator=createCasterRangeIndicator({THREE:three,range:3,approach:5.5});
  const c=makeCaster(),hostile={role:'summon',side:'enemy',stage:'active',hp:3,
   outer:new FakeGroup()};
- hostile.outer.position.x=0;hostile.outer.position.z=2.5;
+ hostile.outer.position.x=0;hostile.outer.position.z=1.5;
  const allowed=t=>t.hp>0&&t.stage==='active';
  assert.equal(indicator.update(c,[hostile],.1,allowed),null);
  const ring=c.outer.children[0];
  assert.equal(ring.visible,false);
- hostile.outer.position.z=4.5;
+ hostile.outer.position.z=3.5;
  assert.equal(indicator.update(c,[hostile],.1,allowed),null);
  assert.equal(ring.visible,true);
  assert.ok(ring.children[0].material.opacity>0&&ring.children[0].material.opacity<.8);
- hostile.outer.position.z=5.5;
+ hostile.outer.position.z=4.5;
  assert.equal(indicator.update(c,[hostile],.1,allowed),hostile);
  assert.equal(ring.children[0].material.opacity,.8);
  assert.equal(hostile.outer.children.length,1);
- hostile.outer.position.z=5.4;
+ hostile.outer.position.z=4.4;
  assert.equal(indicator.update(c,[hostile],.1,allowed),null);
  assert.equal(hostile.outer.children.length,0);
  indicator.hide(c);
@@ -264,9 +266,49 @@ test('ring fades on approach and target marker appears only within 2',async()=>{
 });
 test('caster projectile only selects in-range hostile units while keeping other combat live',async()=>{
  const arena=await read('arena-25d.html');
- assert.match(arena,/const casterRangeIndicator=createCasterRangeIndicator\(\{THREE,range:2,approach:4\.5\}\)/);
+ assert.match(arena,/const casterRangeIndicator=createCasterRangeIndicator\(\{THREE,range:3,approach:5\.5\}\)/);
  assert.match(arena,/const summon=casterRangeIndicator\.choose\(c,enemies,canDamageTarget\)\.target/);
- assert.match(arena,/const enemy=casterAttackTarget\(c\)/);
+ assert.match(arena,/getAttackTarget:casterAttackTarget/);
  assert.match(arena,/if\(attacker\?\.role==='caster'\)return true/);
  assert.match(arena,/if\(loaded&&playing&&!casterReview\.active\)updateDuel\(dt\)/);
+});
+
+test('Space validates range once on press and retains target after moving out',async()=>{
+ const [{createCasterLayerSystem},{createCasterMobility}]=await Promise.all([
+  moduleFrom('caster-animation-layers.js'),moduleFrom('caster-mobility.js')
+ ]);
+ const layers=createCasterLayerSystem(three),caster=makeCaster(),ui=mockUI();
+ const enemy={role:'summon',side:'enemy',outer:{position:{x:0,z:4.6}}};
+ let shots=0,received=null,checks=0;
+ const getAttackTarget=()=>{
+  checks++;
+  const distance=Math.hypot(caster.outer.position.x-enemy.outer.position.x,
+   caster.outer.position.z-enemy.outer.position.z);
+  return distance<=3?enemy:null;
+ };
+ try{
+  const ctl=createCasterMobility({
+   THREE:three,layers,getCaster:()=>caster,prepareClips:()=>new Promise(()=>{}),
+   getAttackTarget,onAttack:(source,target)=>{shots++;received=target;},
+   onModeChange:()=>true
+  });
+  // First press at 3.1 distance: absolutely no attack animation or cooldown.
+  enemy.outer.position.z=4.4;
+  ui.handlers.keydown(keyboard('Space'));
+  for(let i=0;i<15;i++)ctl.step(.05);
+  assert.equal(shots,0);
+  assert.equal(caster.mixer.actions.size>0,true);
+  assert.equal([...caster.mixer.actions.values()].some(a=>a.clip.name==='Attack_upper'),false);
+  // At 2.9 distance attack is admitted and target locked.
+  enemy.outer.position.z=4.6;
+  ui.handlers.keydown(keyboard('Space'));
+  // The caster walks backwards, so by the time release happens enemy is out of reach.
+  ui.handlers.keydown(keyboard('KeyS'));
+  for(let i=0;i<12;i++)ctl.step(.05);
+  assert.ok(Math.abs(caster.outer.position.z-enemy.outer.position.z)>3);
+  assert.equal(shots,1,'previously accepted shot must launch even after leaving range');
+  assert.equal(received,enemy,'release must retain the target captured at Space press');
+  assert.equal(checks,2,'never recheck range at release');
+  ctl.disable();
+ }finally{ui.restore();}
 });
