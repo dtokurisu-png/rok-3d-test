@@ -2,7 +2,7 @@
  * All actions share the original caster mixer and keep the rest of combat live.
  */
 export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
- onModeChange,reviveCaster,getAttackTarget,onAttack,layers}){
+ onModeChange,reviveCaster,getAttackTarget,onAttack,layers,bounds={x:7.25,z:14.75}}){
  const $=id=>document.getElementById(id);
  const select=$('casterMoveSide'),speed=$('casterMoveSpeed'),speedText=$('casterMoveSpeedText'),
   status=$('casterMoveStatus'),attackButton=$('casterAttackButton'),defenseButton=$('casterDefenseButton');
@@ -135,8 +135,8 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
    const len=Math.hypot(forward,lateral),v=Number(speed.value)||WALK_SPEED;
    const sign=c.side==='ally'?-1:1;
    const delta=Math.min(.05,Math.max(0,dt));
-   c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+lateral/len*v*delta,-4.25,4.25);
-   c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+forward/len*sign*v*delta,-8.75,8.75);
+   c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+lateral/len*v*delta,-bounds.x,bounds.x);
+   c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+forward/len*sign*v*delta,-bounds.z,bounds.z);
   }
   // Always update hips + legs, even while upper-body attack or guard plays.
   layers.movement(c,kind);
