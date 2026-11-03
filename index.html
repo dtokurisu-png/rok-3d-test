@@ -801,8 +801,9 @@ function renderAnimList(){
     const casterSelected=currentCharacter==='chiara'||currentCharacter==='lioren';
     const legacyCasterUnloaded=casterSelected&&row.source==='pack'&&!row.clip;
     play.type='button';
-    play.disabled=!model||row.status==='loading'||
-      (!row.clip&&row.source!=='repository'&&!legacyCasterUnloaded);
+    // Los catorce clips originales se pueden solicitar para Chiara/Lioren
+    // aunque todavia no se haya realizado su retarget en este modelo.
+    play.disabled=!model||(!row.clip&&!legacyCasterUnloaded&&row.source!=='repository');
     play.textContent=String(row.index).padStart(2,'0')+' · '+row.name.replace(/\.fbx$/i,'');
     if(faroleraRoles[row.index]||candidateRoles[row.index]){
       const tag=document.createElement('small');tag.className='animRole';
@@ -815,8 +816,8 @@ function renderAnimList(){
       'Animación del paquete original.');
     play.addEventListener('click',()=>{
       if(row.clip)playAnimation(row.index);
-      else if(row.source==='repository')void loadNewAnimation(row,true);
       else if(legacyCasterUnloaded)void loadOldCasterAnimation(row,true);
+      else if(row.source==='repository')void loadNewAnimation(row,true);
     });
     const state=document.createElement('span');state.className='animNo';
     state.textContent=row.status==='error'?'⚠ Error':row.clip?'✓ Lista':
@@ -1419,8 +1420,11 @@ async function switchCharacter(character,forceReload=false){
       (character==='archer'?'Arquera del Desierto ('+archerAssetFormat+
         ', Idle: '+(archerIdle?.name||'no encontrado')+')':character==='chiara'?'Chiara · Kaster':character==='lioren'?'Lioren · Kaster':'Farolera');
     frame();renderAnimList();
+    // Precarga en segundo plano, sin bloquear el cambio de personaje:
+    // los botones 01–14 siguen interactivos mientras llegan sus FBX.
     if(character==='chiara'||character==='lioren'){
-      await preloadOldCasterAnimations(character);
+      void preloadOldCasterAnimations(character).catch(err=>
+        console.warn('[ROK] Precarga FBX originales de Kaster:',err));
     }
     void preloadNewAnimationsForCharacter();
   }catch(e){
