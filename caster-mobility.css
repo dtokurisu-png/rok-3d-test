@@ -43,3 +43,5 @@
  font-size:9px;font-weight:700;color:#eaffff;border-radius:6px;cursor:pointer}
 #casterDefenseButton{background:#293947;border:1px solid #778a99}
 #casterDefenseButton:active{background:#3e566c}
+
+#casterDefenseButton[data-held="true"]{background:#16745d;border-color:#00ffe4;box-shadow:0 0 5px #00ffe466}
