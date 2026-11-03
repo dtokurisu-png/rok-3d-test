@@ -97,8 +97,8 @@ canvas{display:block;touch-action:none}
 @media(min-width:760px){#versionProof{top:72px;left:16px;transform:none}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-</head>
-<body>
+<link rel="stylesheet" href="./studio.css"></head>
+<body data-studio-page="tester">
 <div id="versionProof" aria-label="Versión de la arena">v0.9.15</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
@@ -3138,5 +3138,5 @@ function loop(now){
 requestAnimationFrame(loop);
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,innerWidth<700?1.5:2));renderer.setSize(innerWidth,innerHeight);});
 </script>
-</body>
+<script src="./studio.js"></script></body>
 </html>
