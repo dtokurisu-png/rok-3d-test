@@ -1368,7 +1368,7 @@ async function switchCharacter(character,forceReload=false){
     model.traverse(o=>{if(o.isMesh)meshes++;if(o.isBone)bones++;});
     details.textContent=meshes+' mallas · '+bones+' huesos · modelo: '+
       (character==='archer'?'Arquera del Desierto ('+archerAssetFormat+
-        ', Idle: '+(archerIdle?.name||'no encontrado')+')':'Farolera');
+        ', Idle: '+(archerIdle?.name||'no encontrado')+')':character==='chiara'?'Chiara · Kaster':character==='lioren'?'Lioren · Kaster':'Farolera');
     frame();renderAnimList();
   }catch(e){
     characterInfo.textContent='Error al preparar el modelo: '+(e?.message||String(e));
