@@ -3116,7 +3116,7 @@ qs('#reviewExport').onclick=()=>{
 fetch('./assets/manifests/caster-animations.json',{cache:'no-store'}).then(response=>{
   if(!response.ok)throw Error('Manifest no disponible');
   return response.json();
-}).then(manifest=>{casterReview.items=manifest.animations||[];renderCasterAnimationReview();
+}).then(manifest=>{casterReview.items=(manifest.animations||[]).filter(animation=>animation.status!=='rejected');renderCasterAnimationReview();
   reviewMessage('Lista de '+casterReview.items.length+' animaciones · selecciona Probar en esta arena.');}
 ).catch(error=>reviewMessage('No se pudo cargar catálogo: '+String(error.message||error)));
 
