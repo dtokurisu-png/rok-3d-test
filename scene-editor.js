@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {ARENA_COLUMNS,ARENA_ROWS,SCENERY_BOUNDS,footprint,
+ placeOutsidePlayable,assertPlacement,validPlacement} from './scene-placement-rules.js';
 
-/* R.O.K. Studio · isolated scenery editor, 9 x 18 cells.
+/* R.O.K. Studio · isolated scenery editor, 15 x 30 protected playable cells.
    No combat systems, timers, HUD, caster animations, or writes to source GLBs. */
-const $=id=>document.getElementById(id), W=9,D=18;
+const $=id=>document.getElementById(id), W=ARENA_COLUMNS,D=ARENA_ROWS;
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 const num=(v,a,b,fallback=0)=>Number.isFinite(Number(v))?clamp(Number(v),a,b):fallback;
 const effects=new Set(['glow','light','particles','fog','pulse']);
@@ -17,10 +19,10 @@ renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
 $('sceneCanvas').append(renderer.domElement);
 const camera=new THREE.PerspectiveCamera(45,1,.05,300);
-camera.position.set(13,18,23);
+camera.position.set(32,37,51);
 const controls=new OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;controls.maxPolarAngle=Math.PI*.49;
-controls.target.set(0,0,0);controls.minDistance=4;controls.maxDistance=70;
+controls.target.set(0,0,0);controls.minDistance=4;controls.maxDistance=125;
 scene.add(new THREE.HemisphereLight(0xc9e9ff,0x334858,2.1));
 const sunlight=new THREE.DirectionalLight(0xffffff,2.1);sunlight.position.set(8,16,6);scene.add(sunlight);
 const base=new THREE.Mesh(new THREE.BoxGeometry(W+.5,.25,D+.5),new THREE.MeshStandardMaterial({color:0x182b31,metalness:.15,roughness:.83}));
@@ -33,7 +35,7 @@ const dummy=new THREE.Object3D(),tileColor=new THREE.Color();
 for(let row=0;row<D;row++)for(let col=0;col<W;col++){
  const idx=row*W+col;
  dummy.position.set(col-(W-1)/2,(D-1)/2-row,0);dummy.updateMatrix();tiles.setMatrixAt(idx,dummy.matrix);
- const enemy=row<9;
+ const enemy=row<D/2;
  tileColor.setHex(enemy?(idx%2?0x29404e:0x263947):(idx%2?0x214945:0x203e3e));
  tiles.setColorAt(idx,tileColor);
 }
@@ -56,7 +58,16 @@ fetch('./arena-background.css',{cache:'no-cache'}).then(r=>r.ok?r.text():Promise
  const w=parse('width'),h=parse('length');
  if(Number.isFinite(w)&&Number.isFinite(h))arenaArt.scale.set(clamp(w,100,220)/100,clamp(h,100,220)/100,1);
 }).catch(()=>{});
-const border=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(W,.02,D)),new THREE.LineBasicMaterial({color:0x398d8d}));
+// Highlight the entire prohibited gameplay zone independently of grid visibility.
+const border=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(W,.02,D)),new THREE.LineBasicMaterial({color:0xffb36b}));
+const exteriorGuide=new THREE.LineSegments(new THREE.EdgesGeometry(
+ new THREE.BoxGeometry(SCENERY_BOUNDS.halfWidth*2,.02,SCENERY_BOUNDS.halfDepth*2)),
+ new THREE.LineBasicMaterial({color:0x397c90,transparent:true,opacity:.48}));scene.add(exteriorGuide);
+const outsideGround=new THREE.Mesh(new THREE.PlaneGeometry(
+ SCENERY_BOUNDS.halfWidth*2,SCENERY_BOUNDS.halfDepth*2),
+ new THREE.MeshBasicMaterial({color:0x164450,transparent:true,opacity:.095,
+ depthWrite:false,side:THREE.DoubleSide}));
+outsideGround.rotation.x=-Math.PI/2;outsideGround.position.y=-.005;scene.add(outsideGround);
 scene.add(border);
 const level=new THREE.Group();scene.add(level);
 const pointer=new THREE.Vector2(),raycaster=new THREE.Raycaster(),groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -123,7 +134,21 @@ function effectObject(fx,dimension){
 function disposeEffects(group){
  group.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();}});
 }
-function clipPos(x,z){return [num(x,-W/2,W/2),num(z,-D/2,D/2)];}
+function dimensionsFor(model,rotation=0,scale=1){
+ const box=new THREE.Box3().setFromObject(model);
+ if(box.isEmpty())throw Error('Modelo sin geometría');
+ const size=box.getSize(new THREE.Vector3());
+ return footprint(size.x,size.z,rotation,scale);
+}
+function exteriorPosition(x,z,model,rotation=0,scale=1){
+ const dim=dimensionsFor(model,rotation,scale);
+ return placeOutsidePlayable(x,z,dim.halfX,dim.halfZ);
+}
+function ensureExterior(x,z,model,rotation=0,scale=1){
+ const dim=dimensionsFor(model,rotation,scale);
+ assertPlacement(x,z,dim.halfX,dim.halfZ);
+}
+
 function updateTransform(entry){
  if(!entry?.root)return;
  entry.root.position.set(entry.x,entry.y,entry.z);
@@ -178,8 +203,10 @@ async function insertObject(data,generation=loadGeneration){
  }
  // Outline is separate from the model: effects do not make the selection bounds grow.
  const outline=objectOutline(g);root.add(outline);
- const [x,z]=clipPos(data.x??0,data.z??0);
- const obj={id:data.id||newId(),modelId:source.id,name:String(data.name||source.name).slice(0,70),compositionId:data.compositionId||null,effects:(data.effects||[]).map(cleanFx),x,y:num(data.y,-10,20),z,rotation:num(data.rotation,-3600,3600),scale:num(data.scale,.05,5,1),root,model:g,vfx,animations,outline};
+ const rotation=num(data.rotation,-3600,3600),scale=num(data.scale,.05,5,1);
+ const position=exteriorPosition(data.x??W/2+3,data.z??0,g,rotation,scale);
+ const {x,z}=position;
+ const obj={id:data.id||newId(),modelId:source.id,name:String(data.name||source.name).slice(0,70),compositionId:data.compositionId||null,effects:(data.effects||[]).map(cleanFx),x,y:num(data.y,-10,20),z,rotation,scale,root,model:g,vfx,animations,outline};
  updateTransform(obj);level.add(root);objects.push(obj);renderObjects();
  return obj;
 }
@@ -198,7 +225,7 @@ function renderLibrary(){
  $('sceneLibraryCount').textContent=items.length+' modelos de escenario';
  $('sceneLibraryList').replaceChildren(...items.map(item=>makeButton(item,'+ Añadir · GLB',async()=>{
   status('Cargando '+item.name+'…');
-  try{const obj=await insertObject({modelId:item.id,name:item.name,x:0,z:0});if(obj){selectObject(obj);status('Objeto añadido');}}catch(e){status('Error: '+e.message);}
+  try{const obj=await insertObject({modelId:item.id,name:item.name,x:W/2+3,z:0});if(obj){selectObject(obj);status('Objeto añadido');}}catch(e){status('Error: '+e.message);}
  })));
 }
 function renderCompositions(){
@@ -206,7 +233,7 @@ function renderCompositions(){
  list.replaceChildren();
  if(!compositions.size){const p=document.createElement('p');p.className='sceneQuiet';p.textContent='Ninguna importada.';list.append(p);}
  for(const comp of compositions.values())list.append(makeButton(comp,'+ Añadir con efectos',async()=>{
-  try{const v=await insertObject({modelId:comp.modelId,name:comp.name,compositionId:comp.id,effects:comp.effects,x:0,z:0});if(v){selectObject(v);status('Composición añadida');}}catch(e){status('Error: '+e.message);}
+  try{const v=await insertObject({modelId:comp.modelId,name:comp.name,compositionId:comp.id,effects:comp.effects,x:W/2+3,z:0});if(v){selectObject(v);status('Composición añadida');}}catch(e){status('Error: '+e.message);}
  }));
 }
 function pickObject(event){
@@ -229,7 +256,8 @@ renderer.domElement.addEventListener('pointerdown',event=>{
 renderer.domElement.addEventListener('pointermove',event=>{
  if(!drag||drag.id!==event.pointerId)return;
  const at=positionOnFloor(event);if(!at)return;
- const [x,z]=clipPos(at.x+drag.dx,at.z+drag.dz);
+ const {x,z}=exteriorPosition(at.x+drag.dx,at.z+drag.dz,
+  drag.obj.model,drag.obj.rotation,drag.obj.scale);
  if(Math.abs(x-drag.obj.x)+Math.abs(z-drag.obj.z)>.001)drag.moved=true;
  drag.obj.x=x;drag.obj.z=z;updateTransform(drag.obj);fillControls();
 });
@@ -239,12 +267,20 @@ renderer.domElement.addEventListener('pointercancel',endDrag);
 renderer.domElement.addEventListener('lostpointercapture',()=>{drag=null;controls.enabled=true;});
 function readControls(){
  if(!selection)return;
- const [x,z]=clipPos($('scenePosX').value,$('scenePosZ').value);
- selection.name=$('sceneObjectName').value.slice(0,70)||modelFor(selection.modelId).name;
- selection.x=x;selection.z=z;selection.y=num($('scenePosY').value,-10,20);
- selection.rotation=num($('sceneRotation').value,-3600,3600);
- selection.scale=num($('sceneScale').value,.05,5,1);
- updateTransform(selection);$('sceneScaleValue').textContent=selection.scale.toFixed(2);renderObjects();
+ const rotation=num($('sceneRotation').value,-3600,3600);
+ const scale=num($('sceneScale').value,.05,5,1);
+ try{
+  const {x,z}=exteriorPosition($('scenePosX').value,$('scenePosZ').value,
+   selection.model,rotation,scale);
+  selection.name=$('sceneObjectName').value.slice(0,70)||modelFor(selection.modelId).name;
+  selection.x=x;selection.z=z;selection.y=num($('scenePosY').value,-10,20);
+  selection.rotation=rotation;selection.scale=scale;
+  updateTransform(selection);$('sceneScaleValue').textContent=selection.scale.toFixed(2);
+  renderObjects();
+  if(Math.abs(x-Number($('scenePosX').value))>.01||Math.abs(z-Number($('scenePosZ').value))>.01)
+   status('Objeto ajustado automáticamente fuera de la cuadrícula jugable.');
+ }catch(error){fillControls();status(error.message);}
+
 }
 for(const id of ['sceneObjectName','scenePosX','scenePosY','scenePosZ','sceneRotation','sceneScale'])$(id).addEventListener('change',readControls);
 $('sceneScale').addEventListener('input',readControls);
@@ -256,13 +292,14 @@ $('sceneDelete').addEventListener('click',()=>{
 $('sceneDuplicate').addEventListener('click',async()=>{
  if(!selection)return;
  const old=selection;
- try{const v=await insertObject({...serializeObject(old),id:undefined,x:clamp(old.x+.5,-W/2,W/2),z:clamp(old.z+.5,-D/2,D/2)});if(v){selectObject(v);status('Objeto duplicado');}}catch(e){status(e.message);}
+ try{const v=await insertObject({...serializeObject(old),id:undefined,x:old.x+1,z:old.z+1});if(v){selectObject(v);status('Objeto duplicado');}}catch(e){status(e.message);}
 });
 $('sceneSearch').addEventListener('input',renderLibrary);
-$('sceneCamera').addEventListener('click',()=>{camera.position.set(13,18,23);controls.target.set(0,0,0);controls.update();});
+$('sceneCamera').addEventListener('click',()=>{camera.position.set(32,37,51);controls.target.set(0,0,0);controls.update();});
 $('sceneGrid').addEventListener('click',()=>{grid.visible=!grid.visible;$('sceneGrid').setAttribute('aria-pressed',String(grid.visible));});
 function serializeObject(o){return {id:o.id,name:o.name,modelId:o.modelId,compositionId:o.compositionId,effects:o.effects.map(x=>({...x})),x:o.x,y:o.y,z:o.z,rotation:o.rotation,scale:o.scale};}
 function sceneDocument(){
+ for(const obj of objects)ensureExterior(obj.x,obj.z,obj.model,obj.rotation,obj.scale);
  return {schemaVersion:1,kind:'rok3d.scene',name:$('sceneName').value.trim().slice(0,70)||'Escenario',arena:{columns:W,rows:D},objects:objects.map(serializeObject)};
 }
 function downloadJSON(obj){
@@ -271,7 +308,10 @@ function downloadJSON(obj){
  const a=document.createElement('a');a.href=url;a.download=name+'.json';document.body.append(a);a.click();a.remove();
  setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
-$('sceneSave').addEventListener('click',()=>{downloadJSON(sceneDocument());status('Escenario JSON descargado');});
+$('sceneSave').addEventListener('click',()=>{
+ try{downloadJSON(sceneDocument());status('Escenario JSON descargado · cuadrícula jugable despejada');}
+ catch(error){status('No se pudo guardar: '+error.message);}
+});
 $('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear un escenario nuevo y descartar los cambios sin exportar?'))return;removeAll();$('sceneName').value='Nuevo escenario';status('Escenario vacío');});
 $('sceneOpen').addEventListener('click',()=>$('sceneFile').click());
 async function readJSONFile(file){
@@ -285,7 +325,7 @@ function verifyScene(json){
   const model=modelFor(raw.modelId);
   if(!model||!model.enabledInSceneEditor)throw Error('Contiene un modelo no permitido: '+raw.modelId);
   if(!Array.isArray(raw.effects)||raw.effects.length>40)throw Error('Lista de efectos inválida');
-  result.push({id:newId(),modelId:raw.modelId,name:String(raw.name||model.name).slice(0,70),compositionId:raw.compositionId?String(raw.compositionId).slice(0,70):null,effects:raw.effects.map(cleanFx),x:num(raw.x,-W/2,W/2),y:num(raw.y,-10,20),z:num(raw.z,-D/2,D/2),rotation:num(raw.rotation,-3600,3600),scale:num(raw.scale,.05,5,1)});
+  result.push({id:newId(),modelId:raw.modelId,name:String(raw.name||model.name).slice(0,70),compositionId:raw.compositionId?String(raw.compositionId).slice(0,70):null,effects:raw.effects.map(cleanFx),x:num(raw.x,-SCENERY_BOUNDS.halfWidth,SCENERY_BOUNDS.halfWidth),y:num(raw.y,-10,20),z:num(raw.z,-SCENERY_BOUNDS.halfDepth,SCENERY_BOUNDS.halfDepth),rotation:num(raw.rotation,-3600,3600),scale:num(raw.scale,.05,5,1)});
  }
  return {name:String(json.name||'Escenario').slice(0,70),objects:result};
 }
@@ -295,8 +335,17 @@ $('sceneFile').addEventListener('change',async e=>{
   const next=verifyScene(await readJSONFile(file));
   removeAll();$('sceneName').value=next.name;
   const generation=loadGeneration;
-  for(const data of next.objects){try{await insertObject(data,generation);}catch(error){status('Modelo omitido: '+error.message);}}
-  status('Escenario cargado: '+objects.length+' objetos');
+  let adjusted=0,omitted=0;
+  for(const data of next.objects){
+   try{
+    const obj=await insertObject(data,generation);
+    if(obj&&(Math.abs(obj.x-data.x)>.001||Math.abs(obj.z-data.z)>.001))adjusted++;
+   }catch(error){omitted++;status('Modelo omitido: '+error.message);}
+  }
+  status('Escenario cargado: '+objects.length+' objetos'+
+   (adjusted?' · '+adjusted+' recolocados fuera de la arena':'')+
+   (omitted?' · '+omitted+' omitidos':''));
+
  }catch(error){status('Importación: '+error.message);}
 });
 $('sceneImportAsset').addEventListener('click',()=>$('sceneAssetFile').click());
