@@ -36,16 +36,24 @@ export function createViewerCasterMovement({getCharacter,getModel,getClip,ensure
    report('WASD listo · W 07 · S 06 · A 15 · D 16');
   }catch(e){if(ticket!==revision)return;report('Error al preparar WASD: '+(e?.message||e));disable();}
  }
- toggle.addEventListener('change',()=>toggle.checked?void enable():disable());
+ toggle.addEventListener('change',()=>{toggle.blur();toggle.checked?void enable():disable();});
  function key(event,pressed){
   if(!enabled||!Object.hasOwn(map,event.code))return;
-  if(event.target?.closest?.('input,textarea,select,[contenteditable="true"]'))return;
+  if(event.target?.closest?.('textarea,select,[contenteditable="true"],input[type="text"],input[type="search"],input[type="number"]'))return;
   event.preventDefault();
   if(pressed)down.add(event.code);else down.delete(event.code);
   keysOut.textContent=[...down].map(s=>s.slice(3)).join(' + ')||'—';
  }
  window.addEventListener('keydown',e=>key(e,true));
  window.addEventListener('keyup',e=>key(e,false));
+ for(const button of document.querySelectorAll('#viewerMovePanel [data-wasd]')){
+  const code=button.dataset.wasd;
+  const release=()=>{down.delete(code);keysOut.textContent=[...down].map(k=>k.slice(3)).join(' + ')||'—';};
+  button.addEventListener('pointerdown',e=>{if(!enabled)return;e.preventDefault();button.setPointerCapture(e.pointerId);down.add(code);keysOut.textContent=[...down].map(k=>k.slice(3)).join(' + ')||'—';});
+  button.addEventListener('pointerup',release);
+  button.addEventListener('pointercancel',release);
+  button.addEventListener('lostpointercapture',release);
+ }
  window.addEventListener('blur',clearKeys);
  document.addEventListener('visibilitychange',()=>{if(document.hidden)clearKeys();});
  speed.addEventListener('input',()=>{speedOut.textContent=Number(speed.value).toFixed(1)+' u/s';});
