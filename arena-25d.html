@@ -106,7 +106,21 @@ canvas{display:block;touch-action:none}
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
-    <p><a href="./caster-lab.html" style="display:inline-block;padding:10px 12px;border:1px solid #00ffe4;border-radius:8px;color:#fff;background:#12545a;text-decoration:none;font-weight:800">🎞 Revisar animaciones de Chiara y Lioren</a></p>
+    <section id="casterAnimationReview" aria-label="Animaciones de los Kasters" style="border:1px solid #277e7c;border-radius:10px;padding:10px;margin:10px 0;background:#0c2731">
+      <strong style="color:#00ffe4">KASTERS · ANIMACIONES EN ESTA ARENA</strong>
+      <p>Prueba los movimientos sobre los Kasters del campo actual. El combate se pausa mientras revisas; no se modifica ninguna regla.</p>
+      <label for="reviewCaster">Kaster:</label>
+      <select id="reviewCaster" style="max-width:100%;background:#12454a;color:white;padding:7px"><option value="ally">Lioren · aliado</option><option value="enemy">Chiara · rival</option></select>
+      <label for="reviewSpeed">Velocidad:</label><input id="reviewSpeed" type="range" min=".25" max="2" step=".05" value="1" style="accent-color:#00ffe4"><output id="reviewSpeedLabel">1×</output>
+      <div id="reviewAnimationList" style="display:grid;gap:7px;margin-top:10px">Cargando catálogo de animaciones…</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
+        <button type="button" id="reviewStop">Terminar prueba</button>
+        <button type="button" id="reviewCopy">Copiar selección</button>
+        <button type="button" id="reviewExport">Exportar JSON</button>
+      </div>
+      <p id="reviewStatus" role="status">Al abrir una animación se pausa el combate.</p>
+      <p>Conservar / Descartar se registra para cada Kaster. Exporta el JSON para que pueda guardar tu selección en GitHub. No se borra nada automáticamente.</p>
+    </section>
     <p><strong>Notas de versión · Arena v0.9.15 (01/11/2026):</strong> Durante un ataque, la reacción de daño mueve solo cuello y cabeza: brazos y piernas completos permanecen bajo la animación de ataque, sin saltos de pies. Fuera del ataque, la reacción conserva también los muslos, pero nunca mueve directamente rodillas, pantorrillas o pies. Al restaurarse una invocación vencedora conserva exactamente sus PV anteriores; solo una invocación nueva tras morir reaparece con vida completa.</p>
     <p id="sceneStatus">Iniciando escenario…</p>
     <p>9 columnas × 18 filas. Invocaciones de escudo/maná/arquera: columnas 3, 5 y 4, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
@@ -2985,13 +2999,134 @@ new GLTFLoader().load('./chiara_idle.glb',async g=>{
   qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
   console.error(err);
 });
+
+// Revisión in situ: MISMA arena, mismos modelos, mixers y sistema de cámara.
+// Las selecciones no modifican ni eliminan ficheros; exportación para revisión GitHub.
+const casterReview={items:[], decisions:new Map(),clips:new Map(),active:false,wasPlaying:false,
+  request:0,previousCaster:null};
+const casterReviewStatus=qs('#reviewStatus');
+const reviewSide=()=>qs('#reviewCaster').value;
+function reviewedCaster(){return casters.find(c=>c.side===reviewSide());}
+function reviewMessage(value){casterReviewStatus.textContent=String(value);}
+function reviewKey(id){return reviewSide()+':'+id;}
+function finishCasterReview(){
+  ++casterReview.request;
+  if(casterReview.active){
+    const caster=casterReview.previousCaster;
+    if(caster){
+      caster.mixer.stopAllAction();
+      if(caster.idleClip)caster.mixer.clipAction(caster.idleClip).reset().play();
+      caster.mixer.timeScale=1;
+    }
+    casterReview.active=false;casterReview.previousCaster=null;
+    playing=casterReview.wasPlaying;
+    qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';
+  }
+  document.querySelectorAll('.review-clip').forEach(el=>el.style.borderColor='#355e64');
+}
+function reviewData(){
+  return {schemaVersion:1,repo:'dtokurisu-png/rok-3d-test',mode:'arena-25d',
+    decisions:['ally','enemy'].flatMap(side=>casterReview.items.map(a=>({
+      caster:side==='ally'?'lioren':'chiara',id:a.id,path:a.path,sha:a.sha,
+      decision:casterReview.decisions.get(side+':'+a.id)||'pending'
+    })))};
+}
+async function playReviewedAnimation(animation){
+  const caster=reviewedCaster();
+  if(!caster){reviewMessage('Esperando modelos de Kasters.');return;}
+  if(!caster.model?.userData?.baseScale || !caster.mixer){reviewMessage('El Kaster todavía no terminó de cargar.');return;}
+  finishCasterReview();
+  casterReview.wasPlaying=playing;playing=false;qs('#pause').textContent='▶ Reanudar';
+  casterReview.active=true;casterReview.previousCaster=caster;
+  const token=++casterReview.request;
+  const cacheKey=reviewSide()+':'+animation.id;
+  reviewMessage('Cargando '+animation.path+' sobre '+(reviewSide()==='ally'?'Lioren':'Chiara')+'…');
+  try{
+    let adapted=casterReview.clips.get(cacheKey);
+    if(!adapted){
+      const source=await new FBXLoader().loadAsync('./'+encodeURIComponent(animation.path));
+      if(!source.animations?.length)throw Error('El FBX no contiene un clip');
+      adapted=adaptAnimationFBX(source,source.animations[0],caster.model,animation.id);
+      casterReview.clips.set(cacheKey,adapted);
+    }
+    if(token!==casterReview.request)return;
+    caster.mixer.stopAllAction();
+    const action=caster.mixer.clipAction(adapted);
+    action.reset().setLoop(THREE.LoopRepeat,Infinity).play();
+    caster.mixer.timeScale=Number(qs('#reviewSpeed').value)||1;
+    document.querySelectorAll('.review-clip').forEach(el=>el.style.borderColor=
+      el.dataset.reviewId===animation.id?'#00ffe4':'#355e64');
+    reviewMessage('Reproduciendo '+animation.path+' sobre '+(reviewSide()==='ally'?'Lioren':'Chiara')+
+      ' · '+adapted.duration.toFixed(2)+' s');
+  }catch(error){
+    if(token===casterReview.request){
+      reviewMessage('No se pudo adaptar '+animation.path+': '+String(error.message||error));
+      finishCasterReview();
+    }
+  }
+}
+function renderCasterAnimationReview(){
+  const list=qs('#reviewAnimationList');
+  list.replaceChildren();
+  for(const animation of casterReview.items){
+    const line=document.createElement('div');
+    line.className='review-clip';line.dataset.reviewId=animation.id;
+    line.style.cssText='border:1px solid #355e64;padding:7px;border-radius:8px;background:#102f39';
+    const row=document.createElement('div');row.style.cssText='display:flex;gap:6px;align-items:center;justify-content:space-between';
+    const name=document.createElement('span');name.textContent=animation.path;
+    name.style.cssText='font-size:11px;font-weight:700;overflow-wrap:anywhere';
+    const button=document.createElement('button');button.type='button';button.textContent='▶ Probar';
+    button.onclick=()=>void playReviewedAnimation(animation);
+    row.append(name,button);
+    const info=document.createElement('small');
+    info.textContent='Archivo '+animation.sha.slice(0,10)+' · '+animation.group;
+    info.style.cssText='display:block;color:#b8dadd;margin:4px 0;font-size:10px';
+    const decisions=document.createElement('div');decisions.style.cssText='display:flex;flex-wrap:wrap;gap:10px';
+    for(const [value,label] of [['pending','Pendiente'],['keep','Conservar'],['discard','Descartar']]){
+      const option=document.createElement('label');option.style.fontSize='11px';
+      const radio=document.createElement('input');radio.type='radio';
+      radio.name='review-'+reviewKey(animation.id);radio.value=value;
+      radio.checked=(casterReview.decisions.get(reviewKey(animation.id))||'pending')===value;
+      radio.onchange=()=>{casterReview.decisions.set(reviewKey(animation.id),value);
+        reviewMessage('Selección para '+(reviewSide()==='ally'?'Lioren':'Chiara')+' actualizada · exporta el JSON para guardar en GitHub.');};
+      option.append(radio,document.createTextNode(' '+label));decisions.append(option);
+    }
+    line.append(row,info,decisions);list.append(line);
+  }
+}
+qs('#reviewCaster').onchange=()=>{finishCasterReview();renderCasterAnimationReview();};
+qs('#reviewSpeed').oninput=()=>{
+  const speed=Number(qs('#reviewSpeed').value)||1;qs('#reviewSpeedLabel').textContent=speed.toFixed(2)+'×';
+  if(casterReview.active && casterReview.previousCaster)casterReview.previousCaster.mixer.timeScale=speed;
+};
+qs('#reviewStop').onclick=()=>{finishCasterReview();reviewMessage('Vista normal de arena restaurada.');};
+qs('#reviewCopy').onclick=async()=>{
+  try{await navigator.clipboard.writeText(JSON.stringify(reviewData(),null,2));
+    reviewMessage('Selección copiada: pégala en el chat para registrarla en GitHub.');}
+  catch{reviewMessage('Portapapeles no disponible; usa Exportar JSON.');}
+};
+qs('#reviewExport').onclick=()=>{
+  const file=new Blob([JSON.stringify(reviewData(),null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(file),link=document.createElement('a');
+  link.href=url;link.download='rok-kasters-animation-selection.json';link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  reviewMessage('Decisiones exportadas. Envíame el JSON; aún no se ha borrado ningún clip.');
+};
+fetch('./assets/manifests/caster-animations.json',{cache:'no-store'}).then(response=>{
+  if(!response.ok)throw Error('Manifest no disponible');
+  return response.json();
+}).then(manifest=>{casterReview.items=manifest.animations||[];renderCasterAnimationReview();
+  reviewMessage('Lista de '+casterReview.items.length+' animaciones · selecciona Probar en esta arena.');}
+).catch(error=>reviewMessage('No se pudo cargar catálogo: '+String(error.message||error)));
+
 qs('#repeat').onclick=()=>{playing=true;qs('#pause').textContent='Ⅱ Pausar';resetDemoCombat();};
 qs('#pause').onclick=()=>{playing=!playing;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';};
 let fpsTime=0,fpsCount=0;
 function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
-  if(loaded&&playing){updateDuel(dt);}
+  if(loaded&&playing&&!casterReview.active){updateDuel(dt);}
+  if(casterReview.active&&casterReview.previousCaster)casterReview.previousCaster.mixer.update(dt);
   if(loaded){
     for(const c of combatants){updateNameplate(c);updateSummonCountdown(c);}
     for(const c of casters)updateNameplate(c);
