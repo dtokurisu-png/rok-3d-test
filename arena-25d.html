@@ -2918,7 +2918,9 @@ function updateDuel(dt){
   resolvePendingVictories();
   updatePortalEffects(dt);
   for(const caster of casters){
-    if(caster.stage==='active')caster.mixer.update(dt);
+    // Manual caster mixer is updated in casterMovement.step(), exactly once.
+    if(caster.stage==='active'&&!(casterMovement?.enabled&&casterMovement.caster===caster))
+      caster.mixer.update(dt);
   }
   for(const c of combatants){
     const opponent=c.stage==='casting'&&canDamageTarget(c.castTarget)?
@@ -3037,12 +3039,10 @@ casterMovement=createCasterMobility({
  THREE,getCaster:side=>casters.find(c=>c.side===side),
  prepareClips:movementLoader.load,
  reviveCaster:c=>{if(c&&c.stage!=='active')resetCaster(c);},
- onModeChange:(enabled,previous)=>{
-  if(enabled){
-   if(casterReview.active)finishCasterReview();
-   const prior=playing;playing=false;qs('#pause').textContent='▶ Reanudar';return prior;
-  }
-  playing=!!previous;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';
+ onModeChange:(enabled)=>{
+  // The selected caster is manual; the rest of the simulation remains live.
+  if(enabled&&casterReview.active)finishCasterReview();
+  return playing;
  }
 });
 // Revisión in situ: MISMA arena, mismos modelos, mixers y sistema de cámara.
@@ -3171,8 +3171,9 @@ let fpsTime=0,fpsCount=0;
 function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
-  if(loaded&&playing&&!casterReview.active&&!casterMovement?.enabled){updateDuel(dt);}
-   if(loaded&&casterMovement?.enabled)casterMovement.step(dt);
+  if(loaded&&playing&&!casterReview.active)updateDuel(dt);
+  // WASD is additive to the live battle, not a global pause.
+  if(loaded&&casterMovement?.enabled)casterMovement.step(dt);
   if(casterReview.active&&casterReview.previousCaster)casterReview.previousCaster.mixer.update(dt);
   if(loaded){
     for(const c of combatants){updateNameplate(c);updateSummonCountdown(c);}
