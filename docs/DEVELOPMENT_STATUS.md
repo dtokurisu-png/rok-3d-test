@@ -167,3 +167,13 @@ Se corrigió `index.html` para permitir probar los clips originales 01–14 con 
 - Las piernas y cadera siguen controladas por la locomoción. No se alteran los clips fuente ni se cambia el catálogo único de compuestas.
 - Las compuestas de **defensa 29–33 permanecen sin cambios**.
 - Comprobadas sintaxis y muestra simulada del clip: primera muestra de ataque = 0.433333… s, inicio y fin del torso en pose base; prueba WebGL real aún pendiente.
+
+## 2026-11-03 — Visor v0.5.26: controles de Arena sin combate (etapa 8)
+
+- El control de prueba existente del visor `index.html` ahora replica la interacción de la Arena para **Chiara y Lioren**: **WASD** para avanzar, retroceder y desplazarse lateralmente, **Espacio** para ataque compuesto y **Shift mantenido** para defensa. También se agregaron botones de prueba de ataque y defensa, con estados de pulsación visibles.
+- El modelo se orienta temporalmente hacia el frente del visor (`-Z`), el desplazamiento de derecha es `+X` y el de avance es `-Z`; se cambiaron las asociaciones laterales de FBX (**A usa 16, D usa 15**) porque estaban invertidas. Al desactivar los controles se recupera la rotación y posición previas.
+- Velocidad inicial del visor **3.8 unidades/s**, ajustable. Límite de previsualización ampliado acorde a la arena 15×30, relativo al punto de partida del modelo.
+- Se reutiliza el **mismo sistema de capas de animación** de `caster-animation-layers.js`: las piernas continúan en movimiento mientras se reproduce el torso de ataque/defensa. Espacio emplea la compuesta 24 (que arranca en el fotograma 13 y excluye el brazo izquierdo del ataque) y Shift la compuesta 29. No hay adquisición de objetivos, proyectiles, impacto, vida, bloqueo real ni escudo visual adicional.
+- No se vuelve a descargar el repertorio entero al activar el modo: el controlador usa las animaciones y el mixer que ya tiene el visor. Si falta un clip, solicita **solamente ese clip** al usarlo. Los clips en precarga se esperan para evitar descargas duplicadas. El estado muestra cuándo se está preparando un ataque o defensa.
+- Se añadieron `tests/viewer-caster-controls.test.mjs` para probar movimiento, teclas, botones y reutilización de clips. La prueba lógica simulada de W/D/Espacio/Shift pasó sin descargas cuando las fuentes estaban listas, y la comprobación de sintaxis JS también pasó. **Pendiente prueba visual de los rig/FBX originales de Chiara y Lioren en navegador.**
+- La **etapa 9**, controles universales de ajuste de huesos bajo el reproductor, continúa pendiente. Las tareas aplazadas siguen en `docs/PENDIENTES_ROK_3D.md`.
