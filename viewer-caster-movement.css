@@ -13,3 +13,11 @@
 #viewerMovePanel .viewerMoveButtons button:nth-child(3){grid-column:2;grid-row:2}
 #viewerMovePanel .viewerMoveButtons button:nth-child(4){grid-column:3;grid-row:2}
 #viewerMovePanel .viewerMoveButtons button:active{background:#00796d;border-color:#00ffe4}
+
+/* Arena controls replicated for animation-only tests, with clear held state. */
+#viewerMovePanel .viewerActionButtons{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
+#viewerMovePanel .viewerActionButtons button{font-size:12px;min-height:40px;touch-action:none;user-select:none}
+#viewerMovePanel #viewerAttackButton{background:#392858;border-color:#b98cff;color:#f1e2ff}
+#viewerMovePanel #viewerDefenseButton{background:#163f58;border-color:#61b4ff;color:#dcefff}
+#viewerMovePanel #viewerDefenseButton[data-held="true"]{background:#276aa0;border-color:#b6e4ff;box-shadow:0 0 10px #61b4ff66}
+#viewerMovePanel .viewerMoveButtons button[data-held="true"]{background:#08736b;border-color:#00ffe4}
