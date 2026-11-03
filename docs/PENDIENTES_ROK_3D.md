@@ -11,7 +11,7 @@ Actualizado: 2026-11-03. Estos trabajos se posponen deliberadamente y **no deben
 
 ## Trabajos activos (orden aprobado)
 
-- [ ] **5. Ampliar arena 9 × 18 → 15 × 30** — tarea actual.
+- [x] **5. Ampliar arena 9 × 18 → 15 × 30** — implementada en Arena v0.9.27; pendiente validación visual WebGL por el usuario.
 - [ ] **6. Incluir animaciones compuestas en el catálogo existente del visor** para reproducirlas y evaluarlas.
 - [ ] **7. Depurar el ataque de caster**: principalmente un brazo, sin movimientos extraños de preparación ni regreso a pose base.
 - [ ] **8. Corregir desplazamiento invertido en el visor** en los ejes adelante/atrás y derecha/izquierda.
