@@ -3,13 +3,13 @@
  * ground are independent of the 15x30 arena and all gameplay objects.
  */
 export const BACKGROUND_DEFAULTS=Object.freeze({
- enabled:true,type:'gothic-vault',width:50,height:18,archRise:12,texture:''
+ enabled:true,type:'gothic-vault',width:70,height:18,archRise:12,texture:''
 });
 const finite=(x,fallback)=>Number.isFinite(Number(x))?Number(x):fallback;
 export function normalizeSceneBackground(raw={}){
  if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error('Background inválido');
  if(raw.type&&raw.type!=='gothic-vault')throw Error('Tipo de background no compatible');
- const width=Math.max(30,Math.min(85,finite(raw.width,50)));
+ const width=Math.max(30,Math.min(120,finite(raw.width,70)));
  const height=Math.max(10,Math.min(40,finite(raw.height,18)));
  const archRise=Math.max(4,Math.min(25,finite(raw.archRise,12)));
  const texture=String(raw.texture||'').trim();
