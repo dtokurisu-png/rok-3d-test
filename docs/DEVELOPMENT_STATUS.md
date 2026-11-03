@@ -32,3 +32,10 @@ El usuario especificó que el selector de Kasters, la audición de animaciones y
 - Arena 2.5D mantiene sus controles de prueba de FBX por caster dentro de Opciones.
 - **NO hay HUD de jugador definitivo en la arena 2.5D**. Lo que se había llamado HUD de Spellbook está en R.O.K. Lite (otro repositorio) y requiere backend para acciones. El HUD final del tester sigue por diseñar.
 - El despliegue fue revisado estáticamente por GitHub; falta verificar GLB y clips en navegador. No declarar visualmente probado antes del usuario.
+
+## 2026-11-02 — Reversión urgente del visor 3D
+El usuario informó que el visor 3D dejó de funcionar después de convertir el botón Farolera/Arquera en desplegable y añadir el panel de nuevas FBX. Se restauró **solo `index.html`** al blob anterior conocido (`e1421014cdd0ed5cd5317f17a5990d6d37d4f6cd`) mediante commit `533105fb3393f7f29225e3fd109dec09db199848`. Se verificó el SHA restaurado.
+- Los dos GLB y nueve FBX recién subidos siguen intactos, así como el tablero `arena-25d.html`.
+- **El selector de Chiara/Lioren y las nuevas FBX en el visor 3D ya NO están activos.** No afirmar que siguen allí.
+- Causa exacta de la regresión: pendiente de aislar y verificar; no especular sin consola/ejecución.
+- Siguiente paso: comprobar con usuario la recuperación del visor original, y reimplementar por cambios pequeños con pruebas de sintaxis e interacción antes de publicar.
