@@ -2976,6 +2976,7 @@ new GLTFLoader().load('./chiara_idle.glb',async g=>{
       const scale=1.65/h;
       model.scale.setScalar(scale);
       model.userData.baseScale=scale;
+      model.userData.rokCasterAsset=spec.label;
       model.userData.baseY=-bounds.min.y*scale;
       model.position.y=model.userData.baseY;
       model.traverse(o=>{if(o.isMesh)o.frustumCulled=false;});
@@ -3034,7 +3035,7 @@ function reviewData(){
 async function playReviewedAnimation(animation){
   const caster=reviewedCaster();
   if(!caster){reviewMessage('Esperando modelos de Kasters.');return;}
-  if(!caster.model?.userData?.baseScale || !caster.mixer){reviewMessage('El Kaster todavía no terminó de cargar.');return;}
+  if(!caster.model?.userData?.rokCasterAsset || !caster.mixer){reviewMessage('Esperando al GLB real de '+(reviewSide()==='ally'?'Lioren':'Chiara')+'; aún no se puede probar el FBX.');return;}
   finishCasterReview();
   casterReview.wasPlaying=playing;playing=false;qs('#pause').textContent='▶ Reanudar';
   casterReview.active=true;casterReview.previousCaster=caster;
