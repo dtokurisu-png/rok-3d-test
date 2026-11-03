@@ -99,7 +99,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.22 · Capas y escudo</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.23 · Alcance 2</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -192,6 +192,7 @@ import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js';
 import {createCasterMobility} from './caster-mobility.js';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
+import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js';
 
 const qs=s=>document.querySelector(s);
@@ -1313,6 +1314,7 @@ function reserveSummonDuel(c,target){
 // golpear una invocación bloqueada por una compañera de la atacante.
 function canAttackSummonTarget(attacker,target){
   if(target?.role!=='summon')return true;
+  if(attacker?.role==='caster')return true; // Caster range shots may hit summons.
   if(!attacker||attacker.role!=='summon')return false;
   const lockedVictim=currentSummonDuel(target);
   if(lockedVictim&&lockedVictim!==attacker)return false;
@@ -3065,6 +3067,12 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
 
 // Both caster rigs share the same masked locomotion/upper-body system.
 const casterLayers=createCasterLayerSystem(THREE);
+const casterRangeIndicator=createCasterRangeIndicator({THREE,range:2,approach:4.5});
+function casterAttackTarget(c){
+ if(!c||c.stage!=='active')return null;
+ const enemies=[...combatants,...casters].filter(e=>e.side!==c.side&&canDamageTarget(e));
+ return casterRangeIndicator.choose(c,enemies,canDamageTarget).target;
+}
 // Mode for manually controlling the real Chiara/Lioren models.
 let casterMovement=null;
 const movementLoader=createCasterMovementLoader({
@@ -3077,9 +3085,9 @@ casterMovement=createCasterMobility({
  layers:casterLayers,
  reviveCaster:c=>{if(c&&c.stage!=='active')resetCaster(c);},
  onAttack:c=>{
-  const enemy=casters.find(other=>other.side!==c.side&&canDamageTarget(other));
+  const enemy=casterAttackTarget(c);
   if(!enemy)return;
-  // Ranged test shot uses existing projectile/damage infrastructure.
+  // Only fire at the nearest hostile within the real radius 2.
   c.kind='caster';c.attackDamage=1;
   launchSpell(c,enemy);
  },
@@ -3218,6 +3226,15 @@ function loop(now){
   if(loaded&&playing&&!casterReview.active)updateDuel(dt);
   // WASD is additive to the live battle, not a global pause.
   if(loaded&&casterMovement?.enabled)casterMovement.step(dt);
+  // The proximity ring is only displayed for the caster in manual control.
+  if(loaded){
+   const controlled=casterMovement?.enabled?casterMovement.caster:null;
+   for(const c of casters){
+    if(c===controlled)casterRangeIndicator.update(c,
+      combatants.filter(e=>e.side!==c.side&&canDamageTarget(e)),dt,canDamageTarget);
+    else casterRangeIndicator.hide(c);
+   }
+  }
   if(loaded&&playing)for(const c of casters)
     if(c.stage==='defeated'&&c.deathAnimationActive)c.mixer.update(dt);
   if(casterReview.active&&casterReview.previousCaster)casterReview.previousCaster.mixer.update(dt);
