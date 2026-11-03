@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "updatedAt": "2026-11-03",
   "repository": "dtokurisu-png/rok-3d-test",
-  "mode": "canonical asset paths active; root binaries removed",
+  "mode": "canonical paths; newest direct uploads indexed; root cleanup history retained",
   "totals": {
-    "models": 13,
-    "clips": 5,
+    "models": 18,
+    "clips": 6,
     "archives": 1
   },
   "assets": [
@@ -48,6 +48,14 @@
       "gitBlobSha": "88cbd505ac74c1cafa270e53d8afb40bb3e67e63",
       "sizeBytes": 2106224,
       "legacyPathStatus": "removed (historical name retained for audit)"
+    },
+    {
+      "type": "animation",
+      "path": "assets/animations/casters/shared/Standing Idle.fbx",
+      "legacyPath": null,
+      "gitBlobSha": "1556c66da7b751b6f34c84bc29c7d4d0fb040e58",
+      "sizeBytes": 2201520,
+      "legacyPathStatus": "uploaded directly to canonical directory"
     },
     {
       "type": "animation",
@@ -107,11 +115,35 @@
     },
     {
       "type": "model",
+      "path": "assets/models/props/arcane-temple/fantasy fountain 3d model.glb",
+      "legacyPath": null,
+      "gitBlobSha": "2d71f31efe569297a3a3a0970cd3c50d3380ba10",
+      "sizeBytes": 3726920,
+      "legacyPathStatus": "uploaded directly to canonical directory"
+    },
+    {
+      "type": "model",
       "path": "assets/models/props/arcane-temple/fantasy gate 3d model.glb",
       "legacyPath": "fantasy gate 3d model.glb",
       "gitBlobSha": "fd164d19eeee976dc6215dc977e85f6423397f48",
       "sizeBytes": 5281040,
       "legacyPathStatus": "removed (historical name retained for audit)"
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/fantasy statue 3d model (1).glb",
+      "legacyPath": null,
+      "gitBlobSha": "3e9c9a3f04f407ff71c08c12d8df73cd0a16144e",
+      "sizeBytes": 5422412,
+      "legacyPathStatus": "uploaded directly to canonical directory"
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/fantasy statue 3d model.glb",
+      "legacyPath": null,
+      "gitBlobSha": "61ae9c7387d0aa41864efb435b530d17975720b5",
+      "sizeBytes": 4970988,
+      "legacyPathStatus": "uploaded directly to canonical directory"
     },
     {
       "type": "model",
@@ -144,6 +176,22 @@
       "gitBlobSha": "b8399e82a73c54aa6ecf7aafe1d790c21c5cadc2",
       "sizeBytes": 4706556,
       "legacyPathStatus": "removed (historical name retained for audit)"
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/mystical arcane orb 3d model.glb",
+      "legacyPath": null,
+      "gitBlobSha": "6f91cf57994d52c87a488fda4356f0888d7ba289",
+      "sizeBytes": 4680036,
+      "legacyPathStatus": "uploaded directly to canonical directory"
+    },
+    {
+      "type": "model",
+      "path": "assets/models/props/arcane-temple/ornate lantern 3d model.glb",
+      "legacyPath": null,
+      "gitBlobSha": "54394804fb9a90d62ad8141d265318c89b496015",
+      "sizeBytes": 4484488,
+      "legacyPathStatus": "uploaded directly to canonical directory"
     },
     {
       "type": "model",
