@@ -5,6 +5,8 @@
  */
 export function createCasterLayerSystem(THREE){
  const states=new WeakMap();
+ // Shield belongs to the persistent caster/outer, not a replaceable GLB model.
+ const casterShields=new WeakMap();
  const lower=new Set(['hips','leftupleg','rightupleg','leftleg','rightleg',
   'leftfoot','rightfoot','lefttoebase','righttoebase','lefttoe','righttoe',
   'lefttoes','righttoes','leftfootend','rightfootend']);
@@ -24,7 +26,7 @@ export function createCasterLayerSystem(THREE){
   if(st)return st;
   st={model:c.model,clips:{idle:c.idleClip},cache:new WeakMap(),movement:null,
    lowerAction:null,upperAction:null,overlay:null,overlayKind:null,refreshBase:false,
-   overlayClip:null,shield:null,hitAction:null};
+   overlayClip:null,hitAction:null};
   states.set(c.model,st);return st;
  }
  function prepared(st,source,kind){
@@ -96,11 +98,33 @@ export function createCasterLayerSystem(THREE){
    if(st.lowerAction)st.upperAction.time=st.lowerAction.time%Math.max(base.duration,.001);
   }
  }
+ const SHIELD_NAME='ROK_Caster_Front_Defense';
+ function existingShield(c){
+  const outer=c?.outer;
+  if(!outer)return null;
+  const matches=outer.children.filter(child=>child.name===SHIELD_NAME);
+  let group=casterShields.get(c);
+  // Recover an existing visual if the rig changed without removing outer.
+  if(!group||group.parent!==outer)group=matches[0]||null;
+  // Remove obsolete duplicate shield instances from earlier model swaps.
+  for(const duplicate of matches){
+   if(duplicate===group)continue;
+   outer.remove(duplicate);
+   duplicate.traverse(node=>{
+    if(!node.isMesh)return;
+    node.geometry?.dispose?.();
+    const mats=Array.isArray(node.material)?node.material:[node.material];
+    for(const material of mats)material?.dispose?.();
+   });
+  }
+  if(group)casterShields.set(c,group);
+  return group;
+ }
  function makeShield(c){
-  const st=state(c);
-  if(st.shield)return st.shield;
+  const existing=existingShield(c);
+  if(existing)return existing;
   const group=new THREE.Group();
-  group.name='ROK_Caster_Front_Defense';
+  group.name=SHIELD_NAME;
   const material=new THREE.MeshBasicMaterial({color:0x00ffe4,transparent:true,
    opacity:.67,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending});
   const rim=new THREE.Mesh(new THREE.RingGeometry(.49,.56,48),material);
@@ -111,16 +135,16 @@ export function createCasterLayerSystem(THREE){
   ring.material.opacity=.43;ring.position.z=.008;group.add(ring);
   const glow=new THREE.Mesh(new THREE.RingGeometry(.56,.61,48),material.clone());
   glow.material.opacity=.22;glow.position.z=-.006;group.add(glow);
-  // The caster models are oriented toward +Z in local space; the outer
-  // group's 180° ally rotation automatically makes the shield face the rival.
   group.position.set(0,1.12,.84);
-  group.visible=false;c.outer.add(group);
-  st.shield=group;return group;
+  group.visible=false;
+  c.outer.add(group);
+  casterShields.set(c,group);
+  return group;
  }
  function shield(c,visible){
   if(!c)return;
-  const st=state(c);
-  const group=visible?makeShield(c):st.shield;
+  // Never create anything on release/reset. Always hide the retained shield.
+  const group=visible?makeShield(c):existingShield(c);
   if(group)group.visible=!!visible;
  }
  function hit(c,source){
@@ -154,9 +178,11 @@ export function createCasterLayerSystem(THREE){
  }
  function reset(c){
   if(!c)return;
+  // Hide visuals even when the GLB model was replaced since the last guard.
+  shield(c,false);
   const st=states.get(c.model);
   if(!st)return;
-  shield(c,false);cancelHit(c);
+  cancelHit(c);
   st.lowerAction=null;st.upperAction=null;st.overlay=null;st.overlayKind=null;
   st.movement=null;st.refreshBase=false;
  }
