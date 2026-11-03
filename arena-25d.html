@@ -99,7 +99,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.21 · Ataque / Defensa</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.22 · Capas y escudo</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -191,6 +191,7 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js';
 import {createCasterMobility} from './caster-mobility.js';
+import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js';
 
 const qs=s=>document.querySelector(s);
@@ -1263,6 +1264,7 @@ function createCaster(baseScene,clip,side){
 }
 function resetCaster(c){
   clearEmbeddedArrows(c);
+  casterLayers.reset(c);
   c.hp=12;c.maxHp=12;c.stage='active';c.deathAnimationActive=false;c.manualDefending=false;c.model.visible=true;
   c.outer.position.set(0,0,c.startZ);
   c.outer.rotation.y=c.side==='ally'?Math.PI:0;
@@ -2484,6 +2486,9 @@ function resolvePendingVictories(){
 }
 
 function playCasterDeath(target){
+ casterLayers.shield(target,false);
+ casterLayers.cancelHit(target);
+ target.manualDefending=false;
  const clip=target.model?.userData?.rokDeathClip;
  if(!clip||!target.mixer){target.mixer.timeScale=0;return;}
  target.mixer.stopAllAction();
@@ -2509,6 +2514,7 @@ function damage(target,value,source,{committed=false}={}){
       return true;
     }
     target.hp=Math.max(0,target.hp-value);
+    if(target.hp>0)casterLayers.hit(target,target.model?.userData?.rokHitClip);
     if(target.hp===0){
       target.stage='defeated';
       playCasterDeath(target);
@@ -3040,7 +3046,9 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
       caster.idleClip=gltf.animations.find(clip=>/idle|standing/i.test(clip.name))||
         gltf.animations[0]||new THREE.AnimationClip('Reposo',1,[]);
       caster.mixer.clipAction(caster.idleClip).reset().play();
-      void movementLoader.load(caster).catch(err=>{qs('#casterMoveStatus').textContent='FBX caster: '+err.message;});
+      void movementLoader.load(caster).then(clips=>casterLayers.register(caster,clips)).catch(err=>{
+       qs('#casterMoveStatus').textContent='FBX caster: '+err.message;
+      });
        qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' cargado · animaciones en revisión';
     }).catch(error=>console.warn('[R.O.K.] Caster '+spec.label+' sigue provisional',error));
   }
@@ -3055,6 +3063,8 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   console.error(err);
 });
 
+// Both caster rigs share the same masked locomotion/upper-body system.
+const casterLayers=createCasterLayerSystem(THREE);
 // Mode for manually controlling the real Chiara/Lioren models.
 let casterMovement=null;
 const movementLoader=createCasterMovementLoader({
@@ -3063,6 +3073,7 @@ const movementLoader=createCasterMovementLoader({
 casterMovement=createCasterMobility({
  THREE,getCaster:side=>casters.find(c=>c.side===side),
  prepareClips:movementLoader.load,
+ layers:casterLayers,
  reviveCaster:c=>{if(c&&c.stage!=='active')resetCaster(c);},
  onAttack:c=>{
   const enemy=casters.find(other=>other.side!==c.side&&canDamageTarget(other));
