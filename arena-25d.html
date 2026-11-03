@@ -99,7 +99,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.24 · Alcance 3</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.25 · Alcance reparado</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -2644,7 +2644,7 @@ function launchArrow(attacker,target){
     area:false,arrow:true});
 }
 
-function launchSpell(attacker,target){
+function launchSpell(attacker,target,{manualCasterShot=false}={}){
   // Todas las descargas enemigas tienen daño y efecto de área 3×3.
   // La PDA del 50 % solo se evalúa para el aturdimiento al hacer daño.
   const area=attacker.kind==='mana';
@@ -2670,6 +2670,7 @@ function launchSpell(attacker,target){
   missiles.push({group,core,halo,target,attacker,fromX,fromY,fromZ,
     committedTargets:captureCommittedShot(attacker),
     committedDamage:attacker.attackDamage,
+    manualCasterShot,
     aimX:impact.x,aimZ:impact.z,impactCell:cell,age:0,
     duration:Math.max(.32,distance/9.5),area});
   if(attacker.pendV)attacker.pendV.y+=(attacker.side==='ally'?1:-1)*.7;
@@ -2777,7 +2778,11 @@ function updateMagic(dt){
         }
       }else if(canResolveCommittedShot(m,m.target)){
         const current=worldToCell(m.target.outer.position.x,m.target.outer.position.z);
-        if(current.row===m.impactCell.row&&current.col===m.impactCell.col){
+        // A manual caster shot already passed its range check on Space keydown.
+        // Its impact resolves against that committed target even if EITHER
+        // character moved after the release. Ordinary arrows remain cell-based.
+        if(m.manualCasterShot||
+           (current.row===m.impactCell.row&&current.col===m.impactCell.col)){
           const didHit=damage(m.target,m.committedDamage,m.attacker,
             {committed:true});
           if(m.arrow&&didHit)arrowStuck=embedArrowOnTarget(m);
@@ -3094,7 +3099,7 @@ casterMovement=createCasterMobility({
   // release: WASD movement during the windup must not cancel the shot.
   if(!lockedTarget)return;
   c.kind='caster';c.attackDamage=1;
-  launchSpell(c,lockedTarget);
+  launchSpell(c,lockedTarget,{manualCasterShot:true});
  },
  onModeChange:(enabled)=>{
   // The selected caster is manual; the rest of the simulation remains live.
@@ -3231,11 +3236,14 @@ function loop(now){
   if(loaded&&playing&&!casterReview.active)updateDuel(dt);
   // WASD is additive to the live battle, not a global pause.
   if(loaded&&casterMovement?.enabled)casterMovement.step(dt);
-  // The proximity ring is only displayed for the caster in manual control.
+  // Range must be visible for the SELECTED caster even before WASD begins.
+  // Previously this indicator required casterMovement.enabled, making the
+  // proximity system appear broken while the player stood still.
   if(loaded){
-   const controlled=casterMovement?.enabled?casterMovement.caster:null;
+   const side=qs('#casterMoveSide').value;
+   const selectedCaster=casters.find(c=>c.side===side);
    for(const c of casters){
-    if(c===controlled)casterRangeIndicator.update(c,
+    if(c===selectedCaster)casterRangeIndicator.update(c,
       combatants.filter(e=>e.side!==c.side&&canDamageTarget(e)),dt,canDamageTarget);
     else casterRangeIndicator.hide(c);
    }
