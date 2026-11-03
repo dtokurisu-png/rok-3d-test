@@ -1,0 +1,15 @@
+/* R.O.K. 3D · Inspector universal de fotogramas */
+#universalFrames{margin:10px 0;padding:10px;border:1px solid #2e8f88;border-radius:10px;background:#0a2731}
+#universalFrames h3{font-size:13px;color:#00ffe4;margin:0 0 8px}
+#universalFrames .ufSource{font-size:11px;color:#eff;overflow-wrap:anywhere;margin-bottom:8px}
+#universalFrames .ufTools{display:flex;gap:5px;flex-wrap:wrap;margin:8px 0}
+#universalFrames .ufTools button{font-size:11px;padding:7px 9px;min-height:32px}
+#universalFrames button:disabled{opacity:.38}
+#universalFrames .ufBar{width:100%;accent-color:#00ffe4;display:block;margin:8px 0}
+#universalFrames .ufMeta{display:flex;flex-wrap:wrap;gap:6px;justify-content:space-between;align-items:center;font-size:11px;color:#b8d6dc}
+#universalFrames .ufMeta select{font-size:11px;background:#102d37;color:white;border:1px solid #3a817c;border-radius:6px;padding:4px}
+#universalFrames .ufRate{display:flex;flex-direction:column;gap:5px;font-size:11px;color:#cee9e8}
+#universalFrames .ufRate input{width:100%;accent-color:#00ffe4}
+#universalFrames .ufMarks{display:flex;gap:8px;justify-content:space-between;font-size:11px;color:#c7e7e4;margin:5px 0}
+#universalFrames .ufNote{font-size:10px;color:#a8ccca;margin:7px 0 0;line-height:1.4}
+#universalFrames .ufStatus{font-size:11px;color:#b8e6d5;margin:6px 0;overflow-wrap:anywhere}
