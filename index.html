@@ -1742,6 +1742,53 @@ async function loadOldCasterAnimation(row,playAfter=false){
     renderAnimList();
   }
 }
+// Built on demand from the viewer's already-retargeted original FBX clips.
+// Never clones a clip from a different character's skeleton.
+async function loadCompositeAnimation(row,playAfter=false){
+ if(row.source!=='composite'||!model||!['chiara','lioren'].includes(currentCharacter))return;
+ if(row.clip){if(playAfter)playAnimation(row.index);return;}
+ if(row.status==='loading')return;
+ const selected=currentCharacter,originModel=model;
+ row.status='loading';row.details='Componiendo piernas y torso para '+selected+'…';
+ renderAnimList();
+ try{
+  const preset=row.preset;
+  const sourceRow=animationRows.find(r=>r.index===preset.source);
+  const moveId=COMPOSITE_MOTION_IDS[preset.motion];
+  const moveRow=moveId?animationRows.find(r=>r.index===moveId):null;
+  const required=[sourceRow,moveRow].filter(Boolean);
+  for(const dep of required){
+   if(!dep.clip){
+    if(dep.source==='pack')await loadOldCasterAnimation(dep);
+    else if(dep.source==='repository')await loadNewAnimation(dep);
+   }
+   if(currentCharacter!==selected||model!==originModel)return;
+   if(!dep.clip)throw Error('Falta la animación '+dep.index+' · '+dep.name+
+     ' ('+(dep.details||'no disponible')+')');
+  }
+  let idle=idleOriginal;
+  if(preset.motion==='idle'&&!idle?.tracks?.some(t=>/Hips/i.test(t.name))){
+   // Original GLB may be static; use real retargeted Standing Idle FBX.
+   idle=await loadViewerStandingIdle();
+  }
+  if(currentCharacter!==selected||model!==originModel)return;
+  const move=preset.motion==='idle'?idle:moveRow.clip;
+  const clip=buildCasterCompositeClip(THREE,{
+   preset,motionClip:move,actionClip:sourceRow.clip,idleClip:idle
+  });
+  row.clip=clip;row.status='ok';
+  row.details='Compuesta de '+(preset.motion==='idle'?'Idle':moveRow.index)+
+   ' + '+sourceRow.index+' · '+clip.duration.toFixed(2)+' s · '+clip.tracks.length+
+   ' pistas · solo memoria (fuentes intactas)';
+  if(playAfter)playAnimation(row.index);
+  else renderAnimList();
+ }catch(error){
+  if(currentCharacter!==selected||model!==originModel)return;
+  row.status='error';row.details='No se pudo generar: '+(error?.message||String(error));
+  animMessage.textContent='Compuesta '+row.index+' · '+row.details;
+  renderAnimList();
+ }
+}
 async function preloadOldCasterAnimations(selected){
   if(currentCharacter!==selected)return;
   const original=animationRows.filter(row=>row.source==='pack'&&!rejectedAnimationIds.has(row.index));
