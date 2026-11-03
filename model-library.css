@@ -1,0 +1,31 @@
+/* R.O.K. Studio · Biblioteca compartida, etapa 2 */
+html,body{min-height:100%;margin:0;background:#08121d;color:#efffff;font:14px system-ui,Arial,sans-serif}
+*{box-sizing:border-box}
+.libraryPage{padding:83px 18px 25px;max-width:1240px;margin:auto}
+.libraryHeading{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:end;margin-bottom:16px}
+.libraryHeading h1{font-size:22px;margin:0;color:#00ffe4}
+.libraryHeading p{margin:5px 0;color:#bcd3d7}
+.libraryGrid{display:grid;grid-template-columns:minmax(250px,360px) minmax(0,1fr);gap:16px;align-items:start}
+.libraryPanel{background:#0c2632;border:1px solid #275c65;border-radius:13px;padding:14px}
+.libraryPanel h2{font-size:15px;margin:0 0 12px;color:#d8fdf6}
+.libraryControls{display:flex;gap:8px;margin-bottom:8px}
+.libraryControls input,.libraryControls select{background:#0a1a26;color:#f4ffff;border:1px solid #38787b;border-radius:8px;padding:10px;min-width:0}
+.libraryControls input{flex:1;width:50%}
+.libraryControls select{max-width:140px}
+#librarySummary{font-size:11px;color:#a5ced0;margin:6px 0 10px}
+#libraryList{display:grid;grid-template-columns:1fr;gap:7px;max-height:calc(100dvh - 255px);overflow-y:auto}
+.libraryItem{text-align:left;background:#102e3b;border:1px solid #265b63;color:#f0ffff;border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.libraryItem:hover{border-color:#6bafae}
+.libraryItem[aria-pressed=true]{border-color:#00ffe4;background:#07534f}
+.libraryMeta{font-size:11px;color:#b0d0d2;text-align:right;flex-shrink:0}
+.libraryEmpty{color:#acc7cb}
+.libraryWorkspace{min-height:360px;display:flex;flex-direction:column;gap:12px}
+.libraryWorkspace .stage{background:linear-gradient(145deg,#0a1a27,#142c39);border:1px dashed #345d67;border-radius:10px;min-height:230px;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:#9fc5c7}
+.libraryWorkspace .stage strong{font-size:16px;color:#d9fffa}
+.librarySelectionTitle{color:#9fc9ca;font-size:12px}
+#librarySelection{font-size:18px;font-weight:700;color:#fff}
+#libraryPath{font-size:11px;color:#9bbfc4;overflow-wrap:anywhere}
+#libraryOpen{align-self:flex-start;color:#00ffe4;text-decoration:underline}
+#libraryOpen[aria-disabled=true]{pointer-events:none;opacity:.4}
+.libraryNote{font-size:12px;color:#a7c2c6;line-height:1.6}
+@media(max-width:760px){.libraryGrid{grid-template-columns:1fr}#libraryList{max-height:300px}.libraryPage{padding-top:75px}.libraryItem{font-size:12px}}
