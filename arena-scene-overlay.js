@@ -163,3 +163,67 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
  }
  return {init,loadScene,clear,show,update,get currentName(){return sceneName;},get count(){return objects.length;}};
 }
+
+/* The controls use no credentials and never write to the repository. */
+export function mountArenaSceneControls(overlay){
+ const $=id=>document.getElementById(id);
+ const importButton=$('testerSceneImport'),fileInput=$('testerSceneFile');
+ const published=$('testerScenePublished'),apply=$('testerSceneApply');
+ const reset=$('testerSceneReset'),visibility=$('testerSceneVisible');
+ const status=$('testerSceneStatus');
+ const current=$('testerSceneCurrent');
+ let working=false;
+ const report=message=>{status.textContent=message;};
+ const busy=value=>{
+  working=value;
+  for(const node of [importButton,published,apply,reset,visibility])node.disabled=value;
+ };
+ const showCurrent=()=>{current.textContent=overlay.currentName||'Arena original';};
+ const applyScene=async json=>{
+  if(working)return;
+  busy(true);report('Preparando decoraciones…');
+  try{await overlay.loadScene(json);visibility.checked=true;overlay.show(true);showCurrent();}
+  catch(error){report('No se aplicó: '+String(error.message||error));}
+  finally{busy(false);}
+ };
+ importButton.addEventListener('click',()=>{if(!working)fileInput.click();});
+ fileInput.addEventListener('change',async e=>{
+  const file=e.target.files?.[0];e.target.value='';
+  if(!file)return;
+  if(file.size>600000){report('JSON demasiado grande (máximo 600 KB)');return;}
+  try{await applyScene(JSON.parse(await file.text()));}
+  catch(error){report('Archivo inválido: '+String(error.message||error));}
+ });
+ apply.addEventListener('click',async()=>{
+  const relative=published.value;
+  if(!relative)return;
+  if(!/^assets\/scenes\/[a-zA-Z0-9_-]+\.json$/.test(relative)){report('Ruta publicada no autorizada');return;}
+  busy(true);
+  try{
+   const response=await fetch('./'+relative,{cache:'no-store'});
+   if(!response.ok)throw Error('HTTP '+response.status);
+   const json=await response.json();
+   busy(false);await applyScene(json);
+  }catch(error){report('No se pudo abrir el escenario publicado: '+error.message);}
+  finally{busy(false);}
+ });
+ reset.addEventListener('click',()=>{if(working)return;overlay.clear();visibility.checked=true;overlay.show(true);showCurrent();report('Escenario original restaurado');});
+ visibility.addEventListener('change',()=>{overlay.show(visibility.checked);report(visibility.checked?'Decoraciones visibles':'Decoraciones ocultas');});
+ overlay.init().then(async()=>{
+  report('Biblioteca de modelos lista');
+  try{
+   const response=await fetch('./assets/scenes/catalog.json',{cache:'no-store'});
+   if(!response.ok)throw Error('HTTP '+response.status);
+   const data=await response.json();
+   if(!Array.isArray(data.scenes))throw Error('Índice de escenarios inválido');
+   for(const entry of data.scenes){
+    if(!entry||typeof entry.path!=='string'||!/^assets\/scenes\/[a-zA-Z0-9_-]+\.json$/.test(entry.path))continue;
+    const option=document.createElement('option');option.value=entry.path;option.textContent=String(entry.name||entry.path).slice(0,80);published.append(option);
+   }
+   apply.disabled=published.options.length===1;
+   report(published.options.length>1?'Escenarios publicados disponibles':'Sin escenarios publicados; importa un JSON para probar');
+  }catch(error){report('Biblioteca lista; no se pudo cargar el índice de escenas');}
+ }).catch(error=>{report('Error en biblioteca de modelos: '+error.message);importButton.disabled=true;apply.disabled=true;});
+ published.addEventListener('change',()=>{apply.disabled=!published.value;});
+ showCurrent();
+}
