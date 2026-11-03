@@ -99,7 +99,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.20 · Espacio / Shift</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.21 · Ataque / Defensa</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -170,7 +170,7 @@ canvas{display:block;touch-action:none}
  <label class="casterMoveSpeedRow" for="casterMoveSpeed">Vel. <input type="range" id="casterMoveSpeed" min=".5" max="6" step=".1" value="2.2"><output id="casterMoveSpeedText">2.2</output></label>
  <div class="casterActionButtons">
   <button id="casterAttackButton" type="button" title="Ataque a distancia · animación 02 · Espacio" aria-label="Ataque · Espacio">✦ Ataque · Espacio</button>
-  <button id="casterDefenseButton" type="button" title="Defensa · Shift · animación compuesta 23 pendiente" aria-label="Defensa · Shift (pendiente)">◆ Defensa · Shift</button>
+  <button id="casterDefenseButton" type="button" title="Mantener Shift para bloquear daño · animación 23 provisional" aria-label="Mantener Shift para defenderse">◆ Defensa · Shift</button>
  </div>
  <span id="casterMoveStatus" role="status" title="WASD mueve al caster automáticamente">WASD listo</span>
 </section>
@@ -1263,7 +1263,7 @@ function createCaster(baseScene,clip,side){
 }
 function resetCaster(c){
   clearEmbeddedArrows(c);
-  c.hp=12;c.maxHp=12;c.stage='active';c.deathAnimationActive=false;c.model.visible=true;
+  c.hp=12;c.maxHp=12;c.stage='active';c.deathAnimationActive=false;c.manualDefending=false;c.model.visible=true;
   c.outer.position.set(0,0,c.startZ);
   c.outer.rotation.y=c.side==='ally'?Math.PI:0;
   c.model.position.y=c.model.userData.baseY||0;
@@ -2499,6 +2499,15 @@ function damage(target,value,source,{committed=false}={}){
   if((matchRestartLeft!==null&&!committed)||!canDamageTarget(target)||
      (!committed&&!canAttackSummonTarget(source,target)))return false;
   if(target.role==='caster'){
+    // Temporary Shift guard blocks damage while held; animation composition 23 is pending.
+    if(target.manualDefending&&target.stage==='active'){
+      const el=qs('#casterMoveStatus');
+      if(el&&casterMovement?.caster===target){
+        el.textContent='◆ Defensa · golpe bloqueado';
+        el.title='Shift bloqueó '+value+' punto(s) de daño';
+      }
+      return true;
+    }
     target.hp=Math.max(0,target.hp-value);
     if(target.hp===0){
       target.stage='defeated';
