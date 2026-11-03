@@ -3068,7 +3068,8 @@ const casterLayers=createCasterLayerSystem(THREE);
 // Mode for manually controlling the real Chiara/Lioren models.
 let casterMovement=null;
 const movementLoader=createCasterMovementLoader({
- FBXLoader,adaptClip:adaptAnimationFBX,getManualController:()=>casterMovement
+ FBXLoader,adaptClip:adaptAnimationFBX,getManualController:()=>casterMovement,
+ onClipReady:(caster,role,clip)=>casterLayers.register(caster,{[role]:clip})
 });
 casterMovement=createCasterMobility({
  THREE,getCaster:side=>casters.find(c=>c.side===side),
