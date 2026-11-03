@@ -36,6 +36,9 @@ El [editor de assets](./asset-editor.html) carga los GLB del catálogo en un vis
 ## Etapa 4 — Creador de escenarios 3D
 El [Creador de escenarios](./scene-editor.html) reutiliza la geometría 9 × 18 de la Arena 2.5D y su fondo compartido sin combate ni HUD. Permite añadir los 12 props generales, colocarlos, moverlos con arrastre, rotarlos, escalarlos, duplicarlos y eliminarlos. Acepta composiciones JSON procedentes del creador de assets con efectos y exporta/importa el escenario mediante JSON. [Contrato de escenarios](./assets/scenes/README.md). **No escribe directamente en GitHub desde el navegador**. La integración con el tester es la etapa 5.
 
+## Etapa 5 — Probar escenarios en Arena 2.5D
+La [Arena 2.5D](./arena-25d.html) incluye ahora **Escenario 3D** en Opciones. Puede importar un escenario JSON creado en la etapa 4, mostrar/ocultar decoraciones, restaurar la arena original y cargar escenarios publicados listados en `assets/scenes/catalog.json`. La carga de GLB y VFX es visual e independiente del motor de combate; **los objetos no generan obstáculos ni colisiones**. El catálogo publicado empieza vacío hasta realizar commits de escenarios aprobados. [Instrucciones y limitaciones](./assets/scenes/TESTER_INTEGRATION.md).
+
 ## Animaciones
 El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 y 20 excluidos. Solo quedan **17 disponibles**. El rechazo no renumera las animaciones para proteger referencias de código. Las antiguas 04/05 permanecen dentro del ZIP original compartido; las cuatro FBX 17–20 ya habían sido eliminadas.
 
