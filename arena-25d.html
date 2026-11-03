@@ -97,7 +97,7 @@ canvas{display:block;touch-action:none}
 @media(min-width:760px){#versionProof{top:72px;left:16px;transform:none}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./studio.css"></head>
+<link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./arena-scene-overlay.css"></head>
 <body data-studio-page="tester">
 <div id="versionProof" aria-label="Versión de la arena">v0.9.15</div>
 <section id="top">
@@ -106,6 +106,15 @@ canvas{display:block;touch-action:none}
     <button type="button" id="expand">Opciones ▾</button>
   </div>
   <div id="details">
+    <section id="testerSceneTools" aria-label="Escenarios de prueba">
+      <strong>Escenario 3D</strong>
+      <div class="sceneTesterCurrent">Activo: <span id="testerSceneCurrent">Arena original</span></div>
+      <div class="sceneTesterButtons"><button id="testerSceneImport" type="button">Importar escenario JSON</button><input id="testerSceneFile" type="file" accept=".json,application/json" hidden><button id="testerSceneReset" type="button">Restaurar arena</button></div>
+      <label class="sceneTesterLine" for="testerScenePublished">Publicados en GitHub</label>
+      <select id="testerScenePublished" aria-label="Escenario publicado"><option value="">Seleccionar escenario…</option></select>
+      <div class="sceneTesterButtons"><button id="testerSceneApply" type="button" disabled>Cargar publicado</button><label class="sceneTesterLine"><input id="testerSceneVisible" type="checkbox" checked> Decoraciones visibles</label></div>
+      <p id="testerSceneStatus" class="sceneTesterStatus" role="status">Preparando biblioteca…</p>
+    </section>
     <section id="casterAnimationReview" aria-label="Animaciones de los Kasters" style="border:1px solid #277e7c;border-radius:10px;padding:10px;margin:10px 0;background:#0c2731">
       <strong style="color:#00ffe4">KASTERS · ANIMACIONES EN ESTA ARENA</strong>
       <p>Prueba los movimientos sobre los Kasters del campo actual. El combate se pausa mientras revisas; no se modifica ninguna regla.</p>
@@ -165,6 +174,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
+import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js';
 
 const qs=s=>document.querySelector(s);
 const hud=qs('#top'), head=qs('#head');
@@ -204,6 +214,9 @@ const key=new THREE.DirectionalLight(0xffffff,2.2);key.position.set(-5,13,7);sce
 const fill=new THREE.DirectionalLight(0x00ccb8,.65);fill.position.set(4,5,-6);scene.add(fill);
 
 const root=new THREE.Group();scene.add(root);
+// Scenery overlay is visual only: never modifies units, hitboxes, pathfinding or rules.
+const sceneryOverlay=createArenaSceneOverlay({THREE,root,renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;}});
+mountArenaSceneControls(sceneryOverlay);
 // R.O.K. auténtico: 9 columnas X (0–8) y 18 filas de profundidad Z (0–17).
 // J2: filas 0–8 (arriba); J1: filas 9–17 (abajo).
 const W=9,D=18;
@@ -3132,6 +3145,7 @@ function loop(now){
     for(const c of combatants){updateNameplate(c);updateSummonCountdown(c);}
     for(const c of casters)updateNameplate(c);
   }
+  sceneryOverlay.update(now/1000);
   controls.update();renderer.render(scene,camera);
   fpsTime+=dt;fpsCount++;if(fpsTime>=1){qs('#fps').textContent='FPS: '+Math.round(fpsCount/fpsTime);fpsTime=0;fpsCount=0;}
 }
