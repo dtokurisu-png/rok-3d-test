@@ -31,7 +31,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
    if(raw.id&&ids.has(raw.id))throw Error('ID de objeto duplicado');
    ids.add(raw.id||'item-'+i);
    return {name:String(raw.name||m.name).slice(0,70),modelId:m.id,model:m,
-    x:finite(raw.x,-4.5,4.5),y:finite(raw.y,-10,20),z:finite(raw.z,-9,9),
+    x:finite(raw.x,-7.5,7.5),y:finite(raw.y,-10,20),z:finite(raw.z,-15,15),
     rotation:finite(raw.rotation,-3600,3600),scale:finite(raw.scale,.05,5,1),
     effects:raw.effects.map(fxClean)};
   });
