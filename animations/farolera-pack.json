@@ -2,13 +2,13 @@
   "version": "0.4",
   "character": "Farolera del Umbral",
   "rig": "mixamorig",
-  "sourceModel": "chiara_idle.glb",
+  "sourceModel": "assets/models/casters/farolera/chiara_idle.glb",
   "idle": {
     "source": "GLB",
     "action": "Idle original",
     "enabled": true
   },
-  "publishedAssetStatus": "FBX originals pending GitHub binary transfer; not yet accessible via public Pages",
+  "publishedAssetStatus": "Original Mixamo ZIP is present and available at canonical assets path.",
   "playerRigCorrection": {
     "animation": 12,
     "originalSource": "Walk W_ Briefcase.fbx",
@@ -66,5 +66,7 @@
     "reimportedFBX": "Preserve scaled source Hips vertical translation while discarding lateral root motion",
     "legacyCachedClips": "Visual ground correction still runs, but old cached clips lack baked source-hip translation until reimport",
     "preserved": "Hands, fingers, original GLB Idle, physics lantern, arena-25d.html"
-  }
+  },
+  "originalModelPath": "chiara_idle.glb",
+  "animationArchive": "assets/animations/casters/farolera/ROK_PUBLICAR_ANIMACIONES.zip"
 }
