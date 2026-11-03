@@ -21,7 +21,7 @@ test('scene importer validates geometry, composition types and excludes characte
  assert.match(source,/json\.arena\?\.rows!==D/);
  assert.match(source,/json\.objects\.length>250/);
  assert.match(source,/obj\.effects\.length>40/);
- assert.match(source,/model\.gitBlobSha/);
+ assert.match(source,/m\.gitBlobSha/);
  assert.match(source,/effects=new Set\(\['glow','light','particles','fog','pulse'\]\)/);
  assert.doesNotMatch(source,/localStorage|sessionStorage|indexedDB/);
 });
