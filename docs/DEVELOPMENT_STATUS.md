@@ -47,3 +47,10 @@ El usuario informó que el visor 3D dejó de funcionar después de convertir el 
 - Se comprobó sintaxis JS con el motor V8 antes de cada actualización del visor; el primer borrador produjo un error de sintaxis y fue descartado sin publicar. El arreglo posterior pasó la revisión de sintaxis.
 - **Sin prueba real de WebGL ni del retarget en navegador** desde esta sesión; no declarar la interacción o los GLB validados hasta que el usuario los pruebe.
 - La arena 2.5D no se modificó durante esta fase. El HUD definitivo sigue pendiente.
+
+## 2026-11-03 — Catálogo unificado del visor 3D
+- El visor principal `index.html` contiene **una única lista de 23 animaciones**: 01–14 originales y 15–23 FBX nuevos. No crear catálogo paralelo ni otro probador.
+- Los nueve FBX nuevos fueron comprobados individualmente en GitHub por ruta y SHA: todos existen, todos tienen blob SHA distinto. No confundir variante visual semejante con copia de bytes.
+- Estado explícito para cada nueva animación: «✓ GitHub» archivo existente; «… Cargando» lectura y retarget; «✓ Lista» clip listo para reproducir; «⚠ Error» problema de compatibilidad/lectura. La casilla «Elegir» es una decisión de conservar y NO una condición de disponibilidad.
+- La carga de FBX nuevos se intenta automáticamente al entrar con cada modelo; el click también permite cargar/reintentar uno concreto. Las versiones 01–14 y sus ajustes especiales siguen intactos.
+- Se verificó sintaxis JavaScript del visor con V8 y referencias del catálogo; pendiente prueba visual real de cada rig en navegador. Se conserva el código de arena 2.5D sin modificaciones.
