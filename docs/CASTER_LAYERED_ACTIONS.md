@@ -31,3 +31,16 @@ Chiara y Lioren comparten la misma lógica de acciones y el `AnimationMixer` pro
 ## Validación
 
 Se verificaron sintaxis JS, referencias y máscaras; una simulación del sistema de capas confirmó que Hips.position y las piernas están exclusivamente en la pista inferior, que la acción superior de defensa es `LoopOnce` a 1,8× con último fotograma retenido, y que el escudo se coloca delante y se oculta al soltar Shift. La reacción 09 produjo únicamente pistas de cabeza/cuello con mezcla aditiva. Las pruebas del repositorio se actualizaron para estas invariantes. **Queda pendiente la inspección visual real en WebGL con los GLB y los FBX de ambos casters.**
+
+## Etapa v0.9.23 — Velocidades y alcance
+
+- **Chiara y Lioren:** velocidad inicial de desplazamiento **3.8 unidades/s** (ajustable desde el panel de la Arena).
+- **Cadencia del ataque manual:** **1 segundo** entre ataques. El tramo visual del clip 02 se escala para finalizar en 1 segundo, en lugar de depender de la duración original del FBX. El lanzamiento de prueba se produce al **55 % del ciclo**.
+- **Alcance efectivo:** **2 unidades** de distancia euclidiana en el plano X/Z. El disparo manual elige la invocación rival más cercana dentro de ese radio; si no hay una invocación en rango, puede alcanzar al caster rival que esté dentro del mismo radio. Sin enemigos dentro de 2, la animación de ataque puede ejecutarse pero no se crea un proyectil con objetivo inválido.
+- **Anillo de alcance:** se vuelve visible progresivamente si una invocación enemiga se aproxima entre **4.5 y 2 unidades**. En 2 o menos alcanza su máxima opacidad. Se mantiene oculto si no hay invocaciones enemigas cercanas.
+- **Marcador de objetivo:** cuando la invocación enemiga más cercana entra dentro de las 2 unidades, muestra dos anillos pequeños dorados en el suelo. Al salir de rango, el marcador desaparece. Se reutiliza su geometría para evitar asignaciones por fotograma.
+- El nuevo indicador está desacoplado de la IA de las invocaciones y de la lógica de los duelos de invocaciones. Solamente la mecánica del disparo manual del caster permite impactar a una invocación enemiga en rango.
+- La prueba de lógica verificó avance **0.19 unidades en 0.05 s** a velocidad 3.8, dos ataques separados por 1 s, y el marcador pasando de oculto a parcialmente visible y completamente visible a 2 unidades.
+
+### Pendiente nuevo (no implementado)
+**Alerta de amenaza rival:** cuando una invocación enemiga tenga al caster dentro de su alcance efectivo, mostrar un pequeño símbolo **¡!** junto al caster como advertencia para defenderse. Debe utilizar el alcance real de la invocación y actualizarse al cambiar la distancia, el objetivo o la vida. No confundir esta futura alerta con el marcador dorado de objetivo del ataque propio.
