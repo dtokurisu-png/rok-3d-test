@@ -61,3 +61,9 @@ El usuario informó que el visor 3D dejó de funcionar después de convertir el 
 - Los estados de carga distinguen archivos publicados en GitHub, en descarga, listos y fallos. «Pendiente» no indica ausencia en el repo; se sustituyó la decisión de selección por «Sin elegir / Conservar / Descartar», separada del estado técnico.
 - Las decisiones se guardan en memoria durante la sesión por personaje y pueden exportarse mediante **Exportar selección JSON** en la misma barra de herramientas del catálogo.
 - Script pasado por comprobación de sintaxis JS antes de publicar. No hay pruebas visuales del retarget en navegador. Ningún archivo 3D se movió o borró. Arena 2.5D y R.O.K. Lite no modificados en este ajuste.
+
+## 2026-11-03 — Corregidas las animaciones 01–14 en Chiara y Lioren
+- Fallo: al cambiar de modelo, las 14 animaciones antiguas quedaban sin clips adaptados; se cargaban únicamente las nueve nuevas.
+- Solución: reutilizar el ZIP `ROK_PUBLICAR_ANIMACIONES.zip` existente en GitHub, adaptar los clips antiguos independientemente a cada esqueleto y mantener las 23 animaciones en el mismo catálogo.
+- En Chiara/Lioren, una fila 01–14 que aún no tenga clip permite pulsar para intentar cargarla; los errores de adaptación se muestran por entrada. Los caminos de Farolera y Arquera conservan su funcionamiento previo.
+- Sintaxis de `index.html` verificada; falta prueba visual en navegador de la compatibilidad de cada clip y rig.
