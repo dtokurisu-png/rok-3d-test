@@ -7,7 +7,7 @@ test('manual caster mode has independent controls and pauses autonomous combat',
  const [arena,controller,loader]=await Promise.all([
   read('arena-25d.html'),read('caster-mobility.js'),read('caster-movement-loader.js')
  ]);
- for(const id of ['casterMovePanel','casterMoveEnable','casterMoveSide','casterMoveSpeed','casterMoveStatus','casterMoveKeys'].slice(1)){
+ for(const id of ['casterMobilityPanel','casterMoveEnable','casterMoveSide','casterMoveSpeed','casterMoveStatus','casterMoveKeys']){
   assert.match(arena,new RegExp('id="'+id+'"'));
  }
  assert.match(arena,/from '\.\/caster-mobility\.js'/);
@@ -20,12 +20,12 @@ test('manual caster mode has independent controls and pauses autonomous combat',
  assert.match(controller,/KeyA:'left'/);
  assert.match(controller,/KeyD:'right'/);
  assert.match(controller,/Math\.hypot\(move\.lateral,move\.forward\)/);
- assert.match(controller,/Math\.PI/); // no need to turn during strafe
+ assert.match(controller,/sideSign=c.side==='ally'\?-1:1/);
  assert.match(loader,/Standing Idle\.fbx/);
  assert.match(loader,/Running Backward\.fbx/);
  assert.match(loader,/Running\.fbx/);
  assert.match(loader,/Right Strafe\.fbx/);
  assert.match(loader,/Right Strafe \(1\)\.fbx/);
- assert.match(loader,/catch\(error\)/);
+ assert.match(loader,/result\.idle=caster\.idleClip/);
  assert.doesNotMatch(controller,/localStorage|indexedDB|Authorization/);
 });
