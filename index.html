@@ -1379,6 +1379,7 @@ async function switchCharacter(character,forceReload=false){
       'Cambiar a Arquera del Desierto':'Cambiar a Farolera';
     characterSelect.disabled=false;characterSwitching=false;
     casterDropdown.value=currentCharacter;casterDropdown.disabled=false;
+    document.dispatchEvent(new CustomEvent('rok:caster:changed',{detail:{character:currentCharacter}}));
   }
 }
 characterSelect.addEventListener('click',()=>switchCharacter(currentCharacter==='farolera'?'archer':'farolera'));
@@ -1614,6 +1615,26 @@ recoverAnimCache().then(()=>preloadRepoAnimations()).finally(()=>{
     characterInfo.textContent='Farolera original · '+
       animationRows.filter(r=>r.clip).length+' animaciones · elige personaje';
   });}else {status.textContent='Modelo cargado SIN animación';setupLantern();characterSelect.disabled=false;casterDropdown.disabled=false;}details.textContent=`${meshes} mallas · ${bones} huesos · ${g.animations.length} animación(es) · ${g.animations.map(a=>a.name).join(', ')}`;frame();},ev=>{if(ev.total)status.textContent=`Cargando modelo: ${Math.round(ev.loaded/ev.total*100)}%`;},e=>{status.textContent='Error cargando GLB';error.textContent=e.message+' — Comprueba la conexión a Internet y vuelve a cargar esta página.';console.error(e)});
+// Catálogo nuevo aislado; si falla su módulo, el visor original sigue operativo.
+void import('./lab/embedded-animation-review.js').then(({mountCasterReview})=>
+  mountCasterReview({
+    getCharacter:()=>currentCharacter,
+    isReady:()=>!characterSwitching&&!!model&&!!mixer,
+    parseFBX:bytes=>fbxLoader.parse(bytes,''),
+    adaptClip:(source,clip,name)=>makeAnimationClip(source,clip,name).clip,
+    playClip:clip=>{
+      mixer.stopAllAction();
+      const action=mixer.clipAction(clip).reset();
+      action.setLoop(THREE.LoopRepeat,Infinity);action.play();
+      activeAction=action;activeAnimation=null;
+      playing=true;toggle.textContent='Pausar / Reproducir';
+    }
+  })
+).catch(error=>{
+  document.querySelector('#casterReviewStatus').textContent=
+    'El catálogo nuevo no se pudo abrir: '+String(error.message||error);
+  console.warn('[R.O.K.] Catálogo de Kasters opcional:',error);
+});
 toggle.onclick=()=>{playing=!playing;toggle.textContent=playing?'Pausar':'Reproducir';};document.querySelector('#reset').onclick=frame;
 document.querySelector('#wire').onclick=()=>{wire=!wire;if(!model)return;model.traverse(o=>{if(!o.isMesh)return;if(wire){const m=o.material.clone();m.wireframe=true;o.material=m;}else{o.material.dispose();o.material=originalMaterials.get(o);}})};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
