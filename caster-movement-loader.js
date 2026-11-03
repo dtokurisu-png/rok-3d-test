@@ -41,16 +41,17 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
   const model=caster.model;
   if(cache.has(model))return cache.get(model);
   const promise=(async()=>{
-   const result={};
+   const result={_unavailable:[]};
    for(const [role,def] of Object.entries(definitions)){
     try{
      const fbx=await source(def);
      result[role]=adaptClip(fbx,fbx.animations[0],model,'Caster_'+String(def.id));
     }catch(error){
-     if(role!=='idle')throw error;
-     // Preserve the active GLB idle as a safe fallback when Standing Idle is incompatible.
-     result.idle=caster.idleClip;
-     if(!result.idle)throw Error('No se encontró ni Standing Idle ni reposo del GLB');
+     // A missing FBX must never prevent the user from moving the caster.
+     // The model can still translate with Idle until a compatible clip is available.
+     result._unavailable.push(String(def.id));
+     result[role]=result.idle||caster.idleClip;
+     if(!result[role])throw Error('No se encontró un Idle de respaldo');
     }
     if(caster.model!==model)throw Error('Se reemplazó el rig durante la carga');
     if(role==='idle'){
