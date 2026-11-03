@@ -158,3 +158,12 @@ Se corrigió `index.html` para permitir probar los clips originales 01–14 con 
 - Se añadieron colores y una leyenda visibles en el propio catálogo. Los nuevos botones están deshabilitados para Farolera y Arquera hasta diseñar sus propias composiciones. Las animaciones 01–23 siguen igual.
 - Se añadieron pruebas `tests/viewer-caster-composites.test.mjs` para preservar numeración, máscaras, duración y conexiones de carga/reproducción. **Comprobada sintaxis JS y simulada la generación de clips; pendiente prueba real de ambos GLB en navegador.**
 - Los siguientes trabajos activos son 7) depurar el ataque de un brazo y transiciones, 8) corregir direcciones invertidas y 9) controles universales de huesos.
+
+## 2026-11-03 — Corrección puntual de ataque compuesto, etapa 7 (fotograma 13)
+
+- Compuestas de **ataque 24–28** del visor: comenzar a muestrear la animación de ataque 02 desde el **fotograma 13, a 30 FPS** (13/30 s). El clip compuesto empieza sin la preparación anterior a ese fotograma.
+- Mezcla inicial y de recuperación con suavizado `smoothstep` durante **0.20 s** en cada extremo, usando como base la pose de movimiento correspondiente.
+- El **brazo izquierdo completo** (hombro, brazo, antebrazo, muñeca/mano y dedos relacionados) queda excluido de las pistas de **ataque**. Mantiene las pistas de locomoción o idle; no vuelve a pose rígida del rig.
+- Las piernas y cadera siguen controladas por la locomoción. No se alteran los clips fuente ni se cambia el catálogo único de compuestas.
+- Las compuestas de **defensa 29–33 permanecen sin cambios**.
+- Comprobadas sintaxis y muestra simulada del clip: primera muestra de ataque = 0.433333… s, inicio y fin del torso en pose base; prueba WebGL real aún pendiente.
