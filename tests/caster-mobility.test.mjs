@@ -19,7 +19,7 @@ test('Arena has only the compact lower-right D-pad, no wide Studio bar or activa
  assert.match(css,/#casterMobilityPanel\{[^}]*position:fixed/);
  assert.match(css,/bottom:calc\(77px/);
  assert.match(css,/width:158px/);
- assert.match(html,/v0\.9\.19 · Ataque 02/);
+ assert.match(html,/v0\.9\.20 · Espacio / Shift/);
 });
 
 test('WASD automatically activates and moves before animation loading completes',async()=>{
@@ -103,7 +103,9 @@ test('Caster combat action 02 uses an actual clip and existing ranged projectile
   read('arena-25d.html'),read('caster-mobility.js'),read('caster-movement-loader.js')
  ]);
  assert.match(arena,/id="casterAttackButton"/);
- assert.match(control,/if\(event\.code==='KeyF'\)/);
+ assert.match(control,/if\(event\.code==='Space'\)/);
+ assert.match(control,/event\.code==='ShiftLeft'\|\|event\.code==='ShiftRight'/);
+ assert.match(arena,/id="casterDefenseButton"/);
  assert.match(control,/attackElapsed>=attackDuration\*\.55/);
  assert.match(control,/onAttack\?\.\(c\)/);
  assert.match(arena,/onAttack:c=>\{/);
@@ -129,7 +131,7 @@ test('F fires exactly once during clip 02 and does not freeze the animation mixe
  const handlers={},nodes={};
  const create=(value='')=>({value,textContent:'',title:'',dataset:{},events:{},
   addEventListener(name,fn){this.events[name]=fn;},blur(){},setPointerCapture(){}});
- for(const [name,value] of [['casterMoveSide','ally'],['casterMoveSpeed','2.2'],['casterMoveSpeedText','2.2'],['casterMoveStatus',''],['casterAttackButton','']])
+ for(const [name,value] of [['casterMoveSide','ally'],['casterMoveSpeed','2.2'],['casterMoveSpeedText','2.2'],['casterMoveStatus',''],['casterAttackButton',''],['casterDefenseButton','']])
   nodes[name]=create(value);
  const buttons=['KeyW','KeyA','KeyS','KeyD'].map(key=>{const b=create();b.dataset.moveKey=key;return b;});
  const oldDoc=globalThis.document,oldWindow=globalThis.window;
@@ -146,10 +148,19 @@ test('F fires exactly once during clip 02 and does not freeze the animation mixe
  try{
   const ctl=createCasterMobility({THREE:three,getCaster:()=>caster,
    prepareClips:()=>new Promise(()=>{}),onModeChange:()=>true,onAttack:()=>hits++});
-  handlers.keydown({code:'KeyF',repeat:false,target:null,preventDefault(){}});
+  handlers.keydown({code:'Space',repeat:false,target:null,preventDefault(){}});
   for(let n=0;n<20;n++)ctl.step(.05);
   assert.equal(hits,1,'the spell is launched only once');
   assert.ok(updates>=19,'the caster mixer continues running');
   ctl.disable();
  }finally{globalThis.document=oldDoc;globalThis.window=oldWindow;}
+});
+
+test('F is no longer attack; both Shift keys identify defense as pending',async()=>{
+ const [arena,control]=await Promise.all([read('arena-25d.html'),read('caster-mobility.js')]);
+ assert.doesNotMatch(control,/KeyF/);
+ assert.doesNotMatch(arena,/Ataque · F/);
+ assert.match(arena,/Ataque · Espacio/);
+ assert.match(arena,/Defensa · Shift/);
+ assert.match(control,/Defensa Shift: composición 23 pendiente/);
 });
