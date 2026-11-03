@@ -56,3 +56,6 @@ docs/
 
 ## Regla para R.O.K. Lite
 El repo principal contiene recursos bajo `assets/` e importantes referencias a rutas antiguas desde `game.js` (archivo extenso). No mover masivamente ese árbol. Primero inventario de referencias, luego migración por grupos: `images/cards/casters`, `images/cards/summons`, `images/cards/spells`, `images/cards/skins`, `images/cards/backgrounds`, `images/ui`, `images/arenas`; verificar todas las rutas antes de retirar originales.
+
+## Corrección de diseño (2026-11-02)
+El usuario especificó que el selector de Kasters, la audición de animaciones y las decisiones deben estar **en la arena 2.5D existente**, no en una página nueva. Se eliminó el laboratorio separado y se integraron los controles en el panel Opciones del escenario. Pendiente QA interactivo.
