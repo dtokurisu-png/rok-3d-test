@@ -1,0 +1,32 @@
+/* R.O.K. 3D Studio — navegación compartida. Etapa 1. */
+:root{--studio-accent:#00ffe4}
+#rokStudioNav{position:fixed;z-index:1000;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:9px 14px;background:#081720f5;border-bottom:1px solid #278d85;box-shadow:0 4px 18px #0008;font:600 12px system-ui,Arial,sans-serif;color:#efffff;box-sizing:border-box;min-height:54px}
+#rokStudioNav .studioBrand{font-weight:800;white-space:nowrap;color:var(--studio-accent);letter-spacing:.04em}
+#rokStudioNav .studioTabs{display:flex;gap:6px;overflow-x:auto;min-width:0;scrollbar-width:thin}
+#rokStudioNav a{display:inline-flex;justify-content:center;align-items:center;white-space:nowrap;min-height:34px;padding:5px 11px;background:#112e38;border:1px solid #315c66;border-radius:8px;color:#d7eeee;text-decoration:none;box-sizing:border-box}
+#rokStudioNav a[aria-current=page]{background:#00645e;border-color:var(--studio-accent);color:#fff}
+#rokStudioNav a:focus-visible{outline:2px solid white;outline-offset:2px}
+body.studioAnimations .hud{top:69px;max-height:calc(100dvh - 84px)}
+body.studioAnimations .hud h2{font-size:14px}
+body.studioAnimations .hud .animLab>p:not(#animMessage):not(#animSelection),body.studioAnimations .hud .attackNote:not(#archerAttackStatus),body.studioAnimations #buildVersion,body.studioAnimations #rightArmTuning,body.studioAnimations .animImport,body.studioAnimations .hud .buttons>a[href*="arena-25d"],body.studioAnimations .hud>p.meta:not(#details),body.studioAnimations .hud #characterInfo{display:none!important}
+body.studioAnimations .hud .animLab,body.studioAnimations .hud .characterPicker,body.studioAnimations .hud .buttons,body.studioAnimations .hud .studioTools{border:1px solid #265862;border-radius:10px;padding:9px;margin:8px 0;background:#0a2430}
+body.studioAnimations .hud .animLab h3{font-size:13px}
+body.studioAnimations .hud .studioTools summary{cursor:pointer;color:var(--studio-accent);font-size:12px;padding:4px 0;font-weight:bold}
+body.studioAnimations .hud .studioToolButtons{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+body.studioAnimations .hud .studioToolButtons button{font-size:11px;padding:7px 9px}
+body.studioAnimations .hud .studioTools .studioDiagnostics{margin-top:8px;font-size:11px;color:#bfd7d7}
+body.studioAnimations .hud .studioTools .studioDiagnostics p{font-size:11px;margin:4px 0}
+body.studioAnimations .hud .animRow .animRole{display:none}
+body.studioAnimations .hud #archerAttackLab .attackLineLabel{font-size:11px}
+body.studioAnimations:not(.studioFarolera) #mobileActions,body.studioAnimations:not(.studioFarolera) #physics,body.studioAnimations:not(.studioFarolera) #lampReset{display:none!important}
+body.studioTester #top{top:69px}
+body.studioTester #versionProof{top:125px}
+@media(max-width:700px){
+ #rokStudioNav{padding:7px 8px;gap:7px;min-height:54px}
+ #rokStudioNav .studioBrand{font-size:10px}
+ #rokStudioNav a{font-size:10px;padding:5px 7px}
+ body.studioAnimations .hud{top:calc(env(safe-area-inset-top,0px) + 62px)!important;max-height:calc(100dvh - 85px)!important}
+ body.studioAnimations .hud.mobile-closed{max-height:42px!important}
+ body.studioTester #top{top:calc(env(safe-area-inset-top,0px) + 63px)}
+ body.studioTester #versionProof{top:115px}
+}
