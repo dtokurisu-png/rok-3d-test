@@ -32,3 +32,14 @@ html,body{margin:0;min-height:100%;background:#08121d;color:#eaffff;font:13px sy
 #sceneStatus{max-width:65%;text-align:right;overflow-wrap:anywhere}
 @media(max-width:1080px){.sceneStudio{height:auto;min-height:100dvh;grid-template-columns:minmax(180px,230px) 1fr;grid-template-rows:minmax(490px,1fr) auto}.sceneMain{min-height:490px}.sceneInspector{grid-column:1/-1}.sceneAssetList{max-height:300px}}
 @media(max-width:670px){.sceneStudio{grid-template-columns:1fr;grid-template-rows:auto 420px auto;padding-top:67px}.sceneLibrary{max-height:290px}.sceneMain{min-height:420px}.sceneInspector{grid-column:auto}.sceneAssetList{max-height:135px}.sceneTop button{padding:6px}.sceneBottom span{font-size:10px}}
+
+/* Independent environment shell controls; never mixed with prop transforms. */
+.sceneBackgroundPanel{margin:13px 0;padding:10px;border:1px solid #527e9a;
+ border-radius:9px;background:#102a3c}
+.sceneBackgroundPanel h3{color:#a2d6ff;margin:2px 0 9px}
+.sceneBackgroundEnable{display:flex;gap:8px;align-items:center;font-size:11px;color:#d8eefe}
+.sceneBackgroundEnable input{accent-color:#00ffe4}
+.sceneBackgroundPanel output{font-variant-numeric:tabular-nums;color:#b4e5ff}
+.sceneBackgroundPanel .sceneQuiet{margin:7px 0;font-size:10px}
+.sceneBackgroundPanel #sceneBackgroundTexture{width:100%;font-size:11px}
+.sceneBackgroundPanel #sceneBackgroundApply{width:100%;border-color:#69a4d1}
