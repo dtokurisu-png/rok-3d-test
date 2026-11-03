@@ -18,3 +18,10 @@ El tester de [arena 2.5D](./arena-25d.html) conserva su combate, los casters y l
 - [Estado de implementación](./docs/DEVELOPMENT_STATUS.md)
 
 No se borraron los GLB, FBX o animaciones antiguas. **Sintaxis JS verificada; reproducción en navegador/retarget GLB necesita prueba visual.**
+
+## Depuración de animaciones — 2026-11-03
+- El usuario descartó exclusivamente las animaciones **04, 05, 17, 18, 19 y 20**: carrera diagonal hacia atrás. **La 03 sigue conservada**.
+- El catálogo del visor 3D muestra ahora **17 entradas seleccionables** y conserva los índices originales (sin renumerar las restantes, por compatibilidad con la lógica de animaciones).
+- La arena 2.5D filtra las cuatro variantes nuevas descartadas según el manifiesto.
+- Los cuatro archivos FBX individuales 17–20 se eliminaron del repositorio. Las animaciones 04 y 05 permanecen físicamente dentro del ZIP compartido de animaciones antiguas, para no romper las demás; el visor las omite al cargar, mostrar y reproducir.
+- El manifiesto `assets/manifests/caster-animations.json` registra los rechazos para auditoría. Reversible mediante historial de Git.
