@@ -61,6 +61,10 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
      }
     }
     if(caster.model!==model)throw Error('Se reemplazó el rig durante la carga');
+    // Make the two combat actions available immediately; remaining locomotion
+    // retarget tasks must not delay attack or death playback.
+    if(role==='attack')model.userData.rokAttackClip=result.attack||null;
+    if(role==='death')model.userData.rokDeathClip=result.death||null;
     if(role==='idle'){
      caster.idleClip=result.idle;
      const controller=getManualController();
