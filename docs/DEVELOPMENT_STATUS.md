@@ -67,3 +67,6 @@ El usuario informó que el visor 3D dejó de funcionar después de convertir el 
 - Solución: reutilizar el ZIP `ROK_PUBLICAR_ANIMACIONES.zip` existente en GitHub, adaptar los clips antiguos independientemente a cada esqueleto y mantener las 23 animaciones en el mismo catálogo.
 - En Chiara/Lioren, una fila 01–14 que aún no tenga clip permite pulsar para intentar cargarla; los errores de adaptación se muestran por entrada. Los caminos de Farolera y Arquera conservan su funcionamiento previo.
 - Sintaxis de `index.html` verificada; falta prueba visual en navegador de la compatibilidad de cada clip y rig.
+
+## 2026-11-03 — Activación de las 14 animaciones anteriores para Kasters
+Se corrigió `index.html` para permitir probar los clips originales 01–14 con Chiara y Lioren aun cuando no estén adaptados todavía al rig seleccionado. La precarga de los 14 FBX se inicia sin bloquear el selector de personajes; pulsar una fila solicita carga/retarget y reproducción. Se conserva el catálogo único de 23 entradas y las decisiones de las nueve animaciones nuevas. Sintaxis JS comprobada con V8; falta prueba visual de compatibilidad de los huesos en navegador.
