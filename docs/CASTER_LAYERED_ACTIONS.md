@@ -53,3 +53,13 @@ Se verificaron sintaxis JS, referencias y máscaras; una simulación del sistema
 - **Objetivo bloqueado durante preparación:** al aceptarse el ataque se guarda una referencia al objetivo. La animación continúa y el proyectil **se lanza aunque el propio caster se aleje y salga del radio 3 durante la preparación**. No se vuelve a comprobar la distancia al liberar el disparo. El objetivo puede seguir desplazándose; el sistema existente de proyectiles mantiene su resolución.
 - Las velocidades anteriores quedan intactas: movimiento **3.8**, ciclo de ataque **1 segundo**. WASD sigue moviendo las piernas durante la preparación.
 - La advertencia de amenaza enemiga **¡!** continúa como pendiente, sin cambios.
+
+## Corrección v0.9.25 — Proximidad en reposo e impacto comprometido
+
+**Fallo comprobado 1:** el indicador visual de alcance se actualizaba únicamente si el controlador WASD estaba activado. Ahora el círculo y la diana se actualizan para el caster seleccionado en `#casterMoveSide` incluso cuando permanece inmóvil, siempre que haya una invocación enemiga viva y activa en su zona de proximidad.
+
+**Fallo comprobado 2:** aunque se fijaba correctamente el objetivo al pulsar Espacio dentro de radio 3, el impacto de `updateMagic()` continuaba condicionado a que el objetivo permaneciera en la casilla redondeada del punto de impacto. Ahora los proyectiles **manuales del caster** se marcan con `manualCasterShot:true`, siguen al objetivo hasta el impacto y resuelven el daño contra el objetivo confirmado al pulsar (si sigue siendo válido), incluso después de que cualquiera de los dos se desplace. La lógica original de impactos por casilla de las invocaciones y las flechas queda intacta.
+
+Se mantiene la regla: **fuera de alcance al pulsar Espacio = sin animación, sin ataque y sin cooldown**. Dentro de alcance al pulsar Espacio = ataque comprometido. Alcance 3, movimiento 3.8 y ataque 1 s no cambian.
+
+Validación: comprobaciones estáticas y de sintaxis de la conexión completa; el comportamiento en navegador WebGL todavía necesita observación real.
