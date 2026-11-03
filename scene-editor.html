@@ -1,4 +1,20 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#081720"><title>R.O.K. 3D — Creador de escenarios</title><link rel="stylesheet" href="./studio.css">
-<style>html,body{min-height:100%;margin:0;background:#08121d;color:#efffff;font:14px system-ui,Arial,sans-serif}*{box-sizing:border-box}main{min-height:100dvh;padding:100px 18px 30px;display:grid;place-items:center}.workbench{width:min(640px,100%);background:#0e2632;border:1px solid #2b6c6e;border-radius:14px;padding:24px}h1{font-size:22px;color:#00ffe4;margin:0 0 14px}p{line-height:1.6;color:#c5dee2}.phase{display:inline-block;font-size:12px;color:#e8c781;margin-bottom:12px}</style></head>
-<body data-studio-page="scenes"><main><section class="workbench"><span class="phase">Preparación · Etapa 1</span><h1>Creador de escenarios</h1><p>Aquí editaremos la arena sin combate ni HUD y colocaremos assets en la etapa 4.</p><p>La pestaña está preparada para la integración. Las herramientas existentes no se han modificado.</p></section></main><script src="./studio.js"></script></body></html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#081720">
+<title>R.O.K. 3D — Creador de escenarios</title><link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./model-library.css"></head>
+<body data-studio-page="scenes">
+<main class="libraryPage">
+<header class="libraryHeading"><div><h1>Creador de escenarios</h1><p>Biblioteca de elementos decorativos listos para colocar. Las estatuas especiales y los personajes se mantienen fuera de esta colección. La edición 3D se incorpora en la etapa 4.</p></div></header>
+<div class="libraryGrid">
+<aside class="libraryPanel" aria-label="Biblioteca de modelos"><h2>Biblioteca GLB</h2>
+<div class="libraryControls"><input id="librarySearch" type="search" autocomplete="off" placeholder="Buscar modelo…" aria-label="Buscar modelos">
+<select id="libraryFilter" aria-label="Filtrar modelos"><option value="all">Todos</option></select></div>
+<div id="librarySummary" role="status">Cargando catálogo…</div>
+<div id="libraryList"></div></aside>
+<section class="libraryPanel libraryWorkspace" aria-label="Área de trabajo">
+<div class="librarySelectionTitle">Modelo seleccionado</div><div id="librarySelection">Ninguno</div><div id="libraryPath"></div>
+<a id="libraryOpen" aria-disabled="true" href="#" target="_blank" rel="noopener noreferrer">Abrir archivo GLB</a>
+<div class="stage"><div><strong>Área de montaje del escenario</strong>
+<p>Preparada para la vista 3D de la arena en la etapa 4.</p></div></div>
+<p class="libraryNote">Esta etapa incorpora la biblioteca navegable. La selección no carga todavía una vista previa 3D ni guarda cambios.</p>
+</section></div></main>
+<script src="./studio.js"></script><script src="./model-library.js"></script></body></html>
