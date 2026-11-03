@@ -1,6 +1,14 @@
 # R.O.K. 3D Tester — Estado para continuar
 Fecha de última revisión: 2026-11-03
 
+## Decisión vigente — 2026-11-03: priorizar escenario, congelar visor
+
+El usuario solicita **no seguir ajustando animaciones ni el visor 3D por ahora**, para concentrarse en completar el **sistema de escenarios de Arena 2.5D**.
+
+El proyecto futuro **«Creador de animaciones»** se añadió a [PENDIENTES_ROK_3D.md](./PENDIENTES_ROK_3D.md). Se basará en Pose T, cinemática inversa (piernas, pies, pelvis, torso, cabeza, brazos y muñecas), controles de centro de gravedad, contacto y límites de suelo, y animación por fotogramas clave. No se debe crear todavía el botón ni el editor; la tarea anterior de controles universales de huesos (#9) queda aplazada e integrada en este proyecto más amplio. Las listas de etapas de animación anteriores son históricas.
+
+**Próxima intervención:** mejoras del escenario que solicite el usuario; evitar modificaciones al visor y a los archivos de animación.
+
 ## Estado operativo actualizado — 2026-11-03 · Arena v0.9.27
 
 La lista vigente de trabajos activos y aplazados está guardada por separado en **[PENDIENTES_ROK_3D.md](./PENDIENTES_ROK_3D.md)**. Las listas antiguas de este documento quedan como historial, no como prioridades actuales.
