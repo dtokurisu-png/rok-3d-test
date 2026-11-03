@@ -99,7 +99,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.26 · Prioridad real</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.27 · Arena 15×30</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -149,7 +149,7 @@ canvas{display:block;touch-action:none}
     <button id="saveArenaBackground" type="button" style="border:1px solid #00ffe4;background:#064d52;color:white;border-radius:8px;padding:9px 12px;font-weight:700;cursor:pointer">Guardar en GitHub</button>
     <p id="backgroundSaveStatus">Cargando dimensiones oficiales desde GitHub…</p>
     <p>Guardar en GitHub pide un token de acceso de alcance limitado con permiso Contents: Read and write para este repositorio. El token no se almacena. El botón actualiza <a href="https://github.com/dtokurisu-png/rok-3d-test/blob/main/arena-background.css" target="_blank" rel="noopener noreferrer" style="color:#00ffe4">arena-background.css</a>. No compartas tu token. La cuadrícula permanece fija.</p>
-    <p>La imagen puede sobresalir de los bordes; la cuadrícula de 9 × 18 permanece fija.</p>
+    <p>La imagen puede sobresalir de los bordes; la cuadrícula de 15 × 30 permanece fija.</p>
     <p id="fps">FPS: —</p>
     <p><b>Combate experimental:</b> ambos jugadores tienen una Farolera de escudo (7 PV, alcance 3), una de maná (5 PV, alcance 5, onda 3×3, evasión y aturdimiento) y una Arquera del Desierto (3 PV, alcance 9, daño 2). Cada caster tiene 12 PV; el maná recupera 1 cada 3 s. No modifica R.O.K. principal.</p>
     <p><a href="./index.html" style="color:#00ffe4">Volver al visor de animaciones 3D</a></p>
@@ -214,13 +214,13 @@ const scene=new THREE.Scene();scene.background=new THREE.Color(0x091722);scene.f
 const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,130);
 const controls=new OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;controls.dampingFactor=.075;controls.enablePan=true;
-controls.minDistance=4.5;controls.maxDistance=52;controls.maxPolarAngle=THREE.MathUtils.degToRad(76);controls.minPolarAngle=THREE.MathUtils.degToRad(36);
-const focus=new THREE.Vector3(0,0.4,-0.7);
+controls.minDistance=5;controls.maxDistance=80;controls.maxPolarAngle=THREE.MathUtils.degToRad(76);controls.minPolarAngle=THREE.MathUtils.degToRad(36);
+const focus=new THREE.Vector3(0,0.4,0);
 const setCamera=(full=false)=>{
   const mobile=innerWidth<700;
   controls.target.copy(focus);
   // Cámara detrás del caster aliado, elevada y dirigida al campo rival.
-  camera.position.set(0,full?(mobile?23:20):(mobile?16:14),full?(mobile?35:31):(mobile?24:22));
+  camera.position.set(0,full?(mobile?38:34):(mobile?27:25),full?(mobile?58:54):(mobile?42:38));
   camera.fov=mobile?53:47;
   camera.updateProjectionMatrix();controls.update();
 };
@@ -236,9 +236,12 @@ const root=new THREE.Group();scene.add(root);
 // Scenery overlay is visual only: never modifies units, hitboxes, pathfinding or rules.
 const sceneryOverlay=createArenaSceneOverlay({THREE,root,renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;}});
 mountArenaSceneControls(sceneryOverlay);
-// R.O.K. auténtico: 9 columnas X (0–8) y 18 filas de profundidad Z (0–17).
-// J2: filas 0–8 (arriba); J1: filas 9–17 (abajo).
-const W=9,D=18;
+// Arena ampliada de prueba: 15 columnas X (0–14), 30 filas Z (0–29).
+// Mitad rival: filas 0–14; mitad aliada: filas 15–29.
+const W=15,D=30;
+const HALF_W=(W-1)/2,HALF_D=(D-1)/2;
+const MAX_X=HALF_W+.25,MAX_Z=HALF_D+.25;
+const SPAWN_Z=HALF_D,CASTER_Z=HALF_D-1;
 const base=new THREE.Mesh(new THREE.BoxGeometry(W+.5,.25,D+.5),new THREE.MeshStandardMaterial({color:0x182b31,metalness:.15,roughness:.83}));
 base.position.y=-.16;root.add(base);
 const tileGeo=new THREE.PlaneGeometry(.986,.986);
@@ -249,8 +252,8 @@ for(let row=0;row<D;row++)for(let col=0;col<W;col++){
   const idx=row*W+col;
   dummy.position.set(col-(W-1)/2,(D-1)/2-row,0);
   dummy.updateMatrix();tiles.setMatrixAt(idx,dummy.matrix);
-  // Campo rival: filas 0–8. Campo aliado: filas 9–17.
-  const side=row<9?'enemy':'ally';
+  // Campo rival: filas 0–14. Campo aliado: filas 15–29.
+  const side=row<D/2?'enemy':'ally';
   const hex=side==='enemy'?(idx%2?0x29404e:0x263947):side==='ally'?(idx%2?0x214945:0x203e3e):(idx%2?0x394846:0x33413e);
   color.setHex(hex);tiles.setColorAt(idx,color);
 }
@@ -356,8 +359,8 @@ new THREE.TextureLoader().load(arenaTextureUrl,tex=>{
   arenaArt.scale.set(arenaSpriteWidth,arenaSpriteLength,1);
   qs('#textureStatus').textContent='Textura R.O.K.: capa decorativa independiente; escala ajustable hasta 220 %';
 },undefined,()=>{qs('#textureStatus').textContent='Textura R.O.K.: no disponible; usando baldosas 3D';});
-// Cuadrícula exacta: límites X = -4.5..4.5 (10 líneas),
-// límites Z = -9..9 (19 líneas). Cada celda mide 1 × 1.
+// Cuadrícula exacta: límites X = -7.5..7.5 (16 líneas),
+// límites Z = -15..15 (31 líneas). Cada celda mide 1 × 1.
 const points=[];
 for(let col=0;col<=W;col++){
   const x=col-W/2;
@@ -383,14 +386,14 @@ function marker(z,color){
   const m=new THREE.Mesh(new THREE.RingGeometry(.55,.65,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.68,depthWrite:false,side:THREE.DoubleSide}));
   m.rotation.x=-Math.PI/2;m.position.set(0,.057,z);root.add(m);return m;
 }
-// Posiciones de aparición: columna 3 escudo, columna 5 maná; fila 17/0.
+// Nexos de invocación a los extremos: columnas centrales y filas 29/0.
 function spawnMark(x,z,color){
   const m=new THREE.Mesh(new THREE.RingGeometry(.36,.44,48),
     new THREE.MeshBasicMaterial({color,transparent:true,opacity:.68,
       depthWrite:false,side:THREE.DoubleSide}));
   m.rotation.x=-Math.PI/2;m.position.set(x,.057,z);root.add(m);
 }
-for(const z of [8.5,-8.5]){
+for(const z of [SPAWN_Z,-SPAWN_Z]){
   spawnMark(-1,z,z>0?0x00ffe4:0xff8f9b);
   spawnMark(1,z,z>0?0x00ffe4:0xff8f9b);
   spawnMark(0,z,z>0?0xffc76b:0xf3a8aa);
@@ -1186,7 +1189,7 @@ function createFighter(baseScene,clip,side,kind){
   const outer=new THREE.Group();root.add(outer);outer.add(model);
   outer.rotation.y=side==='ally'?Math.PI:0;
   // Escudo = columna 3; maná = columna 5.
-  const startZ=side==='ally'?8.5:-8.5;
+  const startZ=side==='ally'?SPAWN_Z:-SPAWN_Z;
   const startX=kind==='shield'?-1:kind==='mana'?1:0;
   outer.position.set(startX,0,startZ);
   const size=new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
@@ -1237,11 +1240,11 @@ function createFighter(baseScene,clip,side,kind){
   createStunHalo(c);return c;
 }
 // Caster inmóvil: clon del mismo GLB, sin escudo, sin hechizos y sin recasteo.
-// Posición: columna 4; fila 16 (aliado, z=+7.5), fila 1 (rival, z=-7.5).
+// Caster en columna central, segunda fila desde cada extremo (z=±13.5).
 function createCaster(baseScene,clip,side){
   const model=cloneSkinned(baseScene);
   const outer=new THREE.Group();root.add(outer);outer.add(model);
-  const startZ=side==='ally'?7.5:-7.5;
+  const startZ=side==='ally'?CASTER_Z:-CASTER_Z;
   outer.position.set(0,0,startZ);
   outer.rotation.y=side==='ally'?Math.PI:0;
   const size=new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
@@ -1910,14 +1913,14 @@ function resetDemoCombat(){
   casters.forEach(resetCaster);
   qs('#phase').textContent='✦ Materializando las invocaciones y los dos casters';
 }
-// El mundo sigue la topología real del tablero R.O.K.: 9 X × 18 Z.
-// Las casillas tienen centros en x=col-4 y z=row-8.5.
+// Coordenadas físicas y casillas siempre derivadas de W y D.
+// En 15×30, los centros son x = col - 7 y z = row - 14.5.
 function worldToCell(x,z){
-  return {col:THREE.MathUtils.clamp(Math.round(x+4),0,8),
-    row:THREE.MathUtils.clamp(Math.round(z+8.5),0,17)};
+  return {col:THREE.MathUtils.clamp(Math.round(x+HALF_W),0,W-1),
+    row:THREE.MathUtils.clamp(Math.round(z+HALF_D),0,D-1)};
 }
-function cellToWorld(col,row){return {x:col-4,z:row-8.5};}
-function inBoard(col,row){return col>=0&&col<9&&row>=0&&row<18;}
+function cellToWorld(col,row){return {x:col-HALF_W,z:row-HALF_D};}
+function inBoard(col,row){return col>=0&&col<W&&row>=0&&row<D;}
 function cellRadius(a,b){return Math.max(Math.abs(a.col-b.col),Math.abs(a.row-b.row));}
 
 
@@ -2396,7 +2399,7 @@ function tryEvasion(target,attacker,impactCell){
   if(target.kind!=='mana'||target.stage!=='active'||target.mana<6||target.dodgeCooldown>0)return false;
   const origin=worldToCell(attacker.outer.position.x,attacker.outer.position.z);
   const candidates=[];
-  for(let row=0;row<18;row++)for(let col=0;col<9;col++){
+  for(let row=0;row<D;row++)for(let col=0;col<W;col++){
     const cell={col,row};
     const dist=cellRadius(cell,origin);
     if(dist<2||dist>target.range||cellRadius(cell,impactCell)<=1)continue;
@@ -2929,8 +2932,8 @@ function updateDuel(dt){
     const distance=Math.hypot(dx,dz);
     if(distance>c.range+.005){
       const step=Math.min(c.speed*dt,distance-c.range);
-      c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/distance*step,-4,4);
-      c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-8.5,8.5);
+      c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/distance*step,-MAX_X,MAX_X);
+      c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-MAX_Z,MAX_Z);
       setAnim(c,12,{fade:.16});
     }else if(canDamageTarget(target)&&c.cooldown<=0){
       startCast(c,target);
