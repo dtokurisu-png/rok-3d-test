@@ -1,17 +1,18 @@
 /* R.O.K. 3D · Minimal manual WASD for the Arena 2.5D.
    Press W/A/S/D or hold a D-pad button to take control immediately.
    No activation checkbox; FBX loading is nonblocking and affects only pose. */
-export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onModeChange,reviveCaster}){
+export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onModeChange,reviveCaster,onAttack}){
  const $=id=>document.getElementById(id);
  const select=$('casterMoveSide'),speed=$('casterMoveSpeed'),speedText=$('casterMoveSpeedText'),
-  status=$('casterMoveStatus');
+  status=$('casterMoveStatus'),attackButton=$('casterAttackButton');
  const buttons=[...document.querySelectorAll('#casterMobilityPanel [data-move-key]')];
- if(!select||!speed||!speedText||!status||buttons.length!==4)
+ if(!select||!speed||!speedText||!status||!attackButton||buttons.length!==4)
   throw Error('Faltan botones o control de velocidad WASD');
  const directions={KeyW:'forward',KeyS:'backward',KeyA:'left',KeyD:'right'};
  const held=new Set(),clips=new Map();
  let enabled=false,caster=null,lastMotion=null,previousPlaying=false;
  let preparedModel=null,loadingModel=null,revision=0,shownMessage='';
+ let attackAction=null,attackElapsed=0,attackDuration=0,attackReleased=false,attackCooldown=0;
  const notify=(message)=>{
   status.textContent=message;status.title=message;
   if(message!==shownMessage){shownMessage=message;onStatus?.(message);}
@@ -27,6 +28,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   for(const button of buttons)button.dataset.held=String(held.has(button.dataset.moveKey));
  }
  function clearKeys(){held.clear();keyLabel();}
+ function cancelAttack(){attackAction=null;attackElapsed=0;attackDuration=0;attackReleased=false;attackCooldown=0;}
  function stopAction(c){
   if(!c?.mixer)return;
   c.mixer.stopAllAction();
@@ -36,6 +38,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
  function stop(){
   ++revision;clearKeys();
   if(!enabled)return;
+  cancelAttack();
   stopAction(caster);
   enabled=false;caster=null;lastMotion=null;preparedModel=null;loadingModel=null;clips.clear();
   onModeChange?.(false,previousPlaying);
@@ -48,6 +51,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   if(next.stage!=='active')reviveCaster?.(next);
   if(next.stage!=='active'){notify('Caster no disponible');return false;}
   caster=next;enabled=true;lastMotion=null;
+  cancelAttack();
   previousPlaying=onModeChange?.(true)??false;
   notify('Control manual activo');
   return true;
@@ -60,7 +64,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   Promise.resolve().then(()=>prepareClips(c)).then(result=>{
    if(ticket!==revision||!enabled||selected()!==c||c.model!==model)return;
    clips.clear();
-   for(const name of ['idle','forward','backward','left','right'])
+   for(const name of ['idle','forward','backward','left','right','attack','death'])
     if(result?.[name])clips.set(name,result[name]);
    preparedModel=model;loadingModel=null;lastMotion=null;
    const missing=result?._unavailable||[];
@@ -86,6 +90,26 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   c.userData.manualAction=next;
   lastMotion=kind;
  }
+ // Attack 02 is a simple provisional ranged action; NOT a composed 21/22/23 clip.
+ function startAttack(){
+  if(!engage())return false;
+  const c=selected();
+  if(c!==caster||c.stage!=='active'||attackCooldown>0||attackAction)return false;
+  const clip=clips.get('attack');
+  if(!clip||clip.duration<=0){notify('Ataque 02 cargando…');requestClips(c);return false;}
+  c.mixer.stopAllAction();
+  const action=c.mixer.clipAction(clip);
+  action.reset().setLoop(THREE.LoopOnce,1);
+  action.clampWhenFinished=true;
+  action.enabled=true;action.setEffectiveWeight(1);action.setEffectiveTimeScale(1);action.play();
+  c.userData=c.userData||{};c.userData.manualAction=action;
+  attackAction=action;attackElapsed=0;
+  attackDuration=Math.max(.1,clip.duration);
+  attackReleased=false;attackCooldown=Math.max(1.6,attackDuration);
+  lastMotion=null;
+  notify('Ataque 02 · lanzamiento');
+  return true;
+ }
  function step(dt){
   if(!enabled){
    if(held.size&&!engage())return;
@@ -98,7 +122,21 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
    if(loadingModel&&loadingModel!==c.model){loadingModel=null;clips.clear();lastMotion=null;}
    requestClips(c);
   }
+  attackCooldown=Math.max(0,attackCooldown-dt);
   const {forward,lateral,kind}=motion();
+  if(attackAction){
+   attackElapsed+=dt;
+   if(!attackReleased&&attackElapsed>=attackDuration*.55){
+    attackReleased=true;
+    onAttack?.(c);
+   }
+   if(attackElapsed>=attackDuration){
+    attackAction=null;lastMotion=null;
+    notify('WASD · ataque disponible');
+   }
+   c.mixer.update(dt);
+   return; // Attack takes priority over locomotion until release.
+  }
   if(forward||lateral){
    const length=Math.hypot(forward,lateral),v=Number(speed.value)||2.2;
    const sign=c.side==='ally'?-1:1;
@@ -110,6 +148,10 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   c.mixer.update(dt);
  }
  function inputKey(event,down){
+  if(event.code==='KeyF'){
+   if(down&&!event.repeat)startAttack();
+   event.preventDefault();return;
+  }
   if(!Object.hasOwn(directions,event.code))return;
   if(down&&event.target?.closest?.('textarea,select,[contenteditable="true"],input:not([type="range"])'))return;
   if(down)held.add(event.code);else held.delete(event.code);
@@ -132,10 +174,11 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   button.addEventListener('pointercancel',release);
   button.addEventListener('lostpointercapture',release);
  }
+ attackButton.addEventListener('click',()=>{attackButton.blur();startAttack();});
  window.addEventListener('blur',clearKeys);
  document.addEventListener('visibilitychange',()=>{if(document.hidden)clearKeys();});
  select.addEventListener('change',()=>{stop();select.blur();});
  speed.addEventListener('input',()=>{speedText.textContent=Number(speed.value).toFixed(1);});
  notify('WASD · listo');
- return {step,disable:stop,get enabled(){return enabled;},get caster(){return caster;}};
+ return {step,disable:stop,startAttack,get enabled(){return enabled;},get caster(){return caster;}};
 }
