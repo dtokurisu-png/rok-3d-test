@@ -148,3 +148,13 @@ Se corrigió `index.html` para permitir probar los clips originales 01–14 con 
 5. **Arena 15 × 30** con ajuste de límites, casillas, cámara, nexos y reglas.
 6. **Visor de animaciones**: composiciones visibles en catálogo, desplazamientos invertidos y edición universal por hueso.
 7. **Aviso ¡! de amenaza enemiga** cuando una invocación rival tenga al caster dentro de su alcance.
+
+## 2026-11-03 — Etapa 6: animaciones compuestas 24–33 en el visor existente
+
+- Se incorporaron **diez entradas en el catálogo único de `index.html`**, después de las 23 animaciones numeradas existentes, sin renumerar ni sobrescribir ninguna.
+- **Violeta (24–28):** Idle/adelante/atrás/izquierda/derecha combinados con ataque **02 Magic Heal**. El cuerpo inferior conserva la animación de locomoción; el superior usa la acción de ataque. Prueba de ciclo 1 segundo y transición visual provisional de .2 s.
+- **Azul (29–33):** las mismas cinco locomociones con defensa **23 Sword And Shield Impact**. El torso ejecuta la defensa a 1.8× y mantiene el último fotograma hasta finalizar la reproducción de prueba; las piernas reproducen su marcha durante la previsualización.
+- Los nuevos clips se generan bajo demanda con `viewer-caster-composites.js`, leyendo los FBX ya adaptados específicamente a **Chiara o Lioren**, como `THREE.AnimationClip` reales utilizables por el reproductor y el inspector universal de fotogramas actuales. No se creó un catálogo ni una página paralela, y no se alteraron los FBX fuente.
+- Se añadieron colores y una leyenda visibles en el propio catálogo. Los nuevos botones están deshabilitados para Farolera y Arquera hasta diseñar sus propias composiciones. Las animaciones 01–23 siguen igual.
+- Se añadieron pruebas `tests/viewer-caster-composites.test.mjs` para preservar numeración, máscaras, duración y conexiones de carga/reproducción. **Comprobada sintaxis JS y simulada la generación de clips; pendiente prueba real de ambos GLB en navegador.**
+- Los siguientes trabajos activos son 7) depurar el ataque de un brazo y transiciones, 8) corregir direcciones invertidas y 9) controles universales de huesos.
