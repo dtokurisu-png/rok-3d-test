@@ -1,0 +1,28 @@
+name: Validate 3D assets
+
+on:
+  push:
+    paths:
+      - 'assets/**'
+      - 'index.html'
+      - 'arena-25d.html'
+      - 'tests/**'
+      - '.github/workflows/asset-integrity.yml'
+  pull_request:
+    paths:
+      - 'assets/**'
+      - 'index.html'
+      - 'arena-25d.html'
+      - 'tests/**'
+      - '.github/workflows/asset-integrity.yml'
+
+jobs:
+  asset-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify canonical files and route integrity
+        run: node --test tests/asset-integrity.test.mjs
