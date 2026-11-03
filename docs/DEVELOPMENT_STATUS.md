@@ -78,3 +78,22 @@ Se corrigió `index.html` para permitir probar los clips originales 01–14 con 
 - Se retiraron los 19 archivos binarios de la raíz tras verificar que sus copias canónicas tenían los mismos SHA de Git. Commit de limpieza `d49335476ad4b411cb4772ba360dffae69e59304`, respaldo `backup-before-asset-root-cleanup-2026-11-03`.
 - Se incorporaron `tests/asset-integrity.test.mjs` y `.github/workflows/asset-integrity.yml`. **No se ha confirmado todavía ejecución del workflow ni QA visual/WebGL**.
 - La reorganización de 175 imágenes del juego R.O.K. Lite está en `assets/images/` del repo principal como copias canónicas, pero sus antiguas rutas siguen activas para evitar romper `game.js` y el CSS.
+
+## 2026-11-03 — Arena v0.9.26: prioridad base por alcance (implementada)
+
+- Las invocaciones de **cualquier tipo** buscan primero un objetivo enemigo **realmente dentro de su alcance**; entre los objetivos elegibles, el más cercano tiene prioridad. El caster rival compite como objetivo de la misma manera: si está más cerca y dentro del alcance, no se ignora.
+- **Sin objetivos a rango**, una invocación avanza hacia el caster rival como destino de navegación. Ya **no reserva ni persigue una invocación lejana** por el mero hecho de aparecer.
+- Las reservas uno contra uno **solo se crean cuando las dos invocaciones están a alcance de combate**; el duelo establecido se mantiene mientras el rival continúa a rango. Si se separan, la reserva puede liberarse.
+- Durante `casting`, la selección de objetivo también está limitada al alcance efectivo. Así el caster rival no se usa accidentalmente como blanco de un disparo desde una distancia grande.
+- Se conservan lógica de proyectiles y animaciones de las invocaciones, controles del caster manual, defensa y círculo de alcance 3.
+- Validación con escenarios simulados de objetivo cercano, invocación lejana, caster rival más cercano y liberación de duelo. Pendiente prueba visual en navegador WebGL.
+
+### Próximos pendientes, sin implementar en esta fase
+
+1. **Configuración de modos de combate según tipo de carta**: diseñar posteriormente las conductas personalizadas de las distintas clases o invocaciones, separadas de la regla base de primer enemigo en alcance. No activar persecución lejana ni tácticas complejas hasta definir esos perfiles.
+2. **Animación de recibir daño en casters — 09**: revisar visiblemente ambos rigs y asegurar que se reproduzca sin cancelar locomoción; con Shift activo debe omitirse.
+3. **Colisiones entre invocaciones** y navegación para rodear otras unidades.
+4. **Prohibir invocar sobre un nexo físicamente ocupado**, manteniendo los nexos como suelo transitable.
+5. **Arena 15 × 30** con ajuste de límites, casillas, cámara, nexos y reglas.
+6. **Visor de animaciones**: composiciones visibles en catálogo, desplazamientos invertidos y edición universal por hueso.
+7. **Aviso ¡! de amenaza enemiga** cuando una invocación rival tenga al caster dentro de su alcance.
