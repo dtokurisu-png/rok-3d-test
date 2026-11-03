@@ -39,6 +39,8 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,onMo
   if(caster){
    caster.manualDefending=value;
    if(value){
+    // Defense has priority: cancel any attack still in its wind-up phase.
+    attackAction=null;attackDuration=0;attackElapsed=0;attackReleased=false;
     const clip=clips.get('defense')||caster.model?.userData?.rokDefenseClip;
     if(clip&&caster.mixer){
      caster.mixer.stopAllAction();
