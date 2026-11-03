@@ -54,6 +54,9 @@ La [Arena 2.5D](./arena-25d.html) admite el ataque provisional con **Espacio** o
 ## Casters — Etapa 6: torso, piernas y escudo frontal
 En la [Arena 2.5D v0.9.22](./arena-25d.html), **Chiara y Lioren** usan ahora animaciones enmascaradas por hueso. El tren inferior continúa la marcha WASD mientras el torso ejecuta **ataque 02 (Espacio)** o **defensa 23 (Shift)**. Mantener Shift deja la defensa en el último fotograma sin bucle, a velocidad **1,8×**, y muestra una barrera circular turquesa **delante** del caster; soltar Shift oculta el escudo. Los impactos sin guardia aplican la reacción **09 aditiva de cabeza/cuello**, sin cancelar las piernas. La composición definitiva de 23 y el casteo 21+22 aún deben ajustarse junto con el usuario. [Detalles técnicos y pruebas](./docs/CASTER_LAYERED_ACTIONS.md). **La reproducción WebGL real aún requiere comprobación visual.**
 
+## Casters — Etapa 7: velocidad, ataque y percepción de alcance
+La [Arena 2.5D](./arena-25d.html) utiliza velocidad inicial **3.8**, un ataque cada **1 segundo**, y alcance efectivo **2** para Chiara y Lioren. Un anillo turquesa de radio 2 aparece gradualmente al acercarse una invocación rival (desde distancia 4.5, pleno al llegar a 2); una pequeña diana dorada marca a la invocación cuando ya está dentro del alcance. El disparo prioriza enemigos invocados dentro del alcance real y, en ausencia de ellos, al caster rival en el mismo radio; no dispara hacia objetivos lejanos. **Pendiente:** símbolo **¡!** cuando una invocación enemiga tenga al caster a tiro. [Detalles y pendientes](./docs/CASTER_LAYERED_ACTIONS.md).
+
 ## Animaciones
 El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 y 20 excluidos. Solo quedan **17 disponibles**. El rechazo no renumera las animaciones para proteger referencias de código. Las antiguas 04/05 permanecen dentro del ZIP original compartido; las cuatro FBX 17–20 ya habían sido eliminadas.
 
