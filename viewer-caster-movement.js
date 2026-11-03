@@ -136,6 +136,7 @@ export function createViewerCasterMovement({
   if(!enabled||!prepared||defending||guardLoading||guards.size>0||attackRemaining>0||attackCooldown>0||attackLoading)return false;
   const st=prepared,ticket=revision;
   attackLoading=true;
+  report('Preparando ataque compuesto 24 con los FBX disponibles…');
   try{
    const clip=await getActionClip('attack',st.model,st.character);
    if(!stillCurrent(ticket,st.model,st.character)||defending||!clip)return false;
@@ -161,6 +162,7 @@ export function createViewerCasterMovement({
   if(defending||guardLoading)return true;
   const st=prepared,ticket=revision;
   guardLoading=true;
+  report('Preparando defensa compuesta 29 con los FBX disponibles…');
   try{
    const clip=await getActionClip('defense',st.model,st.character);
    if(!stillCurrent(ticket,st.model,st.character)||!guards.size||!clip)return false;
