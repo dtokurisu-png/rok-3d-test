@@ -23,10 +23,39 @@ controls.enableDamping=true;controls.maxPolarAngle=Math.PI*.49;
 controls.target.set(0,0,0);controls.minDistance=4;controls.maxDistance=70;
 scene.add(new THREE.HemisphereLight(0xc9e9ff,0x334858,2.1));
 const sunlight=new THREE.DirectionalLight(0xffffff,2.1);sunlight.position.set(8,16,6);scene.add(sunlight);
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshStandardMaterial({color:0x23333d,roughness:1,metalness:0,side:THREE.DoubleSide}));
-ground.rotation.x=-Math.PI/2;ground.position.y=-.025;scene.add(ground);
-const grid=new THREE.GridHelper(W,W,0x33918e,0x27525b);
-grid.position.y=.003;grid.scale.z=D/W;scene.add(grid);
+const base=new THREE.Mesh(new THREE.BoxGeometry(W+.5,.25,D+.5),new THREE.MeshStandardMaterial({color:0x182b31,metalness:.15,roughness:.83}));
+base.position.y=-.16;scene.add(base);
+const tileGeometry=new THREE.PlaneGeometry(.986,.986);
+const tileMaterial=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,side:THREE.DoubleSide});
+const tiles=new THREE.InstancedMesh(tileGeometry,tileMaterial,W*D);
+tiles.rotation.x=-Math.PI/2;tiles.position.y=.014;
+const dummy=new THREE.Object3D(),tileColor=new THREE.Color();
+for(let row=0;row<D;row++)for(let col=0;col<W;col++){
+ const idx=row*W+col;
+ dummy.position.set(col-(W-1)/2,(D-1)/2-row,0);dummy.updateMatrix();tiles.setMatrixAt(idx,dummy.matrix);
+ const enemy=row<9;
+ tileColor.setHex(enemy?(idx%2?0x29404e:0x263947):(idx%2?0x214945:0x203e3e));
+ tiles.setColorAt(idx,tileColor);
+}
+tiles.instanceMatrix.needsUpdate=true;if(tiles.instanceColor)tiles.instanceColor.needsUpdate=true;
+scene.add(tiles);
+const lines=[];
+for(let x=-W/2;x<=W/2;x+=1){lines.push(x,.032,-D/2,x,.032,D/2);}
+for(let z=-D/2;z<=D/2;z+=1){lines.push(-W/2,.032,z,W/2,.032,z);}
+const gridGeometry=new THREE.BufferGeometry();gridGeometry.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));
+const grid=new THREE.LineSegments(gridGeometry,new THREE.LineBasicMaterial({color:0x319391,transparent:true,opacity:.6}));scene.add(grid);
+const arenaTextureUrl='https://dtokurisu-png.github.io/rok-lirte-html/assets/arena.webp';
+const arenaArt=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshBasicMaterial({transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide}));
+arenaArt.rotation.x=-Math.PI/2;arenaArt.position.y=.023;arenaArt.scale.set(1.8,1.25,1);scene.add(arenaArt);
+new THREE.TextureLoader().load(arenaTextureUrl,texture=>{
+ texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+ arenaArt.material.map=texture;arenaArt.material.needsUpdate=true;
+},undefined,()=>status('Textura original no disponible; tablero base activo'));
+fetch('./arena-background.css',{cache:'no-cache'}).then(r=>r.ok?r.text():Promise.reject(Error('CSS'))).then(css=>{
+ const parse=name=>Number.parseFloat(css.split('--rok-arena-bg-'+name+':')[1]);
+ const w=parse('width'),h=parse('length');
+ if(Number.isFinite(w)&&Number.isFinite(h))arenaArt.scale.set(clamp(w,100,220)/100,clamp(h,100,220)/100,1);
+}).catch(()=>{});
 const border=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(W,.02,D)),new THREE.LineBasicMaterial({color:0x398d8d}));
 scene.add(border);
 const level=new THREE.Group();scene.add(level);
