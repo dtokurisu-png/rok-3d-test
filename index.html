@@ -1299,7 +1299,102 @@ async function loadArcherSharedAnimations(){
   }
   snapshotCharacterClips();
 }
-async function switchCharacter(character,forceReload=false){
+async 
+/* Variantes nuevas, en el visor ORIGINAL; no se crea una página independiente.
+   Inventario Git versionado, decisiones por Kaster y exportación explícita.
+   Las elecciones no borran ni modifican FBX del repositorio. */
+let newCasterCatalog=[];
+const newCasterDecisions=new Map();
+let newCasterBusy=false;
+function newCasterReviewKey(id){return currentCharacter+':'+id;}
+function newCasterDecisionExport(){
+  return {schemaVersion:1,source:'rok-3d-test/index.html',decisions:
+    ['farolera','archer','chiara','lioren'].flatMap(character=>
+      newCasterCatalog.map(entry=>({character,id:entry.id,path:entry.path,sha:entry.sha,
+        decision:newCasterDecisions.get(character+':'+entry.id)||'pending'})))};
+}
+function renderNewCasterRows(){
+  const node=document.querySelector('#newCasterClipList');
+  if(!node)return;
+  node.replaceChildren();
+  for(const clip of newCasterCatalog){
+    const wrap=document.createElement('div');wrap.style.cssText=
+      'border:1px solid #346269;border-radius:8px;padding:7px;background:#112b35';
+    const line=document.createElement('div');line.style.cssText=
+      'display:flex;align-items:center;justify-content:space-between;gap:6px';
+    const title=document.createElement('span');title.textContent=clip.path;
+    title.style.cssText='font-size:11px;overflow-wrap:anywhere;font-weight:bold';
+    const play=document.createElement('button');play.type='button';play.textContent='▶ Probar';
+    play.disabled=newCasterBusy||characterSwitching||!model;
+    const note=document.createElement('div');
+    note.style.cssText='font-size:10px;color:#bcdbd9;overflow-wrap:anywhere';
+    note.textContent='SHA '+clip.sha.slice(0,10)+' · '+clip.group;
+    play.onclick=async()=>{
+      if(newCasterBusy||characterSwitching||!model)return;
+      newCasterBusy=true;renderNewCasterRows();
+      const current=currentCharacter;
+      const feedback=document.querySelector('#newCasterStatus');
+      feedback.textContent='Cargando '+clip.path+' para '+current+'…';
+      try{
+        const response=await fetch('./'+encodeURIComponent(clip.path),{cache:'force-cache'});
+        if(!response.ok)throw Error('HTTP '+response.status);
+        const bytes=await response.arrayBuffer();
+        if(currentCharacter!==current)throw Error('El Kaster cambió antes de terminar la descarga');
+        await importAnimation(clip.path,bytes);
+        const row=animationRows.find(x=>x.name===clip.path);
+        if(!row?.clip)throw Error(row?.details||'No se consiguió adaptar el clip al esqueleto');
+        playAnimation(row.index);
+        feedback.textContent='Reproduciendo '+clip.path+' · '+row.details+
+          ' · selecciona Conservar o Descartar para '+current+'.';
+      }catch(error){
+        feedback.textContent='No se pudo reproducir '+clip.path+': '+String(error.message||error);
+      }finally{newCasterBusy=false;renderNewCasterRows();}
+    };
+    line.append(title,play);
+    const choices=document.createElement('div');choices.style.cssText=
+      'display:flex;gap:10px;flex-wrap:wrap;margin-top:5px';
+    for(const [decision,label] of [['pending','Pendiente'],['keep','Conservar'],['discard','Descartar']]){
+      const option=document.createElement('label');option.style.fontSize='11px';
+      const radio=document.createElement('input');radio.type='radio';
+      radio.name='new-clip-'+currentCharacter+'-'+clip.id;
+      radio.checked=(newCasterDecisions.get(newCasterReviewKey(clip.id))||'pending')===decision;
+      radio.onchange=()=>{newCasterDecisions.set(newCasterReviewKey(clip.id),decision);
+        document.querySelector('#newCasterStatus').textContent=
+          'Selección marcada para '+currentCharacter+'; exporta JSON para guardarla en GitHub.';};
+      option.append(radio,document.createTextNode(' '+label));choices.append(option);
+    }
+    wrap.append(line,note,choices);node.append(wrap);
+  }
+}
+document.querySelector('#newCasterCopy').onclick=async()=>{
+  try{await navigator.clipboard.writeText(JSON.stringify(newCasterDecisionExport(),null,2));
+    document.querySelector('#newCasterStatus').textContent=
+      'Selección copiada. Pégala en el chat para conservar las decisiones.';}
+  catch{document.querySelector('#newCasterStatus').textContent=
+    'No se pudo copiar. Puedes exportar el JSON.';}
+};
+document.querySelector('#newCasterExport').onclick=()=>{
+  const json=new Blob([JSON.stringify(newCasterDecisionExport(),null,2)],{type:'application/json'});
+  const href=URL.createObjectURL(json);
+  const anchor=document.createElement('a');anchor.href=href;
+  anchor.download='rok-visor-animation-decisions.json';anchor.click();
+  setTimeout(()=>URL.revokeObjectURL(href),2000);
+  document.querySelector('#newCasterStatus').textContent=
+    'JSON exportado. Envíamelo para registrar las decisiones en GitHub.';
+};
+fetch('./assets/manifests/caster-animations.json',{cache:'no-store'})
+  .then(response=>{if(!response.ok)throw Error('Catálogo no disponible');return response.json();})
+  .then(manifest=>{
+    newCasterCatalog=manifest.animations||[];
+    renderNewCasterRows();
+    document.querySelector('#newCasterStatus').textContent=
+      newCasterCatalog.length+' animaciones detectadas. Elige un Kaster y pulsa Probar.';
+  }).catch(error=>{
+    document.querySelector('#newCasterStatus').textContent=
+      'Error al leer catálogo: '+String(error.message||error);
+  });
+
+function switchCharacter(character,forceReload=false){
   if(characterSwitching||!model||(character===currentCharacter&&!forceReload))return;
   if(loadingAnimations){
     characterSelect.value=currentCharacter;
