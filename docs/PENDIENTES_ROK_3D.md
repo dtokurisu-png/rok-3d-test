@@ -1,5 +1,7 @@
 # R.O.K. 3D — Pendientes guardados
 
+**Para retomar en otro chat:** [Lista de comprobación completa y estado actual](./CONTINUIDAD_CHAT_NUEVO.md). El siguiente trabajo es el **sistema de escenarios 15×30**; no tocar el visor de animaciones.
+
 Actualizado: 2026-11-03. Estos trabajos se posponen deliberadamente y **no deben implementarse mientras se resuelven las tareas activas**, salvo nueva indicación.
 
 ## Nueva prioridad de trabajo
