@@ -287,6 +287,7 @@ const faroleraRoles={
   13:'Restauración desde el suelo',14:'Casteo provisional del portal'
 };
 const candidateRoles={3:'Candidata: lanzamiento del farol'};
+const rejectedAnimationIds=new Set([4,5,17,18,19,20]);
 const animationRows=animCatalog.map((name,index)=>({
   index:index+1,name,clip:null,status:index<14?'pending':'available',details:'',
   source:index<14?'pack':'repository',
@@ -792,6 +793,7 @@ function makeAnimationClip(sourceRoot,sourceClip,displayName){
 function renderAnimList(){
   animList.replaceChildren();
   for(const row of animationRows){
+    if(rejectedAnimationIds.has(row.index))continue;
     if(currentAnimFilter==='pack'&&row.role==='other')continue;
     if(currentAnimFilter==='other'&&row.role!=='other')continue;
     const el=document.createElement('div');
@@ -852,7 +854,7 @@ function renderAnimList(){
   }
 }
 function renderSelection(){
-  const chosen=animationRows.filter(row=>row.keep);
+  const chosen=animationRows.filter(row=>row.keep&&!rejectedAnimationIds.has(row.index));
   animSelection.textContent=chosen.length?'Seleccionadas: '+chosen.map(row=>String(row.index).padStart(2,'0')).join(', '):
     'Seleccionadas: ninguna.';
 }
@@ -1102,7 +1104,7 @@ document.querySelector('#archerCopyFrame').addEventListener('click',async()=>{
 
 function playAnimation(index){
   const row=animationRows.find(a=>a.index===index);
-  if(!row||!row.clip||!mixer)return;
+  if(!row||rejectedAnimationIds.has(index)||!row.clip||!mixer)return;
   const previous=activeAction;
   // Un solo mixer y esqueleto para todas las pruebas: la lámpara conserva
   // su parent y la física que ya existían en este visor.
@@ -1159,6 +1161,7 @@ function restoreCharacterClips(character){
   const stored=characterClips[character];
   for(let i=0;i<animationRows.length;i++){
     const snapshot=stored?.[i];
+    if(rejectedAnimationIds.has(animationRows[i].index))continue;
     animationRows[i].clip=snapshot?.clip||null;
     animationRows[i].status=snapshot?.status||(animationRows[i].source==='repository'?'available':'pending');
     animationRows[i].details=snapshot?.details||'';
@@ -1310,7 +1313,7 @@ async function loadArcherSharedAnimations(){
   for(const entry of entries){
     const name=entry.name.split('/').pop();
     const row=identifyAnimation(name);
-    if(row.clip)continue;
+    if(rejectedAnimationIds.has(row.index)||row.clip)continue;
     animMessage.textContent='Adaptando Arquera '+(++count)+'/'+entries.length+' · '+name;
     await new Promise(resolve=>setTimeout(resolve,0));
     await importAnimation(name,await entry.async('arraybuffer'));
@@ -1493,7 +1496,7 @@ document.querySelector('#animExport').addEventListener('click',()=>{
     });
   });
   const payload={schemaVersion:1,repository:'dtokurisu-png/rok-3d-test',
-    catalog:'index.html',selections};
+    catalog:'index.html',rejected:[4,5,17,18,19,20],selections:selections.filter(x=>!rejectedAnimationIds.has(x.index))};
   const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
   const link=document.createElement('a');link.href=url;link.download='rok-animation-decisions.json';link.click();
   setTimeout(()=>URL.revokeObjectURL(url),2000);
@@ -1559,7 +1562,7 @@ async function recoverAnimCache(){
     let recovered=0;
     for(const item of found){
       const row=animationRows.find(r=>r.index===item.index&&r.name===item.name);
-      if(!row||row.clip)continue;
+      if(!row||row.clip||rejectedAnimationIds.has(row.index))continue;
       try{
         row.clip=THREE.AnimationClip.parse(item.json);
         row.status='ok';row.details=item.details+' · en caché';recovered++;
@@ -1589,7 +1592,7 @@ function findOldAnimationInArchive(name){
 }
 async function loadOldCasterAnimation(row,playAfter=false){
   const selected=currentCharacter;
-  if(!model||row.source!=='pack'||!['chiara','lioren'].includes(selected))return;
+  if(!model||row.source!=='pack'||rejectedAnimationIds.has(row.index)||!['chiara','lioren'].includes(selected))return;
   if(row.clip){if(playAfter)playAnimation(row.index);return;}
   if(row.status==='loading')return;
   row.status='loading';row.details='Preparando FBX original para '+selected+'…';
@@ -1612,7 +1615,7 @@ async function loadOldCasterAnimation(row,playAfter=false){
 }
 async function preloadOldCasterAnimations(selected){
   if(currentCharacter!==selected)return;
-  const original=animationRows.filter(row=>row.source==='pack');
+  const original=animationRows.filter(row=>row.source==='pack'&&!rejectedAnimationIds.has(row.index));
   if(!animationArchive)await preloadRepoAnimations();
   if(currentCharacter!==selected)return;
   if(!animationArchive){
@@ -1636,7 +1639,7 @@ async function preloadOldCasterAnimations(selected){
   }
 }
 async function loadNewAnimation(row,playAfter=false){
-  if(!model||row.source!=='repository')return;
+  if(!model||row.source!=='repository'||rejectedAnimationIds.has(row.index))return;
   if(row.clip){if(playAfter)playAnimation(row.index);return;}
   if(row.status==='loading')return;
   const selected=currentCharacter;
@@ -1661,7 +1664,7 @@ async function loadNewAnimation(row,playAfter=false){
 }
 async function preloadNewAnimationsForCharacter(){
   const selected=currentCharacter;
-  const rows=animationRows.filter(row=>row.source==='repository'&&!row.clip);
+  const rows=animationRows.filter(row=>row.source==='repository'&&!row.clip&&!rejectedAnimationIds.has(row.index));
   if(!rows.length)return;
   for(let i=0;i<rows.length;i++){
     if(currentCharacter!==selected)return;
@@ -1699,7 +1702,7 @@ async function preloadRepoAnimations(){
       for(const e of entries){
         const name=e.name.replace(/.*[\/\\]/g,'');
         const row=identifyAnimation(name);
-        if(row.clip)continue;
+        if(rejectedAnimationIds.has(row.index)||row.clip)continue;
         animMessage.textContent='Preparando desde GitHub '+(++done)+'/'+entries.length+' · '+name;
         await importAnimation(name,await e.async('arraybuffer'));
       }
@@ -1714,6 +1717,7 @@ async function preloadRepoAnimations(){
 }
 async function importAnimation(name,buffer){
   const row=identifyAnimation(name);
+  if(rejectedAnimationIds.has(row.index))return;
   try{
     const source=fbxLoader.parse(buffer,'');
     if(!source.animations?.length)throw Error('FBX sin clip de animación');
