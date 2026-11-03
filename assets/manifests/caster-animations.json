@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-02",
+  "purpose": "Catálogo de las últimas animaciones FBX con identidad estable. Mantener fuente root hasta verificar referencias. No inferir duplicación por nombre.",
+  "models": [
+    {
+      "id": "chiara",
+      "name": "Chiara",
+      "path": "chiara kaster.glb",
+      "sha": "7a85a701c23c1c5386d519b708980c5bb90e7f70"
+    },
+    {
+      "id": "lioren",
+      "name": "Lioren",
+      "path": "lioren kaster.glb",
+      "sha": "d8a11255579f3286db126110dd13801744693e96"
+    }
+  ],
+  "animations": [
+    {
+      "id": "right-strafe",
+      "path": "Right Strafe.fbx",
+      "sha": "1cbc9f79ea33138c2b2b3ad287335c72f903ca61",
+      "status": "review",
+      "group": "lateral"
+    },
+    {
+      "id": "right-strafe-1",
+      "path": "Right Strafe (1).fbx",
+      "sha": "08a8b416aa0ecac4b67ef23cf814eacad37834d7",
+      "status": "review",
+      "group": "lateral"
+    },
+    {
+      "id": "backward-arc-right",
+      "path": "Run Backward Arc Right.fbx",
+      "sha": "c9aeade7b43c00afd72d952932d545f9c4f2651b",
+      "status": "review",
+      "group": "backward-arc"
+    },
+    {
+      "id": "backward-arc-right-1",
+      "path": "Run Backward Arc Right (1).fbx",
+      "sha": "e29798807a5af872fee2754e1a57bc7bbaed7bf9",
+      "status": "review",
+      "group": "backward-arc"
+    },
+    {
+      "id": "backward-arc-right-2",
+      "path": "Run Backward Arc Right (2).fbx",
+      "sha": "bda661fbff51f340d1c7342bfa3078ed7ea64395",
+      "status": "review",
+      "group": "backward-arc"
+    },
+    {
+      "id": "backward-arc-right-3",
+      "path": "Run Backward Arc Right (3).fbx",
+      "sha": "4f7500f67663cb2ae330ef2b9fd7e23de181331a",
+      "status": "review",
+      "group": "backward-arc"
+    },
+    {
+      "id": "cast-spell-1h",
+      "path": "Standing 1H Cast Spell 01.fbx",
+      "sha": "0bdcd258dae55e74b804987aa412348106f0cdae",
+      "status": "review",
+      "group": "magic"
+    },
+    {
+      "id": "magic-area-2h-02-1",
+      "path": "Standing 2H Magic Area Attack 02 (1).fbx",
+      "sha": "88cbd505ac74c1cafa270e53d8afb40bb3e67e63",
+      "status": "review",
+      "group": "magic"
+    },
+    {
+      "id": "sword-shield-impact",
+      "path": "Sword And Shield Impact.fbx",
+      "sha": "17cab28b37689081e739a5ab80ca968bc0ee10ba",
+      "status": "review",
+      "group": "reaction"
+    }
+  ]
+}
