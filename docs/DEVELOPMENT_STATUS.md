@@ -70,3 +70,11 @@ El usuario informó que el visor 3D dejó de funcionar después de convertir el 
 
 ## 2026-11-03 — Activación de las 14 animaciones anteriores para Kasters
 Se corrigió `index.html` para permitir probar los clips originales 01–14 con Chiara y Lioren aun cuando no estén adaptados todavía al rig seleccionado. La precarga de los 14 FBX se inicia sin bloquear el selector de personajes; pulsar una fila solicita carga/retarget y reproducción. Se conserva el catálogo único de 23 entradas y las decisiones de las nueve animaciones nuevas. Sintaxis JS comprobada con V8; falta prueba visual de compatibilidad de los huesos en navegador.
+
+## 2026-11-03 — Organización física completada del tester 3D
+- 19 binarios reorganizados por rutas canónicas: 4 GLB de personajes, 9 GLB de props arcanos, 5 FBX conservados y 1 ZIP Mixamo.
+- Se cambiaron las rutas del visor `index.html`, la arena `arena-25d.html`, el manifest del caster y el iniciador local `INICIAR_VISOR.ps1`.
+- Se corrigió una duplicación de directorio al interpretar las rutas del manifiesto FBX en la arena.
+- Se retiraron los 19 archivos binarios de la raíz tras verificar que sus copias canónicas tenían los mismos SHA de Git. Commit de limpieza `d49335476ad4b411cb4772ba360dffae69e59304`, respaldo `backup-before-asset-root-cleanup-2026-11-03`.
+- Se incorporaron `tests/asset-integrity.test.mjs` y `.github/workflows/asset-integrity.yml`. **No se ha confirmado todavía ejecución del workflow ni QA visual/WebGL**.
+- La reorganización de 175 imágenes del juego R.O.K. Lite está en `assets/images/` del repo principal como copias canónicas, pero sus antiguas rutas siguen activas para evitar romper `game.js` y el CSS.
