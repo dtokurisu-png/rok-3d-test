@@ -99,7 +99,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.23 · Alcance 2</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.24 · Alcance 3</div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -1259,7 +1259,7 @@ function createCaster(baseScene,clip,side){
   const mixer=new THREE.AnimationMixer(model);
   mixer.clipAction(clip).play();mixer.update(0);
   const c={role:'caster',side,outer,model,mixer,idleClip:clip,
-    startZ,hp:12,maxHp:12,stage:'active',attackRange:2,moveSpeed:3.8,attackPeriod:1};
+    startZ,hp:12,maxHp:12,stage:'active',attackRange:3,moveSpeed:3.8,attackPeriod:1};
   casters.push(c);
   return c;
 }
@@ -3067,10 +3067,10 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
 
 // Both caster rigs share the same masked locomotion/upper-body system.
 const casterLayers=createCasterLayerSystem(THREE);
-const casterRangeIndicator=createCasterRangeIndicator({THREE,range:2,approach:4.5});
+const casterRangeIndicator=createCasterRangeIndicator({THREE,range:3,approach:5.5});
 function casterAttackTarget(c){
  if(!c||c.stage!=='active')return null;
- // Match the target marker: prioritize the closest hostile summon in radius 2.
+ // On-press target validation: nearest summon first within radius 3.
  const enemies=combatants.filter(e=>e.side!==c.side&&canDamageTarget(e));
  const summon=casterRangeIndicator.choose(c,enemies,canDamageTarget).target;
  if(summon)return summon;
@@ -3088,12 +3088,13 @@ casterMovement=createCasterMobility({
  prepareClips:movementLoader.load,
  layers:casterLayers,
  reviveCaster:c=>{if(c&&c.stage!=='active')resetCaster(c);},
- onAttack:c=>{
-  const enemy=casterAttackTarget(c);
-  if(!enemy)return;
-  // Only fire at the nearest hostile within the real radius 2.
+ getAttackTarget:casterAttackTarget,
+ onAttack:(c,lockedTarget)=>{
+  // The target is committed at Space keydown. Do not recheck radius at
+  // release: WASD movement during the windup must not cancel the shot.
+  if(!lockedTarget)return;
   c.kind='caster';c.attackDamage=1;
-  launchSpell(c,enemy);
+  launchSpell(c,lockedTarget);
  },
  onModeChange:(enabled)=>{
   // The selected caster is manual; the rest of the simulation remains live.
