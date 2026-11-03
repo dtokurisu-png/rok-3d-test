@@ -39,6 +39,9 @@ El [Creador de escenarios](./scene-editor.html) reutiliza la geometría 9 × 18 
 ## Etapa 5 — Probar escenarios en Arena 2.5D
 La [Arena 2.5D](./arena-25d.html) incluye ahora **Escenario 3D** en Opciones. Puede importar un escenario JSON creado en la etapa 4, mostrar/ocultar decoraciones, restaurar la arena original y cargar escenarios publicados listados en `assets/scenes/catalog.json`. La carga de GLB y VFX es visual e independiente del motor de combate; **los objetos no generan obstáculos ni colisiones**. El catálogo publicado empieza vacío hasta realizar commits de escenarios aprobados. [Instrucciones y limitaciones](./assets/scenes/TESTER_INTEGRATION.md).
 
+## Animaciones de casters — Etapa 2 (Inspector universal)
+El [visor de animaciones](./index.html) tiene ahora un inspector universal para el clip activo: adelantar/retroceder fotogramas, elegir muestreo 24/30/60 FPS, ajustar velocidad, marcar inicio/final y exportar intervalos JSON. **No altera los clips originales ni reemplaza el inspector especial de Arquera 10.** Consulta [instrucciones, formato y límites](./docs/UNIVERSAL_FRAME_INSPECTOR.md) y la [auditoría previa](./docs/CASTER_ANIMATION_AUDIT.md).
+
 ## Animaciones
 El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 y 20 excluidos. Solo quedan **17 disponibles**. El rechazo no renumera las animaciones para proteger referencias de código. Las antiguas 04/05 permanecen dentro del ZIP original compartido; las cuatro FBX 17–20 ya habían sido eliminadas.
 
