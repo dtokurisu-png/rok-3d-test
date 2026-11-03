@@ -19,7 +19,7 @@ test('Arena has only the compact lower-right D-pad, no wide Studio bar or activa
  assert.match(css,/#casterMobilityPanel\{[^}]*position:fixed/);
  assert.match(css,/bottom:calc\(77px/);
  assert.match(css,/width:158px/);
- assert.match(html,/v0\.9\.17 · WASD/);
+ assert.match(html,/v0\.9\.18 · WASD libre/);
 });
 
 test('WASD automatically activates and moves before animation loading completes',async()=>{
