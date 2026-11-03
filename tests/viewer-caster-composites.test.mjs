@@ -33,7 +33,9 @@ const base=new Clip('Running',1,[
  track('Spine.quaternion')]);
 const attack=new Clip('Magic Heal 02',2,[
  track('Hips.quaternion'),track('Spine.quaternion'),
- track('RightArm.quaternion'),track('RightHand.quaternion')]);
+ track('RightArm.quaternion'),track('RightHand.quaternion'),
+ track('LeftArm.quaternion'),track('LeftForeArm.quaternion'),
+ track('LeftHand.quaternion')]);
 const defense=new Clip('Impact 23',1.6,[
  track('Hips.quaternion'),track('Spine.quaternion'),
  track('LeftArm.quaternion'),track('LeftHand.quaternion')]);
@@ -67,6 +69,12 @@ test('attack composition uses real lower locomotion with upper attack 02',()=>{
  assert.equal(clip.tracks[0].times.length,37);
  assert.equal(clip.userData.rokComposite,true);
  assert.equal(clip.userData.kind,'attack');
+ assert.equal(clip.userData.attackStartFrame,13);
+ assert.equal(clip.userData.attackSourceFPS,30);
+ assert.equal(clip.userData.excludeLeftArm,true);
+ assert.equal(clip.userData.blendIn,.2);
+ assert.equal(clip.userData.blendOut,.2);
+ assert.ok(!clip.tracks.some(t=>/LeftArm|LeftForeArm|LeftHand/.test(t.name)));
 });
 test('defense composition keeps legs in motion and upper-body defense 23',()=>{
  const clip=buildCasterCompositeClip(THREE,{
@@ -91,4 +99,42 @@ test('viewer generates composites on demand and retains original player and fram
  assert.match(html,/createUniversalFrameInspector\(\{/);
  assert.match(html,/const animCatalog=\[/);
  assert.match(html,/const animationRows=animCatalog\.map/);
+});
+
+test('composite attack samples frame 13 and blends smoothly with locomotion',()=>{
+ const sampled=[];
+ class RecordingTrack extends Track{
+  createInterpolant(){
+   return {evaluate:t=>{
+    sampled.push({bone:this.name,time:t});
+    if(this.name==='Spine.quaternion')return [0,Math.sin(t*.2),0,Math.cos(t*.2)];
+    return this.value;
+   }};
+  }
+ }
+ const locomotion=new Clip('Run',1,[
+  track('Hips.position'),track('LeftUpLeg.quaternion'),
+  new RecordingTrack('Spine.quaternion',[0,0,0,1]),
+  track('LeftArm.quaternion'),track('LeftForeArm.quaternion')]);
+ const action=new Clip('02',2,[
+  new RecordingTrack('Spine.quaternion',[0,0,0,1]),
+  track('RightArm.quaternion'),
+  track('LeftArm.quaternion'),track('LeftForeArm.quaternion')]);
+ const clip=buildCasterCompositeClip(THREE,{
+  preset:COMPOSITE_PRESETS[1],motionClip:locomotion,
+  actionClip:action,idleClip:locomotion
+ });
+ const actionSamples=sampled.filter(x=>x.bone==='Spine.quaternion');
+ // Spine interpolants from both locomotion and attack are sampled; the
+ // action source begins at 13/30 seconds rather than zero.
+ assert.ok(actionSamples.some(x=>Math.abs(x.time-13/30)<1e-9));
+ assert.ok(!clip.tracks.some(t=>/LeftArm|LeftForeArm/.test(t.name)&&
+   t.name==='LeftArm.quaternion'&&t.values.length!==clip.tracks[0].values.length*4/3));
+ assert.ok(clip.tracks.some(t=>t.name==='LeftArm.quaternion'));
+ assert.ok(clip.tracks.some(t=>t.name==='LeftForeArm.quaternion'));
+ // The attack begins in the locomotion pose and ends back in locomotion.
+ const spine=clip.tracks.find(t=>t.name==='Spine.quaternion');
+ assert.ok(spine);
+ assert.equal(spine.values[1],0);
+ assert.ok(Math.abs(spine.values.at(-3))<.3);
 });
