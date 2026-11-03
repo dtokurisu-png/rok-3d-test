@@ -115,7 +115,6 @@ canvas{display:block;touch-action:none}
       <div class="sceneTesterButtons"><button id="testerSceneApply" type="button" disabled>Cargar publicado</button><label class="sceneTesterLine"><input id="testerSceneVisible" type="checkbox" checked> Decoraciones visibles</label></div>
       <p id="testerSceneStatus" class="sceneTesterStatus" role="status">Preparando biblioteca…</p>
     </section>
-    <section id="casterMobilityPanel" aria-label="Control manual de casters"><strong>Movilidad · Chiara / Lioren</strong><div class="casterMoveRow"><label for="casterMoveSide">Caster</label><select id="casterMoveSide"><option value="ally">Lioren · aliado</option><option value="enemy">Chiara · rival</option></select><label class="casterMoveToggle"><input type="checkbox" id="casterMoveEnable"> Control manual</label></div><div class="casterMoveRow"><label for="casterMoveSpeed">Velocidad</label><input type="range" id="casterMoveSpeed" min=".5" max="6" step=".1" value="2.2"><output id="casterMoveSpeedText">2.2 u/s</output></div><p>W: adelante (07) · S: atrás (06) · A: izquierda (15) · D: derecha (16). Reposo: Standing Idle.</p><p>Teclas: <span id="casterMoveKeys">—</span></p><p id="casterMoveStatus" role="status">Control manual desactivado.</p></section>
     <section id="casterAnimationReview" aria-label="Animaciones de los Kasters" style="border:1px solid #277e7c;border-radius:10px;padding:10px;margin:10px 0;background:#0c2731">
       <strong style="color:#00ffe4">KASTERS · ANIMACIONES EN ESTA ARENA</strong>
       <p>Prueba los movimientos sobre los Kasters del campo actual. El combate se pausa mientras revisas; no se modifica ninguna regla.</p>
@@ -160,6 +159,23 @@ canvas{display:block;touch-action:none}
 <div id="summonCastLayer" aria-hidden="true"></div>
 <div id="phase">Preparando combate…</div>
 <div id="hint">1 dedo: girar · 2 dedos: zoom<br>Arriba: rival · Abajo: aliado</div>
+<section id="casterMobilityPanel" aria-label="Control manual visible de casters">
+ <div class="casterMoveHeading"><strong>CONTROL DEL CASTER · WASD</strong><span id="casterMoveReady" aria-live="polite">● Esperando</span></div>
+ <div class="casterMoveRow casterMoveChoice">
+  <label for="casterMoveSide">Personaje</label>
+  <select id="casterMoveSide"><option value="ally">Lioren · aliado</option><option value="enemy">Chiara · rival</option></select>
+ </div>
+ <label class="casterMoveToggle" for="casterMoveEnable"><input type="checkbox" id="casterMoveEnable"><span>ACTIVAR CONTROL MANUAL</span></label>
+ <div class="casterMovePad" aria-label="Botones para mover al caster">
+  <button type="button" data-move-key="KeyW" aria-label="Avanzar (W)">W <span>↑</span></button>
+  <button type="button" data-move-key="KeyA" aria-label="Izquierda (A)">A <span>←</span></button>
+  <button type="button" data-move-key="KeyS" aria-label="Retroceder (S)">S <span>↓</span></button>
+  <button type="button" data-move-key="KeyD" aria-label="Derecha (D)">D <span>→</span></button>
+ </div>
+ <div class="casterMoveRow casterMoveSpeedRow"><label for="casterMoveSpeed">Velocidad</label><input type="range" id="casterMoveSpeed" min=".5" max="6" step=".1" value="2.2"><output id="casterMoveSpeedText">2.2 u/s</output></div>
+ <div class="casterMoveFooter">Teclas: <strong id="casterMoveKeys">—</strong></div>
+ <p id="casterMoveStatus" role="status">Selecciona un caster y activa el control.</p>
+</section>
 <div id="bottom">
   <button class="primary" id="repeat" disabled>↻ Repetir</button>
   <button id="pause" disabled>Ⅱ Pausar</button>
