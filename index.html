@@ -15,6 +15,14 @@
 #archerMaterialInfo{display:none;width:100%;font-size:11px;color:#ffdfa8;line-height:1.35;overflow-wrap:anywhere}
 .animRow.farolera{border-left:3px solid #00ffe4}
 .animRow.candidate{border-left:3px solid #ffce6b}
+.animRow.composite-attack{border-left:4px solid #b98cff;background:#231b37}
+.animRow.composite-defense{border-left:4px solid #61b4ff;background:#152d42}
+.animRow.composite-attack .animRole,.animRow.composite-attack .animNo{color:#dec1ff}
+.animRow.composite-defense .animRole,.animRow.composite-defense .animNo{color:#9ad9ff}
+.animRow.composite-attack.active{border-color:#d5a7ff;background:#37254b}
+.animRow.composite-defense.active{border-color:#8fd5ff;background:#214360}
+.animRow.composite-attack button{color:#eee1ff}
+.animRow.composite-defense button{color:#d8eeff}
 .animRole{display:block;font-size:10px;margin-top:3px;color:#8bf4e0}
 .animRow.candidate .animRole{color:#ffce6b}
 .animRow{display:grid;grid-template-columns:1fr auto auto;gap:5px;align-items:center;padding:5px;border:1px solid #244a57;border-radius:7px;background:#0b1b28}
@@ -130,7 +138,7 @@
 <div class="ufTools"><button id="ufCopy" type="button">Copiar intervalo</button><button id="ufExport" type="button">Exportar intervalo JSON</button></div>
 <p id="ufStatus" class="ufStatus" role="status"></p><p class="ufNote">Selecciona una animación de la lista. Marca los fotogramas que combinaremos después. No modifica los FBX originales.</p>
 </section>
-<p id="animMessage" role="status">Catálogo activo: 17 animaciones. Retiradas: 04, 05, 17, 18, 19 y 20.</p>
+<p id="animMessage" role="status">Catálogo: 17 clips originales activos y 10 composiciones de prueba (violeta = ataque, azul = defensa). Retiradas: 04, 05, 17, 18, 19 y 20.</p>
 <section id="viewerMovePanel" aria-label="Control WASD en visor">
 <h3>Movilidad · Chiara / Lioren</h3>
 <label class="viewerMoveOption"><input id="viewerMoveEnable" type="checkbox"> Activar WASD en el visor</label>
@@ -150,6 +158,7 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {clone as cloneSkinned,retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createUniversalFrameInspector} from './universal-frames.js';
 import {createViewerCasterMovement} from './viewer-caster-movement.js';
+import {COMPOSITE_PRESETS,COMPOSITE_MOTION_IDS,buildCasterCompositeClip} from './viewer-caster-composites.js';
 const status=document.querySelector('#status'), details=document.querySelector('#details'),error=document.querySelector('#error'),fps=document.querySelector('#fps'),toggle=document.querySelector('#toggle');
 const mobileToggle=document.querySelector('#mobileToggle'), hud=document.querySelector('.hud');mobileToggle.addEventListener('click',()=>{const closed=hud.classList.toggle('mobile-closed');mobileToggle.textContent=closed?'Mostrar controles':'Ocultar controles';mobileToggle.setAttribute('aria-expanded',String(!closed));});
 // Prueba de desplazamiento amortiguado: la cámara permanece fija; el personaje se mueve sobre Z.
@@ -316,6 +325,13 @@ const animationRows=animCatalog.map((name,index)=>({
   keep:!!faroleraRoles[index+1],
   role:faroleraRoles[index+1]?'farolera':candidateRoles[index+1]?'candidate':'other'
 }));
+// Extend the SAME catalog. Numbers 01–23 stay intact and aren't renumbered.
+for(const preset of COMPOSITE_PRESETS){
+ animationRows.push({index:preset.index,name:preset.name,clip:null,status:'pending',
+  details:'Vista previa: piernas en movimiento + torso '+(preset.action==='attack'?'ataque 02':'defensa 23'),
+  source:'composite',preset,review:'undecided',keep:false,
+  role:preset.action==='attack'?'composite-attack':'composite-defense'});
+}
 const animList=document.querySelector('#animList');
 const animMessage=document.querySelector('#animMessage');
 const animSelection=document.querySelector('#animSelection');
@@ -815,8 +831,8 @@ function renderAnimList(){
   animList.replaceChildren();
   for(const row of animationRows){
     if(rejectedAnimationIds.has(row.index))continue;
-    if(currentAnimFilter==='pack'&&row.role==='other')continue;
-    if(currentAnimFilter==='other'&&row.role!=='other')continue;
+    if(currentAnimFilter==='pack'&&(row.role==='other'||row.source==='composite'))continue;
+    if(currentAnimFilter==='other'&&row.role!=='other'&&row.source!=='composite')continue;
     const el=document.createElement('div');
     el.className='animRow '+(row.clip?'ok ':'')+(row.status==='error'?'error ':'')+
       (activeAnimation===row.index?'active ':'')+row.role;
@@ -826,14 +842,17 @@ function renderAnimList(){
     play.type='button';
     // Los catorce clips originales se pueden solicitar para Chiara/Lioren
     // aunque todavia no se haya realizado su retarget en este modelo.
-    play.disabled=!model||(!row.clip&&!legacyCasterUnloaded&&row.source!=='repository');
+    play.disabled=!model||(row.source==='composite'&&!casterSelected)||
+      (!row.clip&&!legacyCasterUnloaded&&row.source!=='repository'&&row.source!=='composite');
     play.textContent=String(row.index).padStart(2,'0')+' · '+row.name.replace(/\.fbx$/i,'');
-    if(faroleraRoles[row.index]||candidateRoles[row.index]){
+    if(faroleraRoles[row.index]||candidateRoles[row.index]||row.source==='composite'){
       const tag=document.createElement('small');tag.className='animRole';
-      tag.textContent=faroleraRoles[row.index]||candidateRoles[row.index];
+      tag.textContent=row.source==='composite'?
+        (row.preset.action==='attack'?'◆ COMPUESTA · ATAQUE':'◆ COMPUESTA · DEFENSA'):
+        faroleraRoles[row.index]||candidateRoles[row.index];
       play.append(tag);
     }
-    play.title=row.details||(row.source==='repository'?
+    play.title=row.details||(row.source==='composite'?'Compuesta para Chiara / Lioren. Pulsa para generar y reproducir.':row.source==='repository'?
       'Archivo FBX publicado en GitHub. Pulsa para reproducirlo.':
       legacyCasterUnloaded?'Animación del paquete original. Pulsa para adaptarla a este Kaster.':
       'Animación del paquete original.');
@@ -841,12 +860,13 @@ function renderAnimList(){
       if(row.clip)playAnimation(row.index);
       else if(legacyCasterUnloaded)void loadOldCasterAnimation(row,true);
       else if(row.source==='repository')void loadNewAnimation(row,true);
+      else if(row.source==='composite')void loadCompositeAnimation(row,true);
     });
     const state=document.createElement('span');state.className='animNo';
     state.textContent=row.status==='error'?'⚠ Error':row.clip?'✓ Lista':
       row.status==='loading'?'… Cargando':
-      row.source==='repository'?'✓ GitHub':legacyCasterUnloaded?'↻ Cargar':'—';
-    state.title=row.source==='repository'?
+      row.source==='composite'?'◈ Componer':row.source==='repository'?'✓ GitHub':legacyCasterUnloaded?'↻ Cargar':'—';
+    state.title=row.source==='composite'?'Se genera en memoria usando los clips reales del modelo seleccionado':row.source==='repository'?
       (row.status==='error'?'Existe en GitHub, pero no se pudo adaptar a este modelo':
        row.clip?'Reproducción preparada':'Archivo existente en GitHub; se prepara al cargar el modelo'):
       (row.clip?'Animación preparada':'Pendiente de cargar el pack original');
@@ -1176,7 +1196,9 @@ function playAnimation(index){
   next.enabled=true;next.setEffectiveWeight(1);
   next.setEffectiveTimeScale(currentCharacter==='archer'&&index===10?
     archerPreviewSpeed:1);
-  next.setLoop(THREE.LoopRepeat,Infinity);
+  next.setLoop(row.source==='composite'&&row.preset.action==='defense'?
+    THREE.LoopOnce:THREE.LoopRepeat,row.source==='composite'&&row.preset.action==='defense'?1:Infinity);
+  next.clampWhenFinished=row.source==='composite'&&row.preset.action==='defense';
   next.play();
   if(previous&&previous!==next){
     previous.fadeOut(.18);
