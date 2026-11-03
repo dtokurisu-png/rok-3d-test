@@ -141,11 +141,13 @@
 </section>
 <p id="animMessage" role="status">Catálogo: 17 clips originales activos y 10 composiciones de prueba (violeta = ataque, azul = defensa). Retiradas: 04, 05, 17, 18, 19 y 20.</p>
 <section id="viewerMovePanel" aria-label="Control WASD en visor">
-<h3>Movilidad · Chiara / Lioren</h3>
-<label class="viewerMoveOption"><input id="viewerMoveEnable" type="checkbox"> Activar WASD en el visor</label>
-<label class="viewerMoveSpeed">Velocidad <input id="viewerMoveSpeed" type="range" min=".5" max="6" step=".1" value="2.2"><output id="viewerMoveSpeedValue">2.2 u/s</output></label>
+<h3>Control de prueba · Chiara / Lioren</h3>
+<label class="viewerMoveOption"><input id="viewerMoveEnable" type="checkbox"> Activar controles de la arena (solo animaciones)</label>
+<label class="viewerMoveSpeed">Velocidad <input id="viewerMoveSpeed" type="range" min=".5" max="6" step=".1" value="3.8"><output id="viewerMoveSpeedValue">3.8 u/s</output></label>
 <div class="viewerMoveButtons"><button type="button" data-wasd="KeyW">W ↑</button><button type="button" data-wasd="KeyA">A ←</button><button type="button" data-wasd="KeyS">S ↓</button><button type="button" data-wasd="KeyD">D →</button></div>
-<p>W avance (07) · S retroceso (06) · A izquierda (15) · D derecha (16) · Soltar: Standing Idle.</p>
+<div class="viewerActionButtons"><button type="button" id="viewerAttackButton">⚔ Espacio · Atacar</button><button type="button" id="viewerDefenseButton">🛡 Shift · Defender</button></div>
+<p>W adelante (07) · S atrás (06) · A izquierda (16) · D derecha (15). Espacio: ataque compuesto desde fotograma 13. Shift: defensa 23 mientras se mantiene pulsado. Sin proyectiles, escudos visuales, daño ni enemigos.</p>
+<p>Los FBX y modelos que ya cargaste se reutilizan. Desactivar vuelve a la posición y orientación anteriores.</p>
 <p>Teclas: <span id="viewerMoveKeys">—</span></p><p id="viewerMoveStatus" role="status">Selecciona Chiara o Lioren.</p></section>
 <p class="animLegend"><span class="animLegendAttack">◆ Violeta · Compuestas de ataque 24–28</span><span class="animLegendDefense">◆ Azul · Compuestas de defensa 29–33</span></p><div id="animList"></div>
 <div class="animToolbar"><button type="button" id="animFilter">Ver: todas</button><button type="button" id="animCopy">Copiar números marcados</button><button type="button" id="animClear">Limpiar marcas</button><button type="button" id="animExport">Exportar selección JSON</button></div>
@@ -159,6 +161,7 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {clone as cloneSkinned,retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createUniversalFrameInspector} from './universal-frames.js';
 import {createViewerCasterMovement} from './viewer-caster-movement.js';
+import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {COMPOSITE_PRESETS,COMPOSITE_MOTION_IDS,buildCasterCompositeClip} from './viewer-caster-composites.js';
 const status=document.querySelector('#status'), details=document.querySelector('#details'),error=document.querySelector('#error'),fps=document.querySelector('#fps'),toggle=document.querySelector('#toggle');
 const mobileToggle=document.querySelector('#mobileToggle'), hud=document.querySelector('.hud');mobileToggle.addEventListener('click',()=>{const closed=hud.classList.toggle('mobile-closed');mobileToggle.textContent=closed?'Mostrar controles':'Ocultar controles';mobileToggle.setAttribute('aria-expanded',String(!closed));});
@@ -1168,7 +1171,8 @@ function viewerLocomotionAction(clip,id){
  renderAnimList();archerUpdateAttackUI();
 }
 const viewerCasterMovement=createViewerCasterMovement({
- getCharacter:()=>currentCharacter,getModel:()=>model,
+ getCharacter:()=>currentCharacter,getModel:()=>model,getMixer:()=>mixer,
+ makeLayers:()=>createCasterLayerSystem(THREE),
  getClip:id=>animationRows.find(row=>row.index===id)?.clip||null,
  async ensureClip(id){
   const row=animationRows.find(row=>row.index===id);
@@ -1182,7 +1186,22 @@ const viewerCasterMovement=createViewerCasterMovement({
   if(!row.clip)throw Error(row.details||'Clip '+id+' no disponible');
  },
  ensureIdle:loadViewerStandingIdle,
- playClip:id=>viewerLocomotionAction(animationRows.find(row=>row.index===id)?.clip,id),
+ async getActionClip(kind,expectedModel,expectedCharacter){
+  // Reuse the same composed clips (24 and 29) as the catalog.
+  // These already start the attack at frame 13 and exclude the left arm.
+  if(expectedModel!==model||expectedCharacter!==currentCharacter)return null;
+  const row=animationRows.find(r=>r.index===(kind==='attack'?24:29));
+  if(!row)throw Error('Compuesta '+kind+' ausente');
+  if(!row.clip){
+   if(row.status==='loading'){
+    for(let i=0;i<200&&row.status==='loading';i++)
+     await new Promise(resolve=>setTimeout(resolve,100));
+   }else await loadCompositeAnimation(row,false);
+  }
+  if(expectedModel!==model||expectedCharacter!==currentCharacter)return null;
+  if(!row.clip)throw Error(row.details||'Compuesta sin preparar');
+  return row.clip;
+ },
  playIdle:clip=>viewerLocomotionAction(clip||idleOriginal,null)
 });
 
