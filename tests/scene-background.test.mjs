@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {normalizeSceneBackground,createSceneBackground} from '../scene-background.js';
+import {BACKGROUND_DEFAULTS,DEFAULT_GOTHIC_TEXTURE,normalizeSceneBackground,createSceneBackground,resolveBackgroundTexture,textureCandidates} from '../scene-background.js';
 
 class Group{
  constructor(){
@@ -40,6 +40,23 @@ test('Gothic background defaults preserve 15x30 proportions with much larger enc
  assert.equal(c.height,18);
  assert.equal(c.archRise,12);
  assert.equal(c.enabled,true);
+});
+test('sapphire Gothic panorama is selected automatically for new and legacy scenes',()=>{
+ assert.equal(DEFAULT_GOTHIC_TEXTURE,'assets/texturas/Panorama gótica de vitrales zafiro');
+ assert.equal(BACKGROUND_DEFAULTS.texture,DEFAULT_GOTHIC_TEXTURE);
+ assert.equal(normalizeSceneBackground().texture,DEFAULT_GOTHIC_TEXTURE);
+ assert.equal(normalizeSceneBackground({width:80}).texture,DEFAULT_GOTHIC_TEXTURE);
+ assert.equal(normalizeSceneBackground({texture:''}).texture,'');
+ assert.ok(textureCandidates(DEFAULT_GOTHIC_TEXTURE).some(p=>p.endsWith('.png')));
+ assert.ok(textureCandidates(DEFAULT_GOTHIC_TEXTURE).some(p=>p.endsWith('.jpeg')));
+ assert.ok(textureCandidates(DEFAULT_GOTHIC_TEXTURE).some(p=>p.endsWith('.webp')));
+});
+test('Gothic texture resolver discovers real filename extension and accented case',async()=>{
+ const listing=[{type:'file',name:'Panorama gótica de vitrales zafiro.webp'},
+  {type:'file',name:'Other.png'}];
+ const candidates=await resolveBackgroundTexture(DEFAULT_GOTHIC_TEXTURE,listing);
+ assert.equal(candidates[0],'assets/texturas/Panorama gótica de vitrales zafiro.webp');
+ assert.equal(candidates.length>1,true);
 });
 test('background custom width always keeps 1:2 ratio and safe height ranges',()=>{
  const c=normalizeSceneBackground({width:100,height:24,archRise:16});
