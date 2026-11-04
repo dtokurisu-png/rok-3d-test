@@ -402,7 +402,7 @@ const sceneryOverlay=createArenaSceneOverlay({THREE,root,renderStatus:message=>{
  if(arenaArt){arenaArt.material.transparent=true;arenaArt.material.opacity=fraction;arenaArt.material.needsUpdate=true;}
  pendingSceneOpacity=fraction;
 }});
-mountArenaSceneControls(sceneryOverlay);
+const initialSceneLoading=mountArenaSceneControls(sceneryOverlay).ready;
 // Arena ampliada de prueba: 15 columnas X (0–14), 30 filas Z (0–29).
 // Mitad rival: filas 0–14; mitad aliada: filas 15–29.
 const W=15,D=30;
@@ -486,8 +486,9 @@ async function loadSharedArenaBackground(){
   }
 }
 
-loadSharedArenaBackground();
-new THREE.TextureLoader().load(arenaTextureUrl,tex=>{
+const sharedBackgroundReady=loadSharedArenaBackground();
+const arenaTextureReady=new Promise(resolve=>{
+ new THREE.TextureLoader().load(arenaTextureUrl,tex=>{
   tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
   arenaArt=new THREE.Mesh(new THREE.PlaneGeometry(W,D),
     new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:pendingSceneOpacity,
@@ -495,7 +496,12 @@ new THREE.TextureLoader().load(arenaTextureUrl,tex=>{
   arenaArt.rotation.x=-Math.PI/2;arenaArt.position.y=.020;root.add(arenaArt);
   arenaArt.scale.set(arenaSpriteWidth,arenaSpriteLength,1);
   qs('#textureStatus').textContent='Pavimento ornamental azul y beige aplicado al suelo visual 15 × 30; mantiene las casillas y la escala';
-},undefined,()=>{qs('#textureStatus').textContent='Pavimento ornamental no encontrado en assets/texturas; usando baldosas 3D';});
+  resolve(true);
+ },undefined,()=>{
+  qs('#textureStatus').textContent='Pavimento ornamental no encontrado en assets/texturas; usando baldosas 3D';
+  resolve(false);
+ });
+});
 // Cuadrícula exacta: límites X = -7.5..7.5 (16 líneas),
 // límites Z = -15..15 (31 líneas). Cada celda mide 1 × 1.
 const points=[];
@@ -3370,7 +3376,9 @@ function updateDuel(dt){
   }
   for(const c of [...combatants,...casters])updateNameplate(c);
 }
+window.ROKBoot.progress('Descargando modelos de invocaciones…',12);
 new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g=>{
+ window.ROKBoot.progress('Preparando modelos, materiales y animaciones…',27);
   try{
   if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
   let archerScene=null,archerIdle=null;
@@ -3393,13 +3401,14 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   // Kasters reales cargados de forma independiente: se conservan posiciones,
   // vida, etiquetas, combate y animaciones del resto de invocaciones.
   // Mientras descargan, permanece el caster provisional; no bloquean la arena.
+  const casterModelTasks=[];
   for(const spec of [
     {side:'ally',path:'lioren kaster.glb',label:'Lioren'},
     {side:'enemy',path:'chiara kaster.glb',label:'Chiara'}
   ]){
     const caster=casters.find(c=>c.side===spec.side);
     if(!caster)continue;
-    new GLTFLoader().loadAsync('./assets/models/casters/'+(spec.side==='ally'?'lioren':'chiara')+'/'+encodeURIComponent(spec.path)).then(gltf=>{
+    const modelTask=new GLTFLoader().loadAsync('./assets/models/casters/'+(spec.side==='ally'?'lioren':'chiara')+'/'+encodeURIComponent(spec.path)).then(gltf=>{
       const model=cloneSkinned(gltf.scene);
       const bounds=new THREE.Box3().setFromObject(model);
       const h=bounds.getSize(new THREE.Vector3()).y;
@@ -3426,23 +3435,38 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
        qs('#casterMoveStatus').textContent='FBX caster: '+err.message;
       });
        qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' cargado · animaciones en revisión';
-    }).catch(error=>console.warn('[R.O.K.] Caster '+spec.label+' sigue provisional',error));
+    }).catch(error=>{
+     console.error('[R.O.K.] Caster '+spec.label+' no cargado:',error);
+     throw Error('Modelo de '+spec.label+': '+String(error?.message||error));
+    });
+    casterModelTasks.push(modelTask);
   }
-  activateArenaAnimationPack(g.scene).catch(err=>console.warn('[R.O.K.] Paquete Mixamo no disponible:',err));
+  window.ROKBoot.progress('Descargando escenario y casters reales…',48);
+  await Promise.all([Promise.all(casterModelTasks),
+   activateArenaAnimationPack(g.scene),initialSceneLoading,
+   sharedBackgroundReady,arenaTextureReady]);
+  window.ROKBoot.progress('Comprobando y preparando el combate…',92);
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
   qs('#modelStatus').textContent='4 Faroleras + '+combatants.filter(c=>c.kind==='archer').length+' Arqueras + 2 casters · Arquera: 3 PV, alcance 9, daño 2 · ataque 3 s / Farolera 2 s';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
+  window.ROKBoot.ready();
   }catch(error){
     const message=String(error?.message||error);
     console.error('[R.O.K.] Error de inicialización del combate:',error);
     qs('#phase').textContent='⚠ No se pudo iniciar el combate: '+message;
     qs('#sceneStatus').textContent='Error de arranque: '+message;
+    window.ROKBoot.fail(message);
   }
-},e=>{if(e.total)qs('#sceneStatus').textContent='Cargando modelo '+Math.round(e.loaded/e.total*100)+'%';},err=>{
+},e=>{if(e.total){
+   const percent=Math.round(e.loaded/e.total*100);
+   qs('#sceneStatus').textContent='Cargando modelo '+percent+'%';
+   window.ROKBoot.progress('Cargando Farolera '+percent+' %…',Math.min(25,5+percent*.2));
+ }},err=>{
   qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
   qs('#phase').textContent='⚠ Error al cargar el modelo de Farolera';
+  window.ROKBoot.fail('Farolera: '+String(err?.message||err));
   console.error(err);
 });
 
