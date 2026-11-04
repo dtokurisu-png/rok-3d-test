@@ -2,7 +2,7 @@
  * A proportional Gothic room whose vaulted ceiling, walls and surrounding
  * ground are independent of the 15x30 arena and all gameplay objects.
  */
-export const DEFAULT_GOTHIC_TEXTURE='assets/texturas/Panorama gótica de vitrales zafiro';
+export const DEFAULT_GOTHIC_TEXTURE='assets/texturas/Panorama gótica de vitrales zafiro.webp';
 export const BACKGROUND_DEFAULTS=Object.freeze({
  enabled:true,type:'gothic-vault',width:70,height:18,archRise:12,
  texture:DEFAULT_GOTHIC_TEXTURE,textureOffsetX:0,textureOffsetY:0
