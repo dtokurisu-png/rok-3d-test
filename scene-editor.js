@@ -388,6 +388,7 @@ function fillControls(){
  $('sceneModelTexture').value=v.modelTexture||'';
 }
 function selectObject(obj,additive=false){
+ if(obj)showArenaInspector(false);
  if(!additive){
   selectedIds.clear();
   if(obj)selectedIds.add(obj.id);
@@ -512,6 +513,30 @@ function pickObject(event){
  while(n){const found=objects.find(x=>x.model===n);if(found)return found;n=n.parent;}
  return null;
 }
+// Selecting bare arena artwork opens its own floating inspector. A click, not a drag,
+// is required; OrbitControls remains available for camera movement on the floor.
+let arenaPointerStart=null;
+function showArenaInspector(show){
+ $('sceneArenaInspector').hidden=!show;
+ if(show){
+  selectObject(null);
+  $('sceneArenaOpacity').focus({preventScroll:true});
+  status('Arena seleccionada · ajusta la transparencia del pavimento');
+ }
+}
+$('sceneArenaClose').addEventListener('click',()=>showArenaInspector(false));
+renderer.domElement.addEventListener('pointerdown',event=>{
+ if(event.button===0)arenaPointerStart={id:event.pointerId,x:event.clientX,y:event.clientY};
+},true);
+renderer.domElement.addEventListener('pointerup',event=>{
+ const start=arenaPointerStart;arenaPointerStart=null;
+ if(!start||start.id!==event.pointerId||Math.hypot(event.clientX-start.x,event.clientY-start.y)>6)return;
+ if(pickObject(event))return;
+ const point=positionOnFloor(event);
+ if(!point||Math.abs(point.x)>W/2||Math.abs(point.z)>D/2)return;
+ showArenaInspector(true);
+});
+renderer.domElement.addEventListener('pointercancel',()=>{arenaPointerStart=null;});
 // Clicking only selects. A real drag starts after six screen pixels.
 renderer.domElement.addEventListener('pointerdown',event=>{
  if(restoringHistory||event.button!==0||!objects.length)return;
