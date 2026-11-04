@@ -47,18 +47,18 @@ for(let x=-W/2;x<=W/2;x+=1){lines.push(x,.032,-D/2,x,.032,D/2);}
 for(let z=-D/2;z<=D/2;z+=1){lines.push(-W/2,.032,z,W/2,.032,z);}
 const gridGeometry=new THREE.BufferGeometry();gridGeometry.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));
 const grid=new THREE.LineSegments(gridGeometry,new THREE.LineBasicMaterial({color:0x319391,transparent:true,opacity:.6}));scene.add(grid);
-const arenaTextureUrl='https://dtokurisu-png.github.io/rok-lirte-html/assets/arena.webp';
-const arenaArt=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshBasicMaterial({transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide}));
-arenaArt.rotation.x=-Math.PI/2;arenaArt.position.y=.023;arenaArt.scale.set(1.8,1.25,1);scene.add(arenaArt);
-new THREE.TextureLoader().load(arenaTextureUrl,texture=>{
- texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+// New official combat-floor artwork. It is a separate ground-level plane,
+// not a prop or collider, and does not change any of the 450 gameplay tiles.
+const arenaFloorTextureUrl='./assets/texturas/'+encodeURIComponent('Pavimento ornamental de piedra azul y beige.png');
+const arenaArt=new THREE.Mesh(new THREE.PlaneGeometry(W,D),
+ new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.DoubleSide,depthWrite:false}));
+arenaArt.rotation.x=-Math.PI/2;arenaArt.position.y=.024;scene.add(arenaArt);
+new THREE.TextureLoader().load(arenaFloorTextureUrl,texture=>{
+ texture.colorSpace=THREE.SRGBColorSpace;
+ texture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
  arenaArt.material.map=texture;arenaArt.material.needsUpdate=true;
-},undefined,()=>status('Textura original no disponible; tablero base activo'));
-fetch('./arena-background.css',{cache:'no-cache'}).then(r=>r.ok?r.text():Promise.reject(Error('CSS'))).then(css=>{
- const parse=name=>Number.parseFloat(css.split('--rok-arena-bg-'+name+':')[1]);
- const w=parse('width'),h=parse('length');
- if(Number.isFinite(w)&&Number.isFinite(h))arenaArt.scale.set(clamp(w,100,220)/100,clamp(h,100,220)/100,1);
-}).catch(()=>{});
+ status('Pavimento ornamental aplicado al plano 15 × 30.');
+},undefined,()=>status('No se encontró Pavimento ornamental en assets/texturas: carga la imagen al repositorio.'));
 // Highlight the entire prohibited gameplay zone independently of grid visibility.
 const border=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(W,.02,D)),new THREE.LineBasicMaterial({color:0xffb36b}));
 const exteriorGuide=new THREE.LineSegments(new THREE.EdgesGeometry(
