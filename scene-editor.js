@@ -701,6 +701,30 @@ function downloadJSON(obj){
  setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 const sceneStorageKey='ROK_SCENE_EDITOR_DRAFT_V2';
+const packageStorageKey='ROK_SCENE_PACKAGE_1_V1';
+function buildSceneOne(){
+ const document=sceneDocument();
+ document.name='Escenario 1';
+ document.packageId='escenario-1';
+ return document;
+}
+$('sceneExportPackage').addEventListener('click',()=>{
+ try{
+  const data=buildSceneOne();downloadJSON(data);
+  status('Paquete Escenario 1 descargado como JSON');
+ }catch(error){status('Paquete: '+error.message);}
+});
+$('sceneSendTester').addEventListener('click',()=>{
+ try{
+  // Same-origin storage is a local handoff; no GitHub token or credentials.
+  const data=buildSceneOne();
+  const serialized=JSON.stringify(data);
+  localStorage.setItem(packageStorageKey,serialized);
+  localStorage.setItem(sceneStorageKey,JSON.stringify(sceneDocument()));
+  status('Escenario 1 enviado al probador en este navegador');
+  window.location.assign('./arena-25d.html?scene=escenario-1');
+ }catch(error){status('Transferencia: '+error.message);}
+});
 function saveLocalScene(){
  try{
   const json=sceneDocument();
