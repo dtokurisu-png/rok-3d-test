@@ -43,3 +43,9 @@ html,body{margin:0;min-height:100%;background:#08121d;color:#eaffff;font:13px sy
 .sceneBackgroundPanel .sceneQuiet{margin:7px 0;font-size:10px}
 .sceneBackgroundPanel #sceneBackgroundTexture{width:100%;font-size:11px}
 .sceneBackgroundPanel #sceneBackgroundApply{width:100%;border-color:#69a4d1}
+
+/* Accessible, always-visible multi-select and history toolbar. */
+#sceneMultiToggle[aria-pressed="true"]{background:#00695f;border-color:#00ffe4;box-shadow:inset 0 0 0 1px #00ffe4}
+#sceneSelectAll,#sceneClearSelection{font-size:11px}
+.sceneTop button{white-space:nowrap}
+.sceneTop{row-gap:5px}
