@@ -3442,9 +3442,10 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     casterModelTasks.push(modelTask);
   }
   window.ROKBoot.progress('Descargando escenario y casters reales…',48);
-  await Promise.all([Promise.all(casterModelTasks),
+  const readiness=await Promise.all([Promise.all(casterModelTasks),
    activateArenaAnimationPack(g.scene),initialSceneLoading,
    sharedBackgroundReady,arenaTextureReady]);
+  if(readiness[2]?.fallback)throw Error('Escenario: '+readiness[2].reason);
   window.ROKBoot.progress('Comprobando y preparando el combate…',92);
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
