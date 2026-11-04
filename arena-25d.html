@@ -3452,6 +3452,7 @@ function setupMobileMobaControls(){
  const mobileQuery=window.matchMedia('(pointer:coarse) and (max-width:950px)');
  const portraitQuery=window.matchMedia('(orientation:portrait)');
  let editing=false,opened=false,restorePlaying=true,portraitPaused=false;
+ let customizedLayout=false;
  let joyPointer=null,defensePointer=null;
  const offsets={};
  const clampPosition=(key,left,bottom)=>{
@@ -3466,18 +3467,24 @@ function setupMobileMobaControls(){
   offsets[key]=p;el.style.left=p.left+'px';el.style.bottom=p.bottom+'px';el.style.right='auto';
  };
  const saveLayout=()=>{
+  customizedLayout=true;
   try{localStorage.setItem('rokMobileMobaLayoutV1',JSON.stringify(offsets));}catch{}
  };
  function resetLayout(save=true){
+  customizedLayout=false;
   for(const key of Object.keys(elements))applyPosition(key,defaultPosition(key));
-  if(save)saveLayout();
+  if(save){
+   try{localStorage.removeItem('rokMobileMobaLayoutV1');}catch{}
+  }
  }
  function loadLayout(){
   let saved=null;
   try{saved=JSON.parse(localStorage.getItem('rokMobileMobaLayoutV1')||'null');}catch{}
+  customizedLayout=!!saved&&Object.keys(elements).every(key=>
+   Number.isFinite(saved[key]?.left)&&Number.isFinite(saved[key]?.bottom));
   for(const key of Object.keys(elements)){
-   const p=saved?.[key];
-   applyPosition(key,p&&Number.isFinite(p.left)&&Number.isFinite(p.bottom)?p:defaultPosition(key));
+   const p=customizedLayout?saved[key]:defaultPosition(key);
+   applyPosition(key,p);
   }
  }
  const releaseInputs=()=>{
@@ -3567,7 +3574,10 @@ function setupMobileMobaControls(){
  }
  const adaptOrientation=()=>{
   if(!mobileQuery.matches){if(portraitPaused){portraitPaused=false;playing=restorePlaying;}return;}
-  for(const key of Object.keys(elements))applyPosition(key,offsets[key]||defaultPosition(key));
+  // Default positions follow the screen's CURRENT landscape width.
+  // Only player-customized coordinates remain anchored to saved positions.
+  for(const key of Object.keys(elements))
+   applyPosition(key,customizedLayout?offsets[key]:defaultPosition(key));
   if(portraitQuery.matches){
    if(!portraitPaused&&!opened){restorePlaying=playing;playing=false;}
    portraitPaused=true;releaseInputs();
