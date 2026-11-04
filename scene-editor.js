@@ -475,6 +475,8 @@ renderer.domElement.addEventListener('pointerdown',event=>{
  const point=positionOnFloor(event);if(!point)return;
  drag={id:event.pointerId,obj:found,dx:found.x-point.x,dz:found.z-point.z,
   startX:event.clientX,startY:event.clientY,active:false,before:objectSnapshot()};
+ // Keep OrbitControls from orbiting during selection or object dragging.
+ controls.enabled=false;
  renderer.domElement.setPointerCapture(event.pointerId);
 });
 renderer.domElement.addEventListener('pointermove',event=>{
