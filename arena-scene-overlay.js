@@ -22,11 +22,14 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
  const sightDirection=new THREE.Vector3();
  const sightTarget=new THREE.Vector3();
  const sightOrigin=new THREE.Vector3();
- const sightCenter=new THREE.Vector3();
  const nearHit=new THREE.Vector3();
- let lastSightCheck=-Infinity;
+ const casterProximity=new THREE.Vector3();
+ let lastSightCheck=-Infinity,lastFadeTime=-Infinity;
  const SIGHT_HIDE_DISTANCE=10;
  const SIGHT_CHECK_INTERVAL=.09;
+ const FADE_START_DISTANCE=6.5;
+ const FADE_FULL_DISTANCE=1.1;
+ const FADE_RESPONSE=5.0;
  let generation=0,sceneName='',visible=true;
  const say=message=>{if(typeof renderStatus==='function')renderStatus(message);};
  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
@@ -128,7 +131,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
  });
  function clearGroup(group,entries){
   for(const obj of entries){
-   if(obj.instance)obj.instance.visible=true;
+   for(const mat of obj.fadingModelMaterials||[])mat.material.dispose();
    for(const fx of obj.animated)disposeFx(fx);
   }
   group.clear();
@@ -166,6 +169,21 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
       node.material=Array.isArray(node.material)?node.material.map(paint):paint(node.material);
      });
     }
+    // GLB template clones share materials. Give each decorative instance
+    // independent opacity so fading one prop never fades its siblings.
+    const fadingModelMaterials=[];
+    model.traverse(node=>{
+     if(!node.isMesh||!node.material)return;
+     const cloneForFade=mat=>{
+      const individual=mat.clone();
+      fadingModelMaterials.push({material:individual,
+       opacity:individual.opacity,transparent:individual.transparent,
+       depthWrite:individual.depthWrite});
+      return individual;
+     };
+     node.material=Array.isArray(node.material)?
+      node.material.map(cloneForFade):cloneForFade(node.material);
+    });
     const animated=[];
     for(const fx of item.effects)if(fx.enabled){
      const entry=buildFx(fx,template.dimension);
@@ -181,8 +199,15 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
     try{assertPlacement(center.x,center.z,size.x/2,size.z/2);}
     catch(error){throw Error('Escenario rechazado: '+item.name+
       ' invade la arena 15×30 o queda fuera del área exterior');}
+    const effectMaterials=[],effectLights=[];
+    for(const fx of animated)fx.group.traverse(node=>{
+     if(node.isLight)effectLights.push({light:node,intensity:node.intensity});
+     const mats=node.material?(Array.isArray(node.material)?node.material:[node.material]):[];
+     for(const mat of mats)effectMaterials.push({material:mat,opacity:mat.opacity});
+    });
     nextRoot.add(instance);
-    nextObjects.push({animated,instance,bounds:bounds.clone(),occluded:false});
+    nextObjects.push({animated,instance,bounds:bounds.clone(),occluded:false,
+     opacity:1,targetOpacity:1,fadingModelMaterials,effectMaterials,effectLights});
    }
    if(token!==generation){clearGroup(nextRoot,nextObjects);return false;}
    const oldRoot=scenery.children[0];
@@ -213,41 +238,62 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
   objects.length=0;sceneName='';background.show(false);floor.setVisible(false);onArenaVisual?.(100);say('Escenario original · sin decoraciones');
  }
  function show(value){visible=!!value;scenery.visible=visible;background.group.visible=visible&&background.config.enabled&&!!sceneName;floor.group.visible=visible&&floor.config.enabled&&!!sceneName;}
- // Hide a nearby decoration ONLY when it blocks a sight ray to the allied
- // caster. Inspect world-space prop bounds before precise mesh intersections.
+ // Proximity triggers the fade BEFORE a decoration obscures the ally.
+ // Actual line-of-sight obstruction can also request full fade.
+ // Materials belong exclusively to each prop instance, not shared models.
  function updateOcclusion(camera,allyPosition,time){
   if(!scenery.visible||!objects.length||!camera||!allyPosition)return;
-  if(time-lastSightCheck<SIGHT_CHECK_INTERVAL)return;
-  lastSightCheck=time;
+  const dt=Number.isFinite(lastFadeTime)?clamp(time-lastFadeTime,0,.09):.016;
+  lastFadeTime=time;
+  const checkSight=time-lastSightCheck>=SIGHT_CHECK_INTERVAL;
+  if(checkSight)lastSightCheck=time;
   sightOrigin.copy(camera.position);
+  casterProximity.set(allyPosition.x,allyPosition.y+1.0,allyPosition.z);
   const samples=[.55,1.25,2.1];
   for(const obj of objects){
-   let blocked=false;
-   if(obj.instance&&obj.bounds){
-    const nearest=obj.bounds.clampPoint(sightOrigin,nearHit);
-    if(nearest.distanceToSquared(sightOrigin)<=SIGHT_HIDE_DISTANCE*SIGHT_HIDE_DISTANCE){
-     // Test three torso/head rays; a prop is hidden if any truly covers
-     // the character, even when the prop was hidden in the previous frame.
+   if(!obj.instance||!obj.bounds)continue;
+   // Distance to the object's actual bounds (not its pivot/center).
+   const proximity=obj.bounds.distanceToPoint(casterProximity);
+   const fadeProgress=clamp((FADE_START_DISTANCE-proximity)/
+    (FADE_START_DISTANCE-FADE_FULL_DISTANCE),0,1);
+   const smooth=fadeProgress*fadeProgress*(3-2*fadeProgress);
+   let requestedAlpha=1-smooth;
+   if(checkSight){
+    let blocking=false;
+    const cameraNearest=obj.bounds.clampPoint(sightOrigin,nearHit);
+    if(cameraNearest.distanceToSquared(sightOrigin)<=SIGHT_HIDE_DISTANCE*SIGHT_HIDE_DISTANCE){
+     const model=obj.instance.children[0];
      for(const y of samples){
       sightTarget.set(allyPosition.x,allyPosition.y+y,allyPosition.z);
       sightDirection.subVectors(sightTarget,sightOrigin);
-      const targetDistance=sightDirection.length();
-      if(targetDistance<.15)continue;
-      sightRaycaster.set(sightOrigin,sightDirection.multiplyScalar(1/targetDistance));
-      sightRaycaster.near=0;
-      sightRaycaster.far=Math.min(targetDistance-.1,SIGHT_HIDE_DISTANCE);
+      const distance=sightDirection.length();
+      if(distance<=.15)continue;
+      sightRaycaster.set(sightOrigin,sightDirection.multiplyScalar(1/distance));
+      sightRaycaster.near=0;sightRaycaster.far=Math.min(distance-.1,SIGHT_HIDE_DISTANCE);
       if(!sightRaycaster.ray.intersectsBox(obj.bounds))continue;
-      // Raycast only real model geometry, never the prop's FX or backdrop.
-      const model=obj.instance.children[0];
-      const hits=model?sightRaycaster.intersectObject(model,true):[];
-      if(hits.length){blocked=true;break;}
+      // A hidden object is still tested: raycasting does not depend on opacity.
+      if(model&&sightRaycaster.intersectObject(model,true).length){blocking=true;break;}
      }
     }
+    obj.occluded=blocking;
    }
-   if(obj.occluded!==blocked){
-    obj.occluded=blocked;
-    if(obj.instance)obj.instance.visible=!blocked;
+   if(obj.occluded)requestedAlpha=0;
+   obj.targetOpacity=requestedAlpha;
+   obj.opacity+= (obj.targetOpacity-obj.opacity)*(1-Math.exp(-FADE_RESPONSE*dt));
+   if(Math.abs(obj.targetOpacity-obj.opacity)<.002)obj.opacity=obj.targetOpacity;
+   const alpha=clamp(obj.opacity,0,1);
+   // Keep an opacity-zero model available for ray tests and restoration.
+   // Disable depth writes while translucent to avoid cutting holes in scenery.
+   for(const entry of obj.fadingModelMaterials){
+    const fading=alpha<.999;
+    entry.material.transparent=fading||entry.transparent;
+    entry.material.opacity=entry.opacity*alpha;
+    entry.material.depthWrite=fading?false:entry.depthWrite;
+    entry.material.needsUpdate=entry.previousFading!==fading;
+    entry.previousFading=fading;
    }
+   for(const entry of obj.effectMaterials)entry.material.opacity=entry.opacity*alpha;
+   for(const entry of obj.effectLights)entry.light.intensity=entry.intensity*alpha;
   }
  }
  function update(time){
