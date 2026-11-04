@@ -95,11 +95,16 @@ canvas{display:block;touch-action:none}
   text-align:right;padding-right:7px;pointer-events:none;
   background:none;border:none;box-shadow:none}
 @media(min-width:760px){#versionProof{top:72px;left:16px;transform:none}}
+#testerSceneBanner{position:fixed;z-index:14;top:calc(env(safe-area-inset-top,0px) + 78px);right:12px;max-width:min(470px,65vw);display:flex;align-items:center;gap:8px;border:1px solid #327b85;border-radius:8px;background:#081b29e8;padding:7px 9px;color:#e2f8f7;font-size:11px;box-shadow:0 3px 10px #0008}
+#testerSceneBanner[data-active="true"]{border-color:#00ffe4}
+#testerSceneBanner button{background:#11605d;color:#fff;border:1px solid #00ffe4;border-radius:6px;padding:6px;white-space:nowrap;cursor:pointer}
+@media(max-width:700px){#testerSceneBanner{top:calc(env(safe-area-inset-top,0px) + 104px);right:8px;max-width:94vw;font-size:10px}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
 <div id="versionProof" aria-label="Versión de la arena">v0.9.28 · Escudo sin duplicados</div>
+<div id="testerSceneBanner" data-active="false" aria-live="polite"><span id="testerSceneBannerText">Comprobando Escenario 1…</span><button type="button" id="testerSceneBannerLoad">↻ Cargar escenario</button></div>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -189,7 +194,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
-import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js';
+import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-autoload-scene1-2';
 import {createCasterMobility} from './caster-mobility.js';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
