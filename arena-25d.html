@@ -221,6 +221,7 @@ controls.minDistance=5;controls.maxDistance=130;controls.maxPolarAngle=THREE.Mat
  // Distance, elevation and tilt are all anchored to the ally caster, not arena center.
  // Stage 2 will add continuous camera following; Stage 1 recalculates on preset changes.
 const casters=[];
+const combatants=[];
 const casterCameraAnchor=new THREE.Vector3(0,.85,13.5);
 function getCasterCameraAnchor(){
  const ally=casters.find(c=>c.side==='ally');
@@ -538,8 +539,7 @@ for(const z of [SPAWN_Z,-SPAWN_Z]){
 
 const ease=x=>{x=THREE.MathUtils.clamp(x,0,1);return x*x*(3-2*x)};
 const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
-const combatants=[];
-// The casters collection was initialized above for the camera's caster-centered anchor.
+// Combatants and casters are initialized above for camera framing.
 const combatAnimations=new Map(),archerCombatAnimations=new Map();
 const animationNeeds=[2,8,9,12,13,14],archerAnimationNeeds=[2,8,9,10,12,13,14];
 const animationNames={2:'Magic Heal',3:'Frisbee Throw',8:'Sword And Shield Death',9:'Standing React Small From Headshot',
