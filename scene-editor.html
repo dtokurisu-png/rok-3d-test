@@ -23,6 +23,13 @@
  <aside class="scenePanel sceneInspector" aria-label="Objetos y propiedades">
   <h2>Escenario</h2>
   <label class="sceneField">Nombre<input id="sceneName" maxlength="70" value="Templo arcano"></label>
+  <section class="sceneBackgroundPanel" aria-label="Transparencia de la arena">
+   <h3>Arena · transparencia del pavimento</h3>
+   <label class="sceneField" for="sceneArenaOpacity">Opacidad de la textura de la arena <output id="sceneArenaOpacityValue">100%</output>
+    <input id="sceneArenaOpacity" type="range" min="0" max="100" step="1" value="100">
+   </label>
+   <p class="sceneQuiet">0% = textura invisible · 100% = textura original. Ajuste visual inmediato, sin modificar la cuadrícula, los modelos ni las colisiones.</p>
+  </section>
   <section class="sceneBackgroundPanel" aria-label="Contenedor de background">
    <h3>Background · recinto gótico</h3>
    <label class="sceneBackgroundEnable"><input id="sceneBackgroundEnabled" type="checkbox" checked> Mostrar recinto envolvente</label>
@@ -95,5 +102,5 @@
   <p class="sceneQuiet">Los cambios afectan únicamente a este escenario. Los GLB originales y el motor de combate permanecen intactos.</p>
  </aside>
 </main>
-<script src="./studio.js"></script><script type="module" src="./scene-editor.js?v=20261104-multiselect-2"></script>
+<script src="./studio.js"></script><script type="module" src="./scene-editor.js?v=20261104-arena-opacity-1"></script>
 </body></html>
