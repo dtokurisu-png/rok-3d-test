@@ -148,8 +148,8 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.51 · Barras separadas y compactas</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.51</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.52 · Vida 12 y sombra negra</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.52</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -1687,7 +1687,7 @@ function summonHudArc(group,side,radius,color,opacity=1,thickness=.14){
  const segments=[],outlines=[];
  for(let i=0;i<10;i++){
   const glow=new THREE.Mesh(summonHudGeometry(radius-.018,side,i,10,thickness+.036),
-   new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.13,
+   new THREE.MeshBasicMaterial({color:0x05090c,transparent:true,opacity:.38,
     depthWrite:false,depthTest:true,side:THREE.DoubleSide,toneMapped:false}));
   glow.position.y=-.004;glow.renderOrder=11;group.add(glow);outlines.push(glow);
   const mesh=new THREE.Mesh(summonHudGeometry(radius,side,i,10,thickness),
@@ -1770,7 +1770,7 @@ function setSummonHudStat(arc,ticks,value,show=true,subdivide=false,maxValue=10)
     arc.outlines[i].geometry=summonHudGeometry(arc.radius-.018,arc.side,i,count,arc.thickness+.036);
    }else{
     const glow=new THREE.Mesh(summonHudGeometry(arc.radius-.018,arc.side,i,count,arc.thickness+.036),
-     new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.13,
+     new THREE.MeshBasicMaterial({color:0x05090c,transparent:true,opacity:.38,
       depthWrite:false,depthTest:true,side:THREE.DoubleSide,toneMapped:false}));
     glow.position.y=-.004;glow.renderOrder=11;arc.outlines[0].parent.add(glow);
     arc.outlines.push(glow);
@@ -1791,7 +1791,7 @@ function setSummonHudStat(arc,ticks,value,show=true,subdivide=false,maxValue=10)
   if(on){
    const active=i<filled;
    arc.segments[i].material.opacity=active?arc.opacity:.18;
-   arc.outlines[i].material.opacity=active?.18:.055;
+   arc.outlines[i].material.opacity=active?.46:.20;
   }
  }
  const tens=Math.min(ticks.length,Math.floor(points/10));
@@ -2138,7 +2138,7 @@ function resetCombatant(c){
   stopHitOverlay(c);
   releaseSummonDuel(c);
   const shield=c.kind==='shield',archer=c.kind==='archer';
-  c.maxHp=archer?ATTACK_PROFILES.archer.hp:shield?7:5;
+  c.maxHp=archer?ATTACK_PROFILES.archer.hp:shield?12:5;
   c.hp=c.maxHp;
   c.shieldMax=shield?2:0;
   c.shield=c.shieldMax;
