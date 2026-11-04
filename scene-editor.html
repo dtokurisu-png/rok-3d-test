@@ -72,6 +72,11 @@
    <button id="sceneFloorApply" type="button">Aplicar suelo</button>
   </section>
   <div class="sceneTools"><button id="sceneSaveLocal" type="button" class="primary">Guardar progreso</button><button id="sceneRestoreLocal" type="button">Recuperar progreso</button></div>
+  <section class="sceneBackgroundPanel" aria-label="Enviar escenario al probador">
+   <h3>Paquete · Escenario 1</h3>
+   <p class="sceneQuiet">Envía exactamente la composición actual (objetos, fondo, suelo y opacidad) al probador 2.5D del mismo navegador. No publica nada en GitHub.</p>
+   <div class="sceneTools"><button id="sceneSendTester" type="button" class="primary">▶ Ver Escenario 1 en probador 2.5D</button><button id="sceneExportPackage" type="button">Descargar paquete JSON</button></div>
+  </section>
   <p class="sceneQuiet" id="sceneLocalStatus">El progreso se guarda en este navegador; Guardar JSON crea una copia portátil.</p>
     <div class="sceneTools"><button id="sceneSave" type="button" class="primary">Guardar JSON</button><button id="sceneOpen" type="button">Abrir JSON</button><button id="sceneNew" type="button">Nuevo</button><input id="sceneFile" type="file" accept=".json,application/json" hidden></div>
   <div class="sceneMeasure"><span>Elementos</span><strong id="sceneObjectCount">0</strong></div>
@@ -103,5 +108,5 @@
   <p class="sceneQuiet">Los cambios afectan únicamente a este escenario. Los GLB originales y el motor de combate permanecen intactos.</p>
  </aside>
 </main>
-<script src="./studio.js"></script><script type="module" src="./scene-editor.js?v=20261104-arena-select-2"></script>
+<script src="./studio.js"></script><script type="module" src="./scene-editor.js?v=20261104-package-1"></script>
 </body></html>
