@@ -191,11 +191,11 @@ showBackgroundFields(environment.config);
 const pointer=new THREE.Vector2(),raycaster=new THREE.Raycaster(),groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const hitPoint=new THREE.Vector3();
 const modelCatalog=new Map(),cache=new Map(),compositions=new Map();
-let objects=[],selection=null,serial=0,loadGeneration=0,drag=null,adding=null,instanceCounter=0;
+let objects=[],selection=null,selectedIds=new Set(),serial=0,loadGeneration=0,drag=null,adding=null,instanceCounter=0;
 const undoStack=[],redoStack=[],MAX_HISTORY=60;
 let restoringHistory=false;
 function objectSnapshot(){
- return {items:objects.map(serializeObject),selected:selection?.id||null};
+ return {items:objects.map(serializeObject),selected:selection?.id||null,selectedIds:[...selectedIds]};
 }
 function sameSnapshot(a,b){return JSON.stringify(a.items)===JSON.stringify(b.items);}
 function updateHistoryButtons(){
@@ -216,7 +216,10 @@ async function applyObjectSnapshot(snapshot){
   const obj=await insertObject(item,generation);
   if(!obj)throw Error('La restauración fue interrumpida');
  }
- selectObject(objects.find(o=>o.id===snapshot.selected)||null);
+ selectedIds=new Set((snapshot.selectedIds||[snapshot.selected]).filter(id=>objects.some(o=>o.id===id)));
+ selection=objects.find(o=>o.id===snapshot.selected)||objects.find(o=>selectedIds.has(o.id))||null;
+ if(selection)selectedIds.add(selection.id);
+ refreshSelection();
 }
 async function moveHistory(from,to,label){
  if(restoringHistory||!from.length)return;
@@ -329,21 +332,31 @@ function updateTransform(entry){
  entry.z+=safe.z-middle.z;
  entry.root.position.set(entry.x,entry.y+entry.centerHalfHeight*sy,entry.z);
 }
+function selectedObjects(){return objects.filter(o=>selectedIds.has(o.id));}
+function refreshSelection(){
+ renderObjects();
+ for(const o of objects)if(o.outline)o.outline.visible=selectedIds.has(o.id);
+ status(selectedIds.size>1?selectedIds.size+' objetos seleccionados':'Selección actualizada');
+}
 function renderObjects(){
  $('sceneObjectCount').textContent=String(objects.length);
  const target=$('sceneInstances');target.replaceChildren();
  for(const obj of objects){
   const b=document.createElement('button');b.type='button';
-  b.textContent=obj.name;b.setAttribute('aria-pressed',String(obj.id===selection?.id));
+  b.textContent=obj.name;b.setAttribute('aria-pressed',String(selectedIds.has(obj.id)));
   const sub=document.createElement('small');sub.textContent=obj.compositionId?'Compuesto':'GLB · '+obj.modelId;b.append(sub);
-  b.addEventListener('click',()=>selectObject(obj));target.append(b);
+  b.addEventListener('click',event=>selectObject(obj,event.ctrlKey||event.metaKey||event.shiftKey));target.append(b);
  }
  $('sceneTransform').hidden=!selection;
+ const count=$('sceneSelectionCount');if(count)count.textContent=selectedIds.size?selectedIds.size+' seleccionado(s) · Ctrl/Shift + clic para sumar o quitar':'Selecciona objetos en el escenario o la lista';
  if(selection)fillControls();
 }
 function fillControls(){
  const v=selection;if(!v)return;
- $('sceneObjectName').value=v.name;
+ $('sceneObjectName').disabled=selectedIds.size>1;
+ $('sceneModelTexture').disabled=selectedIds.size>1;
+ $('sceneModelApplyTexture').disabled=selectedIds.size>1;
+ $('sceneObjectName').value=selectedIds.size>1?'(varios objetos)':v.name;
  $('scenePosX').value=v.x.toFixed(2);$('scenePosY').value=v.y.toFixed(2);$('scenePosZ').value=v.z.toFixed(2);
  $('sceneRotation').value=v.rotation.toFixed(1);
  $('sceneScale').value=v.scale.toFixed(2);
@@ -352,10 +365,20 @@ function fillControls(){
   $('sceneScale'+axis).value=(v['scale'+axis]??v.scale).toFixed(2);
  $('sceneModelTexture').value=v.modelTexture||'';
 }
-function selectObject(obj){
- selection=obj;
- renderObjects();
- for(const o of objects)if(o.outline)o.outline.visible=o===obj;
+function selectObject(obj,additive=false){
+ if(!additive){
+  selectedIds.clear();
+  if(obj)selectedIds.add(obj.id);
+  selection=obj;
+ }else if(obj){
+  if(selectedIds.has(obj.id)){
+   selectedIds.delete(obj.id);
+   if(selection===obj)selection=selectedObjects().at(-1)||null;
+  }else{
+   selectedIds.add(obj.id);selection=obj;
+  }
+ }
+ refreshSelection();
 }
 async function applyModelTexture(entry,path){
  const raw=String(path||'').trim();
@@ -390,7 +413,7 @@ async function applyModelTexture(entry,path){
  entry.modelTexture=raw;
 }
 $('sceneModelApplyTexture').addEventListener('click',async()=>{
- if(!selection)return;
+ if(!selection||selectedIds.size!==1)return;
  try{await applyModelTexture(selection,$('sceneModelTexture').value);status('Textura del modelo actualizada');}
  catch(error){status('Textura del modelo: '+error.message);}
 });
@@ -434,7 +457,7 @@ async function insertObject(data,generation=loadGeneration){
  return obj;
 }
 function removeAll(){
- loadGeneration++;selection=null;
+ loadGeneration++;selection=null;selectedIds.clear();
  for(const v of objects){level.remove(v.root);disposeEffects(v.vfx);v.outline.geometry.dispose();v.outline.material.dispose();}
  objects=[];renderObjects();
 }
@@ -471,10 +494,14 @@ function pickObject(event){
 renderer.domElement.addEventListener('pointerdown',event=>{
  if(restoringHistory||event.button!==0||!objects.length)return;
  const found=pickObject(event);if(!found)return;
- selectObject(found);
+ const additive=event.ctrlKey||event.metaKey||event.shiftKey;
+ selectObject(found,additive);
+ if(additive||!selectedIds.has(found.id))return;
  const point=positionOnFloor(event);if(!point)return;
  drag={id:event.pointerId,obj:found,dx:found.x-point.x,dz:found.z-point.z,
-  startX:event.clientX,startY:event.clientY,active:false,before:objectSnapshot()};
+  startX:event.clientX,startY:event.clientY,active:false,before:objectSnapshot(),
+  positions:selectedObjects().map(o=>({obj:o,x:o.x,z:o.z})),
+  lastDx:0,lastDz:0};
  // Keep OrbitControls from orbiting during selection or object dragging.
  controls.enabled=false;
  renderer.domElement.setPointerCapture(event.pointerId);
@@ -487,8 +514,10 @@ renderer.domElement.addEventListener('pointermove',event=>{
  }
  const at=positionOnFloor(event);if(!at)return;
  try{
-  drag.obj.x=at.x+drag.dx;drag.obj.z=at.z+drag.dz;
-  updateTransform(drag.obj);fillControls();
+  const dx=at.x+drag.dx-drag.positions.find(p=>p.obj===drag.obj).x;
+  const dz=at.z+drag.dz-drag.positions.find(p=>p.obj===drag.obj).z;
+  for(const p of drag.positions){p.obj.x=p.x+dx;p.obj.z=p.z+dz;updateTransform(p.obj);}
+  fillControls();
  }catch(error){status('Límite de la arena: '+error.message);}
 });
 function endDrag(event){
@@ -505,23 +534,54 @@ renderer.domElement.addEventListener('lostpointercapture',()=>{
 });
 function readControls(event){
  if(!selection||restoringHistory)return;
- const before=objectSnapshot();
+ const before=objectSnapshot(),v=selection,group=selectedObjects(),id=event?.target?.id;
  try{
-  const v=selection;
-  v.name=$('sceneObjectName').value.slice(0,70)||modelFor(v.modelId).name;
-  v.x=Number($('scenePosX').value);v.y=num($('scenePosY').value,-100,100);
-  v.z=Number($('scenePosZ').value);
-  v.rotation=num($('sceneRotation').value,-3600,3600);
-  const uniform=num($('sceneScale').value,.05,20,1);
-  if(event?.target?.id==='sceneScale'){
-   v.scaleX=uniform;v.scaleY=uniform;v.scaleZ=uniform;
+  if(group.length===1){
+   v.name=$('sceneObjectName').value.slice(0,70)||modelFor(v.modelId).name;
+   v.x=Number($('scenePosX').value);v.y=num($('scenePosY').value,-100,100);
+   v.z=Number($('scenePosZ').value);
+   v.rotation=num($('sceneRotation').value,-3600,3600);
+   const uniform=num($('sceneScale').value,.05,20,1);
+   if(id==='sceneScale')v.scaleX=v.scaleY=v.scaleZ=uniform;
+   else{
+    v.scaleX=num($('sceneScaleX').value,.05,20,1);
+    v.scaleY=num($('sceneScaleY').value,.05,20,1);
+    v.scaleZ=num($('sceneScaleZ').value,.05,20,1);
+   }
+   v.scale=uniform;updateTransform(v);
   }else{
-   v.scaleX=num($('sceneScaleX').value,.05,20,1);
-   v.scaleY=num($('sceneScaleY').value,.05,20,1);
-   v.scaleZ=num($('sceneScaleZ').value,.05,20,1);
+   // Primary selection is the reference. Numeric edits apply deltas, not absolute
+   // values, so the formation keeps its spacing and every object's unique rotation.
+   const newX=Number($('scenePosX').value),newY=num($('scenePosY').value,-100,100),
+    newZ=Number($('scenePosZ').value),newRotation=num($('sceneRotation').value,-3600,3600);
+   const dx=newX-v.x,dy=newY-v.y,dz=newZ-v.z;
+   const angle=THREE.MathUtils.degToRad(newRotation-v.rotation);
+   const cs=Math.cos(angle),sn=Math.sin(angle);
+   const pivotX=v.x,pivotZ=v.z;
+   const primaryS={x:v.scaleX,y:v.scaleY,z:v.scaleZ,uniform:v.scale};
+   const uniform=num($('sceneScale').value,.05,20,1);
+   const nx=id==='sceneScale'?uniform:num($('sceneScaleX').value,.05,20,1),
+    ny=id==='sceneScale'?uniform:num($('sceneScaleY').value,.05,20,1),
+    nz=id==='sceneScale'?uniform:num($('sceneScaleZ').value,.05,20,1);
+   const fx=nx/primaryS.x,fy=ny/primaryS.y,fz=nz/primaryS.z;
+   for(const o of group){
+    if(['scenePosX','scenePosY','scenePosZ'].includes(id)){
+     o.x+=dx;o.y+=dy;o.z+=dz;
+    }else if(id==='sceneRotation'){
+     const ox=o.x-pivotX,oz=o.z-pivotZ;
+     o.x=pivotX+ox*cs+oz*sn;
+     o.z=pivotZ-ox*sn+oz*cs;
+     o.rotation=num(o.rotation+(newRotation-v.rotation),-3600,3600);
+    }else if(['sceneScale','sceneScaleX','sceneScaleY','sceneScaleZ'].includes(id)){
+     o.scaleX=clamp(o.scaleX*fx,.05,20);
+     o.scaleY=clamp(o.scaleY*fy,.05,20);
+     o.scaleZ=clamp(o.scaleZ*fz,.05,20);
+     o.scale=clamp(o.scale*uniform/primaryS.uniform,.05,20);
+    }
+    updateTransform(o);
+   }
   }
-  v.scale=uniform;
-  updateTransform(v);renderObjects();recordChange(before);
+  renderObjects();recordChange(before);
  }catch(error){status('Transformación: '+error.message);fillControls();}
 }
 for(const id of ['sceneObjectName','scenePosX','scenePosY','scenePosZ',
@@ -530,26 +590,41 @@ for(const id of ['sceneObjectName','scenePosX','scenePosY','scenePosZ',
 $('sceneScale').addEventListener('input',readControls);
 $('sceneDelete').addEventListener('click',()=>{
  if(!selection||restoringHistory)return;
- const before=objectSnapshot();
- const v=selection;level.remove(v.root);disposeEffects(v.vfx);v.outline.geometry.dispose();v.outline.material.dispose();
- objects=objects.filter(x=>x!==v);selectObject(null);recordChange(before);status('Objeto eliminado');
+ const before=objectSnapshot(),removed=selectedObjects();
+ for(const v of removed){
+  level.remove(v.root);disposeEffects(v.vfx);v.outline.geometry.dispose();v.outline.material.dispose();
+ }
+ const ids=new Set(removed.map(o=>o.id));objects=objects.filter(o=>!ids.has(o.id));
+ selectObject(null);recordChange(before);status(removed.length+' objeto(s) eliminado(s)');
 });
 $('sceneDuplicate').addEventListener('click',async()=>{
  if(!selection||restoringHistory)return;
- const old=selection,before=objectSnapshot(),mode=$('sceneDuplicateMode').value;
- const data={...serializeObject(old),id:undefined,name:old.name+' copia'};
- if(mode==='mirrorX'||mode==='mirrorXZ')data.x=-old.x;
- if(mode==='mirrorZ'||mode==='mirrorXZ')data.z=-old.z;
- if(mode==='normal'){data.x=old.x+1;data.z=old.z+1;}
- // A reflected yaw must reflect its facing vector, not merely copy the angle.
- if(mode==='mirrorX')data.rotation=-old.rotation;
- if(mode==='mirrorZ')data.rotation=180-old.rotation;
- if(mode==='mirrorXZ')data.rotation=old.rotation+180;
- data.rotation=((data.rotation+180)%360+360)%360-180;
+ const sources=selectedObjects(),before=objectSnapshot(),mode=$('sceneDuplicateMode').value;
+ const added=[];
  try{
-  const v=await insertObject(data);
-  if(v){selectObject(v);recordChange(before);status('Duplicado '+mode+' · posición y rotación reflejadas');}
- }catch(e){status('Duplicación: '+e.message);}
+  for(const old of sources){
+   const data={...serializeObject(old),id:undefined,name:(old.name+' copia').slice(0,70)};
+   if(mode==='mirrorX'||mode==='mirrorXZ')data.x=-old.x;
+   if(mode==='mirrorZ'||mode==='mirrorXZ')data.z=-old.z;
+   if(mode==='normal'){data.x=old.x+1;data.z=old.z+1;}
+   if(mode==='mirrorX')data.rotation=-old.rotation;
+   if(mode==='mirrorZ')data.rotation=180-old.rotation;
+   if(mode==='mirrorXZ')data.rotation=old.rotation+180;
+   data.rotation=((data.rotation+180)%360+360)%360-180;
+   const copy=await insertObject(data);if(!copy)throw Error('Operación interrumpida');
+   added.push(copy);
+  }
+  if(added.length){
+   selectedIds=new Set(added.map(o=>o.id));
+   selection=added.at(-1);refreshSelection();recordChange(before);
+   status(added.length+' objeto(s) duplicado(s) · '+mode);
+  }
+ }catch(e){
+  for(const o of added){level.remove(o.root);disposeEffects(o.vfx);o.outline.geometry.dispose();o.outline.material.dispose();}
+  objects=objects.filter(o=>!added.includes(o));
+  selection=sources.at(-1)||null;selectedIds=new Set(sources.map(o=>o.id));refreshSelection();
+  status('Duplicación: '+e.message);
+ }
 });
 $('sceneSearch').addEventListener('input',renderLibrary);
 $('sceneCamera').addEventListener('click',()=>{camera.position.set(32,37,51);controls.target.set(0,0,0);controls.update();});
