@@ -81,20 +81,17 @@ test('background custom width always keeps 1:2 ratio and safe height ranges',()=
  assert.equal(normalizeSceneBackground({texture:'assets/texturas/vitrales zafiro.png'}).texture,
   'assets/texturas/vitrales zafiro.png');
 });
-test('background creates walls, arched vault, end caps and exterior-only floor at arena level',()=>{
+test('background creates walls and vaulted caps without a fixed ground plane',()=>{
  const bg=createSceneBackground(THREE);
  assert.equal(bg.group.name,'ROK_Gothic_Background_VisualOnly');
- assert.equal(bg.group.children.length,9);
+ assert.equal(bg.group.children.length,5);
  const roof=bg.group.children[2];
  const y=Array.from(roof.geometry.position.array).filter((_,i)=>i%3===1);
  assert.equal(Math.min(...y),18);
  assert.equal(Math.max(...y),30);
- const floors=bg.group.children.slice(5);
- assert.equal(floors.length,4);
- for(const floor of floors)assert.equal(floor.position.y,-.03);
  const c=bg.build({width:90,height:20,archRise:15});
  assert.equal(c.length,180);
- assert.equal(bg.group.children.length,9,'rebuild must replace not accumulate geometry');
+ assert.equal(bg.group.children.length,5,'rebuild must replace not accumulate geometry');
  bg.show(false);assert.equal(bg.group.visible,false);
  bg.show(true);assert.equal(bg.group.visible,true);
  bg.dispose();
@@ -103,7 +100,7 @@ test('editor saves, restores, and tester loads independent background JSON',asyn
  const editor=await readFile(new URL('../scene-editor.js',import.meta.url),'utf8');
  const html=await readFile(new URL('../scene-editor.html',import.meta.url),'utf8');
  const tester=await readFile(new URL('../arena-scene-overlay.js',import.meta.url),'utf8');
- assert.match(editor,/createSceneBackground\(THREE,\{onStatus:status\}\)/);
+ assert.match(editor,/createSceneBackground\(THREE,\{onStatus:message=>/);
  assert.match(editor,/background:normalizeSceneBackground\(backgroundInputs\(\)\)/);
  assert.match(editor,/environment\.build\(next\.background\)/);
  assert.match(html,/id="sceneBackgroundWidth"/);
