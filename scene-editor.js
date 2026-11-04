@@ -49,7 +49,7 @@ const gridGeometry=new THREE.BufferGeometry();gridGeometry.setAttribute('positio
 const grid=new THREE.LineSegments(gridGeometry,new THREE.LineBasicMaterial({color:0x319391,transparent:true,opacity:.6}));scene.add(grid);
 // New official combat-floor artwork. It is a separate ground-level plane,
 // not a prop or collider, and does not change any of the 450 gameplay tiles.
-const arenaFloorTextureUrl='./assets/texturas/'+encodeURIComponent('Pavimento ornamental de piedra azul y beige.png');
+const arenaFloorTextureUrl='./assets/texturas/'+encodeURIComponent('Pavimento ornamental de piedra azul y beige.webp');
 const arenaArt=new THREE.Mesh(new THREE.PlaneGeometry(W,D),
  new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.DoubleSide,depthWrite:false}));
 arenaArt.rotation.x=-Math.PI/2;arenaArt.position.y=.024;scene.add(arenaArt);
