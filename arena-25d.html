@@ -148,8 +148,8 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.53 · Decenas visibles</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.53</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.54 · Decenas entre barras</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.54</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -1700,17 +1700,18 @@ function summonHudArc(group,side,radius,color,opacity=1,thickness=.14){
 function summonHudTicks(group,side,radius,color){
  const ticks=[];
  for(let i=0;i<8;i++){
-  // Decade marks are FULL bright arcs, not tiny hairlines. Keep them in
-  // an inward lane beside the main segmented bar and above the ground.
-  const ringRadius=radius-i*.055;
-  const shadow=new THREE.Mesh(summonHudGeometry(ringRadius-.012,side,0,1,.094),
+  // Place complete tens in the physical gap OUTSIDE the main life/attack
+  // arc (radius .64-.93) and BEFORE the shield/energy arc (.99-1.18).
+  // Stack additional decades slightly higher, not radially over either bar.
+  const ringRadius=radius;
+  const shadow=new THREE.Mesh(summonHudGeometry(ringRadius-.009,side,0,1,.057),
    new THREE.MeshBasicMaterial({color:0x020405,transparent:true,opacity:.72,
     depthWrite:false,depthTest:false,side:THREE.DoubleSide,toneMapped:false}));
-  shadow.position.y=.013+i*.001;shadow.renderOrder=15;group.add(shadow);
-  const mark=new THREE.Mesh(summonHudGeometry(ringRadius,side,0,1,.07),
+  shadow.position.y=.018+i*.012;shadow.renderOrder=15+i*2;group.add(shadow);
+  const mark=new THREE.Mesh(summonHudGeometry(ringRadius,side,0,1,.037),
    new THREE.MeshBasicMaterial({color,transparent:true,opacity:1,
     depthWrite:false,depthTest:false,side:THREE.DoubleSide,toneMapped:false}));
-  mark.position.y=.019+i*.001;mark.renderOrder=16;group.add(mark);
+  mark.position.y=.023+i*.012;mark.renderOrder=16+i*2;group.add(mark);
   shadow.visible=false;mark.visible=false;
   mark.userData.shadow=shadow;
   ticks.push(mark);
@@ -1745,8 +1746,8 @@ function createSummonGroundHud(c){
  // Keep secondary arcs outside the thicker main bars; .90 would overlap.
  const shield=summonHudArc(group,'left',.99,0xe0efff,1,.19);
  const energy=summonHudArc(group,'right',.99,0xbb7fff,1,.19);
- const lifeTicks=summonHudTicks(group,'left',.535,0x35ff8e);
- const attackTicks=summonHudTicks(group,'right',.535,0xff444e);
+ const lifeTicks=summonHudTicks(group,'left',.945,0x35ff8e);
+ const attackTicks=summonHudTicks(group,'right',.945,0xff444e);
  const shieldTicks=[]; // El escudo usa solamente una barra subdividida.
  const energyTicks=[]; // La energía usa solamente una barra subdividida.
  const iconGroup=new THREE.Group();group.add(iconGroup);
