@@ -259,7 +259,7 @@ for(let row=0;row<D;row++)for(let col=0;col<W;col++){
 }
 tiles.instanceMatrix.needsUpdate=true;if(tiles.instanceColor)tiles.instanceColor.needsUpdate=true;root.add(tiles);
 // Imagen 2D auténtica de R.O.K., proyectada suavemente sobre el suelo 3D.
-const arenaTextureUrl='https://dtokurisu-png.github.io/rok-lirte-html/assets/arena.webp';
+const arenaTextureUrl='./assets/texturas/'+encodeURIComponent('Pavimento ornamental de piedra azul y beige.png');
 // La imagen decorativa es una capa distinta: escalado independiente de la
 // malla, casillas, movimiento y límites de juego, sin clipping del tablero.
 let arenaArt=null;
@@ -353,12 +353,12 @@ loadSharedArenaBackground();
 new THREE.TextureLoader().load(arenaTextureUrl,tex=>{
   tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
   arenaArt=new THREE.Mesh(new THREE.PlaneGeometry(W,D),
-    new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:.22,
+    new THREE.MeshBasicMaterial({map:tex,transparent:false,opacity:1,
       depthWrite:false,side:THREE.DoubleSide}));
   arenaArt.rotation.x=-Math.PI/2;arenaArt.position.y=.020;root.add(arenaArt);
   arenaArt.scale.set(arenaSpriteWidth,arenaSpriteLength,1);
-  qs('#textureStatus').textContent='Textura R.O.K.: capa decorativa independiente; escala ajustable hasta 220 %';
-},undefined,()=>{qs('#textureStatus').textContent='Textura R.O.K.: no disponible; usando baldosas 3D';});
+  qs('#textureStatus').textContent='Pavimento ornamental azul y beige aplicado al suelo visual 15 × 30; mantiene las casillas y la escala';
+},undefined,()=>{qs('#textureStatus').textContent='Pavimento ornamental no encontrado en assets/texturas; usando baldosas 3D';});
 // Cuadrícula exacta: límites X = -7.5..7.5 (16 líneas),
 // límites Z = -15..15 (31 líneas). Cada celda mide 1 × 1.
 const points=[];
