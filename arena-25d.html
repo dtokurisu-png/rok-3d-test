@@ -246,7 +246,7 @@ const scene=new THREE.Scene();scene.background=new THREE.Color(0x091722);scene.f
 const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,130);
 const controls=new OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;controls.dampingFactor=.075;controls.enablePan=true;
-controls.minDistance=5;controls.maxDistance=80;controls.maxPolarAngle=THREE.MathUtils.degToRad(76);controls.minPolarAngle=THREE.MathUtils.degToRad(36);
+controls.minDistance=5;controls.maxDistance=130;controls.maxPolarAngle=THREE.MathUtils.degToRad(88);controls.minPolarAngle=THREE.MathUtils.degToRad(8);
 // Stage 1: independent, manually adjustable camera presets.
  // Camera distance is measured from the allied caster's home position (Z=+13.5).
  // This stage does not change combat, game logic or automatic tracking.
