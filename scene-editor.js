@@ -82,14 +82,44 @@ const environment=createSceneBackground(THREE,{onStatus:message=>{
 }});
 scene.add(environment.group);
 const outdoorFloor=createSceneFloor(THREE,{onStatus:status});
+let localFloorTextureData='';
+async function compressSceneImage(file){
+ if(!file||!/^image\/(png|jpeg|webp)$/.test(file.type))throw Error('Selecciona PNG, JPG o WebP');
+ if(file.size>12000000)throw Error('Imagen demasiado grande (máximo 12 MB)');
+ const bitmap=await createImageBitmap(file);
+ const factor=Math.min(1,2048/Math.max(bitmap.width,bitmap.height));
+ const canvas=document.createElement('canvas');
+ canvas.width=Math.max(1,Math.round(bitmap.width*factor));
+ canvas.height=Math.max(1,Math.round(bitmap.height*factor));
+ const ctx=canvas.getContext('2d');ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+ bitmap.close();
+ const image=canvas.toDataURL('image/webp',.8);
+ if(image.length>1200000)throw Error('La imagen comprimida excede el límite de guardado');
+ return image;
+}
+$('sceneFloorImport').addEventListener('click',()=>$('sceneFloorFile').click());
+$('sceneFloorFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];e.target.value='';if(!file)return;
+ try{
+  localFloorTextureData=await compressSceneImage(file);
+  $('sceneFloorImageStatus').textContent='✓ Imagen integrada: '+file.name+
+   '. Guardar progreso la conserva al recargar.';
+  showFloorFields(outdoorFloor.apply(floorInputs()));
+  status('Suelo exterior: imagen cargada correctamente');
+ }catch(error){status('Imagen del suelo: '+error.message);}
+});
 scene.add(outdoorFloor.group);
 function floorInputs(){
  return {enabled:$('sceneFloorEnabled').checked,height:$('sceneFloorHeight').value,
   repeatX:$('sceneFloorRepeatX').value,repeatZ:$('sceneFloorRepeatZ').value,
-  texture:$('sceneFloorTexture').value};
+  texture:$('sceneFloorTexture').value,textureData:localFloorTextureData};
 }
 function showFloorFields(c){
  const v=normalizeSceneFloor(c);
+ localFloorTextureData=v.textureData||'';
+ $('sceneFloorImageStatus').textContent=v.textureData?
+  '✓ Imagen del suelo incorporada al escenario y guardable en JSON.':
+  'Textura por ruta; puedes cargar una imagen desde tu equipo.';
  $('sceneFloorEnabled').checked=v.enabled;
  $('sceneFloorHeight').value=String(v.height);
  $('sceneFloorHeightValue').textContent=v.height.toFixed(2);
