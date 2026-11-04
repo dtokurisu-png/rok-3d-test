@@ -16,6 +16,17 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
  floor.setVisible(false);
  const effects=new Set(['glow','light','particles','fog','pulse']);
  const objects=[];
+ // Occlusion affects decorative prop instances only; never the arena mesh,
+ // characters, stage floor, background or collision/gameplay objects.
+ const sightRaycaster=new THREE.Raycaster();
+ const sightDirection=new THREE.Vector3();
+ const sightTarget=new THREE.Vector3();
+ const sightOrigin=new THREE.Vector3();
+ const sightCenter=new THREE.Vector3();
+ const nearHit=new THREE.Vector3();
+ let lastSightCheck=-Infinity;
+ const SIGHT_HIDE_DISTANCE=10;
+ const SIGHT_CHECK_INTERVAL=.09;
  let generation=0,sceneName='',visible=true;
  const say=message=>{if(typeof renderStatus==='function')renderStatus(message);};
  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
@@ -116,7 +127,10 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
   if(o.material){for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();}
  });
  function clearGroup(group,entries){
-  for(const obj of entries)for(const fx of obj.animated)disposeFx(fx);
+  for(const obj of entries){
+   if(obj.instance)obj.instance.visible=true;
+   for(const fx of obj.animated)disposeFx(fx);
+  }
   group.clear();
  }
  async function loadScene(data){
@@ -167,7 +181,8 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
     try{assertPlacement(center.x,center.z,size.x/2,size.z/2);}
     catch(error){throw Error('Escenario rechazado: '+item.name+
       ' invade la arena 15×30 o queda fuera del área exterior');}
-    nextRoot.add(instance);nextObjects.push({animated});
+    nextRoot.add(instance);
+    nextObjects.push({animated,instance,bounds:bounds.clone(),occluded:false});
    }
    if(token!==generation){clearGroup(nextRoot,nextObjects);return false;}
    const oldRoot=scenery.children[0];
@@ -198,6 +213,43 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
   objects.length=0;sceneName='';background.show(false);floor.setVisible(false);onArenaVisual?.(100);say('Escenario original · sin decoraciones');
  }
  function show(value){visible=!!value;scenery.visible=visible;background.group.visible=visible&&background.config.enabled&&!!sceneName;floor.group.visible=visible&&floor.config.enabled&&!!sceneName;}
+ // Hide a nearby decoration ONLY when it blocks a sight ray to the allied
+ // caster. Inspect world-space prop bounds before precise mesh intersections.
+ function updateOcclusion(camera,allyPosition,time){
+  if(!scenery.visible||!objects.length||!camera||!allyPosition)return;
+  if(time-lastSightCheck<SIGHT_CHECK_INTERVAL)return;
+  lastSightCheck=time;
+  sightOrigin.copy(camera.position);
+  const samples=[.55,1.25,2.1];
+  for(const obj of objects){
+   let blocked=false;
+   if(obj.instance&&obj.bounds){
+    const nearest=obj.bounds.clampPoint(sightOrigin,nearHit);
+    if(nearest.distanceToSquared(sightOrigin)<=SIGHT_HIDE_DISTANCE*SIGHT_HIDE_DISTANCE){
+     // Test three torso/head rays; a prop is hidden if any truly covers
+     // the character, even when the prop was hidden in the previous frame.
+     for(const y of samples){
+      sightTarget.set(allyPosition.x,allyPosition.y+y,allyPosition.z);
+      sightDirection.subVectors(sightTarget,sightOrigin);
+      const targetDistance=sightDirection.length();
+      if(targetDistance<.15)continue;
+      sightRaycaster.set(sightOrigin,sightDirection.multiplyScalar(1/targetDistance));
+      sightRaycaster.near=0;
+      sightRaycaster.far=Math.min(targetDistance-.1,SIGHT_HIDE_DISTANCE);
+      if(!sightRaycaster.ray.intersectsBox(obj.bounds))continue;
+      // Raycast only real model geometry, never the prop's FX or backdrop.
+      const model=obj.instance.children[0];
+      const hits=model?sightRaycaster.intersectObject(model,true):[];
+      if(hits.length){blocked=true;break;}
+     }
+    }
+   }
+   if(obj.occluded!==blocked){
+    obj.occluded=blocked;
+    if(obj.instance)obj.instance.visible=!blocked;
+   }
+  }
+ }
  function update(time){
   if(!scenery.visible)return;
   for(const obj of objects)for(const fx of obj.animated){
@@ -205,7 +257,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
    if(fx.kind==='particles'&&fx.animated)fx.animated.rotation.y=time*.12;
   }
  }
- return {init,loadScene,clear,show,update,get currentName(){return sceneName;},get count(){return objects.length;}};
+ return {init,loadScene,clear,show,update,updateOcclusion,get currentName(){return sceneName;},get count(){return objects.length;}};
 }
 
 /* The controls use no credentials and never write to the repository. */
