@@ -277,6 +277,43 @@ function selectObject(obj){
  renderObjects();
  for(const o of objects)if(o.outline)o.outline.visible=o===obj;
 }
+async function applyModelTexture(entry,path){
+ const raw=String(path||'').trim();
+ if(!raw){
+  entry.modelTexture='';
+  entry.model.traverse(node=>{
+   if(node.isMesh&&node.userData.rokOriginalMaterial){
+    node.material=node.userData.rokOriginalMaterial;
+   }
+  });
+  return;
+ }
+ if(!/^assets\/texturas\/[\p{L}\p{N} ()._-]+\.(?:png|jpe?g|webp)$/iu.test(raw)||raw.includes('..'))
+  throw Error('Textura no permitida: usa assets/texturas/archivo.webp');
+ const token=(entry.textureRevision||0)+1;
+ entry.textureRevision=token;
+ const url='./'+raw.split('/').map(encodeURIComponent).join('/');
+ const map=await new THREE.TextureLoader().loadAsync(url);
+ if(token!==entry.textureRevision||!entry.root.parent){map.dispose();return;}
+ map.colorSpace=THREE.SRGBColorSpace;
+ entry.model.traverse(node=>{
+  if(!node.isMesh)return;
+  if(!node.userData.rokOriginalMaterial)node.userData.rokOriginalMaterial=node.material;
+  // Instance-specific material clone prevents affecting other props.
+  const original=node.userData.rokOriginalMaterial;
+  const update=mat=>{
+   const copy=mat.clone();copy.map=map;copy.color.set(0xffffff);
+   copy.needsUpdate=true;return copy;
+  };
+  node.material=Array.isArray(original)?original.map(update):update(original);
+ });
+ entry.modelTexture=raw;
+}
+$('sceneModelApplyTexture').addEventListener('click',async()=>{
+ if(!selection)return;
+ try{await applyModelTexture(selection,$('sceneModelTexture').value);status('Textura del modelo actualizada');}
+ catch(error){status('Textura del modelo: '+error.message);}
+});
 function objectOutline(root){
  const box=new THREE.Box3().setFromObject(root);
  const size=box.getSize(new THREE.Vector3());
@@ -362,35 +399,40 @@ renderer.domElement.addEventListener('pointerdown',event=>{
 renderer.domElement.addEventListener('pointermove',event=>{
  if(!drag||drag.id!==event.pointerId)return;
  const at=positionOnFloor(event);if(!at)return;
- const {x,z}=exteriorPosition(at.x+drag.dx,at.z+drag.dz,
-  drag.obj.model,drag.obj.rotation,drag.obj.scale);
  try{
-  if(Math.abs(x-drag.obj.x)+Math.abs(z-drag.obj.z)>.001)drag.moved=true;
-  drag.obj.x=x;drag.obj.z=z;updateTransform(drag.obj);fillControls();
- }catch(error){status('Límite de colocación: '+error.message);}
+  const desiredX=at.x+drag.dx,desiredZ=at.z+drag.dz;
+  if(Math.abs(desiredX-drag.obj.x)+Math.abs(desiredZ-drag.obj.z)>.001)drag.moved=true;
+  drag.obj.x=desiredX;drag.obj.z=desiredZ;
+  updateTransform(drag.obj);fillControls();
+ }catch(error){status('Límite de la arena: '+error.message);}
 });
 function endDrag(event){if(!drag||event.pointerId!==drag.id)return;drag=null;controls.enabled=true;renderObjects();}
 renderer.domElement.addEventListener('pointerup',endDrag);
 renderer.domElement.addEventListener('pointercancel',endDrag);
 renderer.domElement.addEventListener('lostpointercapture',()=>{drag=null;controls.enabled=true;});
-function readControls(){
+function readControls(event){
  if(!selection)return;
- const rotation=num($('sceneRotation').value,-3600,3600);
- const scale=num($('sceneScale').value,.05,5,1);
  try{
-  const {x,z}=exteriorPosition($('scenePosX').value,$('scenePosZ').value,
-   selection.model,rotation,scale);
-  selection.name=$('sceneObjectName').value.slice(0,70)||modelFor(selection.modelId).name;
-  selection.x=x;selection.z=z;selection.y=num($('scenePosY').value,-10,20);
-  selection.rotation=rotation;selection.scale=scale;
-  updateTransform(selection);$('sceneScaleValue').textContent=selection.scale.toFixed(2);
-  renderObjects();
-  if(Math.abs(x-Number($('scenePosX').value))>.01||Math.abs(z-Number($('scenePosZ').value))>.01)
-   status('Objeto ajustado automáticamente fuera de la cuadrícula jugable.');
- }catch(error){fillControls();status(error.message);}
-
+  const v=selection;
+  v.name=$('sceneObjectName').value.slice(0,70)||modelFor(v.modelId).name;
+  v.x=Number($('scenePosX').value);v.y=num($('scenePosY').value,-100,100);
+  v.z=Number($('scenePosZ').value);
+  v.rotation=num($('sceneRotation').value,-3600,3600);
+  const uniform=num($('sceneScale').value,.05,20,1);
+  if(event?.target?.id==='sceneScale'){
+   v.scaleX=uniform;v.scaleY=uniform;v.scaleZ=uniform;
+  }else{
+   v.scaleX=num($('sceneScaleX').value,.05,20,1);
+   v.scaleY=num($('sceneScaleY').value,.05,20,1);
+   v.scaleZ=num($('sceneScaleZ').value,.05,20,1);
+  }
+  v.scale=uniform;
+  updateTransform(v);renderObjects();
+ }catch(error){status('Transformación: '+error.message);fillControls();}
 }
-for(const id of ['sceneObjectName','scenePosX','scenePosY','scenePosZ','sceneRotation','sceneScale'])$(id).addEventListener('change',readControls);
+for(const id of ['sceneObjectName','scenePosX','scenePosY','scenePosZ',
+ 'sceneRotation','sceneScale','sceneScaleX','sceneScaleY','sceneScaleZ'])
+ $(id).addEventListener('change',readControls);
 $('sceneScale').addEventListener('input',readControls);
 $('sceneDelete').addEventListener('click',()=>{
  if(!selection)return;
@@ -405,14 +447,18 @@ $('sceneDuplicate').addEventListener('click',async()=>{
 $('sceneSearch').addEventListener('input',renderLibrary);
 $('sceneCamera').addEventListener('click',()=>{camera.position.set(32,37,51);controls.target.set(0,0,0);controls.update();});
 $('sceneGrid').addEventListener('click',()=>{grid.visible=!grid.visible;$('sceneGrid').setAttribute('aria-pressed',String(grid.visible));});
-function serializeObject(o){return {id:o.id,name:o.name,modelId:o.modelId,compositionId:o.compositionId,effects:o.effects.map(x=>({...x})),x:o.x,y:o.y,z:o.z,rotation:o.rotation,scale:o.scale};}
+function serializeObject(o){return {id:o.id,name:o.name,modelId:o.modelId,
+ compositionId:o.compositionId,effects:o.effects.map(x=>({...x})),
+ x:o.x,y:o.y,z:o.z,rotation:o.rotation,scale:o.scale,
+ scaleX:o.scaleX,scaleY:o.scaleY,scaleZ:o.scaleZ,
+ modelTexture:o.modelTexture||''};}
 function sceneDocument(){
  for(const obj of objects){
-  const box=new THREE.Box3().setFromObject(obj.root);
-  const middle=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());
+  const {middle,size}=renderedFootprint(obj);
   assertPlacement(middle.x,middle.z,size.x/2,size.z/2);
  }
- return {schemaVersion:1,kind:'rok3d.scene',name:$('sceneName').value.trim().slice(0,70)||'Escenario',arena:{columns:W,rows:D},background:normalizeSceneBackground(backgroundInputs()),objects:objects.map(serializeObject)};
+ return {schemaVersion:1,kind:'rok3d.scene',name:$('sceneName').value.trim().slice(0,70)||'Escenario',arena:{columns:W,rows:D},background:normalizeSceneBackground(backgroundInputs()),
+ floor:normalizeSceneFloor(floorInputs()),objects:objects.map(serializeObject)};
 }
 function downloadJSON(obj){
  const name=(obj.name||'escenario').normalize('NFKD').replace(/[^a-z0-9 _-]/gi,'').trim().replace(/\s+/g,'-').toLowerCase().slice(0,55)||'escenario';
@@ -424,7 +470,9 @@ $('sceneSave').addEventListener('click',()=>{
  try{downloadJSON(sceneDocument());status('Escenario JSON descargado · cuadrícula jugable despejada');}
  catch(error){status('No se pudo guardar: '+error.message);}
 });
-$('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear un escenario nuevo y descartar los cambios sin exportar?'))return;removeAll();$('sceneName').value='Nuevo escenario';environment.build(BACKGROUND_DEFAULTS);showBackgroundFields(environment.config);status('Escenario vacío');});
+$('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear un escenario nuevo y descartar los cambios sin exportar?'))return;removeAll();$('sceneName').value='Nuevo escenario';environment.build(BACKGROUND_DEFAULTS);showBackgroundFields(environment.config);
+ outdoorFloor.apply(DEFAULT_SCENE_FLOOR);showFloorFields(outdoorFloor.config);
+ status('Escenario vacío');});
 $('sceneOpen').addEventListener('click',()=>$('sceneFile').click());
 async function readJSONFile(file){
  if(!file||file.size>500000)throw Error('Archivo JSON ausente o demasiado grande');
@@ -437,15 +485,22 @@ function verifyScene(json){
   const model=modelFor(raw.modelId);
   if(!model||!model.enabledInSceneEditor)throw Error('Contiene un modelo no permitido: '+raw.modelId);
   if(!Array.isArray(raw.effects)||raw.effects.length>40)throw Error('Lista de efectos inválida');
-  result.push({id:newId(),modelId:raw.modelId,name:String(raw.name||model.name).slice(0,70),compositionId:raw.compositionId?String(raw.compositionId).slice(0,70):null,effects:raw.effects.map(cleanFx),x:num(raw.x,-SCENERY_BOUNDS.halfWidth,SCENERY_BOUNDS.halfWidth),y:num(raw.y,-10,20),z:num(raw.z,-SCENERY_BOUNDS.halfDepth,SCENERY_BOUNDS.halfDepth),rotation:num(raw.rotation,-3600,3600),scale:num(raw.scale,.05,5,1)});
+  result.push({id:newId(),modelId:raw.modelId,name:String(raw.name||model.name).slice(0,70),compositionId:raw.compositionId?String(raw.compositionId).slice(0,70):null,effects:raw.effects.map(cleanFx),x:Number(raw.x)||0,y:num(raw.y,-100,100),z:Number(raw.z)||0,rotation:num(raw.rotation,-3600,3600),scale:num(raw.scale,.05,20,1),
+   scaleX:num(raw.scaleX,.05,20,num(raw.scale,.05,20,1)),
+   scaleY:num(raw.scaleY,.05,20,num(raw.scale,.05,20,1)),
+   scaleZ:num(raw.scaleZ,.05,20,num(raw.scale,.05,20,1)),
+   modelTexture:String(raw.modelTexture||'')});
  }
- return {name:String(json.name||'Escenario').slice(0,70),background:normalizeSceneBackground(json.background||{}),objects:result};
+ return {name:String(json.name||'Escenario').slice(0,70),
+ background:normalizeSceneBackground(json.background||{}),
+ floor:normalizeSceneFloor(json.floor||{}),objects:result};
 }
 $('sceneFile').addEventListener('change',async e=>{
  const file=e.target.files?.[0];e.target.value='';if(!file)return;
  try{
   const next=verifyScene(await readJSONFile(file));
   removeAll();$('sceneName').value=next.name;environment.build(next.background);showBackgroundFields(environment.config);
+  outdoorFloor.apply(next.floor);showFloorFields(outdoorFloor.config);
   const generation=loadGeneration;
   let adjusted=0,omitted=0;
   for(const data of next.objects){
