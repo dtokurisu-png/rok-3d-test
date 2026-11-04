@@ -466,6 +466,43 @@ function downloadJSON(obj){
  const a=document.createElement('a');a.href=url;a.download=name+'.json';document.body.append(a);a.click();a.remove();
  setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
+const sceneStorageKey='ROK_SCENE_EDITOR_DRAFT_V2';
+function saveLocalScene(){
+ try{
+  const json=sceneDocument();
+  localStorage.setItem(sceneStorageKey,JSON.stringify(json));
+  $('sceneLocalStatus').textContent='✓ Progreso guardado en este navegador: '+
+   objects.length+' objetos. Puedes actualizar sin perderlo.';
+  status('Progreso guardado en el navegador');
+  return true;
+ }catch(error){
+  $('sceneLocalStatus').textContent='No se guardó: '+error.message;
+  return false;
+ }
+}
+async function restoreScene(json,notice='Escenario restaurado'){
+ const next=verifyScene(json);
+ removeAll();
+ $('sceneName').value=next.name;
+ environment.build(next.background);showBackgroundFields(environment.config);
+ outdoorFloor.apply(next.floor);showFloorFields(outdoorFloor.config);
+ const generation=loadGeneration;
+ let failed=0;
+ for(const data of next.objects){
+  try{await insertObject(data,generation);}
+  catch(error){failed++;status('Error de objeto: '+error.message);}
+ }
+ status(notice+' · '+objects.length+' objetos'+(failed?' · '+failed+' pendientes':''));
+ return {loaded:objects.length,failed};
+}
+$('sceneSaveLocal').addEventListener('click',saveLocalScene);
+$('sceneRestoreLocal').addEventListener('click',async()=>{
+ try{
+  const raw=localStorage.getItem(sceneStorageKey);
+  if(!raw)throw Error('Aún no existe progreso guardado');
+  await restoreScene(JSON.parse(raw),'Progreso recuperado');
+ }catch(error){status('Recuperación: '+error.message);}
+});
 $('sceneSave').addEventListener('click',()=>{
  try{downloadJSON(sceneDocument());status('Escenario JSON descargado · cuadrícula jugable despejada');}
  catch(error){status('No se pudo guardar: '+error.message);}
@@ -540,6 +577,14 @@ async function init(){
   const data=await res.json();
   for(const item of data.models)modelCatalog.set(item.id,item);
   renderLibrary();renderObjects();renderCompositions();status('Editor preparado');
+  try{
+   const saved=localStorage.getItem(sceneStorageKey);
+   if(saved){
+    const result=await restoreScene(JSON.parse(saved),'Progreso recuperado automáticamente');
+    $('sceneLocalStatus').textContent='✓ Se restauró el último progreso guardado ('+
+     result.loaded+' objetos).';
+   }
+  }catch(error){$('sceneLocalStatus').textContent='No se pudo restaurar el borrador: '+error.message;}
  }catch(error){status('Catálogo: '+error.message);}
 }
 init();
