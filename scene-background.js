@@ -33,8 +33,10 @@ export async function resolveBackgroundTexture(name,listing=undefined){
    if(!response.ok)throw Error('GitHub HTTP '+response.status);
    return response.json();
   })();
-  const match=Array.isArray(files)?files.find(item=>
-   item.type==='file'&&textureExtension.test(item.name)&&normalizeStem(item.name)===stem):null;
+  const images=Array.isArray(files)?files.filter(item=>item.type==='file'&&
+   textureExtension.test(item.name)):[];
+  const match=images.find(item=>normalizeStem(item.name)===stem)||
+   images.find(item=>normalizeStem(item.name).startsWith(stem+' ('));
   if(match){
    const exact=parent+'/'+match.name;
    return [exact,...candidates.filter(candidate=>candidate!==exact)];
