@@ -133,7 +133,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.37 · Límite inferior de arena</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.38 · Cámara reescrita</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -147,17 +147,12 @@ canvas{display:block;touch-action:none}
       <p id="testerSceneStatus" class="sceneTesterStatus" role="status">Comprobando escenario…</p>
     </section>
     <section id="cameraTuningPanel" aria-label="Cámara automática">
- <div class="cameraHeader"><strong>📷 Cámara automática · dos casters</strong></div>
- <p class="cameraNotes">La cámara permanece detrás de tu caster. Se acerca cuando ambos están juntos y se aleja lo necesario para mantenerlos a los dos dentro del encuadre.</p>
- <p class="cameraNotes" id="cameraTuningReadout" aria-live="polite">Calculando encuadre…</p>
- <p class="cameraNotes">Para calibrar: arrastra con el mouse para girar; rueda para acercar o alejar; clic derecho para desplazar la vista. El marcador muestra los valores reales.</p>
- <button id="cameraManualButton" type="button">✥ Ajustar cámara con el mouse</button>
- <button id="cameraCaptureFar" type="button">✓ Guardar esta posición como cámara lejana</button>
- <button id="cameraReframe" type="button">⌖ Activar seguimiento automático</button>
- <p id="cameraFarSaveStatus" class="cameraNotes">12.33 u y 23° son una referencia parcial. Guarda también la posición y dirección reales.</p>
+ <div class="cameraHeader"><strong>📷 Seguimiento automático</strong></div>
+ <p class="cameraNotes">Inclinación fija de 23°. Encuadre automático de ambos casters y margen inferior de la arena.</p>
+ <p id="cameraTuningReadout" class="cameraNotes">Calculando encuadre…</p>
 </section>
 
-    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.37 · 04/11/2026: retirada la barra inferior y encuadre lejano con referencia al borde inferior de la arena. v0.9.36: restaurado el seguimiento automático y guardado de cámara lejana con posición y enfoque completos. v0.9.35: referencia lejana aprobada 12.33 unidades y 23.0°; transición dinámica y protección del encuadre de ambos casters. v0.9.34: calibración libre de cámara con mouse e indicador de distancia e inclinación reales. v0.9.33: cámara más cercana al alejarse los casters, menor inclinación y menos márgenes externos. v0.9.32: elevación e inclinación automáticas según distancia entre casters, menos techo visible. v0.9.31: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
+    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.38 · 04/11/2026: cámara reescrita desde cero; inclinación fija 23°, seguimiento de ambos casters y borde inferior. v0.9.37: retirada la barra inferior y encuadre lejano con referencia al borde inferior de la arena. v0.9.36: restaurado el seguimiento automático y guardado de cámara lejana con posición y enfoque completos. v0.9.35: referencia lejana aprobada 12.33 unidades y 23.0°; transición dinámica y protección del encuadre de ambos casters. v0.9.34: calibración libre de cámara con mouse e indicador de distancia e inclinación reales. v0.9.33: cámara más cercana al alejarse los casters, menor inclinación y menos márgenes externos. v0.9.32: elevación e inclinación automáticas según distancia entre casters, menos techo visible. v0.9.31: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
     <a class="arenaBackLink" href="./index.html">Volver al visor de animaciones</a>
   </div>
 </section>
@@ -191,7 +186,6 @@ canvas{display:block;touch-action:none}
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script type="module">
 import * as THREE from 'three';
-import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
@@ -219,270 +213,158 @@ document.body.appendChild(renderer.domElement);
 
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x091722);scene.fog=new THREE.FogExp2(0x091722,0.012);
 const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,350);
-const controls=new OrbitControls(camera,renderer.domElement);
-controls.enableDamping=true;controls.dampingFactor=.075;controls.enablePan=true;
-controls.minDistance=5;controls.maxDistance=130;controls.maxPolarAngle=THREE.MathUtils.degToRad(88);controls.minPolarAngle=THREE.MathUtils.degToRad(8);
-// Stage 1: independent, manually adjustable camera presets.
- // Distance, elevation and tilt are all anchored to the ally caster, not arena center.
- // Stage 2 will add continuous camera following; Stage 1 recalculates on preset changes.
-const casters=[];
-const combatants=[];
-const casterCameraAnchor=new THREE.Vector3(0,.85,13.5);
-function getCasterCameraAnchor(){
- const ally=casters.find(c=>c.side==='ally');
- if(ally?.outer){
-  return casterCameraAnchor.set(ally.outer.position.x,.85+ally.outer.position.y,ally.outer.position.z);
- }
- return casterCameraAnchor.set(0,.85,13.5);
+// R.O.K. camera v0.9.38 — complete replacement; one framing solver, no
+// stacked tilt/zoom/orbit overrides. All angles are relative to the floor.
+const casters=[],combatants=[];
+const CAMERA_PITCH=THREE.MathUtils.degToRad(23);
+const CAMERA_FAR_REFERENCE=12.33;
+const CAMERA_NEAR_REFERENCE=6;
+const ARENA_HALF_WIDTH=7.5,ARENA_HALF_DEPTH=15;
+const CAMERA_UP=new THREE.Vector3(0,1,0);
+const cameraFacing=new THREE.Vector3(0,0,-1);
+const cameraTarget=new THREE.Vector3(0,1,0);
+const cameraPoint=new THREE.Vector3();
+let cameraInitialized=false,frameGoal=null,frameCheckAt=0;
+function alliedCasterPosition(){
+ const caster=casters.find(c=>c.side==='ally')||casters[0];
+ return caster?.outer?.position||new THREE.Vector3(0,0,13.5);
 }
-// Automatic third-person battle camera.
-// The ally is always the physical anchor. The opponent determines how much
-// ground must be shown. No manually selected tilt, distance or elevation.
-// Approved long-range calibration (measured against the allied caster).
-const FAR_CAMERA_DISTANCE=12.33;
-const FAR_CAMERA_PITCH=THREE.MathUtils.degToRad(23);
-const FAR_POSE_KEY='ROK_CAMERA_FAR_POSE_V1';
-let farPose=null;
-try{
- const stored=JSON.parse(localStorage.getItem(FAR_POSE_KEY)||'null');
- if(stored&&Array.isArray(stored.position)&&Array.isArray(stored.target)&&
-    stored.position.length===3&&stored.target.length===3&&
-    [...stored.position,...stored.target].every(Number.isFinite))farPose=stored;
-}catch(error){console.warn('Calibración de cámara',error);}
-const cameraForwardXZ=new THREE.Vector3(0,0,-1);
-const cameraDesiredPosition=new THREE.Vector3();
-const cameraDesiredTarget=new THREE.Vector3();
-let cameraInitialized=false;
-let cameraActualDistance=0;
-let cameraLastReadout=0;
-let manualCameraMode=false;
-function setManualCameraMode(enabled){
- manualCameraMode=!!enabled;
- controls.enabled=manualCameraMode;
- qs('#cameraManualButton').textContent=manualCameraMode?'✥ Ajuste manual activado':'✥ Ajustar cámara con el mouse';
- qs('#cameraMarkerMode').textContent=manualCameraMode?'MANUAL · calibra y guarda tu posición':'AUTO · siguiendo a ambos casters';
- qs('#cameraReframe').textContent=manualCameraMode?'⌖ Activar seguimiento automático':'✓ Seguimiento automático activo';
-}
-function updateCameraMarker(){
- const anchor=getCasterCameraAnchor();
- const dx=camera.position.x-controls.target.x;
- const dz=camera.position.z-controls.target.z;
- const dy=camera.position.y-controls.target.y;
- const pitch=THREE.MathUtils.radToDeg(Math.atan2(dy,Math.hypot(dx,dz)));
- const distance=camera.position.distanceTo(anchor);
- qs('#cameraLiveDistance').textContent=distance.toFixed(2);
- qs('#cameraLivePitch').textContent=pitch.toFixed(1);
- if(performance.now()-cameraLastReadout>180){
-  qs('#cameraTuningReadout').textContent='Distancia desde caster aliado: '+distance.toFixed(2)+
-    ' u · Inclinación real: '+pitch.toFixed(1)+'° · '+(manualCameraMode?'Calibración manual':'Seguimiento automático');
-  cameraLastReadout=performance.now();
- }
-}
-// Both casters have priority. The near arena edge also anchors far framing.
-const cameraMarginX=.94,cameraMarginY=.91;
-const FAR_FRAME_START=15,FAR_FRAME_FULL=25;
-const ARENA_HALF_W=7.5,ARENA_HALF_D=15;
-const FAR_EDGE_SCREEN_Y=-.91; // Arena near boundary stays near bottom of viewport.
-const farViewNearBoundary=new THREE.Vector3();
-const cameraRayPoint=new THREE.Vector3();
-function battleCasterPoints(){
- const alive=casters.filter(c=>c?.outer);
- return alive.map(c=>{
+function cameraTargets(){
+ const points=[];
+ for(const c of casters){
+  if(!c?.outer)continue;
   const p=c.outer.position;
-  return {caster:c,ground:new THREE.Vector3(p.x,p.y+.22,p.z),
-   head:new THREE.Vector3(p.x,p.y+2.3,p.z)};
- });
-}
-// Test actual projected character head and feet: this avoids the old
-// geometric estimate which left the near caster outside the screen.
-function areFramed(points,xMargin=cameraMarginX,yMargin=cameraMarginY){
- camera.updateMatrixWorld(true);
- for(const point of points){
-  const ndc=cameraRayPoint.copy(point).project(camera);
-  if(!Number.isFinite(ndc.x)||!Number.isFinite(ndc.y)||!Number.isFinite(ndc.z)||
-   ndc.z>=1||ndc.z<=-1||Math.abs(ndc.x)>xMargin||Math.abs(ndc.y)>yMargin)return false;
+  // Include feet, body and HUD clearance in the screen-space test.
+  points.push(new THREE.Vector3(p.x,p.y+.08,p.z));
+  points.push(new THREE.Vector3(p.x,p.y+2.65,p.z));
  }
- return true;
+ return points;
 }
-function arenaNearBoundary(ally,back){
- // Intersect the ray from ally toward the player's end with the 15x30 arena.
- // This uses the arena itself, never the outer scenery as a camera anchor.
- const px=ally.x,pz=ally.z;
+function cameraNearArenaEdge(ally,back){
  let t=Infinity;
- if(back.x>.00001)t=Math.min(t,(ARENA_HALF_W-px)/back.x);
- if(back.x<-.00001)t=Math.min(t,(-ARENA_HALF_W-px)/back.x);
- if(back.z>.00001)t=Math.min(t,(ARENA_HALF_D-pz)/back.z);
- if(back.z<-.00001)t=Math.min(t,(-ARENA_HALF_D-pz)/back.z);
- if(!Number.isFinite(t)||t<0)t=1.5;
- return farViewNearBoundary.set(px+back.x*t,.08,pz+back.z*t).clone();
+ if(back.x>.0001)t=Math.min(t,(ARENA_HALF_WIDTH-ally.x)/back.x);
+ if(back.x<-.0001)t=Math.min(t,(-ARENA_HALF_WIDTH-ally.x)/back.x);
+ if(back.z>.0001)t=Math.min(t,(ARENA_HALF_DEPTH-ally.z)/back.z);
+ if(back.z<-.0001)t=Math.min(t,(-ARENA_HALF_DEPTH-ally.z)/back.z);
+ if(!Number.isFinite(t)||t<0)t=1;
+ return new THREE.Vector3(ally.x+back.x*t,.02,ally.z+back.z*t);
 }
-function projectedBottomEdge(point){
- camera.updateMatrixWorld(true);
- return point.clone().project(camera).y;
-}
-function arrangeCameraAt(distance,ally,aim,back,separation){
- // As the fighters spread apart, lift the camera and tilt DOWN to favor the
- // arena rather than the distant ceiling. Keep its ground position behind ally.
- const spread=THREE.MathUtils.smoothstep(separation,5,30);
- // Limit the steep long-range tilt; a gentler camera keeps the arena dominant.
- const pitch=THREE.MathUtils.degToRad(17+spread*21);
- const depthToAim=distance+separation*.42;
- camera.position.set(ally.x+back.x*distance,
-  aim.y+Math.max(2.5,depthToAim*Math.tan(pitch)),
-  ally.z+back.z*distance);
- camera.lookAt(aim);
- camera.updateMatrixWorld(true);
-}
-function findBattleCamera(){
- const chars=battleCasterPoints();
- const ally=chars.find(c=>c.caster.side==='ally')||chars[0];
- const enemy=chars.find(c=>c.caster.side==='enemy')||chars[1]||ally;
- if(!ally)return null;
- const a=ally.caster.outer.position,e=enemy.caster.outer.position;
- const forward=new THREE.Vector3(e.x-a.x,0,e.z-a.z);
- if(forward.lengthSq()>.8)cameraForwardXZ.copy(forward.normalize());
- const back=cameraForwardXZ.clone().negate();
- const separation=a.distanceTo(e);
- // Aim slightly closer to the ally to push the opponent upward on the screen,
- // but leave room for its head and for the health bar.
- const aim=new THREE.Vector3(
-  a.x+(e.x-a.x)*.50,1.08,a.z+(e.z-a.z)*.50);
- const required=chars.flatMap(c=>[c.ground,c.head]);
- const oldPos=camera.position.clone(),oldQuat=camera.quaternion.clone(),oldFov=camera.fov;
- // Search the closest shot behind the ally that genuinely fits BOTH actors.
- let distance=5,found=false;
- for(let n=0;n<130;n++){
-  arrangeCameraAt(distance,a,aim,back,separation);
-  if(areFramed(required)){found=true;break;}
-  distance=distance*1.045+.20;
-  if(distance>175){distance=175;break;}
+function evaluateCameraPose(position,target,fov,actors,edge){
+ camera.position.copy(position);
+ camera.fov=fov;camera.updateProjectionMatrix();
+ camera.lookAt(target);camera.updateMatrixWorld(true);
+ let violation=0;
+ for(const point of actors){
+  const p=cameraPoint.copy(point).project(camera);
+  if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.z>=1||p.z<=-1)
+   return {valid:false,edgeError:10,violation:100};
+  violation+=Math.max(0,Math.abs(p.x)-.94)+Math.max(0,Math.abs(p.y)-.91);
  }
- // Near view remains unchanged. The long view is anchored by the approved
- // 12.33u / 23° and the bottom edge of the ACTUAL 15x30 playable arena.
- const nearPosition=camera.position.clone(),nearTarget=aim.clone();
- const farWeight=THREE.MathUtils.smoothstep(separation,FAR_FRAME_START,FAR_FRAME_FULL);
- const anchor=new THREE.Vector3(a.x,a.y+.85,a.z);
- const boundary=arenaNearBoundary(a,back);
- let farPosition,farTarget;
- if(farPose){
-  farPosition=anchor.clone().add(new THREE.Vector3(...farPose.position));
-  farTarget=aim.clone().add(new THREE.Vector3(...farPose.target));
- }else{
-  farPosition=anchor.clone().addScaledVector(back,FAR_CAMERA_DISTANCE*Math.cos(FAR_CAMERA_PITCH));
-  farPosition.y+=FAR_CAMERA_DISTANCE*Math.sin(FAR_CAMERA_PITCH);
-  farTarget=aim.clone();
- }
- // A bottom-of-arena screen constraint stops the shot exposing the outer
- // backstage when the fighters occupy opposite ends of the board.
- // At far range, adjust pitch by aiming a bit nearer the ally instead of
- // moving the camera backward. Preserve the stored camera as the baseline.
- if(farWeight>.001){
-  const originalFov=camera.fov;
-  const nearFov=innerWidth<700?53:47;
-  let bestTarget=farTarget.clone(),bestFov=nearFov,bestScore=Infinity;
-  // Explore slight target shifts and FOV (not distance) so the arena border
-  // can sit at the bottom while both caster heads and feet remain visible.
-  for(const fov of [nearFov,nearFov+5,nearFov+10,nearFov+15,nearFov+20,nearFov+25]){
-   camera.fov=fov;camera.updateProjectionMatrix();
-   for(const shift of [-8,-6,-4,-2,0,2,4,6,8]){
-    const candidate=farTarget.clone().addScaledVector(cameraForwardXZ,shift);
-    camera.position.copy(farPosition);camera.lookAt(candidate);
-    if(!areFramed(required,.96,.96))continue;
-    const y=projectedBottomEdge(boundary);
-    if(!Number.isFinite(y))continue;
-    const score=Math.abs(y-FAR_EDGE_SCREEN_Y)+
-      (fov-nearFov)*.008+Math.abs(shift)*.012+
-      Math.max(0,-1.02-y)*3;
-    if(score<bestScore){bestScore=score;bestTarget.copy(candidate);bestFov=fov;}
+ const projectedEdge=cameraPoint.copy(edge).project(camera);
+ const edgeY=projectedEdge.y;
+ const edgeError=Number.isFinite(edgeY)?Math.abs(edgeY+.94):10;
+ return {valid:violation<.0001,edgeError,violation};
+}
+function solveCameraFrame(){
+ const ally=alliedCasterPosition();
+ const rival=casters.find(c=>c.side==='enemy')?.outer?.position;
+ const distanceBetween=rival?ally.distanceTo(rival):0;
+ if(rival&&distanceBetween>.001)cameraFacing.set(rival.x-ally.x,0,rival.z-ally.z).normalize();
+ const back=cameraFacing.clone().negate();
+ const actors=cameraTargets();
+ const edge=cameraNearArenaEdge(ally,back);
+ const midpoint=rival?new THREE.Vector3((ally.x+rival.x)/2,1.18,(ally.z+rival.z)/2):
+  new THREE.Vector3(ally.x,1.18,ally.z);
+ const farMix=THREE.MathUtils.smoothstep(distanceBetween,10,27);
+ const preferredDistance=THREE.MathUtils.lerp(CAMERA_NEAR_REFERENCE,CAMERA_FAR_REFERENCE,farMix);
+ const savePosition=camera.position.clone(),saveRotation=camera.quaternion.clone(),saveFov=camera.fov;
+ let best=null,bestScore=Infinity;
+ // The vertical inclination NEVER varies. We find a shot that shows both
+ // casters while keeping the near arena edge near the bottom of the screen.
+ // The FOV is widened only when absolutely necessary to keep both visible.
+ const distances=[preferredDistance,preferredDistance+1.5,preferredDistance+3,
+  preferredDistance+5,preferredDistance+8,preferredDistance+12,preferredDistance+18,
+  preferredDistance+26,preferredDistance+38,preferredDistance+55];
+ const fovs=[47,53,61,70,80,92];
+ const weights=[.38,.46,.54,.62,.70,.78,.86];
+ for(const fov of fovs){
+  for(const distance of distances){
+   for(const weight of weights){
+    const target=midpoint.clone();
+    if(rival){
+     target.x=ally.x+(rival.x-ally.x)*weight;
+     target.z=ally.z+(rival.z-ally.z)*weight;
+    }
+    const position=target.clone()
+     .addScaledVector(back,distance*Math.cos(CAMERA_PITCH))
+     .addScaledVector(CAMERA_UP,distance*Math.sin(CAMERA_PITCH));
+    const result=evaluateCameraPose(position,target,fov,actors,edge);
+    if(!result.valid)continue;
+    const score=result.edgeError*5+
+     Math.abs(distance-preferredDistance)*.09+
+     Math.max(0,fov-47)*.016+
+     Math.abs(weight-.56)*.12;
+    if(score<bestScore){
+     bestScore=score;
+     best={position,target,fov,actors};
+    }
    }
   }
-  farTarget.copy(bestTarget);
-  // This is a framing fallback; wider FOV is preferable to shifting the
-  // camera further behind the ally or revealing backstage.
-  camera.fov=bestFov;camera.updateProjectionMatrix();
-  if(bestScore===Infinity){
-   // A user-calibrated pose is not overwritten if unusual framing cannot fit.
-   camera.fov=nearFov;camera.updateProjectionMatrix();
-  }
-  // Blend toward the FOV only at longer caster separations.
-  camera.fov=THREE.MathUtils.lerp(nearFov,camera.fov,farWeight);
-  camera.updateProjectionMatrix();
- }else{
-  camera.fov=innerWidth<700?53:47;camera.updateProjectionMatrix();
  }
- const desiredFov=camera.fov;
- const desiredPosition=nearPosition.clone().lerp(farPosition,farWeight);
- const desiredTarget=nearTarget.clone().lerp(farTarget,farWeight);
- camera.position.copy(desiredPosition);camera.lookAt(desiredTarget);
- if(!areFramed(required,.98,.97)){
-  // Keep both casters visible, but first enlarge the viewing angle rather
-  // than expanding the distance beyond the user's approved framing.
-  for(let f=desiredFov;f<=91&&!areFramed(required,.98,.97);f+=3){
-   camera.fov=f;camera.updateProjectionMatrix();
-  }
+ // Absolute fallback if aspect ratio is unusually tall: prioritize casters.
+ if(!best){
+  const distance=Math.max(18,distanceBetween*2);
+  const target=midpoint;
+  const position=target.clone().addScaledVector(back,distance*Math.cos(CAMERA_PITCH))
+   .addScaledVector(CAMERA_UP,distance*Math.sin(CAMERA_PITCH));
+  best={position,target,fov:92,actors};
  }
- cameraDesiredPosition.copy(desiredPosition);
- cameraDesiredTarget.copy(desiredTarget);
- const shotFov=camera.fov;
- camera.position.copy(oldPos);camera.quaternion.copy(oldQuat);
- camera.fov=oldFov;camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
- return {position:cameraDesiredPosition.clone(),target:cameraDesiredTarget.clone(),
-  fov:shotFov,distance,required};
+ camera.position.copy(savePosition);camera.quaternion.copy(saveRotation);
+ camera.fov=saveFov;camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
+ return best;
 }
 function updateCameraTracking(dt,instant=false){
- if(manualCameraMode)return;
- const frame=findBattleCamera();
- if(!frame)return;
- // The camera can approach slowly, but must widen immediately whenever either
- // caster would otherwise leave the safe area of the viewport.
- const alpha=instant||!cameraInitialized?1:1-Math.exp(-dt*5.5);
- camera.position.lerp(frame.position,alpha);
- controls.target.lerp(frame.target,alpha);
- camera.fov=THREE.MathUtils.lerp(camera.fov,frame.fov,alpha);
+ const now=performance.now();
+ if(instant||!frameGoal||now-frameCheckAt>110){
+  frameGoal=solveCameraFrame();frameCheckAt=now;
+ }
+ if(!frameGoal)return;
+ const t=instant||!cameraInitialized?1:1-Math.exp(-Math.max(.001,dt)*4.5);
+ camera.position.lerp(frameGoal.position,t);
+ cameraTarget.lerp(frameGoal.target,t);
+ camera.fov=THREE.MathUtils.lerp(camera.fov,frameGoal.fov,t);
  camera.updateProjectionMatrix();
- camera.lookAt(controls.target);
- if(!areFramed(frame.required,.98,.96)){
-  camera.position.copy(frame.position);
-  controls.target.copy(frame.target);
-  camera.fov=frame.fov;camera.updateProjectionMatrix();
-  camera.lookAt(controls.target);
+ camera.lookAt(cameraTarget);
+ // No visible caster is permitted to leave the safe viewport during easing.
+ const active=frameGoal.actors;
+ let clipped=false;
+ camera.updateMatrixWorld(true);
+ for(const point of active){
+  const p=cameraPoint.copy(point).project(camera);
+  if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.z>=1||
+   Math.abs(p.x)>.98||Math.abs(p.y)>.97){clipped=true;break;}
+ }
+ if(clipped){
+  camera.position.copy(frameGoal.position);
+  cameraTarget.copy(frameGoal.target);
+  camera.fov=frameGoal.fov;camera.updateProjectionMatrix();camera.lookAt(cameraTarget);
  }
  cameraInitialized=true;
- cameraActualDistance=camera.position.distanceTo(getCasterCameraAnchor());
+}
+function updateCameraMarker(){
+ const a=alliedCasterPosition();
+ const d=camera.position.distanceTo(new THREE.Vector3(a.x,a.y+.85,a.z));
+ qs('#cameraLiveDistance').textContent=d.toFixed(2);
+ qs('#cameraLivePitch').textContent='23.0';
+ qs('#cameraMarkerMode').textContent='AUTO · ambos casters · 23° fijo';
+ const status=qs('#cameraTuningReadout');
+ if(status)status.textContent='Distancia al caster: '+d.toFixed(2)+
+  ' unidades · Inclinación fija: 23° · Encuadre automático';
 }
 function reframeCamera(){
- setManualCameraMode(false);
- camera.fov=innerWidth<700?53:47;
- camera.updateProjectionMatrix();
+ frameGoal=null;
  updateCameraTracking(.016,true);
 }
-qs('#cameraManualButton').addEventListener('click',()=>setManualCameraMode(true));
-// Do not switch to manual mode on ordinary gameplay clicks or mouse wheel.
-// It must be explicitly enabled using the manual adjustment button.
-qs('#cameraCaptureFar').addEventListener('click',()=>{
- if(!manualCameraMode){
-  qs('#cameraFarSaveStatus').textContent='Activa primero Ajustar cámara con el mouse.';
-  return;
- }
- const anchor=getCasterCameraAnchor().clone();
- const pair=battleCasterPoints();
- const a=pair.find(c=>c.caster.side==='ally')?.caster.outer.position||anchor;
- const e=pair.find(c=>c.caster.side==='enemy')?.caster.outer.position||anchor;
- const aim=new THREE.Vector3((a.x+e.x)/2,1.08,(a.z+e.z)/2);
- farPose={
-  position:camera.position.clone().sub(anchor).toArray(),
-  target:controls.target.clone().sub(aim).toArray()
- };
- try{
-  localStorage.setItem(FAR_POSE_KEY,JSON.stringify(farPose));
-  qs('#cameraFarSaveStatus').textContent='✓ Posición completa guardada; seguimiento reactivado.';
-  reframeCamera();
- }catch(error){qs('#cameraFarSaveStatus').textContent='No se pudo guardar: '+error.message;}
-});
-qs('#cameraReframe').addEventListener('click',reframeCamera);
-qs('#camera').addEventListener('click',reframeCamera);
-qs('#full').addEventListener('click',reframeCamera);
-controls.enabled=false;
 reframeCamera();
 
 scene.add(new THREE.HemisphereLight(0xdffaff,0x264156,2.0));
@@ -3484,7 +3366,6 @@ function loop(now){
   }
   sceneryOverlay.update(now/1000);
   updateCameraTracking(dt);
-  if(manualCameraMode)controls.update();
   updateCameraMarker();
   renderer.render(scene,camera);
   fpsTime+=dt;fpsCount++;if(fpsTime>=1){qs('#fps').textContent='FPS: '+Math.round(fpsCount/fpsTime);fpsTime=0;fpsCount=0;}
