@@ -3408,7 +3408,7 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   ]){
     const caster=casters.find(c=>c.side===spec.side);
     if(!caster)continue;
-    const modelTask=new GLTFLoader().loadAsync('./assets/models/casters/'+(spec.side==='ally'?'lioren':'chiara')+'/'+encodeURIComponent(spec.path)).then(gltf=>{
+    const modelTask=new GLTFLoader().loadAsync('./assets/models/casters/'+(spec.side==='ally'?'lioren':'chiara')+'/'+encodeURIComponent(spec.path)).then(async gltf=>{
       const model=cloneSkinned(gltf.scene);
       const bounds=new THREE.Box3().setFromObject(model);
       const h=bounds.getSize(new THREE.Vector3()).y;
@@ -3431,10 +3431,10 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
       caster.idleClip=gltf.animations.find(clip=>/idle|standing/i.test(clip.name))||
         gltf.animations[0]||new THREE.AnimationClip('Reposo',1,[]);
       caster.mixer.clipAction(caster.idleClip).reset().play();
-      void movementLoader.load(caster).then(clips=>casterLayers.register(caster,clips)).catch(err=>{
-       qs('#casterMoveStatus').textContent='FBX caster: '+err.message;
-      });
-       qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' cargado · animaciones en revisión';
+      // Wait for the real caster's required FBX controller before gameplay.
+      const clips=await movementLoader.load(caster);
+      casterLayers.register(caster,clips);
+      qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' cargado · animaciones preparadas';
     }).catch(error=>{
      console.error('[R.O.K.] Caster '+spec.label+' no cargado:',error);
      throw Error('Modelo de '+spec.label+': '+String(error?.message||error));
