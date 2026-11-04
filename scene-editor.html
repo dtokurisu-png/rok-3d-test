@@ -1,7 +1,7 @@
 <!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#081720">
 <title>R.O.K. 3D — Creador de escenarios</title>
-<link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./scene-editor.css">
+<link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./scene-editor.css?v=20261104-multiselect-2">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head><body data-studio-page="scenes">
 <main class="sceneStudio">
@@ -16,7 +16,7 @@
   <div id="sceneCompositions" class="sceneAssetList"></div>
  </aside>
  <section class="sceneMain" aria-label="Vista 3D sin combate">
-   <div class="sceneTop"><strong>Editor de escenarios · 15 × 30</strong><button id="sceneUndoTop" type="button" title="Ctrl+Z" disabled>↶</button><button id="sceneRedoTop" type="button" title="Ctrl+Y" disabled>↷</button><button id="sceneCamera" type="button">Centrar</button><button id="sceneGrid" type="button" aria-pressed="true">Cuadrícula</button></div>
+   <div class="sceneTop"><strong>Editor de escenarios · 15 × 30</strong><button id="sceneUndoTop" type="button" title="Deshacer · Ctrl+Z" disabled>↶ Deshacer</button><button id="sceneRedoTop" type="button" title="Rehacer · Ctrl+Y" disabled>↷ Rehacer</button><button id="sceneMultiToggle" type="button" aria-pressed="false" title="Activar selección múltiple sin mantener Ctrl/Shift">☑ Selección múltiple</button><button id="sceneCamera" type="button">Centrar</button><button id="sceneGrid" type="button" aria-pressed="true">Cuadrícula</button></div>
    <div id="sceneCanvas"></div>
    <div class="sceneBottom"><span>450 casillas reservadas para jugar · Coloca decoración FUERA del borde naranja · Arrastrar: mover · Rueda: zoom</span><span id="sceneStatus" role="status">Inicializando…</span></div>
  </section>
@@ -67,7 +67,7 @@
   <p class="sceneQuiet" id="sceneLocalStatus">El progreso se guarda en este navegador; Guardar JSON crea una copia portátil.</p>
     <div class="sceneTools"><button id="sceneSave" type="button" class="primary">Guardar JSON</button><button id="sceneOpen" type="button">Abrir JSON</button><button id="sceneNew" type="button">Nuevo</button><input id="sceneFile" type="file" accept=".json,application/json" hidden></div>
   <div class="sceneMeasure"><span>Elementos</span><strong id="sceneObjectCount">0</strong></div>
-  <h3>Objetos colocados</h3><p class="sceneQuiet" id="sceneSelectionCount">Ctrl/Shift + clic para seleccionar varios objetos.</p><div id="sceneInstances" class="sceneInstances"></div>
+  <h3>Objetos colocados</h3><p class="sceneQuiet" id="sceneSelectionCount">Ctrl/Shift + clic para seleccionar varios objetos.</p><div class="sceneTools"><button id="sceneSelectAll" type="button">Seleccionar todos</button><button id="sceneClearSelection" type="button">Limpiar selección</button></div><div id="sceneInstances" class="sceneInstances"></div>
   <section id="sceneTransform" hidden>
    <h3>Transformación</h3><p class="sceneQuiet">Con varios objetos seleccionados, los cambios de posición, rotación y escala se aplican al conjunto; la duplicación crea copias de todos.</p>
    <label class="sceneField">Nombre<input id="sceneObjectName" maxlength="70"></label>
@@ -81,10 +81,7 @@
    </div>
    <label class="sceneField">Textura del modelo (ruta publicada)<input id="sceneModelTexture" type="text" placeholder="assets/texturas/mi-textura.webp"></label>
    <button id="sceneModelApplyTexture" type="button">Aplicar textura al modelo</button>
-   <div class="sceneTools sceneHistoryControls">
-    <button id="sceneUndo" type="button" title="Deshacer (Ctrl+Z)" disabled>↶ Deshacer</button>
-    <button id="sceneRedo" type="button" title="Rehacer (Ctrl+Y o Ctrl+Shift+Z)" disabled>↷ Rehacer</button>
-   </div>
+   <p class="sceneQuiet">Atajos: Ctrl+clic o Shift+clic = selección múltiple · Ctrl+Z = deshacer · Ctrl+Y = rehacer · Ctrl+S = guardar · Ctrl+A = todos · Esc = limpiar.</p>
    <label class="sceneField">Tipo de duplicación
     <select id="sceneDuplicateMode">
      <option value="normal">Normal · desplazar +1 X / +1 Z</option>
@@ -98,5 +95,5 @@
   <p class="sceneQuiet">Los cambios afectan únicamente a este escenario. Los GLB originales y el motor de combate permanecen intactos.</p>
  </aside>
 </main>
-<script src="./studio.js"></script><script type="module" src="./scene-editor.js"></script>
+<script src="./studio.js"></script><script type="module" src="./scene-editor.js?v=20261104-multiselect-2"></script>
 </body></html>
