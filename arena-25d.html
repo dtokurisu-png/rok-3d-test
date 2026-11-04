@@ -1702,7 +1702,7 @@ function summonHudTicks(group,side,radius,color){
  for(let i=0;i<8;i++){
   // Decade marks are FULL bright arcs, not tiny hairlines. Keep them in
   // an inward lane beside the main segmented bar and above the ground.
-  const ringRadius=radius-i*.085;
+  const ringRadius=radius-i*.055;
   const shadow=new THREE.Mesh(summonHudGeometry(ringRadius-.012,side,0,1,.094),
    new THREE.MeshBasicMaterial({color:0x020405,transparent:true,opacity:.72,
     depthWrite:false,depthTest:false,side:THREE.DoubleSide,toneMapped:false}));
