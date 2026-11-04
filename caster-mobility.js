@@ -11,6 +11,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   throw Error('Controles WASD o sistema de capas de caster incompletos');
  const directions={KeyW:'forward',KeyS:'backward',KeyA:'left',KeyD:'right'};
  const held=new Set(),defenseKeys=new Set(),clips=new Map();
+ let mobileAxisX=0,mobileAxisY=0;
  let enabled=false,caster=null,loadedModel=null,loadingModel=null,revision=0;
  const ATTACK_PERIOD=1;
  const WALK_SPEED=3.8;
@@ -23,12 +24,13 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
  };
  const selected=()=>getCaster(select.value);
  function clearMovement(){
+  mobileAxisX=0;mobileAxisY=0;
   held.clear();
   for(const button of buttons)button.dataset.held='false';
  }
  function motion(){
-  const forward=(held.has('KeyW')?1:0)-(held.has('KeyS')?1:0);
-  const lateral=(held.has('KeyD')?1:0)-(held.has('KeyA')?1:0);
+  const forward=THREE.MathUtils.clamp((held.has('KeyW')?1:0)-(held.has('KeyS')?1:0)+mobileAxisY,-1,1);
+  const lateral=THREE.MathUtils.clamp((held.has('KeyD')?1:0)-(held.has('KeyA')?1:0)+mobileAxisX,-1,1);
   return {forward,lateral,kind:forward>0?'forward':forward<0?'backward':
    lateral<0?'left':lateral>0?'right':'idle'};
  }
@@ -132,7 +134,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   attackCooldown=Math.max(0,attackCooldown-dt);
   const {forward,lateral,kind}=motion();
   if(forward||lateral){
-   const len=Math.hypot(forward,lateral),v=Number(speed.value)||WALK_SPEED;
+   const len=Math.hypot(forward,lateral),v=(Number(speed.value)||WALK_SPEED)*Math.min(1,len);
    const sign=c.side==='ally'?-1:1;
    const delta=Math.min(.05,Math.max(0,dt));
    c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+lateral/len*v*delta,-bounds.x,bounds.x);
@@ -203,6 +205,13 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
  select.addEventListener('change',()=>{stop();select.blur();});
  speed.addEventListener('input',()=>{speedText.textContent=Number(speed.value).toFixed(1);});
  notify('WASD · listo');
- return {step,disable:stop,startAttack,setDefense,get enabled(){return enabled;},
+ return {step,disable:stop,startAttack,setDefense,
+  setMobileAxis(x,y){
+   mobileAxisX=THREE.MathUtils.clamp(Number(x)||0,-1,1);
+   mobileAxisY=THREE.MathUtils.clamp(Number(y)||0,-1,1);
+   if((mobileAxisX||mobileAxisY)&&!enabled)engage();
+  },
+  releaseMobile(){mobileAxisX=0;mobileAxisY=0;setDefense(false);},
+  get enabled(){return enabled;},
   get defending(){return defending;},get caster(){return caster;}};
 }
