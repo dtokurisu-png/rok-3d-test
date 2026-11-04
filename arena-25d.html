@@ -144,12 +144,65 @@ canvas{display:block;touch-action:none}
   pointer-events:none;white-space:nowrap;
  }
 }
+/* Bootstrap layer is visible before Three.js or its imports arrive. */
+#gameLoadingOverlay{position:fixed;inset:0;z-index:12000;background:#06151f;
+ display:flex;align-items:center;justify-content:center;text-align:center;
+ padding:24px;color:#efffff;font:500 14px/1.5 Roboto,system-ui,sans-serif}
+#gameLoadingOverlay[hidden]{display:none!important}
+#gameLoadingCard{width:min(360px,88vw)}
+#gameLoadingCard strong{display:block;color:#00ffe4;font-size:23px;letter-spacing:.08em}
+#gameLoadingCard p{margin:12px auto;overflow-wrap:anywhere}
+#gameLoadingTrack{height:7px;background:#183844;border-radius:9px;overflow:hidden}
+#gameLoadingFill{height:100%;width:2%;background:#00ffe4;transition:width .24s ease}
+#gameLoadingRetry{display:none;margin:14px auto 0;padding:9px 20px;border-radius:9px;
+ border:1px solid #00ffe4;background:#16434c;color:white;font-weight:700}
+#gameLoadingOverlay[data-error="true"] #gameLoadingRetry{display:block}
+body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"></head>
-<body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.56 · Vista móvil limpia</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.56</div>
+<body data-studio-page="tester" data-rok-boot="loading">
+<div id="gameLoadingOverlay" role="status" aria-live="polite">
+ <div id="gameLoadingCard">
+  <strong>R.O.K.</strong>
+  <p id="gameLoadingMessage">Preparando escenario y combatientes…</p>
+  <div id="gameLoadingTrack"><div id="gameLoadingFill"></div></div>
+  <button id="gameLoadingRetry" type="button" onclick="location.reload()">Reintentar carga</button>
+ </div>
+</div>
+<script>
+(function(){
+ const panel=document.getElementById('gameLoadingOverlay');
+ const message=document.getElementById('gameLoadingMessage');
+ const fill=document.getElementById('gameLoadingFill');
+ let done=false;
+ const fail=reason=>{
+  if(done)return;
+  done=true;panel.dataset.error='true';
+  message.textContent='No se pudo preparar la partida: '+String(reason||'Error de recursos');
+  fill.style.width='100%';
+ };
+ const deadline=setTimeout(()=>fail('La descarga o preparación tardó demasiado. Reintenta con una conexión estable.'),90000);
+ window.ROKBoot={
+  progress(label,percent){if(done)return;message.textContent=label;fill.style.width=Math.max(2,Math.min(97,percent))+'%';},
+  fail(reason){clearTimeout(deadline);fail(reason);},
+  ready(){
+   if(done)return;
+   clearTimeout(deadline);done=true;fill.style.width='100%';
+   document.body.dataset.rokBoot='ready';panel.hidden=true;
+  }
+ };
+ window.addEventListener('error',event=>{
+  if(!done&&event.message&&/script|module|import|webgl|three|syntaxerror/i.test(String(event.message)))
+   window.ROKBoot.fail(event.message);
+ });
+ window.addEventListener('unhandledrejection',event=>{
+  if(!done&&event.reason)window.ROKBoot.fail(event.reason.message||String(event.reason));
+ });
+})();
+</script>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.57 · Carga sincronizada</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.57</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
