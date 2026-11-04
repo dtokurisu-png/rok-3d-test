@@ -772,7 +772,7 @@ $('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear
  status('Escenario vacío');});
 $('sceneOpen').addEventListener('click',()=>$('sceneFile').click());
 async function readJSONFile(file){
- if(!file||file.size>500000)throw Error('Archivo JSON ausente o demasiado grande');
+ if(!file||file.size>2500000)throw Error('Archivo JSON ausente o demasiado grande');
  return JSON.parse(await file.text());
 }
 function verifyScene(json){
