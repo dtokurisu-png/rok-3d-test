@@ -262,7 +262,13 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
    <button id="mobaReposition" type="button">Mover controles</button>
    <button id="mobaResetLayout" type="button">Restablecer</button>
   </div>
-  <p>En modo edición arrastra joystick, ataque y defensa. Se guarda su posición en este dispositivo.</p>
+  <p>En modo edición arrastra joystick, ataque y defensa. Confirma con Guardar controles; se conservarán al volver a abrir el juego.</p>
+  <div class="mobaSettingsActions"><button id="mobaSaveLayout" type="button">Guardar controles</button></div>
+  <p id="mobaLayoutStatus" role="status"></p>
+  <p><strong>Escenario:</strong> Si fue creado en otro dispositivo, importa una vez su archivo JSON y quedará guardado aquí.</p>
+  <div class="mobaSettingsActions"><button id="mobaLoadScene" type="button">Cargar escenario JSON</button></div>
+  <input id="mobaSceneFile" type="file" accept=".json,application/json" hidden>
+  <p id="mobaSceneStatus" role="status"></p>
   <div class="mobaSettingsActions"><button id="mobaResume" type="button">▶ Volver al combate</button></div>
  </div>
 </div>
@@ -3533,6 +3539,26 @@ function setupMobileMobaControls(){
  let customizedLayout=false;
  let joyPointer=null,defensePointer=null;
  const offsets={};
+ let pendingLandscapeSaved=null;
+ const landscapeSize=()=>({width:innerWidth,height:innerHeight});
+ const layoutStatus=qs('#mobaLayoutStatus');
+ const sceneStatus=qs('#mobaSceneStatus');
+ const sceneFile=qs('#mobaSceneFile');
+ const normalizeLayout=()=>Object.fromEntries(Object.entries(elements).map(([key,el])=>{
+  const p=offsets[key]||defaultPosition(key);
+  const w=Math.max(1,innerWidth-(el.offsetWidth||(key==='joystick'?120:key==='defend'?60:76)));
+  const h=Math.max(1,innerHeight-(el.offsetHeight||(key==='joystick'?120:key==='defend'?60:76)));
+  return [key,{x:p.left/w,y:p.bottom/h}];
+ }));
+ const applyNormalizedLayout=layout=>{
+  for(const [key,el] of Object.entries(elements)){
+   const pos=layout?.[key];
+   if(!pos||!Number.isFinite(pos.x)||!Number.isFinite(pos.y))continue;
+   const w=Math.max(1,innerWidth-(el.offsetWidth||(key==='joystick'?120:key==='defend'?60:76)));
+   const h=Math.max(1,innerHeight-(el.offsetHeight||(key==='joystick'?120:key==='defend'?60:76)));
+   applyPosition(key,{left:pos.x*w,bottom:pos.y*h});
+  }
+ };
  const clampPosition=(key,left,bottom)=>{
   const el=elements[key];
   const width=el.offsetWidth||(key==='joystick'?120:key==='defend'?60:76);
@@ -3545,25 +3571,45 @@ function setupMobileMobaControls(){
   offsets[key]=p;el.style.left=p.left+'px';el.style.bottom=p.bottom+'px';el.style.right='auto';
  };
  const saveLayout=()=>{
-  customizedLayout=true;
-  try{localStorage.setItem('rokMobileMobaLayoutV1',JSON.stringify(offsets));}catch{}
+  // Never overwrite saved LANDSCAPE coordinates when the device is portrait.
+  if(portraitQuery.matches)return;
+  const layout=normalizeLayout();
+  customizedLayout=true;pendingLandscapeSaved=layout;
+  try{
+   localStorage.setItem('rokMobileMobaLayoutV2',JSON.stringify(layout));
+   layoutStatus.textContent='✓ Controles guardados en este dispositivo';
+  }catch(error){layoutStatus.textContent='No se pudo guardar: '+error.message;}
  };
- function resetLayout(save=true){
-  customizedLayout=false;
+ function resetLayout(){
+  customizedLayout=false;pendingLandscapeSaved=null;
   for(const key of Object.keys(elements))applyPosition(key,defaultPosition(key));
-  if(save){
-   try{localStorage.removeItem('rokMobileMobaLayoutV1');}catch{}
-  }
+  try{
+   localStorage.removeItem('rokMobileMobaLayoutV2');
+   localStorage.removeItem('rokMobileMobaLayoutV1');
+  }catch{}
+  layoutStatus.textContent='Posiciones originales restauradas';
  }
  function loadLayout(){
   let saved=null;
-  try{saved=JSON.parse(localStorage.getItem('rokMobileMobaLayoutV1')||'null');}catch{}
+  try{
+   saved=JSON.parse(localStorage.getItem('rokMobileMobaLayoutV2')||'null');
+   if(!saved){
+    const legacy=JSON.parse(localStorage.getItem('rokMobileMobaLayoutV1')||'null');
+    if(legacy&&Object.keys(elements).every(key=>
+      Number.isFinite(legacy[key]?.left)&&Number.isFinite(legacy[key]?.bottom))){
+     // Migrate pixel positions using a landscape approximation only.
+     if(!portraitQuery.matches){
+      for(const key of Object.keys(elements))applyPosition(key,legacy[key]);
+      saved=normalizeLayout();
+     }
+    }
+   }
+  }catch{}
   customizedLayout=!!saved&&Object.keys(elements).every(key=>
-   Number.isFinite(saved[key]?.left)&&Number.isFinite(saved[key]?.bottom));
-  for(const key of Object.keys(elements)){
-   const p=customizedLayout?saved[key]:defaultPosition(key);
-   applyPosition(key,p);
-  }
+    Number.isFinite(saved[key]?.x)&&Number.isFinite(saved[key]?.y));
+  pendingLandscapeSaved=customizedLayout?saved:null;
+  for(const key of Object.keys(elements))applyPosition(key,defaultPosition(key));
+  if(customizedLayout&&!portraitQuery.matches)applyNormalizedLayout(pendingLandscapeSaved);
  }
  const releaseInputs=()=>{
   joyPointer=null;defensePointer=null;
@@ -3572,8 +3618,10 @@ function setupMobileMobaControls(){
   defend.dataset.held='false';
  };
  function stopEdit(){
+  const wasEditing=editing;
   editing=false;editNotice.dataset.visible='false';
-  releaseInputs();saveLayout();
+  releaseInputs();
+  if(wasEditing)saveLayout();
  }
  function resume(){
   stopEdit();opened=false;dialog.dataset.open='false';
@@ -3597,7 +3645,27 @@ function setupMobileMobaControls(){
  qs('#mobaReposition').addEventListener('click',()=>{
   editing=true;dialog.dataset.open='false';editNotice.dataset.visible='true';
  });
- qs('#mobaResetLayout').addEventListener('click',()=>resetLayout());
+ qs('#mobaResetLayout').addEventListener('click',resetLayout);
+ qs('#mobaSaveLayout').addEventListener('click',saveLayout);
+ qs('#mobaLoadScene').addEventListener('click',()=>sceneFile.click());
+ sceneFile.addEventListener('change',async()=>{
+  const file=sceneFile.files?.[0];sceneFile.value='';
+  if(!file)return;
+  if(file.size>2500000){sceneStatus.textContent='El JSON supera el máximo de 2,5 MB';return;}
+  sceneStatus.textContent='Cargando escenario…';
+  const wasPlaying=playing;
+  playing=false;
+  try{
+   const raw=await file.text(),json=JSON.parse(raw);
+   const ok=await sceneryOverlay.loadScene(json);
+   if(!ok)throw Error('La carga del escenario fue interrumpida');
+   sceneryOverlay.show(true);
+   localStorage.setItem('ROK_SCENE_PACKAGE_1_V1',raw);
+   qs('#testerSceneCurrent').textContent=sceneryOverlay.currentName;
+   sceneStatus.textContent='✓ '+sceneryOverlay.currentName+' · '+sceneryOverlay.count+' objetos. Guardado para futuras partidas.';
+  }catch(error){sceneStatus.textContent='Error de escenario: '+String(error.message||error);}
+  finally{playing=wasPlaying&&!opened;}
+ });
  function joystickMove(event){
   const rect=joy.getBoundingClientRect();
   const x=event.clientX-(rect.left+rect.width/2);
@@ -3655,7 +3723,9 @@ function setupMobileMobaControls(){
   // Default positions follow the screen's CURRENT landscape width.
   // Only player-customized coordinates remain anchored to saved positions.
   for(const key of Object.keys(elements))
-   applyPosition(key,customizedLayout?offsets[key]:defaultPosition(key));
+   applyPosition(key,defaultPosition(key));
+  if(customizedLayout&&!portraitQuery.matches&&pendingLandscapeSaved)
+   applyNormalizedLayout(pendingLandscapeSaved);
   if(portraitQuery.matches){
    if(!portraitPaused&&!opened){restorePlaying=playing;playing=false;}
    portraitPaused=true;releaseInputs();
