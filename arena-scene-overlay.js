@@ -417,7 +417,7 @@ export function mountArenaSceneControls(overlay){
  });
  reset.addEventListener('click',()=>{if(working)return;overlay.clear();visibility.checked=true;overlay.show(true);showCurrent();report('Escenario original restaurado');bannerReport('Arena original · Escenario 1 disponible desde el editor',false);});
  visibility.addEventListener('change',()=>{overlay.show(visibility.checked);report(visibility.checked?'Decoraciones visibles':'Decoraciones ocultas');});
- overlay.init().then(async()=>{
+ const initialReady=overlay.init().then(async()=>{
   report('Biblioteca de modelos lista');
   // Load a saved composition even when the tester is opened directly.
   // Published catalog is independent; an empty catalog must not reset status.
@@ -437,7 +437,13 @@ export function mountArenaSceneControls(overlay){
    apply.disabled=published.options.length===1;
    if(!overlay.currentName)report(published.options.length>1?'Escenarios publicados disponibles':'Sin escenarios publicados; importa un JSON para probar');
   }catch(error){if(!overlay.currentName)report('Biblioteca lista; no se pudo cargar el índice de escenas');}
- }).catch(error=>{report('Error en biblioteca de modelos: '+error.message);importButton.disabled=true;apply.disabled=true;});
+ }).catch(error=>{
+  report('Error en biblioteca de modelos: '+error.message);
+  importButton.disabled=true;apply.disabled=true;
+  // The original arena can still be used without decorative scene assets.
+  return {fallback:true,reason:String(error.message||error)};
+ });
  published.addEventListener('change',()=>{apply.disabled=!published.value;});
  showCurrent();
+ return {ready:initialReady};
 }
