@@ -113,6 +113,8 @@ canvas{display:block;touch-action:none}
 #cameraTuningPanel output{color:#00ffe4;font-weight:700;font-variant-numeric:tabular-nums}
 #cameraTuningPanel .cameraPresetButtons{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0}
 #cameraTuningPanel .cameraPresetButtons button[aria-pressed=true]{background:#007f73;border-color:#00ffe4;font-weight:700}
+#cameraTuningPanel .cameraFollowToggle{display:flex;align-items:center;justify-content:flex-start;gap:8px;margin-top:12px}
+#cameraTuningPanel .cameraFollowToggle input{accent-color:#00ffe4}
 #cameraTuningPanel .cameraNotes{font-size:11px;color:#a7d2d5;margin:8px 0;line-height:1.5}
 #cameraTuningPanel .cameraActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 #cameraTuningPanel .cameraActions button{flex:1}
@@ -122,7 +124,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.29 · Panel de cámara</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.30 · Seguimiento de casters</div>
 
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
@@ -135,20 +137,22 @@ canvas{display:block;touch-action:none}
       <p id="testerSceneStatus" class="sceneTesterStatus" role="status">Comprobando escenario…</p>
     </section>
     <section id="cameraTuningPanel" aria-label="Configuración de la cámara">
- <div class="cameraHeader"><strong>📷 Cámaras · Etapa 1</strong></div>
+ <div class="cameraHeader"><strong>📷 Cámaras · Etapa 2</strong></div>
  <div class="cameraPresetButtons"><button id="cameraPresetNear" type="button" aria-pressed="true">Vista 1 · Cerca</button><button id="cameraPresetWide" type="button" aria-pressed="false">Vista 2 · Arena</button></div>
  <label for="cameraTuningDistance">Distancia respecto al caster aliado <output id="cameraTuningDistanceValue">35</output></label>
- <input id="cameraTuningDistance" type="range" min="5" max="70" step="1" value="35">
+ <input id="cameraTuningDistance" type="range" min="5" max="70" step="1" value="11">
  <label for="cameraTuningAngle">Inclinación desde el suelo <output id="cameraTuningAngleValue">45°</output></label>
- <input id="cameraTuningAngle" type="range" min="15" max="75" step="1" value="45">
+ <input id="cameraTuningAngle" type="range" min="0" max="75" step="1" value="15">
  <label for="cameraTuningHeight">Nivel de altura</label>
  <select id="cameraTuningHeight"><option value="low">Baja</option><option value="medium" selected>Media</option><option value="high">Alta</option></select>
- <p class="cameraNotes" id="cameraTuningReadout" aria-live="polite">Distancia real: — · Elevación: —</p>
+ <label class="cameraFollowToggle"><input id="cameraAutoFollow" type="checkbox" checked> Seguimiento automático de ambos casters</label>
+ <p class="cameraNotes">Baja: 5 u · Media: 11 u · Alta: 11 u. Inclinación base: 15°. La cámara se aleja cuando necesita mantener a ambos casters visibles.</p>
+ <p class="cameraNotes" id="cameraTuningReadout" aria-live="polite">Calculando encuadre…</p>
  <div class="cameraActions"><button id="cameraTuningSave" type="button">Guardar ambas vistas</button><button id="cameraTuningReset" type="button">Restablecer vista</button></div>
- <p class="cameraNotes" id="cameraTuningStatus">La vista se actualiza al mover los controles. Aún no hay seguimiento automático.</p>
+ <p class="cameraNotes" id="cameraTuningStatus">Seguimiento automático activo · casters prioritarios, invocaciones secundarias.</p>
 </section>
 
-    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.29 · 04/11/2026:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
+    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.30 · 04/11/2026: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
     <a class="arenaBackLink" href="./index.html">Volver al visor de animaciones</a>
   </div>
 </section>
@@ -225,56 +229,126 @@ function getCasterCameraAnchor(){
  }
  return casterCameraAnchor.set(0,.85,13.5);
 }
-const CAMERA_PRESET_KEY='ROK_ARENA_CAMERA_STAGE1_V1';
+const CAMERA_PRESET_KEY='ROK_ARENA_CAMERA_STAGE2_V1';
+const CAMERA_HEIGHT_DEFAULTS={low:5,medium:11,high:11};
 const CAMERA_DEFAULTS={
- near:{distance:35,angle:45,height:'medium'},
- wide:{distance:55,angle:39,height:'medium'}
+ near:{distance:11,angle:15,height:'medium'},
+ wide:{distance:11,angle:15,height:'high'}
 };
-const CAMERA_HEIGHT_OFFSET={low:0,medium:3,high:7};
 const cameraPresets=structuredClone(CAMERA_DEFAULTS);
 let activeCameraPreset='near';
-const cameraPanel=qs('#cameraTuningPanel');
-const cameraValue=(value,min,max,defaultValue)=>{
- const n=Number(value);return Number.isFinite(n)?THREE.MathUtils.clamp(n,min,max):defaultValue;
+let autoFollow=true;
+let trackingReady=false;
+let cameraActualDistance=11;
+const cameraValue=(value,min,max,fallback)=>{
+ const n=Number(value);return Number.isFinite(n)?THREE.MathUtils.clamp(n,min,max):fallback;
 };
 function cameraPresetSafe(raw,defaults){
  return {
   distance:cameraValue(raw?.distance,5,70,defaults.distance),
-  angle:cameraValue(raw?.angle,15,75,defaults.angle),
-  height:Object.hasOwn(CAMERA_HEIGHT_OFFSET,raw?.height)?raw.height:defaults.height
+  angle:cameraValue(raw?.angle,0,75,defaults.angle),
+  height:Object.hasOwn(CAMERA_HEIGHT_DEFAULTS,raw?.height)?raw.height:defaults.height
  };
 }
 try{
- const stored=JSON.parse(localStorage.getItem(CAMERA_PRESET_KEY)||'null');
- if(stored?.near&&stored?.wide){
-  cameraPresets.near=cameraPresetSafe(stored.near,CAMERA_DEFAULTS.near);
-  cameraPresets.wide=cameraPresetSafe(stored.wide,CAMERA_DEFAULTS.wide);
+ const saved=JSON.parse(localStorage.getItem(CAMERA_PRESET_KEY)||'null');
+ if(saved?.near&&saved?.wide){
+  cameraPresets.near=cameraPresetSafe(saved.near,CAMERA_DEFAULTS.near);
+  cameraPresets.wide=cameraPresetSafe(saved.wide,CAMERA_DEFAULTS.wide);
  }
-}catch(error){qs('#cameraTuningStatus').textContent='No fue posible leer los ajustes de cámara anteriores';}
-function applyCameraPreset(){
- const settings=cameraPresets[activeCameraPreset];
- const theta=THREE.MathUtils.degToRad(settings.angle);
- const anchor=getCasterCameraAnchor().clone();
- const elevation=CAMERA_HEIGHT_OFFSET[settings.height];
- // Both the camera position AND its look-at target use the caster.
- // Height changes never replace the caster as the look-at target.
- camera.position.set(anchor.x,anchor.y+settings.distance*Math.sin(theta)+elevation,
-  anchor.z+settings.distance*Math.cos(theta));
- controls.target.copy(anchor);
- camera.fov=innerWidth<700?53:47;
- camera.updateProjectionMatrix();controls.update();
- qs('#cameraTuningDistance').value=String(settings.distance);
- qs('#cameraTuningAngle').value=String(settings.angle);
- qs('#cameraTuningHeight').value=settings.height;
- qs('#cameraTuningDistanceValue').textContent=settings.distance.toFixed(0)+' u';
- qs('#cameraTuningAngleValue').textContent=settings.angle.toFixed(0)+'°';
+}catch(error){qs('#cameraTuningStatus').textContent='No se pudieron recuperar los ajustes anteriores';}
+function showCameraSettings(){
+ const cfg=cameraPresets[activeCameraPreset];
+ qs('#cameraTuningDistance').value=String(cfg.distance);
+ qs('#cameraTuningAngle').value=String(cfg.angle);
+ qs('#cameraTuningHeight').value=cfg.height;
+ qs('#cameraTuningDistanceValue').textContent=cfg.distance.toFixed(0)+' u';
+ qs('#cameraTuningAngleValue').textContent=cfg.angle.toFixed(0)+'°';
  qs('#cameraPresetNear').setAttribute('aria-pressed',String(activeCameraPreset==='near'));
  qs('#cameraPresetWide').setAttribute('aria-pressed',String(activeCameraPreset==='wide'));
- const realDistance=camera.position.distanceTo(anchor);
- const horizontalDistance=Math.hypot(camera.position.x-anchor.x,camera.position.z-anchor.z);
- const realAngle=THREE.MathUtils.radToDeg(Math.atan2(camera.position.y-anchor.y,horizontalDistance));
- qs('#cameraTuningReadout').textContent='Distancia real al caster: '+realDistance.toFixed(1)+
-  ' u · Elevación visual: '+realAngle.toFixed(1)+'° · Altura cámara: '+camera.position.y.toFixed(1)+' u';
+}
+function setCameraAt(target,distance,angle){
+ const theta=THREE.MathUtils.degToRad(angle);
+ camera.position.set(target.x,target.y+distance*Math.sin(theta),target.z+distance*Math.cos(theta));
+ controls.target.copy(target);
+ camera.updateProjectionMatrix();
+ camera.lookAt(target);
+}
+function computeCameraFrame(){
+ const cfg=cameraPresets[activeCameraPreset],theta=THREE.MathUtils.degToRad(cfg.angle);
+ const cast=casters.filter(c=>c?.outer);
+ if(!cast.length)return {target:getCasterCameraAnchor().clone(),distance:cfg.distance};
+ const primary=cast.map(c=>new THREE.Vector3(c.outer.position.x,.85+c.outer.position.y,c.outer.position.z));
+ let minX=Math.min(...primary.map(p=>p.x)),maxX=Math.max(...primary.map(p=>p.x));
+ let minZ=Math.min(...primary.map(p=>p.z)),maxZ=Math.max(...primary.map(p=>p.z));
+ // Summons are secondary: consider active ones near the battle, not the restoration nexuses.
+ // Their spawn/death cycles must not pull the camera away from either caster.
+ const extraX=Math.max(3,(maxX-minX)*.3),extraZ=Math.max(3,(maxZ-minZ)*.25);
+ const secondary=[];
+ for(const unit of combatants){
+  if(!unit?.outer||unit.hp<=0||!['active','stunned','casting'].includes(unit.stage))continue;
+  const x=unit.outer.position.x,z=unit.outer.position.z;
+  if(x<minX-extraX||x>maxX+extraX||z<minZ-extraZ||z>maxZ+extraZ)continue;
+  secondary.push(new THREE.Vector3(x,.9,z));
+ }
+ // The casters determine the midpoint; summons only extend the safe viewport.
+ const target=new THREE.Vector3((minX+maxX)/2,.85,(minZ+maxZ)/2);
+ const vFov=THREE.MathUtils.degToRad(camera.fov);
+ const vTan=Math.tan(vFov/2);
+ const hTan=vTan*camera.aspect;
+ const margin=.75; // space for caster HUDs and edge movement
+ let distance=cfg.distance;
+ for(const point of [...primary,...secondary]){
+  const dx=point.x-target.x,dz=point.z-target.z,dy=point.y-target.y;
+  // At this camera orientation the positive Z axis is toward the camera.
+  // Solve the perspective-frustum inequalities for minimum camera distance.
+  const offsetDepth=Math.sin(theta)*dz+Math.cos(theta)*dy;
+  const up=Math.cos(theta)*dy-Math.sin(theta)*dz;
+  distance=Math.max(distance,
+   Math.abs(dx)/(Math.max(.08,hTan)*margin)+offsetDepth,
+   Math.abs(up)/(Math.max(.08,vTan)*margin)+offsetDepth);
+ }
+ return {target,distance:THREE.MathUtils.clamp(distance+2,cfg.distance,140)};
+}
+function syncCameraReadout(){
+ const reference=getCasterCameraAnchor();
+ const actual=camera.position.distanceTo(reference);
+ const dx=camera.position.x-controls.target.x,dz=camera.position.z-controls.target.z;
+ const pitch=THREE.MathUtils.radToDeg(Math.atan2(camera.position.y-controls.target.y,Math.hypot(dx,dz)));
+ qs('#cameraTuningReadout').textContent='Base: '+cameraPresets[activeCameraPreset].distance.toFixed(0)+
+  ' u · Encuadre actual: '+cameraActualDistance.toFixed(1)+' u · Distancia al caster: '+
+  actual.toFixed(1)+' u · Inclinación: '+pitch.toFixed(1)+'°';
+}
+function applyCameraPreset(){
+ const cfg=cameraPresets[activeCameraPreset];
+ camera.fov=innerWidth<700?53:47;
+ camera.updateProjectionMatrix();
+ trackingReady=false;
+ const shot=computeCameraFrame();
+ cameraActualDistance=shot.distance;
+ setCameraAt(shot.target,shot.distance,cfg.angle);
+ controls.enabled=!autoFollow;
+ showCameraSettings();
+ syncCameraReadout();
+}
+function updateCameraTracking(dt){
+ if(!autoFollow)return;
+ const cfg=cameraPresets[activeCameraPreset];
+ const shot=computeCameraFrame();
+ // Smooth, frame-rate independent dampening; small threshold avoids micro-jitter.
+ const t=1-Math.exp(-Math.max(.001,dt)*3.5);
+ const nextTarget=controls.target.clone();
+ if(nextTarget.distanceTo(shot.target)>.045)nextTarget.lerp(shot.target,t);
+ const delta=shot.distance-cameraActualDistance;
+ if(Math.abs(delta)>.12)cameraActualDistance+=delta*(1-Math.exp(-Math.max(.001,dt)*(delta>0?4.5:1.8)));
+ const theta=THREE.MathUtils.degToRad(cfg.angle);
+ const nextPosition=new THREE.Vector3(nextTarget.x,
+  nextTarget.y+cameraActualDistance*Math.sin(theta),
+  nextTarget.z+cameraActualDistance*Math.cos(theta));
+ camera.position.lerp(nextPosition,t);
+ controls.target.copy(nextTarget);
+ camera.lookAt(controls.target);
+ if(!trackingReady){trackingReady=true;}
 }
 function selectCameraPreset(which,openPanel=true){
  activeCameraPreset=which;
@@ -284,26 +358,36 @@ function selectCameraPreset(which,openPanel=true){
 for(const [button,which] of [['#camera','#near'],['#full','#wide'],['#cameraPresetNear','#near'],['#cameraPresetWide','#wide']]){
  qs(button).addEventListener('click',()=>selectCameraPreset(which==='#near'?'near':'wide'));
 }
-// Camera settings live inside the main Options panel.
+qs('#cameraAutoFollow').addEventListener('change',event=>{
+ autoFollow=event.target.checked;
+ controls.enabled=!autoFollow;
+ if(autoFollow)applyCameraPreset();
+ qs('#cameraTuningStatus').textContent=autoFollow?'Seguimiento automático activo: ambos casters tienen prioridad':'Seguimiento pausado: puedes girar la cámara manualmente';
+});
 for(const id of ['#cameraTuningDistance','#cameraTuningAngle','#cameraTuningHeight']){
  qs(id).addEventListener('input',()=>{
-  const preset=cameraPresets[activeCameraPreset];
-  preset.distance=cameraValue(qs('#cameraTuningDistance').value,5,70,preset.distance);
-  preset.angle=cameraValue(qs('#cameraTuningAngle').value,15,75,preset.angle);
-  preset.height=qs('#cameraTuningHeight').value;
+  const cfg=cameraPresets[activeCameraPreset];
+  if(id==='#cameraTuningHeight'){
+   cfg.height=qs('#cameraTuningHeight').value;
+   cfg.distance=CAMERA_HEIGHT_DEFAULTS[cfg.height];
+   cfg.angle=15;
+  }else{
+   cfg.distance=cameraValue(qs('#cameraTuningDistance').value,5,70,cfg.distance);
+   cfg.angle=cameraValue(qs('#cameraTuningAngle').value,0,75,cfg.angle);
+  }
   applyCameraPreset();
-  qs('#cameraTuningStatus').textContent='Vista previa sin guardar · pulsa Guardar ambas vistas cuando apruebes los valores';
+  qs('#cameraTuningStatus').textContent='Vista de prueba: ambos casters encuadrados · guarda para conservar la configuración';
  });
 }
 qs('#cameraTuningSave').addEventListener('click',()=>{
- try{
-  localStorage.setItem(CAMERA_PRESET_KEY,JSON.stringify(cameraPresets));
-  qs('#cameraTuningStatus').textContent='✓ Ambas vistas guardadas en este navegador';
+ try{localStorage.setItem(CAMERA_PRESET_KEY,JSON.stringify(cameraPresets));
+  qs('#cameraTuningStatus').textContent='✓ Configuraciones guardadas en este navegador';
  }catch(error){qs('#cameraTuningStatus').textContent='No se pudo guardar: '+error.message;}
 });
 qs('#cameraTuningReset').addEventListener('click',()=>{
  cameraPresets[activeCameraPreset]={...CAMERA_DEFAULTS[activeCameraPreset]};
- applyCameraPreset();qs('#cameraTuningStatus').textContent='Vista restaurada; aún falta guardar si deseas conservarla';
+ applyCameraPreset();
+ qs('#cameraTuningStatus').textContent='Valores restaurados: 11 / 11 / 5 unidades, 15°';
 });
 selectCameraPreset('near',false);
 
@@ -3306,6 +3390,7 @@ function loop(now){
     for(const c of casters)updateNameplate(c);
   }
   sceneryOverlay.update(now/1000);
+  updateCameraTracking(dt);
   controls.update();renderer.render(scene,camera);
   fpsTime+=dt;fpsCount++;if(fpsTime>=1){qs('#fps').textContent='FPS: '+Math.round(fpsCount/fpsTime);fpsTime=0;fpsCount=0;}
 }
