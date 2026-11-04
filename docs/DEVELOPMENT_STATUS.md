@@ -207,3 +207,10 @@ Se corrigió `index.html` para permitir probar los clips originales 01–14 con 
 - La carga de textura acepta rutas locales verificables bajo `assets/texturas/` o `assets/textures/`. **No se verificó la ruta exacta de «panorama gótica de vitrales zafiro»**, por lo que la primera versión usa material azul provisional; el campo permite asignar la ruta cuando se conozca. No afirmar que la textura está aplicada.
 - Prueba `tests/scene-background.test.mjs`: estructura del recinto, altura real de la bóveda, controles de JSON, límites proporcionales y actualización del tester. Sintaxis verificada y geometría comprobada con Three.js simulado. **Pendiente prueba visual WebGL**.
 - Las dos cámaras predeterminadas siguen pendientes por decisión del usuario; no se modificaron.
+
+## 2026-11-03 — Corrección de textura automática del background gótico
+
+- Se configuró como **textura predeterminada** el archivo cuyo nombre indicó el usuario: `assets/texturas/Panorama gótica de vitrales zafiro`. Ya no se requiere introducirlo manualmente al abrir o crear escenarios.
+- `scene-background.js` resuelve de manera automática la **extensión real** desde el contenido público de la carpeta del repositorio en GitHub (cuando está disponible); en caso contrario prueba extensiones comunes `.png`, `.jpg`, `.jpeg`, `.webp`, etc. Mantiene la ruta correctamente codificada para espacios y acentos y muestra aviso si no la encuentra.
+- Al cargar correctamente, `scene-editor.js` muestra la ruta final con extensión para que el JSON la guarde. Al crear escenario nuevo vuelve al default. El mismo módulo se usa al importar el JSON al tester.
+- Sintaxis y lógica del resolvedor comprobadas con pruebas simuladas. **La presencia física y visual del archivo real aún no se verificó**, por lo que no afirmar que la textura se ha renderizado hasta la comprobación del usuario en navegador.
