@@ -86,7 +86,9 @@ function backgroundInputs(){
   width:$('sceneBackgroundWidth').value,
   height:$('sceneBackgroundHeight').value,
   archRise:$('sceneBackgroundArch').value,
-  texture:$('sceneBackgroundTexture').value
+  texture:$('sceneBackgroundTexture').value,
+  textureOffsetX:$('sceneBackgroundOffsetX').value,
+  textureOffsetY:$('sceneBackgroundOffsetY').value
  };
 }
 function showBackgroundFields(config){
@@ -98,6 +100,10 @@ function showBackgroundFields(config){
  $('sceneBackgroundHeight').value=String(c.height);
  $('sceneBackgroundArch').value=String(c.archRise);
  $('sceneBackgroundTexture').value=c.texture;
+ $('sceneBackgroundOffsetX').value=String(c.textureOffsetX);
+ $('sceneBackgroundOffsetY').value=String(c.textureOffsetY);
+ $('sceneBackgroundOffsetXValue').textContent=c.textureOffsetX.toFixed(2);
+ $('sceneBackgroundOffsetYValue').textContent=c.textureOffsetY.toFixed(2);
 }
 function applyBackground(){
  try{
@@ -114,6 +120,15 @@ $('sceneBackgroundWidth').addEventListener('input',()=>{
 $('sceneBackgroundEnabled').addEventListener('change',()=>{
  environment.show($('sceneBackgroundEnabled').checked);
 });
+for(const axis of ['X','Y']){
+ $('sceneBackgroundOffset'+axis).addEventListener('input',()=>{
+  const x=Number($('sceneBackgroundOffsetX').value);
+  const y=Number($('sceneBackgroundOffsetY').value);
+  environment.setTextureOffset(x,y);
+  $('sceneBackgroundOffsetXValue').textContent=x.toFixed(2);
+  $('sceneBackgroundOffsetYValue').textContent=y.toFixed(2);
+ });
+}
 $('sceneBackgroundApply').addEventListener('click',applyBackground);
 showBackgroundFields(environment.config);
 const pointer=new THREE.Vector2(),raycaster=new THREE.Raycaster(),groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
