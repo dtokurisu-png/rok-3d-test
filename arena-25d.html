@@ -109,7 +109,7 @@ canvas{display:block;touch-action:none}
     <section id="testerSceneTools" aria-label="Escenarios de prueba">
       <strong>Escenario 3D</strong>
       <div class="sceneTesterCurrent">Activo: <span id="testerSceneCurrent">Arena original</span></div>
-      <div class="sceneTesterButtons"><button id="testerSceneImport" type="button">Importar escenario JSON</button><input id="testerSceneFile" type="file" accept=".json,application/json" hidden><button id="testerSceneReset" type="button">Restaurar arena</button></div>
+      <div class="sceneTesterButtons"><button id="testerSceneLocal" type="button">Cargar Escenario 1 del editor</button><button id="testerSceneImport" type="button">Importar escenario JSON</button><input id="testerSceneFile" type="file" accept=".json,application/json" hidden><button id="testerSceneReset" type="button">Restaurar arena</button></div>
       <label class="sceneTesterLine" for="testerScenePublished">Publicados en GitHub</label>
       <select id="testerScenePublished" aria-label="Escenario publicado"><option value="">Seleccionar escenario…</option></select>
       <div class="sceneTesterButtons"><button id="testerSceneApply" type="button" disabled>Cargar publicado</button><label class="sceneTesterLine"><input id="testerSceneVisible" type="checkbox" checked> Decoraciones visibles</label></div>
@@ -234,7 +234,11 @@ const fill=new THREE.DirectionalLight(0x00ccb8,.65);fill.position.set(4,5,-6);sc
 
 const root=new THREE.Group();scene.add(root);
 // Scenery overlay is visual only: never modifies units, hitboxes, pathfinding or rules.
-const sceneryOverlay=createArenaSceneOverlay({THREE,root,renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;}});
+const sceneryOverlay=createArenaSceneOverlay({THREE,root,renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;},onArenaVisual:opacity=>{
+ const fraction=THREE.MathUtils.clamp(Number(opacity)/100,0,1);
+ if(arenaArt){arenaArt.material.transparent=true;arenaArt.material.opacity=fraction;arenaArt.material.needsUpdate=true;}
+ pendingSceneOpacity=fraction;
+}});
 mountArenaSceneControls(sceneryOverlay);
 // Arena ampliada de prueba: 15 columnas X (0–14), 30 filas Z (0–29).
 // Mitad rival: filas 0–14; mitad aliada: filas 15–29.
@@ -263,6 +267,7 @@ const arenaTextureUrl='./assets/texturas/'+encodeURIComponent('Pavimento ornamen
 // La imagen decorativa es una capa distinta: escalado independiente de la
 // malla, casillas, movimiento y límites de juego, sin clipping del tablero.
 let arenaArt=null;
+let pendingSceneOpacity=1;
 let arenaSpriteWidth=1,arenaSpriteLength=1;
 const widthControl=qs('#arenaSpriteWidth');
 const lengthControl=qs('#arenaSpriteLength');
@@ -353,7 +358,7 @@ loadSharedArenaBackground();
 new THREE.TextureLoader().load(arenaTextureUrl,tex=>{
   tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
   arenaArt=new THREE.Mesh(new THREE.PlaneGeometry(W,D),
-    new THREE.MeshBasicMaterial({map:tex,transparent:false,opacity:1,
+    new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:pendingSceneOpacity,
       depthWrite:false,side:THREE.DoubleSide}));
   arenaArt.rotation.x=-Math.PI/2;arenaArt.position.y=.020;root.add(arenaArt);
   arenaArt.scale.set(arenaSpriteWidth,arenaSpriteLength,1);
