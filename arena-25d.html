@@ -3442,8 +3442,11 @@ function setupMobileMobaControls(){
  const defaults={joystick:{left:23,bottom:18},
   attack:{right:28,bottom:24},defend:{right:117,bottom:102}};
  const defaultPosition=key=>{
-  const el=elements[key],d=defaults[key];
-  return {left:d.left??Math.max(8,innerWidth-(d.right??8)-el.offsetWidth),
+  const d=defaults[key];
+  // During portrait lock the control layer is hidden (offsetWidth=0).
+  // Use known touch-target sizes to preserve the correct landscape layout.
+  const width=key==='joystick'?120:key==='defend'?60:76;
+  return {left:d.left??Math.max(8,innerWidth-(d.right??8)-width),
     bottom:d.bottom};
  };
  const mobileQuery=window.matchMedia('(pointer:coarse) and (max-width:950px)');
@@ -3453,8 +3456,10 @@ function setupMobileMobaControls(){
  const offsets={};
  const clampPosition=(key,left,bottom)=>{
   const el=elements[key];
-  return {left:THREE.MathUtils.clamp(left,5,Math.max(5,innerWidth-el.offsetWidth-5)),
-   bottom:THREE.MathUtils.clamp(bottom,5,Math.max(5,innerHeight-el.offsetHeight-5))};
+  const width=el.offsetWidth||(key==='joystick'?120:key==='defend'?60:76);
+  const height=el.offsetHeight||(key==='joystick'?120:key==='defend'?60:76);
+  return {left:THREE.MathUtils.clamp(left,5,Math.max(5,innerWidth-width-5)),
+   bottom:THREE.MathUtils.clamp(bottom,5,Math.max(5,innerHeight-height-5))};
  };
  const applyPosition=(key,pos)=>{
   const el=elements[key],p=clampPosition(key,pos.left,pos.bottom);
