@@ -7,9 +7,9 @@ test('scene editor is connected to an isolated 3D module',async()=>{
  for(const id of ['sceneCanvas','sceneLibraryList','sceneCompositions','sceneInstances','sceneSave','sceneOpen','sceneNew','sceneDuplicate','sceneDelete','sceneScale','sceneRotation','sceneImportAsset','sceneGrid'])assert.match(html,new RegExp('id="'+id+'"'));
  assert.match(html,/src="\.\/scene-editor\.js"/);
  assert.match(js,/new GLTFLoader\(\)/);
- assert.match(js,/const \$=id=>document\.getElementById\(id\), W=9,D=18/);
- assert.match(js,/arena-background\.css/);
- assert.match(js,/rok-lirte-html\/assets\/arena\.webp/);
+ assert.match(js,/const \$=id=>document\.getElementById\(id\), W=ARENA_COLUMNS,D=ARENA_ROWS/);
+ assert.match(js,/Pavimento ornamental de piedra azul y beige\.webp/);
+ assert.match(js,/createSceneFloor\(THREE/);
  assert.match(js,/sceneDocument\(\)/);
  assert.match(css,/\.sceneStudio/);
 });
@@ -23,5 +23,7 @@ test('scene importer validates geometry, composition types and excludes characte
  assert.match(source,/obj\.effects\.length>40/);
  assert.match(source,/m\.gitBlobSha/);
  assert.match(source,/effects=new Set\(\['glow','light','particles','fog','pulse'\]\)/);
- assert.doesNotMatch(source,/localStorage|sessionStorage|indexedDB/);
+ assert.match(source,/localStorage\.setItem\(sceneStorageKey/);
+ assert.match(source,/localStorage\.getItem\(sceneStorageKey/);
+ assert.match(source,/restoreScene\(/);
 });
