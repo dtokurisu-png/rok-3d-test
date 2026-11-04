@@ -98,6 +98,20 @@ canvas{display:block;touch-action:none}
 #testerSceneBanner{position:fixed;z-index:14;top:calc(env(safe-area-inset-top,0px) + 78px);right:12px;max-width:min(470px,65vw);display:flex;align-items:center;gap:8px;border:1px solid #327b85;border-radius:8px;background:#081b29e8;padding:7px 9px;color:#e2f8f7;font-size:11px;box-shadow:0 3px 10px #0008}
 #testerSceneBanner[data-active="true"]{border-color:#00ffe4}
 #testerSceneBanner button{background:#11605d;color:#fff;border:1px solid #00ffe4;border-radius:6px;padding:6px;white-space:nowrap;cursor:pointer}
+#cameraTuningPanel{position:fixed;top:95px;right:12px;z-index:18;width:min(325px,calc(100vw - 24px));max-height:calc(100dvh - 180px);overflow-y:auto;background:#0a2432f5;border:1px solid #00ffe4;border-radius:12px;box-shadow:0 8px 25px #000a;padding:12px;color:#eaffff;font-size:12px}
+#cameraTuningPanel[hidden]{display:none!important}
+#cameraTuningPanel .cameraHeader{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#cameraTuningPanel .cameraHeader strong{color:#00ffe4;font-size:14px}
+#cameraTuningPanel button,#cameraTuningPanel select{background:#153e46;color:#fff;border:1px solid #4b9899;border-radius:7px;padding:7px;cursor:pointer}
+#cameraTuningPanel label{display:flex;justify-content:space-between;gap:8px;margin:10px 0 5px;color:#c5eced}
+#cameraTuningPanel input[type=range]{width:100%;accent-color:#00ffe4}
+#cameraTuningPanel output{color:#00ffe4;font-weight:700;font-variant-numeric:tabular-nums}
+#cameraTuningPanel .cameraPresetButtons{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0}
+#cameraTuningPanel .cameraPresetButtons button[aria-pressed=true]{background:#007f73;border-color:#00ffe4;font-weight:700}
+#cameraTuningPanel .cameraNotes{font-size:11px;color:#a7d2d5;margin:8px 0;line-height:1.5}
+#cameraTuningPanel .cameraActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+#cameraTuningPanel .cameraActions button{flex:1}
+@media(max-width:700px){#cameraTuningPanel{top:145px;right:8px;max-height:calc(100dvh - 275px)}}
 @media(max-width:700px){#testerSceneBanner{top:calc(env(safe-area-inset-top,0px) + 104px);right:8px;max-width:94vw;font-size:10px}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
@@ -105,6 +119,19 @@ canvas{display:block;touch-action:none}
 <body data-studio-page="tester">
 <div id="versionProof" aria-label="Versión de la arena">v0.9.28 · Escudo sin duplicados</div>
 <div id="testerSceneBanner" data-active="false" aria-live="polite"><span id="testerSceneBannerText">Comprobando Escenario 1…</span><button type="button" id="testerSceneBannerLoad">↻ Cargar escenario</button></div>
+<section id="cameraTuningPanel" aria-label="Configuración de la cámara" hidden>
+ <div class="cameraHeader"><strong>📷 Ajustar cámara · Etapa 1</strong><button id="cameraTuningClose" type="button">✕</button></div>
+ <div class="cameraPresetButtons"><button id="cameraPresetNear" type="button" aria-pressed="true">Vista 1 · Cerca</button><button id="cameraPresetWide" type="button" aria-pressed="false">Vista 2 · Arena</button></div>
+ <label for="cameraTuningDistance">Distancia respecto al caster aliado <output id="cameraTuningDistanceValue">35</output></label>
+ <input id="cameraTuningDistance" type="range" min="8" max="70" step="1" value="35">
+ <label for="cameraTuningAngle">Inclinación desde el suelo <output id="cameraTuningAngleValue">45°</output></label>
+ <input id="cameraTuningAngle" type="range" min="15" max="75" step="1" value="45">
+ <label for="cameraTuningHeight">Nivel de altura</label>
+ <select id="cameraTuningHeight"><option value="low">Baja</option><option value="medium" selected>Media</option><option value="high">Alta</option></select>
+ <p class="cameraNotes" id="cameraTuningReadout" aria-live="polite">Distancia real: — · Elevación: —</p>
+ <div class="cameraActions"><button id="cameraTuningSave" type="button">Guardar ambas vistas</button><button id="cameraTuningReset" type="button">Restablecer vista</button></div>
+ <p class="cameraNotes" id="cameraTuningStatus">La vista se actualiza al mover los controles. Aún no hay seguimiento automático.</p>
+</section>
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
     <div><strong>R.O.K. · Arena 2.5D</strong></div>
@@ -220,18 +247,89 @@ const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,130);
 const controls=new OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;controls.dampingFactor=.075;controls.enablePan=true;
 controls.minDistance=5;controls.maxDistance=80;controls.maxPolarAngle=THREE.MathUtils.degToRad(76);controls.minPolarAngle=THREE.MathUtils.degToRad(36);
+// Stage 1: independent, manually adjustable camera presets.
+ // Camera distance is measured from the allied caster's home position (Z=+13.5).
+ // This stage does not change combat, game logic or automatic tracking.
 const focus=new THREE.Vector3(0,0.4,0);
-const setCamera=(full=false)=>{
-  const mobile=innerWidth<700;
-  controls.target.copy(focus);
-  // Cámara detrás del caster aliado, elevada y dirigida al campo rival.
-  camera.position.set(0,full?(mobile?38:34):(mobile?27:25),full?(mobile?58:54):(mobile?42:38));
-  camera.fov=mobile?53:47;
-  camera.updateProjectionMatrix();controls.update();
+const CAMERA_PRESET_KEY='ROK_ARENA_CAMERA_STAGE1_V1';
+const CAMERA_DEFAULTS={
+ near:{distance:35,angle:45,height:'medium'},
+ wide:{distance:55,angle:39,height:'medium'}
 };
-setCamera(false);
-qs('#camera').onclick=()=>setCamera(false);
-qs('#full').onclick=()=>setCamera(true);
+const CAMERA_HEIGHT_OFFSET={low:0,medium:3,high:7};
+const cameraPresets=structuredClone(CAMERA_DEFAULTS);
+let activeCameraPreset='near';
+const cameraPanel=qs('#cameraTuningPanel');
+const cameraValue=(value,min,max,defaultValue)=>{
+ const n=Number(value);return Number.isFinite(n)?THREE.MathUtils.clamp(n,min,max):defaultValue;
+};
+function cameraPresetSafe(raw,defaults){
+ return {
+  distance:cameraValue(raw?.distance,8,70,defaults.distance),
+  angle:cameraValue(raw?.angle,15,75,defaults.angle),
+  height:Object.hasOwn(CAMERA_HEIGHT_OFFSET,raw?.height)?raw.height:defaults.height
+ };
+}
+try{
+ const stored=JSON.parse(localStorage.getItem(CAMERA_PRESET_KEY)||'null');
+ if(stored?.near&&stored?.wide){
+  cameraPresets.near=cameraPresetSafe(stored.near,CAMERA_DEFAULTS.near);
+  cameraPresets.wide=cameraPresetSafe(stored.wide,CAMERA_DEFAULTS.wide);
+ }
+}catch(error){qs('#cameraTuningStatus').textContent='No fue posible leer los ajustes de cámara anteriores';}
+function applyCameraPreset(){
+ const settings=cameraPresets[activeCameraPreset];
+ const theta=THREE.MathUtils.degToRad(settings.angle);
+ const casterZ=13.5,casterY=.8;
+ const elevation=CAMERA_HEIGHT_OFFSET[settings.height];
+ // The caster is the anchor for distance. Angle describes the base camera pitch.
+ camera.position.set(0,casterY+settings.distance*Math.sin(theta)+elevation,
+  casterZ+settings.distance*Math.cos(theta));
+ controls.target.copy(focus);
+ camera.fov=innerWidth<700?53:47;
+ camera.updateProjectionMatrix();controls.update();
+ qs('#cameraTuningDistance').value=String(settings.distance);
+ qs('#cameraTuningAngle').value=String(settings.angle);
+ qs('#cameraTuningHeight').value=settings.height;
+ qs('#cameraTuningDistanceValue').textContent=settings.distance.toFixed(0)+' u';
+ qs('#cameraTuningAngleValue').textContent=settings.angle.toFixed(0)+'°';
+ qs('#cameraPresetNear').setAttribute('aria-pressed',String(activeCameraPreset==='near'));
+ qs('#cameraPresetWide').setAttribute('aria-pressed',String(activeCameraPreset==='wide'));
+ const realDistance=camera.position.distanceTo(new THREE.Vector3(0,casterY,casterZ));
+ const realAngle=THREE.MathUtils.radToDeg(Math.atan2(camera.position.y-focus.y,camera.position.z-focus.z));
+ qs('#cameraTuningReadout').textContent='Distancia real al caster: '+realDistance.toFixed(1)+
+  ' u · Elevación visual: '+realAngle.toFixed(1)+'° · Altura cámara: '+camera.position.y.toFixed(1)+' u';
+}
+function selectCameraPreset(which,openPanel=true){
+ activeCameraPreset=which;
+ applyCameraPreset();
+ if(openPanel)cameraPanel.hidden=false;
+}
+for(const [button,which] of [['#camera','#near'],['#full','#wide'],['#cameraPresetNear','#near'],['#cameraPresetWide','#wide']]){
+ qs(button).addEventListener('click',()=>selectCameraPreset(which==='#near'?'near':'wide'));
+}
+qs('#cameraTuningClose').addEventListener('click',()=>{cameraPanel.hidden=true;});
+for(const id of ['#cameraTuningDistance','#cameraTuningAngle','#cameraTuningHeight']){
+ qs(id).addEventListener('input',()=>{
+  const preset=cameraPresets[activeCameraPreset];
+  preset.distance=cameraValue(qs('#cameraTuningDistance').value,8,70,preset.distance);
+  preset.angle=cameraValue(qs('#cameraTuningAngle').value,15,75,preset.angle);
+  preset.height=qs('#cameraTuningHeight').value;
+  applyCameraPreset();
+  qs('#cameraTuningStatus').textContent='Vista previa sin guardar · pulsa Guardar ambas vistas cuando apruebes los valores';
+ });
+}
+qs('#cameraTuningSave').addEventListener('click',()=>{
+ try{
+  localStorage.setItem(CAMERA_PRESET_KEY,JSON.stringify(cameraPresets));
+  qs('#cameraTuningStatus').textContent='✓ Ambas vistas guardadas en este navegador';
+ }catch(error){qs('#cameraTuningStatus').textContent='No se pudo guardar: '+error.message;}
+});
+qs('#cameraTuningReset').addEventListener('click',()=>{
+ cameraPresets[activeCameraPreset]={...CAMERA_DEFAULTS[activeCameraPreset]};
+ applyCameraPreset();qs('#cameraTuningStatus').textContent='Vista restaurada; aún falta guardar si deseas conservarla';
+});
+selectCameraPreset('near',false);
 
 scene.add(new THREE.HemisphereLight(0xdffaff,0x264156,2.0));
 const key=new THREE.DirectionalLight(0xffffff,2.2);key.position.set(-5,13,7);scene.add(key);
