@@ -133,7 +133,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.46 · HUD lateral de invocaciones</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.47 · HUD orientado y animaciones</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -153,7 +153,7 @@ canvas{display:block;touch-action:none}
  <p id="cameraTuningReadout" class="cameraNotes">Calculando encuadre…</p>
 </section>
 
-    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.46 · 04/11/2026: HUD 3D de invocaciones sobre el suelo con barras laterales de vida, daño, escudo y energía; segmentos y decenas. v0.9.45: transparencia guiada por cono de visión cámara-caster, sin desvanecimiento lateral por proximidad; conservación de materiales. v0.9.44: decoraciones se desvanecen progresivamente por proximidad al caster y reaparecen suavemente. v0.9.43: ocultación temporal de decoraciones cercanas que bloqueen la visión del caster aliado. v0.9.42: giro máximo ±45° de cerca, disminuye suavemente hasta 0° al separarse los casters. v0.9.41: rotación horizontal de cámara limitada a ±45° respecto al lado aliado, sin giros detrás del rival. v0.9.40: cámara continua entre 5 y 13 unidades, inclinación fija 23°, sin saltos; coordenadas A1–AD15 con interruptor. v0.9.39: seguimiento físico continuo y lente fija sin zoom. v0.9.38: cámara reescrita desde cero; inclinación fija 23°, seguimiento de ambos casters y borde inferior. v0.9.37: retirada la barra inferior y encuadre lejano con referencia al borde inferior de la arena. v0.9.36: restaurado el seguimiento automático y guardado de cámara lejana con posición y enfoque completos. v0.9.35: referencia lejana aprobada 12.33 unidades y 23.0°; transición dinámica y protección del encuadre de ambos casters. v0.9.34: calibración libre de cámara con mouse e indicador de distancia e inclinación reales. v0.9.33: cámara más cercana al alejarse los casters, menor inclinación y menos márgenes externos. v0.9.32: elevación e inclinación automáticas según distancia entre casters, menos techo visible. v0.9.31: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
+    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.47 · 04/11/2026: HUD hacia jugador, mayor grosor, subdivisión de recursos y recuperación de animaciones detenidas. v0.9.46: HUD 3D de invocaciones sobre el suelo con barras laterales de vida, daño, escudo y energía; segmentos y decenas. v0.9.45: transparencia guiada por cono de visión cámara-caster, sin desvanecimiento lateral por proximidad; conservación de materiales. v0.9.44: decoraciones se desvanecen progresivamente por proximidad al caster y reaparecen suavemente. v0.9.43: ocultación temporal de decoraciones cercanas que bloqueen la visión del caster aliado. v0.9.42: giro máximo ±45° de cerca, disminuye suavemente hasta 0° al separarse los casters. v0.9.41: rotación horizontal de cámara limitada a ±45° respecto al lado aliado, sin giros detrás del rival. v0.9.40: cámara continua entre 5 y 13 unidades, inclinación fija 23°, sin saltos; coordenadas A1–AD15 con interruptor. v0.9.39: seguimiento físico continuo y lente fija sin zoom. v0.9.38: cámara reescrita desde cero; inclinación fija 23°, seguimiento de ambos casters y borde inferior. v0.9.37: retirada la barra inferior y encuadre lejano con referencia al borde inferior de la arena. v0.9.36: restaurado el seguimiento automático y guardado de cámara lejana con posición y enfoque completos. v0.9.35: referencia lejana aprobada 12.33 unidades y 23.0°; transición dinámica y protección del encuadre de ambos casters. v0.9.34: calibración libre de cámara con mouse e indicador de distancia e inclinación reales. v0.9.33: cámara más cercana al alejarse los casters, menor inclinación y menos márgenes externos. v0.9.32: elevación e inclinación automáticas según distancia entre casters, menos techo visible. v0.9.31: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
     <a class="arenaBackLink" href="./index.html">Volver al visor de animaciones</a>
   </div>
 </section>
@@ -1140,7 +1140,10 @@ function getAction(c,id){
   return clip?c.mixer.clipAction(clip):null;
 }
 function setAnim(c,id,{once=false,speed=1,fade=.14,force=false}={}){
-  if(!force&&c.animId===id)return false;
+  if(!force&&c.animId===id){
+    if(c.animAction?.isRunning()&&!c.animAction.paused)return false;
+    force=true; // Recover a stopped action even if the stored ID matches.
+  }
   let next=getAction(c,id);
   if(!next&&id!=='idle')return setAnim(c,'idle',{fade,force});
   if(!next)return false;
@@ -1639,8 +1642,8 @@ function clearFloatingWords(){
 const summonGroundHuds=new Map();
 const summonHudArcCache=new Map();
 function groundArcGeometry(radius,side,index,total=10,thickness=.075){
- const start=side==='left'?THREE.MathUtils.degToRad(132):THREE.MathUtils.degToRad(-48);
- const span=THREE.MathUtils.degToRad(96),gap=THREE.MathUtils.degToRad(1.2);
+ const start=side==='left'?Math.PI:THREE.MathUtils.degToRad(295);
+ const span=THREE.MathUtils.degToRad(65),gap=THREE.MathUtils.degToRad(.85);
  const a=start+(span/total)*index+gap/2;
  const end=start+(span/total)*(index+1)-gap/2;
  return new THREE.RingGeometry(radius,radius+thickness,8,1,a,end-a);
@@ -1654,15 +1657,19 @@ function summonHudGeometry(radius,side,index,total=10,thickness=.075){
  }
  return summonHudArcCache.get(key);
 }
-function summonHudArc(group,side,radius,color,opacity=.94,thickness=.075){
- const segments=[];
+function summonHudArc(group,side,radius,color,opacity=1,thickness=.14){
+ const segments=[],outlines=[];
  for(let i=0;i<10;i++){
-  const mat=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.16,
-   depthWrite:false,depthTest:true,side:THREE.DoubleSide,toneMapped:false});
-  const mesh=new THREE.Mesh(summonHudGeometry(radius,side,i,10,thickness),mat);
-  mesh.renderOrder=12;group.add(mesh);segments.push(mesh);
+  const glow=new THREE.Mesh(summonHudGeometry(radius-.018,side,i,10,thickness+.036),
+   new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.13,
+    depthWrite:false,depthTest:true,side:THREE.DoubleSide,toneMapped:false}));
+  glow.position.y=-.004;glow.renderOrder=11;group.add(glow);outlines.push(glow);
+  const mesh=new THREE.Mesh(summonHudGeometry(radius,side,i,10,thickness),
+   new THREE.MeshBasicMaterial({color,transparent:true,opacity:.18,
+    depthWrite:false,depthTest:true,side:THREE.DoubleSide,toneMapped:false}));
+  mesh.position.y=.005;mesh.renderOrder=12;group.add(mesh);segments.push(mesh);
  }
- return {segments,color,opacity};
+ return {segments,outlines,side,radius,thickness,total:10,color,opacity};
 }
 function summonHudTicks(group,side,radius,color){
  const ticks=[];
@@ -1698,14 +1705,14 @@ const summonEnergyIconTexture=summonHudIconTexture('✦','#8b6bea');
 function createSummonGroundHud(c){
  if(summonGroundHuds.has(c))return;
  const group=new THREE.Group();group.name='ROK_summon_ground_HUD';root.add(group);
- const health=summonHudArc(group,'left',.85,0x29dc80);
- const attack=summonHudArc(group,'right',.85,0xf24845);
- const shield=summonHudArc(group,'left',1.01,0xc3ccd6,.9,.055);
- const energy=summonHudArc(group,'right',1.01,0x8b6bea,.9,.055);
+ const health=summonHudArc(group,'left',.85,0x36ff91,1,.145);
+ const attack=summonHudArc(group,'right',.85,0xff4c50,1,.145);
+ const shield=summonHudArc(group,'left',1.075,0xe0efff,1,.095);
+ const energy=summonHudArc(group,'right',1.075,0xbb7fff,1,.095);
  const lifeTicks=summonHudTicks(group,'left',.72,0x2ad57a);
  const attackTicks=summonHudTicks(group,'right',.72,0xe4413e);
- const shieldTicks=summonHudTicks(group,'left',1.14,0xaeb7c6);
- const energyTicks=summonHudTicks(group,'right',1.14,0x8b6bea);
+ const shieldTicks=[]; // El escudo usa solamente una barra subdividida.
+ const energyTicks=[]; // La energía usa solamente una barra subdividida.
  const iconGroup=new THREE.Group();group.add(iconGroup);
  const icon=(texture,x)=>{
   const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,
@@ -1726,36 +1733,60 @@ function createSummonGroundHud(c){
  summonGroundHuds.set(c,{group,health,attack,shield,energy,lifeTicks,attackTicks,
   shieldTicks,energyTicks,shieldIcon,energyIcon,values:''});
 }
-function setSummonHudStat(arc,ticks,value,show=true){
+function setSummonHudStat(arc,ticks,value,show=true,subdivide=false,maxValue=10){
  const points=Math.max(0,Math.floor(Number(value)||0));
- const tens=Math.min(ticks.length,Math.floor(points/10));
- const rest=points%10;
- for(let i=0;i<10;i++){
-  // Exactly 10 points is one completed curved line and no active partial cells.
-  arc.segments[i].visible=show;
-  arc.segments[i].material.opacity=show?(i<rest?arc.opacity:.13):0;
+ const count=subdivide?Math.max(10,Math.ceil(Number(maxValue)||0),points):10;
+ if(count!==arc.total){
+  for(let i=0;i<count;i++){
+   if(i<arc.segments.length){
+    arc.segments[i].geometry=summonHudGeometry(arc.radius,arc.side,i,count,arc.thickness);
+    arc.outlines[i].geometry=summonHudGeometry(arc.radius-.018,arc.side,i,count,arc.thickness+.036);
+   }else{
+    const glow=new THREE.Mesh(summonHudGeometry(arc.radius-.018,arc.side,i,count,arc.thickness+.036),
+     new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.13,
+      depthWrite:false,depthTest:true,side:THREE.DoubleSide,toneMapped:false}));
+    glow.position.y=-.004;glow.renderOrder=11;arc.outlines[0].parent.add(glow);
+    arc.outlines.push(glow);
+    const cell=new THREE.Mesh(summonHudGeometry(arc.radius,arc.side,i,count,arc.thickness),
+     new THREE.MeshBasicMaterial({color:arc.color,transparent:true,opacity:.18,
+      depthWrite:false,depthTest:true,side:THREE.DoubleSide,toneMapped:false}));
+    cell.position.y=.005;cell.renderOrder=12;arc.segments[0].parent.add(cell);
+    arc.segments.push(cell);
+   }
+  }
+  arc.total=count;
  }
+ const filled=subdivide?points:points%10;
+ for(let i=0;i<arc.segments.length;i++){
+  const on=show&&i<count;
+  arc.segments[i].visible=on;
+  arc.outlines[i].visible=on;
+  if(on){
+   const active=i<filled;
+   arc.segments[i].material.opacity=active?arc.opacity:.18;
+   arc.outlines[i].material.opacity=active?.18:.055;
+  }
+ }
+ const tens=Math.min(ticks.length,Math.floor(points/10));
  for(let i=0;i<ticks.length;i++)ticks[i].visible=show&&i<tens;
 }
 function updateSummonGroundHuds(){
- // Forward direction follows the camera's yaw only; the floor bars themselves
- // remain horizontal. Rotating the HUD does not affect the caster's rotation.
- const facing=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
- const yaw=Math.atan2(facing.x,-facing.z);
  for(const [c,h] of summonGroundHuds){
   h.group.visible=!!c.outer&&c.stage!=='dead'&&c.stage!=='vanishing'&&
    c.stage!=='summonCasting'&&c.stage!=='dying'&&c.stage!=='intro';
   if(!h.group.visible)continue;
-  h.group.position.set(c.outer.position.x,c.outer.position.y+.095,c.outer.position.z);
-  h.group.rotation.y=yaw;
+  h.group.position.set(c.outer.position.x,c.outer.position.y+.10,c.outer.position.z);
+  // Camera-facing at all times, independent of the summon model's rotation.
+  h.group.rotation.y=Math.atan2(camera.position.x-c.outer.position.x,
+   camera.position.z-c.outer.position.z);
   const shieldMax=Math.max(0,Number(c.shieldMax)||0);
   const manaMax=Math.max(0,Number(c.maxMana)||0);
   const snapshot=[c.hp,c.attackDamage,c.shield,c.mana,shieldMax,manaMax].join(':');
   if(snapshot!==h.values){
    setSummonHudStat(h.health,h.lifeTicks,c.hp);
    setSummonHudStat(h.attack,h.attackTicks,c.attackDamage);
-   setSummonHudStat(h.shield,h.shieldTicks,c.shield,shieldMax>0);
-   setSummonHudStat(h.energy,h.energyTicks,c.mana,manaMax>0);
+   setSummonHudStat(h.shield,h.shieldTicks,c.shield,shieldMax>0,true,shieldMax);
+   setSummonHudStat(h.energy,h.energyTicks,c.mana,manaMax>0,true,manaMax);
    h.shieldIcon.visible=shieldMax>0;
    h.energyIcon.visible=manaMax>0;
    h.values=snapshot;
@@ -3066,6 +3097,9 @@ function updateDuel(dt){
         while(c.manaTimer>=3&&c.mana<c.maxMana){c.manaTimer-=3;c.mana+=1}
       }else c.manaTimer=0;
     }
+    // Recover unintended one-shot pause outside casting.
+    if(c.stage==='active'&&c.animAction?.paused&&c.animId!=='idle')
+      c.animAction.paused=false;
     c.mixer.update(dt);
     if(c.stage==='intro'){
       c.introT=Math.min(1.4,c.introT+dt);
