@@ -42,19 +42,17 @@ test('Gothic background defaults preserve 15x30 proportions with much larger enc
  assert.equal(c.enabled,true);
 });
 test('sapphire Gothic panorama is selected automatically for new and legacy scenes',()=>{
- assert.equal(DEFAULT_GOTHIC_TEXTURE,'assets/texturas/Panorama gótica de vitrales zafiro');
+ assert.equal(DEFAULT_GOTHIC_TEXTURE,'assets/texturas/Panorama gótica de vitrales zafiro.webp');
  assert.equal(BACKGROUND_DEFAULTS.texture,DEFAULT_GOTHIC_TEXTURE);
  assert.equal(normalizeSceneBackground().texture,DEFAULT_GOTHIC_TEXTURE);
  assert.equal(normalizeSceneBackground({width:80}).texture,DEFAULT_GOTHIC_TEXTURE);
  assert.equal(normalizeSceneBackground({texture:''}).texture,'');
- assert.ok(textureCandidates(DEFAULT_GOTHIC_TEXTURE).some(p=>p.endsWith('.png')));
- assert.ok(textureCandidates(DEFAULT_GOTHIC_TEXTURE).some(p=>p.endsWith('.jpeg')));
- assert.ok(textureCandidates(DEFAULT_GOTHIC_TEXTURE).some(p=>p.endsWith('.webp')));
+ assert.deepEqual(textureCandidates(DEFAULT_GOTHIC_TEXTURE),[DEFAULT_GOTHIC_TEXTURE]);
 });
 test('Gothic texture resolver discovers real filename extension and accented case',async()=>{
  const listing=[{type:'file',name:'Panorama gótica de vitrales zafiro.webp'},
   {type:'file',name:'Other.png'}];
- const candidates=await resolveBackgroundTexture(DEFAULT_GOTHIC_TEXTURE,listing);
+ const candidates=await resolveBackgroundTexture(DEFAULT_GOTHIC_TEXTURE.replace(/\.webp$/,''),listing);
  assert.equal(candidates[0],'assets/texturas/Panorama gótica de vitrales zafiro.webp');
  assert.equal(candidates.length>1,true);
 });
