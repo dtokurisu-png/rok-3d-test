@@ -124,7 +124,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.30 · Seguimiento de casters</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.31 · Cámara tras caster</div>
 
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
@@ -136,23 +136,14 @@ canvas{display:block;touch-action:none}
       <div class="sceneTesterButtons"><button id="testerSceneLocal" type="button">↻ Cargar escenario</button><span id="testerSceneCurrent" class="sceneTesterCurrent">Arena original</span></div>
       <p id="testerSceneStatus" class="sceneTesterStatus" role="status">Comprobando escenario…</p>
     </section>
-    <section id="cameraTuningPanel" aria-label="Configuración de la cámara">
- <div class="cameraHeader"><strong>📷 Cámaras · Etapa 2</strong></div>
- <div class="cameraPresetButtons"><button id="cameraPresetNear" type="button" aria-pressed="true">Vista 1 · Cerca</button><button id="cameraPresetWide" type="button" aria-pressed="false">Vista 2 · Arena</button></div>
- <label for="cameraTuningDistance">Distancia respecto al caster aliado <output id="cameraTuningDistanceValue">35</output></label>
- <input id="cameraTuningDistance" type="range" min="5" max="70" step="1" value="11">
- <label for="cameraTuningAngle">Inclinación desde el suelo <output id="cameraTuningAngleValue">45°</output></label>
- <input id="cameraTuningAngle" type="range" min="0" max="75" step="1" value="15">
- <label for="cameraTuningHeight">Nivel de altura</label>
- <select id="cameraTuningHeight"><option value="low">Baja</option><option value="medium" selected>Media</option><option value="high">Alta</option></select>
- <label class="cameraFollowToggle"><input id="cameraAutoFollow" type="checkbox" checked> Seguimiento automático de ambos casters</label>
- <p class="cameraNotes">Baja: 5 u · Media: 11 u · Alta: 11 u. Inclinación base: 15°. La cámara se aleja cuando necesita mantener a ambos casters visibles.</p>
+    <section id="cameraTuningPanel" aria-label="Cámara automática">
+ <div class="cameraHeader"><strong>📷 Cámara automática · dos casters</strong></div>
+ <p class="cameraNotes">La cámara permanece detrás de tu caster. Se acerca cuando ambos están juntos y se aleja lo necesario para mantenerlos a los dos dentro del encuadre.</p>
  <p class="cameraNotes" id="cameraTuningReadout" aria-live="polite">Calculando encuadre…</p>
- <div class="cameraActions"><button id="cameraTuningSave" type="button">Guardar ambas vistas</button><button id="cameraTuningReset" type="button">Restablecer vista</button></div>
- <p class="cameraNotes" id="cameraTuningStatus">Seguimiento automático activo · casters prioritarios, invocaciones secundarias.</p>
+ <button id="cameraReframe" type="button">⌖ Reencuadrar ambos casters</button>
 </section>
 
-    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.30 · 04/11/2026: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
+    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.31 · 04/11/2026: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
     <a class="arenaBackLink" href="./index.html">Volver al visor de animaciones</a>
   </div>
 </section>
@@ -179,8 +170,8 @@ canvas{display:block;touch-action:none}
 <div id="bottom">
   <button class="primary" id="repeat" disabled>↻ Repetir</button>
   <button id="pause" disabled>Ⅱ Pausar</button>
-  <button id="camera">⌖ Cámara</button>
-  <button id="full">▦ Arena</button>
+  <button id="camera">⌖ Seguir casters</button>
+  <button id="full">▦ Encuadrar</button>
   <button id="attackMode" class="primary" disabled>✦ Ataque: mágico</button>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -213,7 +204,7 @@ renderer.toneMappingExposure=1.28;
 document.body.appendChild(renderer.domElement);
 
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x091722);scene.fog=new THREE.FogExp2(0x091722,0.012);
-const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,130);
+const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,350);
 const controls=new OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;controls.dampingFactor=.075;controls.enablePan=true;
 controls.minDistance=5;controls.maxDistance=130;controls.maxPolarAngle=THREE.MathUtils.degToRad(88);controls.minPolarAngle=THREE.MathUtils.degToRad(8);
@@ -230,167 +221,118 @@ function getCasterCameraAnchor(){
  }
  return casterCameraAnchor.set(0,.85,13.5);
 }
-const CAMERA_PRESET_KEY='ROK_ARENA_CAMERA_STAGE2_V1';
-const CAMERA_HEIGHT_DEFAULTS={low:5,medium:11,high:11};
-const CAMERA_DEFAULTS={
- near:{distance:11,angle:15,height:'medium'},
- wide:{distance:11,angle:15,height:'high'}
-};
-const cameraPresets=structuredClone(CAMERA_DEFAULTS);
-let activeCameraPreset='near';
-let autoFollow=true;
-let trackingReady=false;
-let cameraActualDistance=11;
-const cameraValue=(value,min,max,fallback)=>{
- const n=Number(value);return Number.isFinite(n)?THREE.MathUtils.clamp(n,min,max):fallback;
-};
-function cameraPresetSafe(raw,defaults){
- return {
-  distance:cameraValue(raw?.distance,5,70,defaults.distance),
-  angle:cameraValue(raw?.angle,0,75,defaults.angle),
-  height:Object.hasOwn(CAMERA_HEIGHT_DEFAULTS,raw?.height)?raw.height:defaults.height
- };
-}
-try{
- const saved=JSON.parse(localStorage.getItem(CAMERA_PRESET_KEY)||'null');
- if(saved?.near&&saved?.wide){
-  cameraPresets.near=cameraPresetSafe(saved.near,CAMERA_DEFAULTS.near);
-  cameraPresets.wide=cameraPresetSafe(saved.wide,CAMERA_DEFAULTS.wide);
- }
-}catch(error){qs('#cameraTuningStatus').textContent='No se pudieron recuperar los ajustes anteriores';}
-function showCameraSettings(){
- const cfg=cameraPresets[activeCameraPreset];
- qs('#cameraTuningDistance').value=String(cfg.distance);
- qs('#cameraTuningAngle').value=String(cfg.angle);
- qs('#cameraTuningHeight').value=cfg.height;
- qs('#cameraTuningDistanceValue').textContent=cfg.distance.toFixed(0)+' u';
- qs('#cameraTuningAngleValue').textContent=cfg.angle.toFixed(0)+'°';
- qs('#cameraPresetNear').setAttribute('aria-pressed',String(activeCameraPreset==='near'));
- qs('#cameraPresetWide').setAttribute('aria-pressed',String(activeCameraPreset==='wide'));
-}
-function setCameraAt(target,distance,angle){
- const theta=THREE.MathUtils.degToRad(angle);
- camera.position.set(target.x,target.y+distance*Math.sin(theta),target.z+distance*Math.cos(theta));
- controls.target.copy(target);
- camera.updateProjectionMatrix();
- camera.lookAt(target);
-}
-function computeCameraFrame(){
- const cfg=cameraPresets[activeCameraPreset],theta=THREE.MathUtils.degToRad(cfg.angle);
- const cast=casters.filter(c=>c?.outer);
- if(!cast.length)return {target:getCasterCameraAnchor().clone(),distance:cfg.distance};
- const primary=cast.map(c=>new THREE.Vector3(c.outer.position.x,.85+c.outer.position.y,c.outer.position.z));
- let minX=Math.min(...primary.map(p=>p.x)),maxX=Math.max(...primary.map(p=>p.x));
- let minZ=Math.min(...primary.map(p=>p.z)),maxZ=Math.max(...primary.map(p=>p.z));
- // Summons are secondary: consider active ones near the battle, not the restoration nexuses.
- // Their spawn/death cycles must not pull the camera away from either caster.
- const extraX=Math.max(3,(maxX-minX)*.3),extraZ=Math.max(3,(maxZ-minZ)*.25);
- const secondary=[];
- for(const unit of combatants){
-  if(!unit?.outer||unit.hp<=0||!['active','stunned','casting'].includes(unit.stage))continue;
-  const x=unit.outer.position.x,z=unit.outer.position.z;
-  if(x<minX-extraX||x>maxX+extraX||z<minZ-extraZ||z>maxZ+extraZ)continue;
-  secondary.push(new THREE.Vector3(x,.9,z));
- }
- // The casters determine the midpoint; summons only extend the safe viewport.
- const target=new THREE.Vector3((minX+maxX)/2,.85,(minZ+maxZ)/2);
- const vFov=THREE.MathUtils.degToRad(camera.fov);
- const vTan=Math.tan(vFov/2);
- const hTan=vTan*camera.aspect;
- const margin=.75; // space for caster HUDs and edge movement
- let distance=cfg.distance;
- for(const point of [...primary,...secondary]){
-  const dx=point.x-target.x,dz=point.z-target.z,dy=point.y-target.y;
-  // At this camera orientation the positive Z axis is toward the camera.
-  // Solve the perspective-frustum inequalities for minimum camera distance.
-  const offsetDepth=Math.sin(theta)*dz+Math.cos(theta)*dy;
-  const up=Math.cos(theta)*dy-Math.sin(theta)*dz;
-  distance=Math.max(distance,
-   Math.abs(dx)/(Math.max(.08,hTan)*margin)+offsetDepth,
-   Math.abs(up)/(Math.max(.08,vTan)*margin)+offsetDepth);
- }
- return {target,distance:THREE.MathUtils.clamp(distance+2,cfg.distance,140)};
-}
-function syncCameraReadout(){
- const reference=getCasterCameraAnchor();
- const actual=camera.position.distanceTo(reference);
- const dx=camera.position.x-controls.target.x,dz=camera.position.z-controls.target.z;
- const pitch=THREE.MathUtils.radToDeg(Math.atan2(camera.position.y-controls.target.y,Math.hypot(dx,dz)));
- qs('#cameraTuningReadout').textContent='Base: '+cameraPresets[activeCameraPreset].distance.toFixed(0)+
-  ' u · Encuadre actual: '+cameraActualDistance.toFixed(1)+' u · Distancia al caster: '+
-  actual.toFixed(1)+' u · Inclinación: '+pitch.toFixed(1)+'°';
-}
-function applyCameraPreset(){
- const cfg=cameraPresets[activeCameraPreset];
- camera.fov=innerWidth<700?53:47;
- camera.updateProjectionMatrix();
- trackingReady=false;
- const shot=computeCameraFrame();
- cameraActualDistance=shot.distance;
- setCameraAt(shot.target,shot.distance,cfg.angle);
- controls.enabled=!autoFollow;
- showCameraSettings();
- syncCameraReadout();
-}
-function updateCameraTracking(dt){
- if(!autoFollow)return;
- const cfg=cameraPresets[activeCameraPreset];
- const shot=computeCameraFrame();
- // Smooth, frame-rate independent dampening; small threshold avoids micro-jitter.
- const t=1-Math.exp(-Math.max(.001,dt)*3.5);
- const nextTarget=controls.target.clone();
- if(nextTarget.distanceTo(shot.target)>.045)nextTarget.lerp(shot.target,t);
- const delta=shot.distance-cameraActualDistance;
- if(Math.abs(delta)>.12)cameraActualDistance+=delta*(1-Math.exp(-Math.max(.001,dt)*(delta>0?4.5:1.8)));
- const theta=THREE.MathUtils.degToRad(cfg.angle);
- const nextPosition=new THREE.Vector3(nextTarget.x,
-  nextTarget.y+cameraActualDistance*Math.sin(theta),
-  nextTarget.z+cameraActualDistance*Math.cos(theta));
- camera.position.lerp(nextPosition,t);
- controls.target.copy(nextTarget);
- camera.lookAt(controls.target);
- if(!trackingReady){trackingReady=true;}
-}
-function selectCameraPreset(which,openPanel=true){
- activeCameraPreset=which;
- applyCameraPreset();
- if(openPanel){hud.classList.add('open');qs('#expand').textContent='Cerrar ▴';head.setAttribute('aria-expanded','true');}
-}
-for(const [button,which] of [['#camera','#near'],['#full','#wide'],['#cameraPresetNear','#near'],['#cameraPresetWide','#wide']]){
- qs(button).addEventListener('click',()=>selectCameraPreset(which==='#near'?'near':'wide'));
-}
-qs('#cameraAutoFollow').addEventListener('change',event=>{
- autoFollow=event.target.checked;
- controls.enabled=!autoFollow;
- if(autoFollow)applyCameraPreset();
- qs('#cameraTuningStatus').textContent=autoFollow?'Seguimiento automático activo: ambos casters tienen prioridad':'Seguimiento pausado: puedes girar la cámara manualmente';
-});
-for(const id of ['#cameraTuningDistance','#cameraTuningAngle','#cameraTuningHeight']){
- qs(id).addEventListener('input',()=>{
-  const cfg=cameraPresets[activeCameraPreset];
-  if(id==='#cameraTuningHeight'){
-   cfg.height=qs('#cameraTuningHeight').value;
-   cfg.distance=CAMERA_HEIGHT_DEFAULTS[cfg.height];
-   cfg.angle=15;
-  }else{
-   cfg.distance=cameraValue(qs('#cameraTuningDistance').value,5,70,cfg.distance);
-   cfg.angle=cameraValue(qs('#cameraTuningAngle').value,0,75,cfg.angle);
-  }
-  applyCameraPreset();
-  qs('#cameraTuningStatus').textContent='Vista de prueba: ambos casters encuadrados · guarda para conservar la configuración';
+// Automatic third-person battle camera.
+// The ally is always the physical anchor. The opponent determines how much
+// ground must be shown. No manually selected tilt, distance or elevation.
+const cameraForwardXZ=new THREE.Vector3(0,0,-1);
+const cameraDesiredPosition=new THREE.Vector3();
+const cameraDesiredTarget=new THREE.Vector3();
+let cameraInitialized=false;
+let cameraActualDistance=0;
+let cameraLastReadout=0;
+const cameraMarginX=.80,cameraMarginY=.75;
+const cameraRayPoint=new THREE.Vector3();
+function battleCasterPoints(){
+ const alive=casters.filter(c=>c?.outer);
+ return alive.map(c=>{
+  const p=c.outer.position;
+  return {caster:c,ground:new THREE.Vector3(p.x,p.y+.22,p.z),
+   head:new THREE.Vector3(p.x,p.y+2.3,p.z)};
  });
 }
-qs('#cameraTuningSave').addEventListener('click',()=>{
- try{localStorage.setItem(CAMERA_PRESET_KEY,JSON.stringify(cameraPresets));
-  qs('#cameraTuningStatus').textContent='✓ Configuraciones guardadas en este navegador';
- }catch(error){qs('#cameraTuningStatus').textContent='No se pudo guardar: '+error.message;}
-});
-qs('#cameraTuningReset').addEventListener('click',()=>{
- cameraPresets[activeCameraPreset]={...CAMERA_DEFAULTS[activeCameraPreset]};
- applyCameraPreset();
- qs('#cameraTuningStatus').textContent='Valores restaurados: 11 / 11 / 5 unidades, 15°';
-});
-selectCameraPreset('near',false);
+// Test actual projected character head and feet: this avoids the old
+// geometric estimate which left the near caster outside the screen.
+function areFramed(points,xMargin=cameraMarginX,yMargin=cameraMarginY){
+ camera.updateMatrixWorld(true);
+ for(const point of points){
+  const ndc=cameraRayPoint.copy(point).project(camera);
+  if(!Number.isFinite(ndc.x)||!Number.isFinite(ndc.y)||!Number.isFinite(ndc.z)||
+   ndc.z>=1||ndc.z<=-1||Math.abs(ndc.x)>xMargin||Math.abs(ndc.y)>yMargin)return false;
+ }
+ return true;
+}
+function arrangeCameraAt(distance,ally,aim,back){
+ camera.position.set(ally.x+back.x*distance,aim.y+2.2+distance*.38,
+  ally.z+back.z*distance);
+ camera.lookAt(aim);
+ camera.updateMatrixWorld(true);
+}
+function findBattleCamera(){
+ const chars=battleCasterPoints();
+ const ally=chars.find(c=>c.caster.side==='ally')||chars[0];
+ const enemy=chars.find(c=>c.caster.side==='enemy')||chars[1]||ally;
+ if(!ally)return null;
+ const a=ally.caster.outer.position,e=enemy.caster.outer.position;
+ const forward=new THREE.Vector3(e.x-a.x,0,e.z-a.z);
+ if(forward.lengthSq()>.8)cameraForwardXZ.copy(forward.normalize());
+ const back=cameraForwardXZ.clone().negate();
+ const aim=new THREE.Vector3((a.x+e.x)/2,1.08,(a.z+e.z)/2);
+ const required=chars.flatMap(c=>[c.ground,c.head]);
+ const oldPos=camera.position.clone(),oldQuat=camera.quaternion.clone();
+ // Search the closest shot behind the ally that genuinely fits BOTH actors.
+ let distance=5,found=false;
+ for(let n=0;n<130;n++){
+  arrangeCameraAt(distance,a,aim,back);
+  if(areFramed(required)){found=true;break;}
+  distance=distance*1.095+.35;
+  if(distance>175){distance=175;break;}
+ }
+ // Active summons matter secondarily, but never push a caster out of the image.
+ if(found){
+  const summons=[];
+  for(const c of combatants){
+   if(!c?.outer||c.hp<=0||!['active','stunned','casting'].includes(c.stage))continue;
+   const p=c.outer.position;
+   if(Math.hypot(p.x-aim.x,p.z-aim.z)>Math.max(12,a.distanceTo?.(e)||0)+5)continue;
+   summons.push(new THREE.Vector3(p.x,p.y+1.1,p.z));
+  }
+  if(summons.length){
+   const maxDistance=Math.min(175,distance*1.25+2);
+   while(distance<maxDistance&&!areFramed(summons,.9,.87)){
+    distance=Math.min(maxDistance,distance*1.075+.3);
+    arrangeCameraAt(distance,a,aim,back);
+   }
+  }
+ }
+ cameraDesiredPosition.copy(camera.position);
+ cameraDesiredTarget.copy(aim);
+ camera.position.copy(oldPos);camera.quaternion.copy(oldQuat);
+ camera.updateMatrixWorld(true);
+ return {position:cameraDesiredPosition.clone(),target:cameraDesiredTarget.clone(),
+  distance,required};
+}
+function updateCameraTracking(dt,instant=false){
+ const frame=findBattleCamera();
+ if(!frame)return;
+ // The camera can approach slowly, but must widen immediately whenever either
+ // caster would otherwise leave the safe area of the viewport.
+ const alpha=instant||!cameraInitialized?1:1-Math.exp(-dt*5.5);
+ camera.position.lerp(frame.position,alpha);
+ controls.target.lerp(frame.target,alpha);
+ camera.lookAt(controls.target);
+ if(!areFramed(frame.required,.90,.88)){
+  camera.position.copy(frame.position);
+  controls.target.copy(frame.target);
+  camera.lookAt(controls.target);
+ }
+ cameraInitialized=true;
+ cameraActualDistance=camera.position.distanceTo(getCasterCameraAnchor());
+ if(performance.now()-cameraLastReadout>230){
+  qs('#cameraTuningReadout').textContent='Distancia al caster: '+
+   cameraActualDistance.toFixed(1)+' unidades · Encuadre automático activo';
+  cameraLastReadout=performance.now();
+ }
+}
+function reframeCamera(){
+ camera.fov=innerWidth<700?53:47;
+ camera.updateProjectionMatrix();
+ updateCameraTracking(.016,true);
+}
+qs('#cameraReframe').addEventListener('click',reframeCamera);
+qs('#camera').addEventListener('click',reframeCamera);
+qs('#full').addEventListener('click',reframeCamera);
+controls.enabled=false;
+reframeCamera();
 
 scene.add(new THREE.HemisphereLight(0xdffaff,0x264156,2.0));
 const key=new THREE.DirectionalLight(0xffffff,2.2);key.position.set(-5,13,7);scene.add(key);
@@ -3391,11 +3333,11 @@ function loop(now){
   }
   sceneryOverlay.update(now/1000);
   updateCameraTracking(dt);
-  controls.update();renderer.render(scene,camera);
+  renderer.render(scene,camera);
   fpsTime+=dt;fpsCount++;if(fpsTime>=1){qs('#fps').textContent='FPS: '+Math.round(fpsCount/fpsTime);fpsTime=0;fpsCount=0;}
 }
 requestAnimationFrame(loop);
-window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,innerWidth<700?1.5:2));renderer.setSize(innerWidth,innerHeight);});
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();reframeCamera();renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,innerWidth<700?1.5:2));renderer.setSize(innerWidth,innerHeight);});
 </script>
 </body>
 </html>
