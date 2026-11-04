@@ -509,7 +509,9 @@ renderer.domElement.addEventListener('pointerdown',event=>{
  // Capture-phase handler prevents OrbitControls from treating a selection click as a camera orbit.
  event.stopImmediatePropagation();
  const additive=multiSelectMode||event.ctrlKey||event.metaKey||event.shiftKey;
- selectObject(found,additive);
+ // Keep the complete group when starting to drag an already selected member.
+ if(additive)selectObject(found,true);
+ else if(!selectedIds.has(found.id))selectObject(found);
  if(additive||!selectedIds.has(found.id))return;
  const point=positionOnFloor(event);if(!point)return;
  drag={id:event.pointerId,obj:found,dx:found.x-point.x,dz:found.z-point.z,
