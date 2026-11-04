@@ -5,7 +5,7 @@
 export const DEFAULT_GOTHIC_TEXTURE='assets/texturas/Panorama gótica de vitrales zafiro';
 export const BACKGROUND_DEFAULTS=Object.freeze({
  enabled:true,type:'gothic-vault',width:70,height:18,archRise:12,
- texture:DEFAULT_GOTHIC_TEXTURE
+ texture:DEFAULT_GOTHIC_TEXTURE,textureOffsetX:0,textureOffsetY:0
 });
 const textureExtension=/\.(?:png|jpe?g|webp|avif|jfif|bmp)$/i;
 const textureRoot=/^assets\/(?:texturas|textures)\/[^/]+$/iu;
@@ -54,8 +54,10 @@ export function normalizeSceneBackground(raw={}){
  const texture=String(raw.texture===undefined?BACKGROUND_DEFAULTS.texture:raw.texture||'').trim();
  if(texture&&(!textureRoot.test(texture)||texture.includes('..')||(texture.includes('.')&&!textureExtension.test(texture))))
   throw Error('La textura debe estar dentro de assets/texturas o assets/textures');
+ const textureOffsetX=Math.max(-1,Math.min(1,finite(raw.textureOffsetX,0)));
+ const textureOffsetY=Math.max(-1,Math.min(1,finite(raw.textureOffsetY,0)));
  return {enabled:raw.enabled!==false,type:'gothic-vault',width,
-  length:width*2,height,archRise,texture};
+  length:width*2,height,archRise,texture,textureOffsetX,textureOffsetY};
 }
 export function createSceneBackground(THREE,{onStatus}={}){
  const group=new THREE.Group();group.name='ROK_Gothic_Background_VisualOnly';
@@ -63,6 +65,16 @@ export function createSceneBackground(THREE,{onStatus}={}){
  let current=normalizeSceneBackground(),material=null,texture=null;
  let generation=0;
  const report=s=>onStatus?.(s);
+ function setTextureOffset(x,y){
+  current.textureOffsetX=Math.max(-1,Math.min(1,finite(x,0)));
+  current.textureOffsetY=Math.max(-1,Math.min(1,finite(y,0)));
+  if(texture){
+   texture.wrapS=THREE.RepeatWrapping;
+   texture.wrapT=THREE.RepeatWrapping;
+   texture.offset.set(current.textureOffsetX,current.textureOffsetY);
+   texture.needsUpdate=true;
+  }
+ }
  function clear(){
   for(const o of [...group.children]){
    o.traverse(node=>node.geometry?.dispose?.());
@@ -175,8 +187,9 @@ export function createSceneBackground(THREE,{onStatus}={}){
      if(!loaded)continue;
      if(ticket!==generation){loaded.dispose();return;}
      loaded.colorSpace=THREE.SRGBColorSpace;
-     loaded.wrapS=THREE.ClampToEdgeWrapping;loaded.wrapT=THREE.ClampToEdgeWrapping;
-     texture=loaded;material.map=loaded;material.color.set(0xffffff);
+     loaded.wrapS=THREE.RepeatWrapping;loaded.wrapT=THREE.RepeatWrapping;
+     texture=loaded;setTextureOffset(current.textureOffsetX,current.textureOffsetY);
+     material.map=loaded;material.color.set(0xffffff);
      material.needsUpdate=true;
      current.texture=path;
      report('Textura gótica aplicada: '+path.split('/').at(-1));
@@ -191,7 +204,7 @@ export function createSceneBackground(THREE,{onStatus}={}){
  }
  function dispose(){++generation;clear();floorMaterial?.dispose();texture?.dispose();texture=null;}
  build();
- return {group,build,dispose,get config(){return {...current}},show(value){
+ return {group,build,dispose,setTextureOffset,get config(){return {...current}},show(value){
   current.enabled=!!value;group.visible=current.enabled;
  }};
 }
