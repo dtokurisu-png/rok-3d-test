@@ -223,9 +223,8 @@ const CAMERA_FOV=53;
 const CAMERA_MIN_DISTANCE=5;
 const CAMERA_MAX_DISTANCE=13;
 const cameraFacing=new THREE.Vector3(0,0,-1);
-const cameraFocus=new THREE.Vector3();
+const smoothedFacing=new THREE.Vector3(0,0,-1);
 const cameraPositionGoal=new THREE.Vector3();
-const cameraFocusGoal=new THREE.Vector3();
 const cameraMarkerAnchor=new THREE.Vector3();
 let cameraInitialized=false;
 let cameraMarkerLast=0;
@@ -248,18 +247,21 @@ function calculateCameraGoal(){
   ally.x-cameraFacing.x*(backDistance-forwardAdvance),
   ally.y+.85+height,
   ally.z-cameraFacing.z*(backDistance-forwardAdvance));
- // Build orientation from one constant 23-degree downward viewing vector;
- // the direction is independent of opponent distance and never tilts.
- cameraFocusGoal.copy(cameraPositionGoal).addScaledVector(cameraFacing,Math.cos(CAMERA_PITCH)*12);
- cameraFocusGoal.y-=Math.sin(CAMERA_PITCH)*12;
  return {ally,rival,distance};
 }
 function updateCameraTracking(dt,instant=false){
  calculateCameraGoal();
  const alpha=instant||!cameraInitialized?1:1-Math.exp(-Math.min(.04,Math.max(.001,dt))*4.3);
  camera.position.lerp(cameraPositionGoal,alpha);
- cameraFocus.lerp(cameraFocusGoal,alpha);
- camera.lookAt(cameraFocus);
+ smoothedFacing.lerp(cameraFacing,alpha);
+ if(smoothedFacing.lengthSq()<.0001)smoothedFacing.copy(cameraFacing);
+ smoothedFacing.y=0;smoothedFacing.normalize();
+ // Rebuild the look direction at precisely 23 degrees each frame,
+ // including during a turn. There is no independent tilted look-at target.
+ const viewTarget=camera.position.clone()
+  .addScaledVector(smoothedFacing,12*Math.cos(CAMERA_PITCH));
+ viewTarget.y-=12*Math.sin(CAMERA_PITCH);
+ camera.lookAt(viewTarget);
  cameraInitialized=true;
 }
 function updateCameraMarker(){
@@ -267,7 +269,9 @@ function updateCameraMarker(){
  cameraMarkerAnchor.set(ally.x,ally.y+.85,ally.z);
  const distance=camera.position.distanceTo(cameraMarkerAnchor);
  qs('#cameraLiveDistance').textContent=distance.toFixed(2);
- qs('#cameraLivePitch').textContent='23.0';
+ const pointing=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+ const actualPitch=THREE.MathUtils.radToDeg(Math.atan2(-pointing.y,Math.hypot(pointing.x,pointing.z)));
+ qs('#cameraLivePitch').textContent=actualPitch.toFixed(1);
  qs('#cameraMarkerMode').textContent='AUTO · 5–13 u · sin saltos';
  const now=performance.now();
  if(now-cameraMarkerLast>180){
