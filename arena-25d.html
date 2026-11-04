@@ -335,8 +335,8 @@ function findBattleCamera(){
  const farPosition=anchor.clone().addScaledVector(back,FAR_CAMERA_DISTANCE*Math.cos(FAR_CAMERA_PITCH));
  farPosition.y+=FAR_CAMERA_DISTANCE*Math.sin(FAR_CAMERA_PITCH);
  const farTarget=anchor.clone();
- const desiredPosition=nearPosition.lerp(farPosition,farWeight);
- const desiredTarget=nearTarget.lerp(farTarget,farWeight);
+ const desiredPosition=nearPosition.clone().lerp(farPosition,farWeight);
+ const desiredTarget=nearTarget.clone().lerp(farTarget,farWeight);
  camera.position.copy(desiredPosition);camera.lookAt(desiredTarget);
  // The two casters remain non-negotiable. On very narrow screens, revert only
  // the amount of calibration needed to preserve their full on-screen footprint.
