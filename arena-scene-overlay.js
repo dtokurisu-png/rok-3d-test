@@ -5,7 +5,7 @@ import {createSceneBackground,normalizeSceneBackground} from './scene-background
 import {createSceneFloor,normalizeSceneFloor} from './scene-floor.js';
 import {ARENA_COLUMNS,ARENA_ROWS,SCENERY_BOUNDS,assertPlacement} from './scene-placement-rules.js';
 
-export function createArenaSceneOverlay({THREE,root,renderStatus}){
+export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual}){
  const catalog=new Map(), cache=new Map();
  const loader=new GLTFLoader();
  const scenery=new THREE.Group();scenery.name='ROK_scenery_visual_only';root.add(scenery);
@@ -47,7 +47,9 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
     modelTexture:String(raw.modelTexture||''),
     effects:raw.effects.map(fxClean)};
   });
-  return {name:String(data.name||'Escenario').slice(0,70),background:normalizeSceneBackground(data.background||{}),floor:normalizeSceneFloor(data.floor||{}),entries};
+  return {name:String(data.name||'Escenario').slice(0,70),
+   arenaArtOpacity:finite(data.arena.artOpacity,0,100,100),
+   background:normalizeSceneBackground(data.background||{}),floor:normalizeSceneFloor(data.floor||{}),entries};
  };
  async function init(){
   const response=await fetch('./assets/manifests/model-library.json',{cache:'no-cache'});
@@ -178,6 +180,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
    sceneName=normalized.name;
    background.build(normalized.background);
    floor.apply(normalized.floor);
+   onArenaVisual?.(normalized.arenaArtOpacity);
    scenery.visible=visible;background.group.visible=visible&&normalized.background.enabled;
    floor.group.visible=visible&&normalized.floor.enabled;
    say('Escenario activo: '+sceneName+' · '+objects.length+' objetos');
@@ -192,7 +195,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
   ++generation;
   const current=scenery.children[0];
   if(current){scenery.remove(current);clearGroup(current,objects);}
-  objects.length=0;sceneName='';background.show(false);floor.setVisible(false);say('Escenario original · sin decoraciones');
+  objects.length=0;sceneName='';background.show(false);floor.setVisible(false);onArenaVisual?.(100);say('Escenario original · sin decoraciones');
  }
  function show(value){visible=!!value;scenery.visible=visible;background.group.visible=visible&&background.config.enabled&&!!sceneName;floor.group.visible=visible&&floor.config.enabled&&!!sceneName;}
  function update(time){
@@ -208,7 +211,8 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
 /* The controls use no credentials and never write to the repository. */
 export function mountArenaSceneControls(overlay){
  const $=id=>document.getElementById(id);
- const importButton=$('testerSceneImport'),fileInput=$('testerSceneFile');
+ const importButton=$('testerSceneImport'),fileInput=$('testerSceneFile'),localButton=$('testerSceneLocal');
+ const packageStorageKey='ROK_SCENE_PACKAGE_1_V1';
  const published=$('testerScenePublished'),apply=$('testerSceneApply');
  const reset=$('testerSceneReset'),visibility=$('testerSceneVisible');
  const status=$('testerSceneStatus');
@@ -217,7 +221,7 @@ export function mountArenaSceneControls(overlay){
  const report=message=>{status.textContent=message;};
  const busy=value=>{
   working=value;
-  for(const node of [importButton,published,apply,reset,visibility])node.disabled=value;
+  for(const node of [importButton,localButton,published,apply,reset,visibility])node.disabled=value;
  };
  const showCurrent=()=>{current.textContent=overlay.currentName||'Arena original';};
  const applyScene=async json=>{
@@ -227,6 +231,14 @@ export function mountArenaSceneControls(overlay){
   catch(error){report('No se aplicó: '+String(error.message||error));}
   finally{busy(false);}
  };
+ const loadFromEditor=async()=>{
+  try{
+   const raw=localStorage.getItem(packageStorageKey);
+   if(!raw)throw Error('No hay paquete local. Abre el creador y pulsa Ver Escenario 1 en probador.');
+   await applyScene(JSON.parse(raw));
+  }catch(error){report('Escenario 1: '+error.message);}
+ };
+ localButton.addEventListener('click',()=>{if(!working)void loadFromEditor();});
  importButton.addEventListener('click',()=>{if(!working)fileInput.click();});
  fileInput.addEventListener('change',async e=>{
   const file=e.target.files?.[0];e.target.value='';
@@ -252,6 +264,7 @@ export function mountArenaSceneControls(overlay){
  visibility.addEventListener('change',()=>{overlay.show(visibility.checked);report(visibility.checked?'Decoraciones visibles':'Decoraciones ocultas');});
  overlay.init().then(async()=>{
   report('Biblioteca de modelos lista');
+  if(new URLSearchParams(location.search).get('scene')==='escenario-1')await loadFromEditor();
   try{
    const response=await fetch('./assets/scenes/catalog.json',{cache:'no-store'});
    if(!response.ok)throw Error('HTTP '+response.status);
