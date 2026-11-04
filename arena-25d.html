@@ -15,7 +15,7 @@ canvas{display:block;touch-action:none}
 #head strong{font-size:13px;letter-spacing:.02em;color:var(--mint)}
 #head small{font-size:10px;color:#e9c87b}
 #head button{border:1px solid #3c8d8d;border-radius:7px;background:#19333e;color:#fff;padding:6px 9px;font-size:11px;flex:none}
-#details{display:none;max-height:min(60dvh,360px);overflow-y:auto;padding:0 12px 12px;font-size:12px;color:#bbd5d8;line-height:1.5}
+#details{display:none;max-height:min(78dvh,680px);overflow-y:auto;padding:0 12px 12px;font-size:12px;color:#bbd5d8;line-height:1.5}
 #top.open #details{display:block}
 #details p{margin:7px 0}
 #arenaSpriteWidth,#arenaSpriteLength{width:min(240px,100%);accent-color:#00ffe4;vertical-align:middle;cursor:pointer}
@@ -23,6 +23,11 @@ canvas{display:block;touch-action:none}
 .spriteScaleSettings{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:9px 0 5px}
 .spriteScaleSettings label{font-weight:700;color:#d8f7f5}
 #sceneStatus{font-weight:700;color:#ebf8f8}
+#arenaReleaseNotes{margin:12px 0;border-top:1px solid #2c6870;padding-top:9px;color:#bbd5d8}
+#arenaReleaseNotes summary{cursor:pointer;color:#9fd8d9;font-weight:700}
+#arenaReleaseNotes p{margin:8px 0;font-size:11px}
+.arenaBackLink{display:block;margin:12px 0 3px;color:#00ffe4;font-size:11px}
+#legacyArenaDiagnostics[hidden]{display:none!important}
 /* Barra de controles anclada: integrada al borde inferior, sin flotación. */
 #bottom{position:fixed;left:0;right:0;bottom:0;transform:none;z-index:12;
   display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;
@@ -98,8 +103,8 @@ canvas{display:block;touch-action:none}
 #testerSceneBanner{position:fixed;z-index:14;top:calc(env(safe-area-inset-top,0px) + 78px);right:12px;max-width:min(470px,65vw);display:flex;align-items:center;gap:8px;border:1px solid #327b85;border-radius:8px;background:#081b29e8;padding:7px 9px;color:#e2f8f7;font-size:11px;box-shadow:0 3px 10px #0008}
 #testerSceneBanner[data-active="true"]{border-color:#00ffe4}
 #testerSceneBanner button{background:#11605d;color:#fff;border:1px solid #00ffe4;border-radius:6px;padding:6px;white-space:nowrap;cursor:pointer}
-#cameraTuningPanel{position:fixed;top:95px;right:12px;z-index:18;width:min(325px,calc(100vw - 24px));max-height:calc(100dvh - 180px);overflow-y:auto;background:#0a2432f5;border:1px solid #00ffe4;border-radius:12px;box-shadow:0 8px 25px #000a;padding:12px;color:#eaffff;font-size:12px}
-#cameraTuningPanel[hidden]{display:none!important}
+#cameraTuningPanel{position:relative;width:100%;max-height:none;overflow:visible;background:#0a2432;border:1px solid #266b73;border-radius:10px;padding:11px;color:#eaffff;font-size:12px}
+
 #cameraTuningPanel .cameraHeader{display:flex;align-items:center;justify-content:space-between;gap:10px}
 #cameraTuningPanel .cameraHeader strong{color:#00ffe4;font-size:14px}
 #cameraTuningPanel button,#cameraTuningPanel select{background:#153e46;color:#fff;border:1px solid #4b9899;border-radius:7px;padding:7px;cursor:pointer}
@@ -111,16 +116,26 @@ canvas{display:block;touch-action:none}
 #cameraTuningPanel .cameraNotes{font-size:11px;color:#a7d2d5;margin:8px 0;line-height:1.5}
 #cameraTuningPanel .cameraActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 #cameraTuningPanel .cameraActions button{flex:1}
-@media(max-width:700px){#cameraTuningPanel{top:145px;right:8px;max-height:calc(100dvh - 275px)}}
+
 @media(max-width:700px){#testerSceneBanner{top:calc(env(safe-area-inset-top,0px) + 104px);right:8px;max-width:94vw;font-size:10px}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.28 · Escudo sin duplicados</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.29 · Panel de cámara</div>
 <div id="testerSceneBanner" data-active="false" aria-live="polite"><span id="testerSceneBannerText">Comprobando Escenario 1…</span><button type="button" id="testerSceneBannerLoad">↻ Cargar escenario</button></div>
-<section id="cameraTuningPanel" aria-label="Configuración de la cámara" hidden>
- <div class="cameraHeader"><strong>📷 Ajustar cámara · Etapa 1</strong><button id="cameraTuningClose" type="button">✕</button></div>
+<section id="top">
+  <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
+    <div><strong>R.O.K. · Arena 2.5D</strong></div>
+    <button type="button" id="expand">Opciones ▾</button>
+  </div>
+  <div id="details">
+    <section id="testerSceneTools" aria-label="Escenario">
+      <div class="sceneTesterButtons"><button id="testerSceneLocal" type="button">↻ Cargar escenario</button><span id="testerSceneCurrent" class="sceneTesterCurrent">Arena original</span></div>
+      <p id="testerSceneStatus" class="sceneTesterStatus" role="status">Comprobando escenario…</p>
+    </section>
+    <section id="cameraTuningPanel" aria-label="Configuración de la cámara">
+ <div class="cameraHeader"><strong>📷 Cámaras · Etapa 1</strong></div>
  <div class="cameraPresetButtons"><button id="cameraPresetNear" type="button" aria-pressed="true">Vista 1 · Cerca</button><button id="cameraPresetWide" type="button" aria-pressed="false">Vista 2 · Arena</button></div>
  <label for="cameraTuningDistance">Distancia respecto al caster aliado <output id="cameraTuningDistanceValue">35</output></label>
  <input id="cameraTuningDistance" type="range" min="8" max="70" step="1" value="35">
@@ -132,61 +147,12 @@ canvas{display:block;touch-action:none}
  <div class="cameraActions"><button id="cameraTuningSave" type="button">Guardar ambas vistas</button><button id="cameraTuningReset" type="button">Restablecer vista</button></div>
  <p class="cameraNotes" id="cameraTuningStatus">La vista se actualiza al mover los controles. Aún no hay seguimiento automático.</p>
 </section>
-<section id="top">
-  <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
-    <div><strong>R.O.K. · Arena 2.5D</strong></div>
-    <button type="button" id="expand">Opciones ▾</button>
-  </div>
-  <div id="details">
-    <section id="testerSceneTools" aria-label="Escenarios de prueba">
-      <strong>Escenario 3D</strong>
-      <div class="sceneTesterCurrent">Activo: <span id="testerSceneCurrent">Arena original</span></div>
-      <div class="sceneTesterButtons"><button id="testerSceneLocal" type="button">Cargar Escenario 1 del editor</button><button id="testerSceneImport" type="button">Importar escenario JSON</button><input id="testerSceneFile" type="file" accept=".json,application/json" hidden><button id="testerSceneReset" type="button">Restaurar arena</button></div>
-      <label class="sceneTesterLine" for="testerScenePublished">Publicados en GitHub</label>
-      <select id="testerScenePublished" aria-label="Escenario publicado"><option value="">Seleccionar escenario…</option></select>
-      <div class="sceneTesterButtons"><button id="testerSceneApply" type="button" disabled>Cargar publicado</button><label class="sceneTesterLine"><input id="testerSceneVisible" type="checkbox" checked> Decoraciones visibles</label></div>
-      <p id="testerSceneStatus" class="sceneTesterStatus" role="status">Preparando biblioteca…</p>
-    </section>
-    <section id="casterAnimationReview" aria-label="Animaciones de los Kasters" style="border:1px solid #277e7c;border-radius:10px;padding:10px;margin:10px 0;background:#0c2731">
-      <strong style="color:#00ffe4">KASTERS · ANIMACIONES EN ESTA ARENA</strong>
-      <p>Prueba los movimientos sobre los Kasters del campo actual. El combate se pausa mientras revisas; no se modifica ninguna regla.</p>
-      <label for="reviewCaster">Kaster:</label>
-      <select id="reviewCaster" style="max-width:100%;background:#12454a;color:white;padding:7px"><option value="ally">Lioren · aliado</option><option value="enemy">Chiara · rival</option></select>
-      <label for="reviewSpeed">Velocidad:</label><input id="reviewSpeed" type="range" min=".25" max="2" step=".05" value="1" style="accent-color:#00ffe4"><output id="reviewSpeedLabel">1×</output>
-      <div id="reviewAnimationList" style="display:grid;gap:7px;margin-top:10px">Cargando catálogo de animaciones…</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
-        <button type="button" id="reviewStop">Terminar prueba</button>
-        <button type="button" id="reviewCopy">Copiar selección</button>
-        <button type="button" id="reviewExport">Exportar JSON</button>
-      </div>
-      <p id="reviewStatus" role="status">Al abrir una animación se pausa el combate.</p>
-      <p>Conservar / Descartar se registra para cada Kaster. Exporta el JSON para que pueda guardar tu selección en GitHub. No se borra nada automáticamente.</p>
-    </section>
-    <p><strong>Notas de versión · Arena v0.9.15 (01/11/2026):</strong> Durante un ataque, la reacción de daño mueve solo cuello y cabeza: brazos y piernas completos permanecen bajo la animación de ataque, sin saltos de pies. Fuera del ataque, la reacción conserva también los muslos, pero nunca mueve directamente rodillas, pantorrillas o pies. Al restaurarse una invocación vencedora conserva exactamente sus PV anteriores; solo una invocación nueva tras morir reaparece con vida completa.</p>
-    <p id="sceneStatus">Iniciando escenario…</p>
-    <p>9 columnas × 18 filas. Invocaciones de escudo/maná/arquera: columnas 3, 5 y 4, filas 17/0. Casters: columna 4, filas 16/1, 12 PV y una estrella. Al morir un caster, la partida se reinicia automáticamente.</p>
-    <p id="animationStatus">Animaciones: comprobando las del probador…</p>
-    <p id="modelStatus">Modelos: cargando…</p>
-    <p id="textureStatus">Textura R.O.K.: comprobando…</p>
-    <div class="spriteScaleSettings">
-      <label for="arenaSpriteWidth">Ancho del sprite (fondo)</label>
-      <input type="range" id="arenaSpriteWidth" min="100" max="220" step="5" value="100" aria-label="Ajustar solo el ancho del fondo sin cambiar la cuadrícula">
-      <output id="arenaSpriteWidthValue" for="arenaSpriteWidth">100 %</output>
-    </div>
-    <div class="spriteScaleSettings">
-      <label for="arenaSpriteLength">Largo del sprite (fondo)</label>
-      <input type="range" id="arenaSpriteLength" min="100" max="220" step="5" value="100" aria-label="Ajustar solo el largo del fondo sin cambiar la cuadrícula">
-      <output id="arenaSpriteLengthValue" for="arenaSpriteLength">100 %</output>
-    </div>
-    <button id="saveArenaBackground" type="button" style="border:1px solid #00ffe4;background:#064d52;color:white;border-radius:8px;padding:9px 12px;font-weight:700;cursor:pointer">Guardar en GitHub</button>
-    <p id="backgroundSaveStatus">Cargando dimensiones oficiales desde GitHub…</p>
-    <p>Guardar en GitHub pide un token de acceso de alcance limitado con permiso Contents: Read and write para este repositorio. El token no se almacena. El botón actualiza <a href="https://github.com/dtokurisu-png/rok-3d-test/blob/main/arena-background.css" target="_blank" rel="noopener noreferrer" style="color:#00ffe4">arena-background.css</a>. No compartas tu token. La cuadrícula permanece fija.</p>
-    <p>La imagen puede sobresalir de los bordes; la cuadrícula de 15 × 30 permanece fija.</p>
-    <p id="fps">FPS: —</p>
-    <p><b>Combate experimental:</b> ambos jugadores tienen una Farolera de escudo (7 PV, alcance 3), una de maná (5 PV, alcance 5, onda 3×3, evasión y aturdimiento) y una Arquera del Desierto (3 PV, alcance 9, daño 2). Cada caster tiene 12 PV; el maná recupera 1 cada 3 s. No modifica R.O.K. principal.</p>
-    <p><a href="./index.html" style="color:#00ffe4">Volver al visor de animaciones 3D</a></p>
+
+    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>Notas de versión · Arena v0.9.15 (01/11/2026):</strong> Durante un ataque, la reacción de daño mueve solo cuello y cabeza: brazos y piernas completos permanecen bajo la animación de ataque, sin saltos de pies. Fuera del ataque, la reacción conserva también los muslos, pero nunca mueve directamente rodillas, pantorrillas o pies. Al restaurarse una invocación vencedora conserva exactamente sus PV anteriores; solo una invocación nueva tras morir reaparece con vida completa.</p></details>
+    <a class="arenaBackLink" href="./index.html">Volver al visor de animaciones</a>
   </div>
 </section>
+<div id="legacyArenaDiagnostics" hidden aria-hidden="true"><button id="testerSceneImport"></button><input id="testerSceneFile" type="file"><button id="testerSceneReset"></button><select id="testerScenePublished"></select><button id="testerSceneApply"></button><input id="testerSceneVisible" type="checkbox" checked><select id="reviewCaster"><option value="ally">Aliado</option><option value="enemy">Rival</option></select><input id="reviewSpeed" type="range" min="0.25" max="2" value="1"><output id="reviewSpeedLabel"></output><div id="reviewAnimationList"></div><button id="reviewStop"></button><button id="reviewCopy"></button><button id="reviewExport"></button><p id="reviewStatus"></p><p id="animationStatus"></p><p id="modelStatus"></p><p id="textureStatus"></p><p id="sceneStatus"></p><p id="fps"></p><input id="arenaSpriteWidth" type="range" min="100" max="220" value="100"><input id="arenaSpriteLength" type="range" min="100" max="220" value="100"><output id="arenaSpriteWidthValue"></output><output id="arenaSpriteLengthValue"></output><button id="saveArenaBackground"></button><p id="backgroundSaveStatus"></p></div>
 <div id="nameplateLayer" aria-hidden="true"></div>
 <div id="summonCastLayer" aria-hidden="true"></div>
 <div id="phase">Preparando combate…</div>
@@ -303,12 +269,12 @@ function applyCameraPreset(){
 function selectCameraPreset(which,openPanel=true){
  activeCameraPreset=which;
  applyCameraPreset();
- if(openPanel)cameraPanel.hidden=false;
+ if(openPanel){hud.classList.add('open');qs('#expand').textContent='Cerrar ▴';head.setAttribute('aria-expanded','true');}
 }
 for(const [button,which] of [['#camera','#near'],['#full','#wide'],['#cameraPresetNear','#near'],['#cameraPresetWide','#wide']]){
  qs(button).addEventListener('click',()=>selectCameraPreset(which==='#near'?'near':'wide'));
 }
-qs('#cameraTuningClose').addEventListener('click',()=>{cameraPanel.hidden=true;});
+// Camera settings live inside the main Options panel.
 for(const id of ['#cameraTuningDistance','#cameraTuningAngle','#cameraTuningHeight']){
  qs(id).addEventListener('input',()=>{
   const preset=cameraPresets[activeCameraPreset];
@@ -417,46 +383,15 @@ async function loadSharedArenaBackground(){
     const css=await response.text();
     setArenaSpriteAxis('width',cssDimension(css,'width'));
     setArenaSpriteAxis('length',cssDimension(css,'length'));
-    bgSaveStatus.textContent='Valores oficiales cargados desde GitHub. Para compartir cambios usa Guardar en GitHub.';
+    bgSaveStatus.textContent='Dimensiones leídas';
   }catch(error){
     setArenaSpriteAxis('width',100);
     setArenaSpriteAxis('length',100);
-    bgSaveStatus.textContent='No se pudo cargar el CSS oficial. Se muestra 100 %.';
+    bgSaveStatus.textContent='Dimensiones por defecto';
     console.warn('Configuración compartida del fondo:',error);
   }
 }
-bgSaveButton.addEventListener('click',async()=>{
-  const token=prompt('Para guardar en GitHub, pega un token de acceso de alcance limitado (Contents: Read and write) SOLO para dtokurisu-png/rok-3d-test. No se guardará en el navegador.');
-  if(!token)return;
-  const originalLabel=bgSaveButton.textContent;
-  bgSaveButton.disabled=true;bgSaveButton.textContent='Guardando…';
-  bgSaveStatus.textContent='Enviando dimensiones a GitHub…';
-  try{
-    const headers={
-      'Accept':'application/vnd.github+json',
-      'Authorization':'Bearer '+token.trim(),
-      'X-GitHub-Api-Version':'2022-11-28'
-    };
-    const getResponse=await fetch(bgApiUrl,{headers,cache:'no-store'});
-    if(!getResponse.ok)throw Error('No se pudo leer el CSS de GitHub (HTTP '+getResponse.status+').');
-    const current=await getResponse.json();
-    const width=Math.round(arenaSpriteWidth*100),length=Math.round(arenaSpriteLength*100);
-    const content=btoa(backgroundCss(width,length));
-    const putResponse=await fetch(bgApiUrl,{
-      method:'PUT',headers:{...headers,'Content-Type':'application/json'},
-      body:JSON.stringify({
-        message:'Arena: save background width '+width+'% and length '+length+'%',
-        content,sha:current.sha,branch:'main'
-      })
-    });
-    if(!putResponse.ok)throw Error('GitHub rechazó el guardado (HTTP '+putResponse.status+'). Comprueba permisos y acceso.');
-    bgSaveStatus.textContent='✓ Guardado en GitHub: ancho '+width+' %, largo '+length+' %. Otros dispositivos verán los cambios después de la publicación de GitHub Pages.';
-  }catch(error){
-    bgSaveStatus.textContent='No se guardó: '+error.message;
-  }finally{
-    bgSaveButton.disabled=false;bgSaveButton.textContent=originalLabel;
-  }
-});
+
 loadSharedArenaBackground();
 new THREE.TextureLoader().load(arenaTextureUrl,tex=>{
   tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
