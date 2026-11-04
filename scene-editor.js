@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {createSceneBackground,normalizeSceneBackground} from './scene-background.js';
+import {BACKGROUND_DEFAULTS,createSceneBackground,normalizeSceneBackground} from './scene-background.js';
 import {ARENA_COLUMNS,ARENA_ROWS,SCENERY_BOUNDS,footprint,
  placeOutsidePlayable,assertPlacement,validPlacement} from './scene-placement-rules.js';
 
@@ -72,7 +72,13 @@ outsideGround.rotation.x=-Math.PI/2;outsideGround.position.y=-.005;scene.add(out
 scene.add(border);
 const level=new THREE.Group();scene.add(level);
 // Environmental shell is a separate visual layer, never a movable prop or collider.
-const environment=createSceneBackground(THREE,{onStatus:status});
+const environment=createSceneBackground(THREE,{onStatus:message=>{
+ status(message);
+ if(message.startsWith('Textura gótica aplicada:')){
+  // Reflect the resolved actual extension in the editor and exported JSON.
+  $('sceneBackgroundTexture').value=environment.config.texture;
+ }
+}});
 scene.add(environment.group);
 function backgroundInputs(){
  return {
@@ -369,7 +375,7 @@ $('sceneSave').addEventListener('click',()=>{
  try{downloadJSON(sceneDocument());status('Escenario JSON descargado · cuadrícula jugable despejada');}
  catch(error){status('No se pudo guardar: '+error.message);}
 });
-$('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear un escenario nuevo y descartar los cambios sin exportar?'))return;removeAll();$('sceneName').value='Nuevo escenario';environment.build();showBackgroundFields(environment.config);status('Escenario vacío');});
+$('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear un escenario nuevo y descartar los cambios sin exportar?'))return;removeAll();$('sceneName').value='Nuevo escenario';environment.build(BACKGROUND_DEFAULTS);showBackgroundFields(environment.config);status('Escenario vacío');});
 $('sceneOpen').addEventListener('click',()=>$('sceneFile').click());
 async function readJSONFile(file){
  if(!file||file.size>500000)throw Error('Archivo JSON ausente o demasiado grande');
