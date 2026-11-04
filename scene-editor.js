@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {BACKGROUND_DEFAULTS,createSceneBackground,normalizeSceneBackground} from './scene-background.js';
+import {DEFAULT_SCENE_FLOOR,createSceneFloor,normalizeSceneFloor} from './scene-floor.js';
 import {ARENA_COLUMNS,ARENA_ROWS,SCENERY_BOUNDS,footprint,
  placeOutsidePlayable,assertPlacement,validPlacement} from './scene-placement-rules.js';
 
@@ -80,6 +81,32 @@ const environment=createSceneBackground(THREE,{onStatus:message=>{
  }
 }});
 scene.add(environment.group);
+const outdoorFloor=createSceneFloor(THREE,{onStatus:status});
+scene.add(outdoorFloor.group);
+function floorInputs(){
+ return {enabled:$('sceneFloorEnabled').checked,height:$('sceneFloorHeight').value,
+  repeatX:$('sceneFloorRepeatX').value,repeatZ:$('sceneFloorRepeatZ').value,
+  texture:$('sceneFloorTexture').value};
+}
+function showFloorFields(c){
+ const v=normalizeSceneFloor(c);
+ $('sceneFloorEnabled').checked=v.enabled;
+ $('sceneFloorHeight').value=String(v.height);
+ $('sceneFloorHeightValue').textContent=v.height.toFixed(2);
+ $('sceneFloorRepeatX').value=String(v.repeatX);
+ $('sceneFloorRepeatZ').value=String(v.repeatZ);
+ $('sceneFloorTexture').value=v.texture;
+}
+showFloorFields(outdoorFloor.config);
+$('sceneFloorHeight').addEventListener('input',()=>{
+ outdoorFloor.setHeight($('sceneFloorHeight').value);
+ $('sceneFloorHeightValue').textContent=outdoorFloor.config.height.toFixed(2);
+});
+$('sceneFloorEnabled').addEventListener('change',()=>outdoorFloor.setVisible($('sceneFloorEnabled').checked));
+$('sceneFloorApply').addEventListener('click',()=>{
+ try{showFloorFields(outdoorFloor.apply(floorInputs()));status('Suelo exterior actualizado');}
+ catch(error){status('Suelo: '+error.message);}
+});
 function backgroundInputs(){
  return {
   enabled:$('sceneBackgroundEnabled').checked,type:'gothic-vault',
@@ -150,8 +177,13 @@ function positionOnFloor(event){
  return raycaster.ray.intersectPlane(groundPlane,hitPoint)?hitPoint.clone():null;
 }
 function modelCenter(group){
- const bb=new THREE.Box3().setFromObject(group);if(bb.isEmpty())throw Error('El modelo no contiene geometría');
- group.position.set(-((bb.min.x+bb.max.x)/2),-bb.min.y,-((bb.min.z+bb.max.z)/2));
+ const bb=new THREE.Box3().setFromObject(group);
+ if(bb.isEmpty())throw Error('El modelo no contiene geometría');
+ const size=bb.getSize(new THREE.Vector3());
+ const center=bb.getCenter(new THREE.Vector3());
+ // Center of geometry is the pivot for BOTH rotation and X/Y/Z scaling.
+ group.position.sub(center);
+ group.userData.rokCenteredHalfHeight=size.y/2;
  return group;
 }
 function fetchTemplate(item){
@@ -195,37 +227,27 @@ function effectObject(fx,dimension){
 function disposeEffects(group){
  group.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();}});
 }
-function dimensionsFor(model,rotation=0,scale=1){
- const box=new THREE.Box3().setFromObject(model);
- if(box.isEmpty())throw Error('Modelo sin geometría');
+// Geometric (rendered) footprint, ignoring selection outlines and VFX.
+function renderedFootprint(entry){
+ entry.root.updateMatrixWorld(true);
+ const box=new THREE.Box3().setFromObject(entry.model);
+ const middle=box.getCenter(new THREE.Vector3());
  const size=box.getSize(new THREE.Vector3());
- return footprint(size.x,size.z,rotation,scale);
+ return {middle,size};
 }
-function exteriorPosition(x,z,model,rotation=0,scale=1){
- const dim=dimensionsFor(model,rotation,scale);
- return placeOutsidePlayable(x,z,dim.halfX,dim.halfZ);
-}
-function ensureExterior(x,z,model,rotation=0,scale=1){
- const dim=dimensionsFor(model,rotation,scale);
- assertPlacement(x,z,dim.halfX,dim.halfZ);
-}
-
 function updateTransform(entry){
  if(!entry?.root)return;
- entry.root.position.set(entry.x,entry.y,entry.z);
+ const sx=entry.scaleX??entry.scale??1,sy=entry.scaleY??entry.scale??1,
+  sz=entry.scaleZ??entry.scale??1;
+ entry.root.scale.set(sx,sy,sz);
  entry.root.rotation.y=THREE.MathUtils.degToRad(entry.rotation);
- entry.root.scale.setScalar(entry.scale);
- // Protect the ENTIRE visible footprint, including attached FX, not just the
- // pivot or center of a large mesh. All transforms use the same check.
- entry.root.updateMatrixWorld(true);
- const box=new THREE.Box3().setFromObject(entry.root);
- if(box.isEmpty())throw Error('Objeto sin geometría visible');
- const center=box.getCenter(new THREE.Vector3());
- const size=box.getSize(new THREE.Vector3());
- const safe=placeOutsidePlayable(center.x,center.z,size.x/2,size.z/2);
- entry.x+=safe.x-center.x;
- entry.z+=safe.z-center.z;
- entry.root.position.set(entry.x,entry.y,entry.z);
+ // Ground-level Y is user controlled. Rendering pivot remains at real center.
+ entry.root.position.set(entry.x,entry.y+entry.centerHalfHeight*sy,entry.z);
+ const {middle,size}=renderedFootprint(entry);
+ const safe=placeOutsidePlayable(middle.x,middle.z,size.x/2,size.z/2);
+ entry.x+=safe.x-middle.x;
+ entry.z+=safe.z-middle.z;
+ entry.root.position.set(entry.x,entry.y+entry.centerHalfHeight*sy,entry.z);
 }
 function renderObjects(){
  $('sceneObjectCount').textContent=String(objects.length);
@@ -243,7 +265,12 @@ function fillControls(){
  const v=selection;if(!v)return;
  $('sceneObjectName').value=v.name;
  $('scenePosX').value=v.x.toFixed(2);$('scenePosY').value=v.y.toFixed(2);$('scenePosZ').value=v.z.toFixed(2);
- $('sceneRotation').value=v.rotation.toFixed(1);$('sceneScale').value=v.scale;$('sceneScaleValue').textContent=v.scale.toFixed(2);
+ $('sceneRotation').value=v.rotation.toFixed(1);
+ $('sceneScale').value=v.scale.toFixed(2);
+ $('sceneScaleValue').textContent=v.scale.toFixed(2);
+ for(const axis of ['X','Y','Z'])
+  $('sceneScale'+axis).value=(v['scale'+axis]??v.scale).toFixed(2);
+ $('sceneModelTexture').value=v.modelTexture||'';
 }
 function selectObject(obj){
  selection=obj;
@@ -275,11 +302,18 @@ async function insertObject(data,generation=loadGeneration){
  }
  // Outline is separate from the model: effects do not make the selection bounds grow.
  const outline=objectOutline(g);root.add(outline);
- const rotation=num(data.rotation,-3600,3600),scale=num(data.scale,.05,5,1);
- const position=exteriorPosition(data.x??W/2+3,data.z??0,g,rotation,scale);
- const {x,z}=position;
- const obj={id:data.id||newId(),modelId:source.id,name:String(data.name||source.name).slice(0,70),compositionId:data.compositionId||null,effects:(data.effects||[]).map(cleanFx),x,y:num(data.y,-10,20),z,rotation,scale,root,model:g,vfx,animations,outline};
+ const rotation=num(data.rotation,-3600,3600),scale=num(data.scale,.05,20,1);
+ const scaleX=num(data.scaleX,.05,20,scale),scaleY=num(data.scaleY,.05,20,scale),
+  scaleZ=num(data.scaleZ,.05,20,scale);
+ const obj={id:data.id||newId(),modelId:source.id,name:String(data.name||source.name).slice(0,70),
+  compositionId:data.compositionId||null,effects:(data.effects||[]).map(cleanFx),
+  x:Number.isFinite(Number(data.x))?Number(data.x):W/2+3,
+  y:num(data.y,-100,100,0),z:Number.isFinite(Number(data.z))?Number(data.z):0,
+  rotation,scale,scaleX,scaleY,scaleZ,
+  modelTexture:String(data.modelTexture||''),centerHalfHeight:g.userData.rokCenteredHalfHeight||dimension/2,
+  root,model:g,vfx,animations,outline};
  updateTransform(obj);level.add(root);objects.push(obj);renderObjects();
+ if(obj.modelTexture)void applyModelTexture(obj,obj.modelTexture);
  return obj;
 }
 function removeAll(){
