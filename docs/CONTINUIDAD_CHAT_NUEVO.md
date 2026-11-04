@@ -13,6 +13,10 @@
 
 **Hecho después de la lista original:** existe un contenedor ambiental 3D independiente, hecho de paredes rectangulares y techo arqueado. Código nuevo en `scene-background.js`, controles en `scene-editor.html`/`scene-editor.js`, lectura de JSON en `arena-scene-overlay.js`. Dimensiones iniciales **70×140**, muros **18**, bóveda **+12** (altura máxima 30); editable el ancho en **30–120** y largo = ancho × 2. Suelo exterior al nivel de la arena, sin pisar la zona jugable 15×30. **No modifica cámaras ni combate.** La ruta exacta de la textura «panorama gótica de vitrales zafiro» no se pudo verificar; hay un campo de ruta pero no se ha aplicado la imagen de manera confirmada. La implementación necesita prueba visual en WebGL. Las **dos cámaras predeterminadas** siguen aplazadas.
 
+## Nueva actualización — Pavimento ornamental y desplazamiento del panorama (2026-11-04)
+
+Ya están publicados en GitHub, dentro de `assets/texturas/`, los WebP procedentes de las dos imágenes reales del usuario: `Panorama gótica de vitrales zafiro.webp` y `Pavimento ornamental de piedra azul y beige.webp`. El primero se aplica a la bóveda y paredes del background; el segundo reemplaza la imagen anterior del plano de suelo del **editor** y del **tester Arena 2.5D**. El editor ahora tiene sliders de desplazamiento horizontal y vertical de la textura gótica (offset UV -1 a 1), guardados en JSON; se mantiene el ancho mínimo de recinto en 30. El modelo de combate, las animaciones y las cámaras no cambiaron. Ver estado y SHA reales en `docs/DEVELOPMENT_STATUS.md`. Validación visual del usuario todavía pendiente.
+
 ## 1. Estado exacto al cerrar este chat
 
 - [x] El usuario **decidió detener temporalmente todo trabajo de animaciones**: no modificar el visor, los ajustes de huesos, las compuestas ni la mecánica animada hasta nueva instrucción.
