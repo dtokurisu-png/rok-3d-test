@@ -52,8 +52,18 @@ const grid=new THREE.LineSegments(gridGeometry,new THREE.LineBasicMaterial({colo
 // not a prop or collider, and does not change any of the 450 gameplay tiles.
 const arenaFloorTextureUrl='./assets/texturas/'+encodeURIComponent('Pavimento ornamental de piedra azul y beige.webp');
 const arenaArt=new THREE.Mesh(new THREE.PlaneGeometry(W,D),
- new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.DoubleSide,depthWrite:false}));
+ new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.DoubleSide,transparent:true,opacity:1,depthWrite:false}));
 arenaArt.rotation.x=-Math.PI/2;arenaArt.position.y=.024;scene.add(arenaArt);
+// Only the visual artwork is faded; geometry, grid and collision remain untouched.
+function applyArenaOpacity(raw){
+ const value=num(raw,0,100,100);
+ arenaArt.material.opacity=value/100;
+ $('sceneArenaOpacity').value=String(value);
+ $('sceneArenaOpacityValue').textContent=Math.round(value)+'%';
+ return value;
+}
+$('sceneArenaOpacity').addEventListener('input',event=>applyArenaOpacity(event.target.value));
+applyArenaOpacity(100);
 new THREE.TextureLoader().load(arenaFloorTextureUrl,texture=>{
  texture.colorSpace=THREE.SRGBColorSpace;
  texture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
@@ -656,7 +666,7 @@ function sceneDocument(){
   const {middle,size}=renderedFootprint(obj);
   assertPlacement(middle.x,middle.z,size.x/2,size.z/2);
  }
- return {schemaVersion:1,kind:'rok3d.scene',name:$('sceneName').value.trim().slice(0,70)||'Escenario',arena:{columns:W,rows:D},background:normalizeSceneBackground(backgroundInputs()),
+ return {schemaVersion:1,kind:'rok3d.scene',name:$('sceneName').value.trim().slice(0,70)||'Escenario',arena:{columns:W,rows:D,artOpacity:applyArenaOpacity($('sceneArenaOpacity').value)},background:normalizeSceneBackground(backgroundInputs()),
  floor:normalizeSceneFloor(floorInputs()),objects:objects.map(serializeObject)};
 }
 function downloadJSON(obj){
@@ -684,6 +694,7 @@ async function restoreScene(json,notice='Escenario restaurado'){
  clearHistory();
  removeAll();
  $('sceneName').value=next.name;
+ applyArenaOpacity(next.arenaArtOpacity);
  environment.build(next.background);showBackgroundFields(environment.config);
  outdoorFloor.apply(next.floor);showFloorFields(outdoorFloor.config);
  const generation=loadGeneration;
@@ -707,7 +718,7 @@ $('sceneSave').addEventListener('click',()=>{
  try{downloadJSON(sceneDocument());status('Escenario JSON descargado · cuadrícula jugable despejada');}
  catch(error){status('No se pudo guardar: '+error.message);}
 });
-$('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear un escenario nuevo y descartar los cambios sin exportar?'))return;clearHistory();removeAll();$('sceneName').value='Nuevo escenario';environment.build(BACKGROUND_DEFAULTS);showBackgroundFields(environment.config);
+$('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear un escenario nuevo y descartar los cambios sin exportar?'))return;clearHistory();removeAll();$('sceneName').value='Nuevo escenario';applyArenaOpacity(100);environment.build(BACKGROUND_DEFAULTS);showBackgroundFields(environment.config);
  outdoorFloor.apply(DEFAULT_SCENE_FLOOR);showFloorFields(outdoorFloor.config);
  status('Escenario vacío');});
 $('sceneOpen').addEventListener('click',()=>$('sceneFile').click());
@@ -729,6 +740,7 @@ function verifyScene(json){
    modelTexture:String(raw.modelTexture||'')});
  }
  return {name:String(json.name||'Escenario').slice(0,70),
+ arenaArtOpacity:num(json.arena.artOpacity,0,100,100),
  background:normalizeSceneBackground(json.background||{}),
  floor:normalizeSceneFloor(json.floor||{}),objects:result};
 }
@@ -736,7 +748,7 @@ $('sceneFile').addEventListener('change',async e=>{
  const file=e.target.files?.[0];e.target.value='';if(!file)return;
  try{
   const next=verifyScene(await readJSONFile(file));
-  clearHistory();removeAll();$('sceneName').value=next.name;environment.build(next.background);showBackgroundFields(environment.config);
+  clearHistory();removeAll();$('sceneName').value=next.name;applyArenaOpacity(next.arenaArtOpacity);environment.build(next.background);showBackgroundFields(environment.config);
   outdoorFloor.apply(next.floor);showFloorFields(outdoorFloor.config);
   const generation=loadGeneration;
   let adjusted=0,omitted=0;
