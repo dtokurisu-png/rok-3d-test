@@ -148,8 +148,8 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.50 · Contadores desde atrás</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.50</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.51 · Barras separadas y compactas</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.51</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -1663,9 +1663,13 @@ function groundArcGeometry(radius,side,index,total=10,thickness=.075){
  // Reverse only the LEFT index: segment 1 must always be the innermost
  // (rear-center) segment, not the outermost end of the arc.
  const backAngle=THREE.MathUtils.degToRad(270);
- const span=THREE.MathUtils.degToRad(65),gap=THREE.MathUtils.degToRad(.85);
+ const centerGap=THREE.MathUtils.degToRad(16);
+ const span=THREE.MathUtils.degToRad(56),gap=THREE.MathUtils.degToRad(.85);
  const step=span/total;
- const start=side==='left'?backAngle-(index+1)*step:backAngle+index*step;
+ // Reserve a central gap for a possible future vertical stat indicator.
+ const start=side==='left'
+  ?backAngle-centerGap/2-(index+1)*step
+  :backAngle+centerGap/2+index*step;
  const a=start+gap/2;
  const end=start+step-gap/2;
  return new THREE.RingGeometry(radius,radius+thickness,8,1,a,end-a);
@@ -1727,12 +1731,13 @@ const summonEnergyIconTexture=summonHudIconTexture('✦','#8b6bea');
 function createSummonGroundHud(c){
  if(summonGroundHuds.has(c))return;
  const group=new THREE.Group();group.name='ROK_summon_ground_HUD';root.add(group);
- const health=summonHudArc(group,'left',.85,0x36ff91,1,.29);
- const attack=summonHudArc(group,'right',.85,0xff4c50,1,.29);
- const shield=summonHudArc(group,'left',1.20,0xe0efff,1,.19);
- const energy=summonHudArc(group,'right',1.20,0xbb7fff,1,.19);
- const lifeTicks=summonHudTicks(group,'left',.72,0x2ad57a);
- const attackTicks=summonHudTicks(group,'right',.72,0xe4413e);
+ const health=summonHudArc(group,'left',.64,0x36ff91,1,.29);
+ const attack=summonHudArc(group,'right',.64,0xff4c50,1,.29);
+ // Keep secondary arcs outside the thicker main bars; .90 would overlap.
+ const shield=summonHudArc(group,'left',.99,0xe0efff,1,.19);
+ const energy=summonHudArc(group,'right',.99,0xbb7fff,1,.19);
+ const lifeTicks=summonHudTicks(group,'left',.53,0x2ad57a);
+ const attackTicks=summonHudTicks(group,'right',.53,0xe4413e);
  const shieldTicks=[]; // El escudo usa solamente una barra subdividida.
  const energyTicks=[]; // La energía usa solamente una barra subdividida.
  const iconGroup=new THREE.Group();group.add(iconGroup);
