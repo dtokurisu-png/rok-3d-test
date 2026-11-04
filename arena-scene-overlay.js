@@ -2,6 +2,7 @@
    Strictly decorative: never touches the arena's combatants, colliders or tiles. */
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {createSceneBackground,normalizeSceneBackground} from './scene-background.js';
+import {createSceneFloor,normalizeSceneFloor} from './scene-floor.js';
 import {ARENA_COLUMNS,ARENA_ROWS,SCENERY_BOUNDS,assertPlacement} from './scene-placement-rules.js';
 
 export function createArenaSceneOverlay({THREE,root,renderStatus}){
@@ -11,6 +12,8 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
  const background=createSceneBackground(THREE,{onStatus:renderStatus});
  // Keep this independent of the prop swap: a failed scene must not replace it.
  root.add(background.group);background.show(false);
+ const floor=createSceneFloor(THREE,{onStatus:renderStatus});root.add(floor.group);
+ floor.setVisible(false);
  const effects=new Set(['glow','light','particles','fog','pulse']);
  const objects=[];
  let generation=0,sceneName='',visible=true;
@@ -36,11 +39,15 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
    if(raw.id&&ids.has(raw.id))throw Error('ID de objeto duplicado');
    ids.add(raw.id||'item-'+i);
    return {name:String(raw.name||m.name).slice(0,70),modelId:m.id,model:m,
-    x:finite(raw.x,-SCENERY_BOUNDS.halfWidth,SCENERY_BOUNDS.halfWidth),y:finite(raw.y,-10,20),z:finite(raw.z,-SCENERY_BOUNDS.halfDepth,SCENERY_BOUNDS.halfDepth),
-    rotation:finite(raw.rotation,-3600,3600),scale:finite(raw.scale,.05,5,1),
+    x:finite(raw.x,-10000,10000),y:finite(raw.y,-100,100),z:finite(raw.z,-10000,10000),
+    rotation:finite(raw.rotation,-3600,3600),scale:finite(raw.scale,.05,20,1),
+    scaleX:finite(raw.scaleX,.05,20,finite(raw.scale,.05,20,1)),
+    scaleY:finite(raw.scaleY,.05,20,finite(raw.scale,.05,20,1)),
+    scaleZ:finite(raw.scaleZ,.05,20,finite(raw.scale,.05,20,1)),
+    modelTexture:String(raw.modelTexture||''),
     effects:raw.effects.map(fxClean)};
   });
-  return {name:String(data.name||'Escenario').slice(0,70),background:normalizeSceneBackground(data.background||{}),entries};
+  return {name:String(data.name||'Escenario').slice(0,70),background:normalizeSceneBackground(data.background||{}),floor:normalizeSceneFloor(data.floor||{}),entries};
  };
  async function init(){
   const response=await fetch('./assets/manifests/model-library.json',{cache:'no-cache'});
@@ -57,8 +64,8 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
     if(bound.isEmpty())throw Error('Modelo sin geometría: '+model.name);
     const size=bound.getSize(new THREE.Vector3());
     const center=bound.getCenter(new THREE.Vector3());
-    group.position.set(-center.x,-bound.min.y,-center.z);
-    return {group,dimension:Math.max(size.x,size.y,size.z,.4)};
+    group.position.set(-center.x,-center.y,-center.z);
+    return {group,halfHeight:size.y/2,dimension:Math.max(size.x,size.y,size.z,.4)};
    }).catch(error=>{cache.delete(model.id);throw error;});
    cache.set(model.id,promise);
   }
@@ -123,10 +130,26 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
     if(token!==generation){clearGroup(nextRoot,nextObjects);return false;}
     const instance=new THREE.Group();
     instance.name=item.name;
-    instance.position.set(item.x,item.y,item.z);
+    instance.position.set(item.x,item.y+template.halfHeight*item.scaleY,item.z);
     instance.rotation.y=THREE.MathUtils.degToRad(item.rotation);
-    instance.scale.setScalar(item.scale);
-    instance.add(template.group.clone(true));
+    instance.scale.set(item.scaleX,item.scaleY,item.scaleZ);
+    const model=template.group.clone(true);
+    instance.add(model);
+    if(item.modelTexture){
+     if(!/^assets\/texturas\/[\p{L}\p{N} ()._-]+\.(?:png|jpe?g|webp)$/iu.test(item.modelTexture)||
+      item.modelTexture.includes('..'))throw Error('Textura del modelo no permitida');
+     const texPath='./'+item.modelTexture.split('/').map(encodeURIComponent).join('/');
+     const texture=await new THREE.TextureLoader().loadAsync(texPath);
+     texture.colorSpace=THREE.SRGBColorSpace;
+     model.traverse(node=>{
+      if(!node.isMesh)return;
+      const paint=material=>{
+       const mat=material.clone();mat.map=texture;mat.color.set(0xffffff);mat.needsUpdate=true;
+       return mat;
+      };
+      node.material=Array.isArray(node.material)?node.material.map(paint):paint(node.material);
+     });
+    }
     const animated=[];
     for(const fx of item.effects)if(fx.enabled){
      const entry=buildFx(fx,template.dimension);
@@ -135,7 +158,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
     // Reject untrusted JSON with scenery that intrudes into ANY playable
     // cell, considering the world-space footprint after rotation/scale/FX.
     instance.updateMatrixWorld(true);
-    const bounds=new THREE.Box3().setFromObject(instance);
+    const bounds=new THREE.Box3().setFromObject(model);
     if(bounds.isEmpty())throw Error('Objeto de escenario sin geometría: '+item.name);
     const center=bounds.getCenter(new THREE.Vector3());
     const size=bounds.getSize(new THREE.Vector3());
@@ -154,7 +177,9 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
    objects.length=0;objects.push(...nextObjects);
    sceneName=normalized.name;
    background.build(normalized.background);
+   floor.apply(normalized.floor);
    scenery.visible=visible;background.group.visible=visible&&normalized.background.enabled;
+   floor.group.visible=visible&&normalized.floor.enabled;
    say('Escenario activo: '+sceneName+' · '+objects.length+' objetos');
    return true;
   }catch(error){
@@ -167,9 +192,9 @@ export function createArenaSceneOverlay({THREE,root,renderStatus}){
   ++generation;
   const current=scenery.children[0];
   if(current){scenery.remove(current);clearGroup(current,objects);}
-  objects.length=0;sceneName='';background.show(false);say('Escenario original · sin decoraciones');
+  objects.length=0;sceneName='';background.show(false);floor.setVisible(false);say('Escenario original · sin decoraciones');
  }
- function show(value){visible=!!value;scenery.visible=visible;background.group.visible=visible&&background.config.enabled&&!!sceneName;}
+ function show(value){visible=!!value;scenery.visible=visible;background.group.visible=visible&&background.config.enabled&&!!sceneName;floor.group.visible=visible&&floor.config.enabled&&!!sceneName;}
  function update(time){
   if(!scenery.visible)return;
   for(const obj of objects)for(const fx of obj.animated){
