@@ -124,7 +124,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.32 · Encuadre elevado</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.33 · Encuadre compacto</div>
 
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
@@ -143,7 +143,7 @@ canvas{display:block;touch-action:none}
  <button id="cameraReframe" type="button">⌖ Reencuadrar ambos casters</button>
 </section>
 
-    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.32 · 04/11/2026: elevación e inclinación automáticas según distancia entre casters, menos techo visible. v0.9.31: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
+    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.33 · 04/11/2026: cámara más cercana al alejarse los casters, menor inclinación y menos márgenes externos. v0.9.32: elevación e inclinación automáticas según distancia entre casters, menos techo visible. v0.9.31: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
     <a class="arenaBackLink" href="./index.html">Volver al visor de animaciones</a>
   </div>
 </section>
@@ -230,7 +230,8 @@ const cameraDesiredTarget=new THREE.Vector3();
 let cameraInitialized=false;
 let cameraActualDistance=0;
 let cameraLastReadout=0;
-const cameraMarginX=.80,cameraMarginY=.75;
+// Use nearly all available viewport for the battle; leave a small safety margin.
+const cameraMarginX=.93,cameraMarginY=.91;
 const cameraRayPoint=new THREE.Vector3();
 function battleCasterPoints(){
  const alive=casters.filter(c=>c?.outer);
@@ -255,7 +256,8 @@ function arrangeCameraAt(distance,ally,aim,back,separation){
  // As the fighters spread apart, lift the camera and tilt DOWN to favor the
  // arena rather than the distant ceiling. Keep its ground position behind ally.
  const spread=THREE.MathUtils.smoothstep(separation,5,30);
- const pitch=THREE.MathUtils.degToRad(17+spread*30);
+ // Limit the steep long-range tilt; a gentler camera keeps the arena dominant.
+ const pitch=THREE.MathUtils.degToRad(17+spread*21);
  const depthToAim=distance+separation*.42;
  camera.position.set(ally.x+back.x*distance,
   aim.y+Math.max(2.5,depthToAim*Math.tan(pitch)),
@@ -276,7 +278,7 @@ function findBattleCamera(){
  // Aim slightly closer to the ally to push the opponent upward on the screen,
  // but leave room for its head and for the health bar.
  const aim=new THREE.Vector3(
-  a.x+(e.x-a.x)*.42,1.08,a.z+(e.z-a.z)*.42);
+  a.x+(e.x-a.x)*.50,1.08,a.z+(e.z-a.z)*.50);
  const required=chars.flatMap(c=>[c.ground,c.head]);
  const oldPos=camera.position.clone(),oldQuat=camera.quaternion.clone();
  // Search the closest shot behind the ally that genuinely fits BOTH actors.
@@ -284,26 +286,11 @@ function findBattleCamera(){
  for(let n=0;n<130;n++){
   arrangeCameraAt(distance,a,aim,back,separation);
   if(areFramed(required)){found=true;break;}
-  distance=distance*1.095+.35;
+  distance=distance*1.045+.20;
   if(distance>175){distance=175;break;}
  }
- // Active summons matter secondarily, but never push a caster out of the image.
- if(found){
-  const summons=[];
-  for(const c of combatants){
-   if(!c?.outer||c.hp<=0||!['active','stunned','casting'].includes(c.stage))continue;
-   const p=c.outer.position;
-   if(Math.hypot(p.x-aim.x,p.z-aim.z)>Math.max(12,a.distanceTo?.(e)||0)+5)continue;
-   summons.push(new THREE.Vector3(p.x,p.y+1.1,p.z));
-  }
-  if(summons.length){
-   const maxDistance=Math.min(175,distance*1.25+2);
-   while(distance<maxDistance&&!areFramed(summons,.9,.87)){
-    distance=Math.min(maxDistance,distance*1.075+.3);
-    arrangeCameraAt(distance,a,aim,back,separation);
-   }
-  }
- }
+ // Decorative summons do not force a wide camera when casters are far apart.
+ // Keep the framing focused on the duel and minimize exterior scenery.
  cameraDesiredPosition.copy(camera.position);
  cameraDesiredTarget.copy(aim);
  camera.position.copy(oldPos);camera.quaternion.copy(oldQuat);
@@ -320,7 +307,7 @@ function updateCameraTracking(dt,instant=false){
  camera.position.lerp(frame.position,alpha);
  controls.target.lerp(frame.target,alpha);
  camera.lookAt(controls.target);
- if(!areFramed(frame.required,.90,.88)){
+ if(!areFramed(frame.required,.98,.96)){
   camera.position.copy(frame.position);
   controls.target.copy(frame.target);
   camera.lookAt(controls.target);
