@@ -138,7 +138,7 @@ canvas{display:block;touch-action:none}
  <div class="cameraHeader"><strong>📷 Cámaras · Etapa 1</strong></div>
  <div class="cameraPresetButtons"><button id="cameraPresetNear" type="button" aria-pressed="true">Vista 1 · Cerca</button><button id="cameraPresetWide" type="button" aria-pressed="false">Vista 2 · Arena</button></div>
  <label for="cameraTuningDistance">Distancia respecto al caster aliado <output id="cameraTuningDistanceValue">35</output></label>
- <input id="cameraTuningDistance" type="range" min="8" max="70" step="1" value="35">
+ <input id="cameraTuningDistance" type="range" min="5" max="70" step="1" value="35">
  <label for="cameraTuningAngle">Inclinación desde el suelo <output id="cameraTuningAngleValue">45°</output></label>
  <input id="cameraTuningAngle" type="range" min="15" max="75" step="1" value="45">
  <label for="cameraTuningHeight">Nivel de altura</label>
@@ -214,9 +214,17 @@ const controls=new OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;controls.dampingFactor=.075;controls.enablePan=true;
 controls.minDistance=5;controls.maxDistance=130;controls.maxPolarAngle=THREE.MathUtils.degToRad(88);controls.minPolarAngle=THREE.MathUtils.degToRad(8);
 // Stage 1: independent, manually adjustable camera presets.
- // Camera distance is measured from the allied caster's home position (Z=+13.5).
- // This stage does not change combat, game logic or automatic tracking.
-const focus=new THREE.Vector3(0,0.4,0);
+ // Distance, elevation and tilt are all anchored to the ally caster, not arena center.
+ // Stage 2 will add continuous camera following; Stage 1 recalculates on preset changes.
+const casters=[];
+const casterCameraAnchor=new THREE.Vector3(0,.85,13.5);
+function getCasterCameraAnchor(){
+ const ally=casters.find(c=>c.side==='ally');
+ if(ally?.outer){
+  return casterCameraAnchor.set(ally.outer.position.x,.85+ally.outer.position.y,ally.outer.position.z);
+ }
+ return casterCameraAnchor.set(0,.85,13.5);
+}
 const CAMERA_PRESET_KEY='ROK_ARENA_CAMERA_STAGE1_V1';
 const CAMERA_DEFAULTS={
  near:{distance:35,angle:45,height:'medium'},
@@ -231,7 +239,7 @@ const cameraValue=(value,min,max,defaultValue)=>{
 };
 function cameraPresetSafe(raw,defaults){
  return {
-  distance:cameraValue(raw?.distance,8,70,defaults.distance),
+  distance:cameraValue(raw?.distance,5,70,defaults.distance),
   angle:cameraValue(raw?.angle,15,75,defaults.angle),
   height:Object.hasOwn(CAMERA_HEIGHT_OFFSET,raw?.height)?raw.height:defaults.height
  };
@@ -246,12 +254,13 @@ try{
 function applyCameraPreset(){
  const settings=cameraPresets[activeCameraPreset];
  const theta=THREE.MathUtils.degToRad(settings.angle);
- const casterZ=13.5,casterY=.8;
+ const anchor=getCasterCameraAnchor().clone();
  const elevation=CAMERA_HEIGHT_OFFSET[settings.height];
- // The caster is the anchor for distance. Angle describes the base camera pitch.
- camera.position.set(0,casterY+settings.distance*Math.sin(theta)+elevation,
-  casterZ+settings.distance*Math.cos(theta));
- controls.target.copy(focus);
+ // Both the camera position AND its look-at target use the caster.
+ // Height changes never replace the caster as the look-at target.
+ camera.position.set(anchor.x,anchor.y+settings.distance*Math.sin(theta)+elevation,
+  anchor.z+settings.distance*Math.cos(theta));
+ controls.target.copy(anchor);
  camera.fov=innerWidth<700?53:47;
  camera.updateProjectionMatrix();controls.update();
  qs('#cameraTuningDistance').value=String(settings.distance);
@@ -261,8 +270,9 @@ function applyCameraPreset(){
  qs('#cameraTuningAngleValue').textContent=settings.angle.toFixed(0)+'°';
  qs('#cameraPresetNear').setAttribute('aria-pressed',String(activeCameraPreset==='near'));
  qs('#cameraPresetWide').setAttribute('aria-pressed',String(activeCameraPreset==='wide'));
- const realDistance=camera.position.distanceTo(new THREE.Vector3(0,casterY,casterZ));
- const realAngle=THREE.MathUtils.radToDeg(Math.atan2(camera.position.y-focus.y,camera.position.z-focus.z));
+ const realDistance=camera.position.distanceTo(anchor);
+ const horizontalDistance=Math.hypot(camera.position.x-anchor.x,camera.position.z-anchor.z);
+ const realAngle=THREE.MathUtils.radToDeg(Math.atan2(camera.position.y-anchor.y,horizontalDistance));
  qs('#cameraTuningReadout').textContent='Distancia real al caster: '+realDistance.toFixed(1)+
   ' u · Elevación visual: '+realAngle.toFixed(1)+'° · Altura cámara: '+camera.position.y.toFixed(1)+' u';
 }
@@ -278,7 +288,7 @@ for(const [button,which] of [['#camera','#near'],['#full','#wide'],['#cameraPres
 for(const id of ['#cameraTuningDistance','#cameraTuningAngle','#cameraTuningHeight']){
  qs(id).addEventListener('input',()=>{
   const preset=cameraPresets[activeCameraPreset];
-  preset.distance=cameraValue(qs('#cameraTuningDistance').value,8,70,preset.distance);
+  preset.distance=cameraValue(qs('#cameraTuningDistance').value,5,70,preset.distance);
   preset.angle=cameraValue(qs('#cameraTuningAngle').value,15,75,preset.angle);
   preset.height=qs('#cameraTuningHeight').value;
   applyCameraPreset();
@@ -445,7 +455,7 @@ for(const z of [SPAWN_Z,-SPAWN_Z]){
 const ease=x=>{x=THREE.MathUtils.clamp(x,0,1);return x*x*(3-2*x)};
 const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
 const combatants=[];
-const casters=[]; // Los casters no son invocaciones: no se mueven ni se recastean.
+// The casters collection was initialized above for the camera's caster-centered anchor.
 const combatAnimations=new Map(),archerCombatAnimations=new Map();
 const animationNeeds=[2,8,9,12,13,14],archerAnimationNeeds=[2,8,9,10,12,13,14];
 const animationNames={2:'Magic Heal',3:'Frisbee Throw',8:'Sword And Shield Death',9:'Standing React Small From Headshot',
