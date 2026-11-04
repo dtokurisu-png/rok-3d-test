@@ -18,18 +18,20 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
  const objects=[];
  // Occlusion affects decorative prop instances only; never the arena mesh,
  // characters, stage floor, background or collision/gameplay objects.
+ // Sight cone: its axis connects camera to allied caster's upper body.
+ // Wide at camera, tapered to the caster. No proximity spheres or radial fades.
  const sightRaycaster=new THREE.Raycaster();
  const sightDirection=new THREE.Vector3();
  const sightTarget=new THREE.Vector3();
  const sightOrigin=new THREE.Vector3();
- const nearHit=new THREE.Vector3();
- const casterProximity=new THREE.Vector3();
+ const sightSample=new THREE.Vector3();
+ const sightNearest=new THREE.Vector3();
+ const coneVector=new THREE.Vector3();
  let lastSightCheck=-Infinity,lastFadeTime=-Infinity;
- const SIGHT_HIDE_DISTANCE=10;
  const SIGHT_CHECK_INTERVAL=.09;
- const FADE_START_DISTANCE=6.5;
- const FADE_FULL_DISTANCE=1.1;
- const FADE_RESPONSE=5.0;
+ const CONE_CAMERA_RADIUS=1.35;
+ const CONE_CASTER_RADIUS=.18;
+ const CONE_FADE_RESPONSE=7.0;
  let generation=0,sceneName='',visible=true;
  const say=message=>{if(typeof renderStatus==='function')renderStatus(message);};
  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
@@ -205,8 +207,17 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
      const mats=node.material?(Array.isArray(node.material)?node.material:[node.material]):[];
      for(const mat of mats)effectMaterials.push({material:mat,opacity:mat.opacity});
     });
+    // Separate mesh bounds prevent oversized prop pivots or hollow models from
+    // making nearby unrelated objects disappear.
+    const meshBounds=[];
+    model.traverse(node=>{
+     if(node.isMesh&&node.geometry){
+      const box=new THREE.Box3().setFromObject(node);
+      if(!box.isEmpty())meshBounds.push(box);
+     }
+    });
     nextRoot.add(instance);
-    nextObjects.push({animated,instance,bounds:bounds.clone(),occluded:false,
+    nextObjects.push({animated,instance,bounds:bounds.clone(),meshBounds,
      opacity:1,targetOpacity:1,fadingModelMaterials,effectMaterials,effectLights});
    }
    if(token!==generation){clearGroup(nextRoot,nextObjects);return false;}
@@ -238,59 +249,85 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
   objects.length=0;sceneName='';background.show(false);floor.setVisible(false);onArenaVisual?.(100);say('Escenario original · sin decoraciones');
  }
  function show(value){visible=!!value;scenery.visible=visible;background.group.visible=visible&&background.config.enabled&&!!sceneName;floor.group.visible=visible&&floor.config.enabled&&!!sceneName;}
- // Proximity triggers the fade BEFORE a decoration obscures the ally.
- // Actual line-of-sight obstruction can also request full fade.
- // Materials belong exclusively to each prop instance, not shared models.
+ // Distance between one real decoration mesh's world bounding box
+ // and a sample of the finite camera-to-head segment. Ternary minimization
+ // works for this convex distance function and avoids per-frame allocations.
+ function nearestBoxToSight(box,origin,vector){
+  let low=0,high=1;
+  for(let k=0;k<11;k++){
+   const left=low+(high-low)/3,right=high-(high-low)/3;
+   sightSample.copy(origin).addScaledVector(vector,left);
+   box.clampPoint(sightSample,sightNearest);
+   const dl=sightNearest.distanceToSquared(sightSample);
+   sightSample.copy(origin).addScaledVector(vector,right);
+   box.clampPoint(sightSample,sightNearest);
+   const dr=sightNearest.distanceToSquared(sightSample);
+   if(dl<dr)high=right;else low=left;
+  }
+  const t=(low+high)*.5;
+  sightSample.copy(origin).addScaledVector(vector,t);
+  box.clampPoint(sightSample,sightNearest);
+  return {t,distance:sightNearest.distanceTo(sightSample)};
+ }
  function updateOcclusion(camera,allyPosition,time){
   if(!scenery.visible||!objects.length||!camera||!allyPosition)return;
   const dt=Number.isFinite(lastFadeTime)?clamp(time-lastFadeTime,0,.09):.016;
   lastFadeTime=time;
-  const checkSight=time-lastSightCheck>=SIGHT_CHECK_INTERVAL;
-  if(checkSight)lastSightCheck=time;
-  sightOrigin.copy(camera.position);
-  casterProximity.set(allyPosition.x,allyPosition.y+1.0,allyPosition.z);
-  const samples=[.55,1.25,2.1];
-  for(const obj of objects){
-   if(!obj.instance||!obj.bounds)continue;
-   // Distance to the object's actual bounds (not its pivot/center).
-   const proximity=obj.bounds.distanceToPoint(casterProximity);
-   const fadeProgress=clamp((FADE_START_DISTANCE-proximity)/
-    (FADE_START_DISTANCE-FADE_FULL_DISTANCE),0,1);
-   const smooth=fadeProgress*fadeProgress*(3-2*fadeProgress);
-   let requestedAlpha=1-smooth;
-   if(checkSight){
-    let blocking=false;
-    const cameraNearest=obj.bounds.clampPoint(sightOrigin,nearHit);
-    if(cameraNearest.distanceToSquared(sightOrigin)<=SIGHT_HIDE_DISTANCE*SIGHT_HIDE_DISTANCE){
-     const model=obj.instance.children[0];
-     for(const y of samples){
-      sightTarget.set(allyPosition.x,allyPosition.y+y,allyPosition.z);
-      sightDirection.subVectors(sightTarget,sightOrigin);
-      const distance=sightDirection.length();
-      if(distance<=.15)continue;
-      sightRaycaster.set(sightOrigin,sightDirection.multiplyScalar(1/distance));
-      sightRaycaster.near=0;sightRaycaster.far=Math.min(distance-.1,SIGHT_HIDE_DISTANCE);
-      if(!sightRaycaster.ray.intersectsBox(obj.bounds))continue;
-      // A hidden object is still tested: raycasting does not depend on opacity.
-      if(model&&sightRaycaster.intersectObject(model,true).length){blocking=true;break;}
+  const refresh=time-lastSightCheck>=SIGHT_CHECK_INTERVAL;
+  if(refresh){
+   lastSightCheck=time;
+   sightOrigin.copy(camera.position);
+   // Upper torso/head: the cone is a short, finite line, not a floor probe.
+   sightTarget.set(allyPosition.x,allyPosition.y+1.7,allyPosition.z);
+   sightDirection.subVectors(sightTarget,sightOrigin);
+   const segmentLength=sightDirection.length();
+   if(segmentLength>.1){
+    sightRaycaster.set(sightOrigin,sightDirection.clone().normalize());
+    sightRaycaster.near=0;
+    sightRaycaster.far=segmentLength-.08;
+   }
+   for(const obj of objects){
+    let alpha=1;
+    if(segmentLength>.1){
+     // Evaluate only actual meshes of this decoration and never neighboring
+     // props, the ground, background or the caster.
+     for(const box of obj.meshBounds||[]){
+      const {t,distance}=nearestBoxToSight(box,sightOrigin,sightDirection);
+      const coneRadius=THREE.MathUtils.lerp(CONE_CAMERA_RADIUS,CONE_CASTER_RADIUS,t);
+      if(distance>=coneRadius)continue; // Outside sight cone: no fading.
+      const p=clamp(distance/coneRadius,0,1);
+      const candidate=p*p*(3-2*p);
+      alpha=Math.min(alpha,candidate);
+      if(alpha<.001)break;
+     }
+     // An actual hit with the central sight line is fully obstructive, even
+     // if a large mesh's axis-aligned box is a coarse approximation.
+     if(alpha<1&&obj.instance?.children[0]){
+      const intersects=sightRaycaster.intersectObject(obj.instance.children[0],true);
+      if(intersects.length)alpha=0;
      }
     }
-    obj.occluded=blocking;
+    obj.targetOpacity=alpha;
    }
-   if(obj.occluded)requestedAlpha=0;
-   obj.targetOpacity=requestedAlpha;
-   obj.opacity+= (obj.targetOpacity-obj.opacity)*(1-Math.exp(-FADE_RESPONSE*dt));
-   if(Math.abs(obj.targetOpacity-obj.opacity)<.002)obj.opacity=obj.targetOpacity;
+  }
+  // Animate opacity every frame; recalculating geometry every 90 ms
+  // avoids unnecessary raycasts while keeping the transition fluid.
+  const blend=1-Math.exp(-CONE_FADE_RESPONSE*dt);
+  for(const obj of objects){
+   obj.opacity+=(obj.targetOpacity-obj.opacity)*blend;
+   if(Math.abs(obj.opacity-obj.targetOpacity)<.002)obj.opacity=obj.targetOpacity;
    const alpha=clamp(obj.opacity,0,1);
-   // Keep an opacity-zero model available for ray tests and restoration.
-   // Disable depth writes while translucent to avoid cutting holes in scenery.
    for(const entry of obj.fadingModelMaterials){
-    const fading=alpha<.999;
-    entry.material.transparent=fading||entry.transparent;
-    entry.material.opacity=entry.opacity*alpha;
-    entry.material.depthWrite=fading?false:entry.depthWrite;
-    entry.material.needsUpdate=entry.previousFading!==fading;
-    entry.previousFading=fading;
+    const fading=alpha<.997;
+    const mat=entry.material;
+    // Preserve all original PBR maps, normal maps, roughness, metalness,
+    // transmission and emissive settings. Restore render flags at full alpha.
+    const transparent=entry.transparent||fading;
+    const depthWrite=fading?false:entry.depthWrite;
+    if(mat.transparent!==transparent||mat.depthWrite!==depthWrite){
+     mat.transparent=transparent;mat.depthWrite=depthWrite;mat.needsUpdate=true;
+    }
+    mat.opacity=entry.opacity*alpha;
    }
    for(const entry of obj.effectMaterials)entry.material.opacity=entry.opacity*alpha;
    for(const entry of obj.effectLights)entry.light.intensity=entry.intensity*alpha;
