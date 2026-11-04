@@ -192,6 +192,56 @@ const pointer=new THREE.Vector2(),raycaster=new THREE.Raycaster(),groundPlane=ne
 const hitPoint=new THREE.Vector3();
 const modelCatalog=new Map(),cache=new Map(),compositions=new Map();
 let objects=[],selection=null,serial=0,loadGeneration=0,drag=null,adding=null,instanceCounter=0;
+const undoStack=[],redoStack=[],MAX_HISTORY=60;
+let restoringHistory=false;
+function objectSnapshot(){
+ return {items:objects.map(serializeObject),selected:selection?.id||null};
+}
+function sameSnapshot(a,b){return JSON.stringify(a.items)===JSON.stringify(b.items);}
+function updateHistoryButtons(){
+ for(const id of ['sceneUndo','sceneUndoTop'])$(id).disabled=restoringHistory||!undoStack.length;
+ for(const id of ['sceneRedo','sceneRedoTop'])$(id).disabled=restoringHistory||!redoStack.length;
+}
+function recordChange(before){
+ if(restoringHistory||!before||sameSnapshot(before,objectSnapshot()))return;
+ undoStack.push(before);
+ if(undoStack.length>MAX_HISTORY)undoStack.shift();
+ redoStack.length=0;updateHistoryButtons();
+}
+function clearHistory(){undoStack.length=redoStack.length=0;updateHistoryButtons();}
+async function applyObjectSnapshot(snapshot){
+ removeAll();
+ const generation=loadGeneration;
+ for(const item of snapshot.items){
+  const obj=await insertObject(item,generation);
+  if(!obj)throw Error('La restauración fue interrumpida');
+ }
+ selectObject(objects.find(o=>o.id===snapshot.selected)||null);
+}
+async function moveHistory(from,to,label){
+ if(restoringHistory||!from.length)return;
+ const target=from.pop(),current=objectSnapshot();
+ restoringHistory=true;updateHistoryButtons();
+ try{await applyObjectSnapshot(target);to.push(current);if(to.length>MAX_HISTORY)to.shift();status(label);}
+ catch(error){from.push(target);status('Historial: '+error.message);}
+ finally{restoringHistory=false;updateHistoryButtons();}
+}
+$('sceneUndo').addEventListener('click',()=>void moveHistory(undoStack,redoStack,'Cambio deshecho'));
+$('sceneRedo').addEventListener('click',()=>void moveHistory(redoStack,undoStack,'Cambio rehecho'));
+$('sceneUndoTop').addEventListener('click',()=>void moveHistory(undoStack,redoStack,'Cambio deshecho'));
+$('sceneRedoTop').addEventListener('click',()=>void moveHistory(redoStack,undoStack,'Cambio rehecho'));
+document.addEventListener('keydown',e=>{
+ if(!e.ctrlKey&&!e.metaKey||e.altKey)return;
+ const target=e.target;
+ if(target?.closest?.('input,textarea,[contenteditable="true"]'))return;
+ const key=e.key.toLowerCase();
+ if(key==='z'||key==='y'){
+  e.preventDefault();
+  if(key==='y'||e.shiftKey)void moveHistory(redoStack,undoStack,'Cambio rehecho');
+  else void moveHistory(undoStack,redoStack,'Cambio deshecho');
+ }
+});
+updateHistoryButtons();
 const newId=()=>('obj-'+(++instanceCounter)+'-'+Math.random().toString(36).slice(2,7));
 const modelURL=path=>'./'+path.split('/').map(encodeURIComponent).join('/');
 const byName=(a,b)=>a.name.localeCompare(b.name,'es');
@@ -398,7 +448,7 @@ function renderLibrary(){
  $('sceneLibraryCount').textContent=items.length+' modelos de escenario';
  $('sceneLibraryList').replaceChildren(...items.map(item=>makeButton(item,'+ Añadir · GLB',async()=>{
   status('Cargando '+item.name+'…');
-  try{const obj=await insertObject({modelId:item.id,name:item.name,x:W/2+3,z:0});if(obj){selectObject(obj);status('Objeto añadido');}}catch(e){status('Error: '+e.message);}
+  try{const before=objectSnapshot();const obj=await insertObject({modelId:item.id,name:item.name,x:W/2+3,z:0});if(obj){selectObject(obj);recordChange(before);status('Objeto añadido');}}catch(e){status('Error: '+e.message);}
  })));
 }
 function renderCompositions(){
@@ -406,7 +456,7 @@ function renderCompositions(){
  list.replaceChildren();
  if(!compositions.size){const p=document.createElement('p');p.className='sceneQuiet';p.textContent='Ninguna importada.';list.append(p);}
  for(const comp of compositions.values())list.append(makeButton(comp,'+ Añadir con efectos',async()=>{
-  try{const v=await insertObject({modelId:comp.modelId,name:comp.name,compositionId:comp.id,effects:comp.effects,x:W/2+3,z:0});if(v){selectObject(v);status('Composición añadida');}}catch(e){status('Error: '+e.message);}
+  try{const before=objectSnapshot();const v=await insertObject({modelId:comp.modelId,name:comp.name,compositionId:comp.id,effects:comp.effects,x:W/2+3,z:0});if(v){selectObject(v);recordChange(before);status('Composición añadida');}}catch(e){status('Error: '+e.message);}
  }));
 }
 function pickObject(event){
@@ -417,31 +467,43 @@ function pickObject(event){
  while(n){const found=objects.find(x=>x.model===n);if(found)return found;n=n.parent;}
  return null;
 }
+// Clicking only selects. A real drag starts after six screen pixels.
 renderer.domElement.addEventListener('pointerdown',event=>{
- if(event.button!==0||!objects.length)return;
+ if(restoringHistory||event.button!==0||!objects.length)return;
  const found=pickObject(event);if(!found)return;
  selectObject(found);
  const point=positionOnFloor(event);if(!point)return;
- drag={id:event.pointerId,obj:found,dx:found.x-point.x,dz:found.z-point.z,moved:false};
- controls.enabled=false;
+ drag={id:event.pointerId,obj:found,dx:found.x-point.x,dz:found.z-point.z,
+  startX:event.clientX,startY:event.clientY,active:false,before:objectSnapshot()};
  renderer.domElement.setPointerCapture(event.pointerId);
 });
 renderer.domElement.addEventListener('pointermove',event=>{
  if(!drag||drag.id!==event.pointerId)return;
+ if(!drag.active){
+  if(Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)<6)return;
+  drag.active=true;controls.enabled=false;
+ }
  const at=positionOnFloor(event);if(!at)return;
  try{
-  const desiredX=at.x+drag.dx,desiredZ=at.z+drag.dz;
-  if(Math.abs(desiredX-drag.obj.x)+Math.abs(desiredZ-drag.obj.z)>.001)drag.moved=true;
-  drag.obj.x=desiredX;drag.obj.z=desiredZ;
+  drag.obj.x=at.x+drag.dx;drag.obj.z=at.z+drag.dz;
   updateTransform(drag.obj);fillControls();
  }catch(error){status('Límite de la arena: '+error.message);}
 });
-function endDrag(event){if(!drag||event.pointerId!==drag.id)return;drag=null;controls.enabled=true;renderObjects();}
+function endDrag(event){
+ if(!drag||event.pointerId!==drag.id)return;
+ const finished=drag;drag=null;controls.enabled=true;
+ if(finished.active)recordChange(finished.before);
+ renderObjects();
+}
 renderer.domElement.addEventListener('pointerup',endDrag);
 renderer.domElement.addEventListener('pointercancel',endDrag);
-renderer.domElement.addEventListener('lostpointercapture',()=>{drag=null;controls.enabled=true;});
+renderer.domElement.addEventListener('lostpointercapture',()=>{
+ if(drag){const finished=drag;drag=null;if(finished.active)recordChange(finished.before);}
+ controls.enabled=true;
+});
 function readControls(event){
- if(!selection)return;
+ if(!selection||restoringHistory)return;
+ const before=objectSnapshot();
  try{
   const v=selection;
   v.name=$('sceneObjectName').value.slice(0,70)||modelFor(v.modelId).name;
@@ -457,7 +519,7 @@ function readControls(event){
    v.scaleZ=num($('sceneScaleZ').value,.05,20,1);
   }
   v.scale=uniform;
-  updateTransform(v);renderObjects();
+  updateTransform(v);renderObjects();recordChange(before);
  }catch(error){status('Transformación: '+error.message);fillControls();}
 }
 for(const id of ['sceneObjectName','scenePosX','scenePosY','scenePosZ',
@@ -465,14 +527,27 @@ for(const id of ['sceneObjectName','scenePosX','scenePosY','scenePosZ',
  $(id).addEventListener('change',readControls);
 $('sceneScale').addEventListener('input',readControls);
 $('sceneDelete').addEventListener('click',()=>{
- if(!selection)return;
+ if(!selection||restoringHistory)return;
+ const before=objectSnapshot();
  const v=selection;level.remove(v.root);disposeEffects(v.vfx);v.outline.geometry.dispose();v.outline.material.dispose();
- objects=objects.filter(x=>x!==v);selectObject(null);status('Objeto eliminado');
+ objects=objects.filter(x=>x!==v);selectObject(null);recordChange(before);status('Objeto eliminado');
 });
 $('sceneDuplicate').addEventListener('click',async()=>{
- if(!selection)return;
- const old=selection;
- try{const v=await insertObject({...serializeObject(old),id:undefined,x:old.x+1,z:old.z+1});if(v){selectObject(v);status('Objeto duplicado');}}catch(e){status(e.message);}
+ if(!selection||restoringHistory)return;
+ const old=selection,before=objectSnapshot(),mode=$('sceneDuplicateMode').value;
+ const data={...serializeObject(old),id:undefined,name:old.name+' copia'};
+ if(mode==='mirrorX'||mode==='mirrorXZ')data.x=-old.x;
+ if(mode==='mirrorZ'||mode==='mirrorXZ')data.z=-old.z;
+ if(mode==='normal'){data.x=old.x+1;data.z=old.z+1;}
+ // A reflected yaw must reflect its facing vector, not merely copy the angle.
+ if(mode==='mirrorX')data.rotation=-old.rotation;
+ if(mode==='mirrorZ')data.rotation=180-old.rotation;
+ if(mode==='mirrorXZ')data.rotation=old.rotation+180;
+ data.rotation=((data.rotation+180)%360+360)%360-180;
+ try{
+  const v=await insertObject(data);
+  if(v){selectObject(v);recordChange(before);status('Duplicado '+mode+' · posición y rotación reflejadas');}
+ }catch(e){status('Duplicación: '+e.message);}
 });
 $('sceneSearch').addEventListener('input',renderLibrary);
 $('sceneCamera').addEventListener('click',()=>{camera.position.set(32,37,51);controls.target.set(0,0,0);controls.update();});
@@ -512,6 +587,7 @@ function saveLocalScene(){
 }
 async function restoreScene(json,notice='Escenario restaurado'){
  const next=verifyScene(json);
+ clearHistory();
  removeAll();
  $('sceneName').value=next.name;
  environment.build(next.background);showBackgroundFields(environment.config);
@@ -537,7 +613,7 @@ $('sceneSave').addEventListener('click',()=>{
  try{downloadJSON(sceneDocument());status('Escenario JSON descargado · cuadrícula jugable despejada');}
  catch(error){status('No se pudo guardar: '+error.message);}
 });
-$('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear un escenario nuevo y descartar los cambios sin exportar?'))return;removeAll();$('sceneName').value='Nuevo escenario';environment.build(BACKGROUND_DEFAULTS);showBackgroundFields(environment.config);
+$('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear un escenario nuevo y descartar los cambios sin exportar?'))return;clearHistory();removeAll();$('sceneName').value='Nuevo escenario';environment.build(BACKGROUND_DEFAULTS);showBackgroundFields(environment.config);
  outdoorFloor.apply(DEFAULT_SCENE_FLOOR);showFloorFields(outdoorFloor.config);
  status('Escenario vacío');});
 $('sceneOpen').addEventListener('click',()=>$('sceneFile').click());
@@ -566,7 +642,7 @@ $('sceneFile').addEventListener('change',async e=>{
  const file=e.target.files?.[0];e.target.value='';if(!file)return;
  try{
   const next=verifyScene(await readJSONFile(file));
-  removeAll();$('sceneName').value=next.name;environment.build(next.background);showBackgroundFields(environment.config);
+  clearHistory();removeAll();$('sceneName').value=next.name;environment.build(next.background);showBackgroundFields(environment.config);
   outdoorFloor.apply(next.floor);showFloorFields(outdoorFloor.config);
   const generation=loadGeneration;
   let adjusted=0,omitted=0;
