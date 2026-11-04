@@ -133,7 +133,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.41 · Giro limitado ±45°</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.42 · Giro según distancia</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -153,7 +153,7 @@ canvas{display:block;touch-action:none}
  <p id="cameraTuningReadout" class="cameraNotes">Calculando encuadre…</p>
 </section>
 
-    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.41 · 04/11/2026: rotación horizontal de cámara limitada a ±45° respecto al lado aliado, sin giros detrás del rival. v0.9.40: cámara continua entre 5 y 13 unidades, inclinación fija 23°, sin saltos; coordenadas A1–AD15 con interruptor. v0.9.39: seguimiento físico continuo y lente fija sin zoom. v0.9.38: cámara reescrita desde cero; inclinación fija 23°, seguimiento de ambos casters y borde inferior. v0.9.37: retirada la barra inferior y encuadre lejano con referencia al borde inferior de la arena. v0.9.36: restaurado el seguimiento automático y guardado de cámara lejana con posición y enfoque completos. v0.9.35: referencia lejana aprobada 12.33 unidades y 23.0°; transición dinámica y protección del encuadre de ambos casters. v0.9.34: calibración libre de cámara con mouse e indicador de distancia e inclinación reales. v0.9.33: cámara más cercana al alejarse los casters, menor inclinación y menos márgenes externos. v0.9.32: elevación e inclinación automáticas según distancia entre casters, menos techo visible. v0.9.31: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
+    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.42 · 04/11/2026: giro máximo ±45° de cerca, disminuye suavemente hasta 0° al separarse los casters. v0.9.41: rotación horizontal de cámara limitada a ±45° respecto al lado aliado, sin giros detrás del rival. v0.9.40: cámara continua entre 5 y 13 unidades, inclinación fija 23°, sin saltos; coordenadas A1–AD15 con interruptor. v0.9.39: seguimiento físico continuo y lente fija sin zoom. v0.9.38: cámara reescrita desde cero; inclinación fija 23°, seguimiento de ambos casters y borde inferior. v0.9.37: retirada la barra inferior y encuadre lejano con referencia al borde inferior de la arena. v0.9.36: restaurado el seguimiento automático y guardado de cámara lejana con posición y enfoque completos. v0.9.35: referencia lejana aprobada 12.33 unidades y 23.0°; transición dinámica y protección del encuadre de ambos casters. v0.9.34: calibración libre de cámara con mouse e indicador de distancia e inclinación reales. v0.9.33: cámara más cercana al alejarse los casters, menor inclinación y menos márgenes externos. v0.9.32: elevación e inclinación automáticas según distancia entre casters, menos techo visible. v0.9.31: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
     <a class="arenaBackLink" href="./index.html">Volver al visor de animaciones</a>
   </div>
 </section>
@@ -222,7 +222,9 @@ const CAMERA_PITCH=THREE.MathUtils.degToRad(23);
 const CAMERA_FOV=53;
 const CAMERA_MIN_DISTANCE=5;
 const CAMERA_MAX_DISTANCE=13;
-const CAMERA_MAX_YAW=THREE.MathUtils.degToRad(45); // +/-45° from the ally side (toward -Z).
+const CAMERA_MAX_YAW=THREE.MathUtils.degToRad(45); // Close combat: +/-45°.
+const CAMERA_YAW_FULL_GAP=3;  // At or below this separation, allow full rotation.
+const CAMERA_YAW_ZERO_GAP=28; // At maximum separation, face straight ahead.
 const cameraFacing=new THREE.Vector3(0,0,-1);
 const smoothedFacing=new THREE.Vector3(0,0,-1);
 const cameraPositionGoal=new THREE.Vector3();
@@ -234,12 +236,15 @@ function calculateCameraGoal(){
   casters[0]?.outer?.position || new THREE.Vector3(0,0,13.5);
  const rival=casters.find(c=>c.side==='enemy')?.outer?.position || ally;
  const gap=Math.hypot(rival.x-ally.x,rival.z-ally.z);
- // Only rotate toward the rival within the ally-facing 90° horizontal arc.
- // Do not turn behind the rival when the fighters cross or circle each other.
- // At near-zero separation, retain the last heading to prevent jitter.
+ // Horizontal rotation shrinks continuously with caster separation:
+ // near -> +/-45°, far -> 0°. No arbitrary turns at maximum distance.
+ // At near-zero gap, retain the last heading so overlapping casters do not jitter.
+ const rotationScale=1-THREE.MathUtils.smoothstep(
+  gap,CAMERA_YAW_FULL_GAP,CAMERA_YAW_ZERO_GAP);
+ const yawLimit=CAMERA_MAX_YAW*rotationScale;
  if(gap>.5){
   const desiredYaw=Math.atan2(rival.x-ally.x,ally.z-rival.z);
-  const boundedYaw=THREE.MathUtils.clamp(desiredYaw,-CAMERA_MAX_YAW,CAMERA_MAX_YAW);
+  const boundedYaw=THREE.MathUtils.clamp(desiredYaw,-yawLimit,yawLimit);
   cameraFacing.set(Math.sin(boundedYaw),0,-Math.cos(boundedYaw));
  }
  // Only the horizontal separation of the casters determines zoom-out.
