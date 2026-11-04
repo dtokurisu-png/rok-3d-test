@@ -48,15 +48,37 @@
    <button type="button" id="sceneBackgroundApply">Aplicar background</button>
    <p class="sceneQuiet">Paredes y bóveda independientes del combate. El piso exterior está al nivel de la arena. Puedes dejar la textura vacía para probar primero la geometría.</p>
   </section>
-  <div class="sceneTools"><button id="sceneSave" type="button" class="primary">Guardar JSON</button><button id="sceneOpen" type="button">Abrir JSON</button><button id="sceneNew" type="button">Nuevo</button><input id="sceneFile" type="file" accept=".json,application/json" hidden></div>
+  <section class="sceneBackgroundPanel" aria-label="Suelo exterior">
+   <h3>Suelo exterior · mármol azul</h3>
+   <label class="sceneBackgroundEnable"><input id="sceneFloorEnabled" type="checkbox" checked> Mostrar suelo exterior</label>
+   <label class="sceneField">Altura del suelo <output id="sceneFloorHeightValue">0.00</output>
+    <input id="sceneFloorHeight" type="range" min="-12" max="12" step=".05" value="0">
+   </label>
+   <div class="sceneRow">
+    <label class="sceneField">Repeticiones X<input id="sceneFloorRepeatX" type="number" min="1" max="100" step="1" value="12"></label>
+    <label class="sceneField">Repeticiones Z<input id="sceneFloorRepeatZ" type="number" min="1" max="100" step="1" value="16"></label>
+   </div>
+   <label class="sceneField">Textura del suelo<input id="sceneFloorTexture" type="text" placeholder="assets/texturas/Superficie de mármol azul marino en mosaico.webp"></label>
+   <button id="sceneFloorApply" type="button">Aplicar suelo</button>
+  </section>
+  <div class="sceneTools"><button id="sceneSaveLocal" type="button" class="primary">Guardar progreso</button><button id="sceneRestoreLocal" type="button">Recuperar progreso</button></div>
+  <p class="sceneQuiet" id="sceneLocalStatus">El progreso se guarda en este navegador; Guardar JSON crea una copia portátil.</p>
+    <div class="sceneTools"><button id="sceneSave" type="button" class="primary">Guardar JSON</button><button id="sceneOpen" type="button">Abrir JSON</button><button id="sceneNew" type="button">Nuevo</button><input id="sceneFile" type="file" accept=".json,application/json" hidden></div>
   <div class="sceneMeasure"><span>Elementos</span><strong id="sceneObjectCount">0</strong></div>
   <h3>Objetos colocados</h3><div id="sceneInstances" class="sceneInstances"></div>
   <section id="sceneTransform" hidden>
    <h3>Transformación</h3>
    <label class="sceneField">Nombre<input id="sceneObjectName" maxlength="70"></label>
-   <div class="sceneRow"><label class="sceneField">X<input id="scenePosX" type="number" min="-45" max="45" step=".1"></label><label class="sceneField">Y<input id="scenePosY" type="number" min="-10" max="20" step=".1"></label><label class="sceneField">Z<input id="scenePosZ" type="number" min="-65" max="65" step=".1"></label></div>
+   <div class="sceneRow"><label class="sceneField">X<input id="scenePosX" type="number" min="-1000" max="1000" step=".1"></label><label class="sceneField">Y<input id="scenePosY" type="number" min="-10" max="20" step=".1"></label><label class="sceneField">Z<input id="scenePosZ" type="number" min="-1000" max="1000" step=".1"></label></div>
    <label class="sceneField">Rotación Y (grados)<input id="sceneRotation" type="number" min="-3600" max="3600" step="5"></label>
-   <label class="sceneField">Escala <output id="sceneScaleValue">1.00</output><input id="sceneScale" type="range" min=".05" max="5" value="1" step=".05"></label>
+   <label class="sceneField">Escala uniforme <output id="sceneScaleValue">1.00</output><input id="sceneScale" type="range" min=".05" max="20" value="1" step=".05"></label>
+   <div class="sceneRow">
+    <label class="sceneField">Anchura X<input id="sceneScaleX" type="number" min=".05" max="20" step=".05" value="1"></label>
+    <label class="sceneField">Altura Y<input id="sceneScaleY" type="number" min=".05" max="20" step=".05" value="1"></label>
+    <label class="sceneField">Profundidad Z<input id="sceneScaleZ" type="number" min=".05" max="20" step=".05" value="1"></label>
+   </div>
+   <label class="sceneField">Textura del modelo (ruta publicada)<input id="sceneModelTexture" type="text" placeholder="assets/texturas/mi-textura.webp"></label>
+   <button id="sceneModelApplyTexture" type="button">Aplicar textura al modelo</button>
    <div class="sceneTools"><button id="sceneDuplicate">Duplicar</button><button id="sceneDelete">Eliminar</button></div>
   </section>
   <p class="sceneQuiet">Los cambios afectan únicamente a este escenario. Los GLB originales y el motor de combate permanecen intactos.</p>
