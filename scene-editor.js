@@ -191,7 +191,7 @@ showBackgroundFields(environment.config);
 const pointer=new THREE.Vector2(),raycaster=new THREE.Raycaster(),groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const hitPoint=new THREE.Vector3();
 const modelCatalog=new Map(),cache=new Map(),compositions=new Map();
-let objects=[],selection=null,selectedIds=new Set(),serial=0,loadGeneration=0,drag=null,adding=null,instanceCounter=0;
+let objects=[],selection=null,selectedIds=new Set(),multiSelectMode=false,serial=0,loadGeneration=0,drag=null,adding=null,instanceCounter=0;
 const undoStack=[],redoStack=[],MAX_HISTORY=60;
 let restoringHistory=false;
 function objectSnapshot(){
@@ -199,8 +199,8 @@ function objectSnapshot(){
 }
 function sameSnapshot(a,b){return JSON.stringify(a.items)===JSON.stringify(b.items);}
 function updateHistoryButtons(){
- for(const id of ['sceneUndo','sceneUndoTop'])$(id).disabled=restoringHistory||!undoStack.length;
- for(const id of ['sceneRedo','sceneRedoTop'])$(id).disabled=restoringHistory||!redoStack.length;
+ $('sceneUndoTop').disabled=restoringHistory||!undoStack.length;
+ $('sceneRedoTop').disabled=restoringHistory||!redoStack.length;
 }
 function recordChange(before){
  if(restoringHistory||!before||sameSnapshot(before,objectSnapshot()))return;
@@ -229,20 +229,20 @@ async function moveHistory(from,to,label){
  catch(error){from.push(target);status('Historial: '+error.message);}
  finally{restoringHistory=false;updateHistoryButtons();}
 }
-$('sceneUndo').addEventListener('click',()=>void moveHistory(undoStack,redoStack,'Cambio deshecho'));
-$('sceneRedo').addEventListener('click',()=>void moveHistory(redoStack,undoStack,'Cambio rehecho'));
 $('sceneUndoTop').addEventListener('click',()=>void moveHistory(undoStack,redoStack,'Cambio deshecho'));
 $('sceneRedoTop').addEventListener('click',()=>void moveHistory(redoStack,undoStack,'Cambio rehecho'));
 document.addEventListener('keydown',e=>{
- if(!e.ctrlKey&&!e.metaKey||e.altKey)return;
  const target=e.target;
- if(target?.closest?.('input,textarea,[contenteditable="true"]'))return;
+ const editing=target?.closest?.('input,textarea,select,[contenteditable="true"]');
+ if(e.key==='Escape'&&!editing){e.preventDefault();selectObject(null);return;}
+ if((!e.ctrlKey&&!e.metaKey)||e.altKey||editing)return;
  const key=e.key.toLowerCase();
  if(key==='z'||key==='y'){
   e.preventDefault();
   if(key==='y'||e.shiftKey)void moveHistory(redoStack,undoStack,'Cambio rehecho');
   else void moveHistory(undoStack,redoStack,'Cambio deshecho');
- }
+ }else if(key==='s'){e.preventDefault();saveLocalScene();}
+ else if(key==='a'){e.preventDefault();selectAllObjects();}
 });
 updateHistoryButtons();
 const newId=()=>('obj-'+(++instanceCounter)+'-'+Math.random().toString(36).slice(2,7));
@@ -333,6 +333,18 @@ function updateTransform(entry){
  entry.root.position.set(entry.x,entry.y+entry.centerHalfHeight*sy,entry.z);
 }
 function selectedObjects(){return objects.filter(o=>selectedIds.has(o.id));}
+function selectAllObjects(){
+ selectedIds=new Set(objects.map(o=>o.id));
+ selection=objects.at(-1)||null;
+ refreshSelection();
+}
+$('sceneSelectAll').addEventListener('click',selectAllObjects);
+$('sceneClearSelection').addEventListener('click',()=>selectObject(null));
+$('sceneMultiToggle').addEventListener('click',()=>{
+ multiSelectMode=!multiSelectMode;
+ $('sceneMultiToggle').setAttribute('aria-pressed',String(multiSelectMode));
+ status(multiSelectMode?'Selección múltiple activada · clic para sumar o quitar objetos':'Selección individual activada');
+});
 function refreshSelection(){
  renderObjects();
  for(const o of objects)if(o.outline)o.outline.visible=selectedIds.has(o.id);
@@ -345,10 +357,10 @@ function renderObjects(){
   const b=document.createElement('button');b.type='button';
   b.textContent=obj.name;b.setAttribute('aria-pressed',String(selectedIds.has(obj.id)));
   const sub=document.createElement('small');sub.textContent=obj.compositionId?'Compuesto':'GLB · '+obj.modelId;b.append(sub);
-  b.addEventListener('click',event=>selectObject(obj,event.ctrlKey||event.metaKey||event.shiftKey));target.append(b);
+  b.addEventListener('click',event=>selectObject(obj,multiSelectMode||event.ctrlKey||event.metaKey||event.shiftKey));target.append(b);
  }
  $('sceneTransform').hidden=!selection;
- const count=$('sceneSelectionCount');if(count)count.textContent=selectedIds.size?selectedIds.size+' seleccionado(s) · Ctrl/Shift + clic para sumar o quitar':'Selecciona objetos en el escenario o la lista';
+ const count=$('sceneSelectionCount');if(count)count.textContent=selectedIds.size?selectedIds.size+' seleccionado(s) · Ctrl/Shift + clic o modo múltiple para sumar o quitar':'Selecciona objetos en el escenario o la lista';
  if(selection)fillControls();
 }
 function fillControls(){
@@ -494,7 +506,9 @@ function pickObject(event){
 renderer.domElement.addEventListener('pointerdown',event=>{
  if(restoringHistory||event.button!==0||!objects.length)return;
  const found=pickObject(event);if(!found)return;
- const additive=event.ctrlKey||event.metaKey||event.shiftKey;
+ // Capture-phase handler prevents OrbitControls from treating a selection click as a camera orbit.
+ event.stopImmediatePropagation();
+ const additive=multiSelectMode||event.ctrlKey||event.metaKey||event.shiftKey;
  selectObject(found,additive);
  if(additive||!selectedIds.has(found.id))return;
  const point=positionOnFloor(event);if(!point)return;
@@ -505,7 +519,7 @@ renderer.domElement.addEventListener('pointerdown',event=>{
  // Keep OrbitControls from orbiting during selection or object dragging.
  controls.enabled=false;
  renderer.domElement.setPointerCapture(event.pointerId);
-});
+},true);
 renderer.domElement.addEventListener('pointermove',event=>{
  if(!drag||drag.id!==event.pointerId)return;
  if(!drag.active){
