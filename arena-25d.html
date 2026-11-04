@@ -132,7 +132,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.34 · Calibración de cámara</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.35 · Cámara lejana calibrada</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -154,7 +154,7 @@ canvas{display:block;touch-action:none}
  <button id="cameraReframe" type="button">⌖ Volver al seguimiento automático</button>
 </section>
 
-    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.34 · 04/11/2026: calibración libre de cámara con mouse e indicador de distancia e inclinación reales. v0.9.33: cámara más cercana al alejarse los casters, menor inclinación y menos márgenes externos. v0.9.32: elevación e inclinación automáticas según distancia entre casters, menos techo visible. v0.9.31: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
+    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.35 · 04/11/2026: referencia lejana aprobada 12.33 unidades y 23.0°; transición dinámica y protección del encuadre de ambos casters. v0.9.34: calibración libre de cámara con mouse e indicador de distancia e inclinación reales. v0.9.33: cámara más cercana al alejarse los casters, menor inclinación y menos márgenes externos. v0.9.32: elevación e inclinación automáticas según distancia entre casters, menos techo visible. v0.9.31: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
     <a class="arenaBackLink" href="./index.html">Volver al visor de animaciones</a>
   </div>
 </section>
@@ -235,6 +235,9 @@ function getCasterCameraAnchor(){
 // Automatic third-person battle camera.
 // The ally is always the physical anchor. The opponent determines how much
 // ground must be shown. No manually selected tilt, distance or elevation.
+// Approved long-range calibration (measured against the allied caster).
+const FAR_CAMERA_DISTANCE=12.33;
+const FAR_CAMERA_PITCH=THREE.MathUtils.degToRad(23);
 const cameraForwardXZ=new THREE.Vector3(0,0,-1);
 const cameraDesiredPosition=new THREE.Vector3();
 const cameraDesiredTarget=new THREE.Vector3();
@@ -322,10 +325,35 @@ function findBattleCamera(){
   distance=distance*1.045+.20;
   if(distance>175){distance=175;break;}
  }
- // Decorative summons do not force a wide camera when casters are far apart.
- // Keep the framing focused on the duel and minimize exterior scenery.
- cameraDesiredPosition.copy(camera.position);
- cameraDesiredTarget.copy(aim);
+ // At long separation blend toward the user's approved close, low shot.
+ // Distance is measured from the ally; tilt is measured toward the ally.
+ // This is NOT a constant zoom: the close-quarters composition is preserved.
+ const nearPosition=camera.position.clone();
+ const nearTarget=aim.clone();
+ const farWeight=THREE.MathUtils.smoothstep(separation,14,25);
+ const anchor=new THREE.Vector3(a.x,a.y+.85,a.z);
+ const farPosition=anchor.clone().addScaledVector(back,FAR_CAMERA_DISTANCE*Math.cos(FAR_CAMERA_PITCH));
+ farPosition.y+=FAR_CAMERA_DISTANCE*Math.sin(FAR_CAMERA_PITCH);
+ const farTarget=anchor.clone();
+ const desiredPosition=nearPosition.lerp(farPosition,farWeight);
+ const desiredTarget=nearTarget.lerp(farTarget,farWeight);
+ camera.position.copy(desiredPosition);camera.lookAt(desiredTarget);
+ // The two casters remain non-negotiable. On very narrow screens, revert only
+ // the amount of calibration needed to preserve their full on-screen footprint.
+ if(!areFramed(required,.98,.96)){
+  let low=0,high=farWeight;
+  for(let i=0;i<12;i++){
+   const mid=(low+high)/2;
+   camera.position.copy(nearPosition.clone().lerp(farPosition,mid));
+   const look=nearTarget.clone().lerp(farTarget,mid);
+   camera.lookAt(look);
+   if(areFramed(required,.98,.96))low=mid;else high=mid;
+  }
+  desiredPosition.copy(nearPosition).lerp(farPosition,low);
+  desiredTarget.copy(nearTarget).lerp(farTarget,low);
+ }
+ cameraDesiredPosition.copy(desiredPosition);
+ cameraDesiredTarget.copy(desiredTarget);
  camera.position.copy(oldPos);camera.quaternion.copy(oldQuat);
  camera.updateMatrixWorld(true);
  return {position:cameraDesiredPosition.clone(),target:cameraDesiredTarget.clone(),
