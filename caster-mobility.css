@@ -45,3 +45,55 @@
 #casterDefenseButton:active{background:#3e566c}
 
 #casterDefenseButton[data-held="true"]{background:#16745d;border-color:#00ffe4;box-shadow:0 0 5px #00ffe466}
+
+
+/* Landscape MOBA touch controls. Desktop legacy controller is preserved. */
+#mobileMobaControls,#mobileMobaSettings,#mobileRotatePrompt{display:none}
+@media(pointer:coarse) and (max-width:950px){
+ #casterMobilityPanel{display:none!important}
+ #mobileMobaControls{display:block;position:fixed;inset:0;z-index:42;pointer-events:none}
+ #mobileMobaControls button,#mobileMobaControls .mobaJoystick{pointer-events:auto;
+  -webkit-user-select:none;user-select:none;touch-action:none}
+ .mobaJoystick{position:absolute;left:0;bottom:0;width:120px;height:120px;border-radius:50%;
+  border:2px solid #85fff2a6;background:radial-gradient(circle,#134351ab,#071d29cb);
+  box-shadow:0 3px 18px #000b,inset 0 0 16px #00ffe42d}
+ #mobaStick{position:absolute;left:50%;top:50%;width:51px;height:51px;margin:-25.5px;
+  background:radial-gradient(circle,#96fff7,#00877e);border:2px solid white;border-radius:50%;
+  box-shadow:0 0 12px #00ffe466;transform:translate(0,0);pointer-events:none}
+ .mobaAction{position:absolute;width:76px;height:76px;left:0;bottom:0;border-radius:50%;
+  background:radial-gradient(circle at 40% 30%,#176e79,#073342);
+  border:2px solid #9bfff7;color:#fff;font:800 12px Roboto,system-ui,sans-serif;
+  text-shadow:0 2px 3px #000;box-shadow:0 4px 14px #000b,inset 0 0 12px #00ffe43d}
+ #mobaDefend{width:60px;height:60px;border-color:#bdd2ea;background:radial-gradient(circle,#49637d,#202f44)}
+ .mobaAction:active,.mobaAction[data-held="true"]{border-color:#fff;background:#138b87}
+ #mobaSettingsButton{position:fixed;right:calc(11px + env(safe-area-inset-right,0px));
+  top:calc(6px + env(safe-area-inset-top,0px));z-index:48;
+  width:41px;height:41px;border:1px solid #00ffe4;border-radius:10px;
+  background:#091d29ed;color:#fff;font-size:21px}
+ #mobileMobaSettings{position:fixed;z-index:65;inset:0;display:none;align-items:center;justify-content:center;
+  background:#000a;pointer-events:auto}
+ #mobileMobaSettings[data-open="true"]{display:flex}
+ .mobaSettingsCard{width:min(410px,88vw);max-height:85dvh;overflow:auto;background:#0a2231f2;
+  color:#eaffff;border:1px solid #00ffe4;border-radius:15px;padding:15px;
+  font:12px/1.45 Roboto,system-ui,sans-serif;box-shadow:0 12px 35px #000e}
+ .mobaSettingsCard h3{margin:0 0 7px;color:#00ffe4;font-size:17px}
+ .mobaSettingsCard p{margin:5px 0 10px;color:#c3dce1}
+ .mobaSettingsActions{display:flex;gap:8px}
+ .mobaSettingsActions button{flex:1;min-height:38px;background:#164753;color:#fff;
+  border:1px solid #50b5b0;border-radius:8px;font-weight:bold}
+ #mobaAdjustIndicator{position:fixed;top:45px;left:50%;transform:translateX(-50%);
+  z-index:50;padding:5px 9px;background:#071a23e8;color:#fff;border-radius:8px;font-size:11px;
+  pointer-events:none;display:none}
+ #mobaAdjustIndicator[data-visible="true"]{display:block}
+ #versionProof{display:none}
+ #mobileVersionBadge{top:calc(8px + env(safe-area-inset-top,0px));right:calc(60px + env(safe-area-inset-right,0px))}
+ #cameraLiveMarker{display:none}
+ #hint{display:none}
+}
+@media(pointer:coarse) and (max-width:950px) and (orientation:portrait){
+ #mobileMobaControls{display:none}
+ #mobileRotatePrompt{display:flex;position:fixed;inset:0;z-index:70;background:#061621;
+  flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  padding:25px;color:#fff;font:700 18px/1.5 Roboto,system-ui,sans-serif}
+ #mobileRotatePrompt span{font-size:46px}
+}
