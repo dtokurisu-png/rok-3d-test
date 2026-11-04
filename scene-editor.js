@@ -555,7 +555,8 @@ function readControls(event){
    const newX=Number($('scenePosX').value),newY=num($('scenePosY').value,-100,100),
     newZ=Number($('scenePosZ').value),newRotation=num($('sceneRotation').value,-3600,3600);
    const dx=newX-v.x,dy=newY-v.y,dz=newZ-v.z;
-   const angle=THREE.MathUtils.degToRad(newRotation-v.rotation);
+   const rotationDelta=newRotation-v.rotation;
+   const angle=THREE.MathUtils.degToRad(rotationDelta);
    const cs=Math.cos(angle),sn=Math.sin(angle);
    const pivotX=v.x,pivotZ=v.z;
    const primaryS={x:v.scaleX,y:v.scaleY,z:v.scaleZ,uniform:v.scale};
@@ -571,7 +572,7 @@ function readControls(event){
      const ox=o.x-pivotX,oz=o.z-pivotZ;
      o.x=pivotX+ox*cs+oz*sn;
      o.z=pivotZ-ox*sn+oz*cs;
-     o.rotation=num(o.rotation+(newRotation-v.rotation),-3600,3600);
+     o.rotation=num(o.rotation+rotationDelta,-3600,3600);
     }else if(['sceneScale','sceneScaleX','sceneScaleY','sceneScaleZ'].includes(id)){
      o.scaleX=clamp(o.scaleX*fx,.05,20);
      o.scaleY=clamp(o.scaleY*fy,.05,20);
