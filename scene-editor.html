@@ -59,6 +59,8 @@
     <label class="sceneField">Repeticiones Z<input id="sceneFloorRepeatZ" type="number" min="1" max="100" step="1" value="16"></label>
    </div>
    <label class="sceneField">Textura del suelo<input id="sceneFloorTexture" type="text" placeholder="assets/texturas/Superficie de mármol azul marino en mosaico.webp"></label>
+   <div class="sceneTools"><button id="sceneFloorImport" type="button">Cargar imagen del suelo</button><input id="sceneFloorFile" type="file" accept="image/png,image/jpeg,image/webp" hidden></div>
+   <p class="sceneQuiet" id="sceneFloorImageStatus">La imagen puede guardarse dentro del escenario para verla también en el tester.</p>
    <button id="sceneFloorApply" type="button">Aplicar suelo</button>
   </section>
   <div class="sceneTools"><button id="sceneSaveLocal" type="button" class="primary">Guardar progreso</button><button id="sceneRestoreLocal" type="button">Recuperar progreso</button></div>
