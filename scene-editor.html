@@ -67,9 +67,9 @@
   <p class="sceneQuiet" id="sceneLocalStatus">El progreso se guarda en este navegador; Guardar JSON crea una copia portátil.</p>
     <div class="sceneTools"><button id="sceneSave" type="button" class="primary">Guardar JSON</button><button id="sceneOpen" type="button">Abrir JSON</button><button id="sceneNew" type="button">Nuevo</button><input id="sceneFile" type="file" accept=".json,application/json" hidden></div>
   <div class="sceneMeasure"><span>Elementos</span><strong id="sceneObjectCount">0</strong></div>
-  <h3>Objetos colocados</h3><div id="sceneInstances" class="sceneInstances"></div>
+  <h3>Objetos colocados</h3><p class="sceneQuiet" id="sceneSelectionCount">Ctrl/Shift + clic para seleccionar varios objetos.</p><div id="sceneInstances" class="sceneInstances"></div>
   <section id="sceneTransform" hidden>
-   <h3>Transformación</h3>
+   <h3>Transformación</h3><p class="sceneQuiet">Con varios objetos seleccionados, los cambios de posición, rotación y escala se aplican al conjunto; la duplicación crea copias de todos.</p>
    <label class="sceneField">Nombre<input id="sceneObjectName" maxlength="70"></label>
    <div class="sceneRow"><label class="sceneField">X<input id="scenePosX" type="number" min="-1000" max="1000" step=".1"></label><label class="sceneField">Y<input id="scenePosY" type="number" min="-10" max="20" step=".1"></label><label class="sceneField">Z<input id="scenePosZ" type="number" min="-1000" max="1000" step=".1"></label></div>
    <label class="sceneField">Rotación Y (grados)<input id="sceneRotation" type="number" min="-3600" max="3600" step="5"></label>
