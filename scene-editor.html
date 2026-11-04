@@ -16,7 +16,7 @@
   <div id="sceneCompositions" class="sceneAssetList"></div>
  </aside>
  <section class="sceneMain" aria-label="Vista 3D sin combate">
-   <div class="sceneTop"><strong>Editor de escenarios · 15 × 30</strong><button id="sceneCamera" type="button">Centrar</button><button id="sceneGrid" type="button" aria-pressed="true">Cuadrícula</button></div>
+   <div class="sceneTop"><strong>Editor de escenarios · 15 × 30</strong><button id="sceneUndoTop" type="button" title="Ctrl+Z" disabled>↶</button><button id="sceneRedoTop" type="button" title="Ctrl+Y" disabled>↷</button><button id="sceneCamera" type="button">Centrar</button><button id="sceneGrid" type="button" aria-pressed="true">Cuadrícula</button></div>
    <div id="sceneCanvas"></div>
    <div class="sceneBottom"><span>450 casillas reservadas para jugar · Coloca decoración FUERA del borde naranja · Arrastrar: mover · Rueda: zoom</span><span id="sceneStatus" role="status">Inicializando…</span></div>
  </section>
@@ -81,7 +81,19 @@
    </div>
    <label class="sceneField">Textura del modelo (ruta publicada)<input id="sceneModelTexture" type="text" placeholder="assets/texturas/mi-textura.webp"></label>
    <button id="sceneModelApplyTexture" type="button">Aplicar textura al modelo</button>
-   <div class="sceneTools"><button id="sceneDuplicate">Duplicar</button><button id="sceneDelete">Eliminar</button></div>
+   <div class="sceneTools sceneHistoryControls">
+    <button id="sceneUndo" type="button" title="Deshacer (Ctrl+Z)" disabled>↶ Deshacer</button>
+    <button id="sceneRedo" type="button" title="Rehacer (Ctrl+Y o Ctrl+Shift+Z)" disabled>↷ Rehacer</button>
+   </div>
+   <label class="sceneField">Tipo de duplicación
+    <select id="sceneDuplicateMode">
+     <option value="normal">Normal · desplazar +1 X / +1 Z</option>
+     <option value="mirrorX">Espejo X · lado izquierdo / derecho</option>
+     <option value="mirrorZ">Espejo Z · lado frontal / posterior</option>
+     <option value="mirrorXZ">Espejo X + Z · esquina opuesta</option>
+    </select>
+   </label>
+   <div class="sceneTools"><button id="sceneDuplicate" type="button">Duplicar con opción elegida</button><button id="sceneDelete" type="button">Eliminar</button></div>
   </section>
   <p class="sceneQuiet">Los cambios afectan únicamente a este escenario. Los GLB originales y el motor de combate permanecen intactos.</p>
  </aside>
