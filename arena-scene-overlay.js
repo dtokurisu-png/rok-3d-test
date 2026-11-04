@@ -213,10 +213,18 @@ export function mountArenaSceneControls(overlay){
  const $=id=>document.getElementById(id);
  const importButton=$('testerSceneImport'),fileInput=$('testerSceneFile'),localButton=$('testerSceneLocal');
  const packageStorageKey='ROK_SCENE_PACKAGE_1_V1';
+ const editorDraftKey='ROK_SCENE_EDITOR_DRAFT_V2';
  const published=$('testerScenePublished'),apply=$('testerSceneApply');
  const reset=$('testerSceneReset'),visibility=$('testerSceneVisible');
  const status=$('testerSceneStatus');
  const current=$('testerSceneCurrent');
+ const banner=$('testerSceneBanner');
+ const bannerText=$('testerSceneBannerText');
+ const bannerLoad=$('testerSceneBannerLoad');
+ const bannerReport=(message,loaded=false)=>{
+  if(bannerText)bannerText.textContent=message;
+  if(banner)banner.dataset.active=String(loaded);
+ };
  let working=false;
  const report=message=>{status.textContent=message;};
  const busy=value=>{
@@ -227,17 +235,29 @@ export function mountArenaSceneControls(overlay){
  const applyScene=async json=>{
   if(working)return;
   busy(true);report('Preparando decoraciones…');
-  try{await overlay.loadScene(json);visibility.checked=true;overlay.show(true);showCurrent();}
-  catch(error){report('No se aplicó: '+String(error.message||error));}
+  try{
+   const loaded=await overlay.loadScene(json);
+   if(!loaded)throw Error('La carga se interrumpió');
+   visibility.checked=true;overlay.show(true);showCurrent();
+   report('✓ '+overlay.currentName+' cargado: '+overlay.count+' objetos');
+   bannerReport('✓ '+overlay.currentName+' · '+overlay.count+' objetos',true);
+  }
+  catch(error){const msg='No se aplicó: '+String(error.message||error);report(msg);bannerReport(msg,false);}
   finally{busy(false);}
  };
  const loadFromEditor=async()=>{
   try{
-   const raw=localStorage.getItem(packageStorageKey);
-   if(!raw)throw Error('No hay paquete local. Abre el creador y pulsa Ver Escenario 1 en probador.');
-   await applyScene(JSON.parse(raw));
-  }catch(error){report('Escenario 1: '+error.message);}
+   const raw=localStorage.getItem(packageStorageKey)||localStorage.getItem(editorDraftKey);
+   if(!raw)throw Error('No hay un escenario guardado en este navegador. Desde el creador pulsa Guardar progreso y Ver Escenario 1 en probador.');
+   const data=JSON.parse(raw);
+   if(!data.packageId){data.name='Escenario 1';data.packageId='escenario-1';}
+   await applyScene(data);
+  }catch(error){
+   const msg='Escenario 1: '+error.message;
+   report(msg);bannerReport(msg,false);
+  }
  };
+ bannerLoad?.addEventListener('click',()=>{if(!working)void loadFromEditor();});
  localButton.addEventListener('click',()=>{if(!working)void loadFromEditor();});
  importButton.addEventListener('click',()=>{if(!working)fileInput.click();});
  fileInput.addEventListener('change',async e=>{
@@ -260,11 +280,16 @@ export function mountArenaSceneControls(overlay){
   }catch(error){report('No se pudo abrir el escenario publicado: '+error.message);}
   finally{busy(false);}
  });
- reset.addEventListener('click',()=>{if(working)return;overlay.clear();visibility.checked=true;overlay.show(true);showCurrent();report('Escenario original restaurado');});
+ reset.addEventListener('click',()=>{if(working)return;overlay.clear();visibility.checked=true;overlay.show(true);showCurrent();report('Escenario original restaurado');bannerReport('Arena original · Escenario 1 disponible desde el editor',false);});
  visibility.addEventListener('change',()=>{overlay.show(visibility.checked);report(visibility.checked?'Decoraciones visibles':'Decoraciones ocultas');});
  overlay.init().then(async()=>{
   report('Biblioteca de modelos lista');
-  if(new URLSearchParams(location.search).get('scene')==='escenario-1')await loadFromEditor();
+  // Load a saved composition even when the tester is opened directly.
+  // Published catalog is independent; an empty catalog must not reset status.
+  const hasLocal=!!(localStorage.getItem(packageStorageKey)||localStorage.getItem(editorDraftKey));
+  const requested=new URLSearchParams(location.search).get('scene')==='escenario-1';
+  if(hasLocal||requested)await loadFromEditor();
+  else bannerReport('Arena original · aún no hay Escenario 1 guardado en este navegador',false);
   try{
    const response=await fetch('./assets/scenes/catalog.json',{cache:'no-store'});
    if(!response.ok)throw Error('HTTP '+response.status);
@@ -275,8 +300,8 @@ export function mountArenaSceneControls(overlay){
     const option=document.createElement('option');option.value=entry.path;option.textContent=String(entry.name||entry.path).slice(0,80);published.append(option);
    }
    apply.disabled=published.options.length===1;
-   report(published.options.length>1?'Escenarios publicados disponibles':'Sin escenarios publicados; importa un JSON para probar');
-  }catch(error){report('Biblioteca lista; no se pudo cargar el índice de escenas');}
+   if(!overlay.currentName)report(published.options.length>1?'Escenarios publicados disponibles':'Sin escenarios publicados; importa un JSON para probar');
+  }catch(error){if(!overlay.currentName)report('Biblioteca lista; no se pudo cargar el índice de escenas');}
  }).catch(error=>{report('Error en biblioteca de modelos: '+error.message);importButton.disabled=true;apply.disabled=true;});
  published.addEventListener('change',()=>{apply.disabled=!published.value;});
  showCurrent();
