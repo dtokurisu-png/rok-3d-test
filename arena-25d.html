@@ -146,10 +146,10 @@ canvas{display:block;touch-action:none}
 }
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
+<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-1"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.54 · Decenas entre barras</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.54</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.55 · Controles MOBA móvil</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.55</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -193,6 +193,27 @@ canvas{display:block;touch-action:none}
  </div>
  <span id="casterMoveStatus" role="status" title="WASD mueve al caster automáticamente">WASD listo</span>
 </section>
+<!-- Mobile landscape controls: gameplay input stays separate from legacy keyboard UI. -->
+<div id="mobileMobaControls" aria-label="Controles táctiles MOBA">
+ <div id="mobaJoystick" class="mobaJoystick" aria-label="Joystick de movimiento"><div id="mobaStick"></div></div>
+ <button id="mobaAttack" class="mobaAction" type="button" aria-label="Atacar">⚔<span style="display:block;font-size:10px">ATACAR</span></button>
+ <button id="mobaDefend" class="mobaAction" type="button" aria-label="Mantener para defender">◆<span style="display:block;font-size:10px">DEFENSA</span></button>
+ <button id="mobaSettingsButton" type="button" aria-label="Configurar controles y pausar" title="Ajustes">⚙</button>
+ <div id="mobaAdjustIndicator">Arrastra joystick, ataque y defensa. Pulsa ⚙ para terminar.</div>
+</div>
+<div id="mobileMobaSettings" role="dialog" aria-modal="true" aria-label="Ajustes de controles móviles" data-open="false">
+ <div class="mobaSettingsCard">
+  <h3>⚙ Controles móviles</h3>
+  <p>Combate en pausa. Puedes colocar los controles donde mejor lleguen tus dedos.</p>
+  <div class="mobaSettingsActions">
+   <button id="mobaReposition" type="button">Mover controles</button>
+   <button id="mobaResetLayout" type="button">Restablecer</button>
+  </div>
+  <p>En modo edición arrastra joystick, ataque y defensa. Se guarda su posición en este dispositivo.</p>
+  <div class="mobaSettingsActions"><button id="mobaResume" type="button">▶ Volver al combate</button></div>
+ </div>
+</div>
+<div id="mobileRotatePrompt" role="status"><span>↻</span>Gira el móvil a horizontal para jugar R.O.K.</div>
 <div id="bottom" hidden aria-hidden="true">
   <button class="primary" id="repeat" disabled>↻ Repetir</button>
   <button id="pause" disabled>Ⅱ Pausar</button>
@@ -208,7 +229,7 @@ import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-sightcone-1';
-import {createCasterMobility} from './caster-mobility.js';
+import {createCasterMobility} from './caster-mobility.js?v=20261104-moba-1';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js';
@@ -3410,6 +3431,155 @@ casterMovement=createCasterMobility({
   return playing;
  }
 });
+/* Control táctil MOBA: no duplica ni reemplaza la lógica de combate.
+   Los botones llaman a las mismas acciones que WASD/Espacio/Shift. */
+function setupMobileMobaControls(){
+ const joy=qs('#mobaJoystick'),stick=qs('#mobaStick');
+ const attack=qs('#mobaAttack'),defend=qs('#mobaDefend');
+ const settings=qs('#mobaSettingsButton'),dialog=qs('#mobileMobaSettings');
+ const editNotice=qs('#mobaAdjustIndicator');
+ const elements={joystick:joy,attack,defend};
+ const defaults={joystick:{left:23,bottom:18},
+  attack:{right:28,bottom:24},defend:{right:117,bottom:102}};
+ const defaultPosition=key=>{
+  const el=elements[key],d=defaults[key];
+  return {left:d.left??Math.max(8,innerWidth-(d.right??8)-el.offsetWidth),
+    bottom:d.bottom};
+ };
+ const mobileQuery=window.matchMedia('(pointer:coarse) and (max-width:950px)');
+ const portraitQuery=window.matchMedia('(orientation:portrait)');
+ let editing=false,opened=false,restorePlaying=true,portraitPaused=false;
+ let joyPointer=null,defensePointer=null;
+ const offsets={};
+ const clampPosition=(key,left,bottom)=>{
+  const el=elements[key];
+  return {left:THREE.MathUtils.clamp(left,5,Math.max(5,innerWidth-el.offsetWidth-5)),
+   bottom:THREE.MathUtils.clamp(bottom,5,Math.max(5,innerHeight-el.offsetHeight-5))};
+ };
+ const applyPosition=(key,pos)=>{
+  const el=elements[key],p=clampPosition(key,pos.left,pos.bottom);
+  offsets[key]=p;el.style.left=p.left+'px';el.style.bottom=p.bottom+'px';el.style.right='auto';
+ };
+ const saveLayout=()=>{
+  try{localStorage.setItem('rokMobileMobaLayoutV1',JSON.stringify(offsets));}catch{}
+ };
+ function resetLayout(save=true){
+  for(const key of Object.keys(elements))applyPosition(key,defaultPosition(key));
+  if(save)saveLayout();
+ }
+ function loadLayout(){
+  let saved=null;
+  try{saved=JSON.parse(localStorage.getItem('rokMobileMobaLayoutV1')||'null');}catch{}
+  for(const key of Object.keys(elements)){
+   const p=saved?.[key];
+   applyPosition(key,p&&Number.isFinite(p.left)&&Number.isFinite(p.bottom)?p:defaultPosition(key));
+  }
+ }
+ const releaseInputs=()=>{
+  joyPointer=null;defensePointer=null;
+  stick.style.transform='translate(0,0)';
+  casterMovement.releaseMobile();
+  defend.dataset.held='false';
+ };
+ function stopEdit(){
+  editing=false;editNotice.dataset.visible='false';
+  releaseInputs();saveLayout();
+ }
+ function resume(){
+  stopEdit();opened=false;dialog.dataset.open='false';
+  if(mobileQuery.matches&&!portraitQuery.matches){
+   playing=restorePlaying;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';
+  }
+ }
+ function openSettings(){
+  if(!mobileQuery.matches)return;
+  releaseInputs();
+  if(editing){stopEdit();}
+  restorePlaying=opened?restorePlaying:playing;
+  playing=false;qs('#pause').textContent='▶ Reanudar';
+  opened=true;dialog.dataset.open='true';
+ }
+ settings.addEventListener('click',e=>{
+  e.preventDefault();
+  if(editing)openSettings();else if(opened)resume();else openSettings();
+ });
+ qs('#mobaResume').addEventListener('click',resume);
+ qs('#mobaReposition').addEventListener('click',()=>{
+  editing=true;dialog.dataset.open='false';editNotice.dataset.visible='true';
+ });
+ qs('#mobaResetLayout').addEventListener('click',()=>resetLayout());
+ function joystickMove(event){
+  const rect=joy.getBoundingClientRect();
+  const x=event.clientX-(rect.left+rect.width/2);
+  const y=event.clientY-(rect.top+rect.height/2);
+  const radius=rect.width*.34;
+  const factor=Math.min(1,radius/Math.max(.001,Math.hypot(x,y)));
+  const dx=x*factor,dy=y*factor;
+  stick.style.transform='translate('+dx+'px,'+dy+'px)';
+  casterMovement.setMobileAxis(dx/radius,-dy/radius);
+ }
+ function dragStart(key,event){
+  const el=elements[key],rect=el.getBoundingClientRect();
+  return {startX:event.clientX,startY:event.clientY,left:rect.left,
+   bottom:innerHeight-rect.bottom};
+ }
+ let drag=null;
+ for(const [key,el] of Object.entries(elements)){
+  el.addEventListener('pointerdown',event=>{
+   if(!mobileQuery.matches)return;
+   event.preventDefault();el.setPointerCapture?.(event.pointerId);
+   if(editing){drag={key,pointer:event.pointerId,...dragStart(key,event)};return;}
+   if(opened||portraitPaused)return;
+   if(key==='joystick'){
+    joyPointer=event.pointerId;joystickMove(event);
+   }else if(key==='attack'){
+    if(playing)casterMovement.startAttack();
+   }else if(key==='defend'){
+    defensePointer=event.pointerId;
+    if(playing){casterMovement.setDefense(true);defend.dataset.held='true';}
+   }
+  });
+  el.addEventListener('pointermove',event=>{
+   if(drag?.pointer===event.pointerId&&drag.key===key){
+    applyPosition(key,{left:drag.left+event.clientX-drag.startX,
+     bottom:drag.bottom-(event.clientY-drag.startY)});
+   }else if(key==='joystick'&&joyPointer===event.pointerId&&!editing&&!opened){
+    joystickMove(event);
+   }
+  });
+  const release=event=>{
+   if(drag?.pointer===event.pointerId&&drag.key===key){drag=null;saveLayout();}
+   if(key==='joystick'&&joyPointer===event.pointerId){
+    joyPointer=null;stick.style.transform='translate(0,0)';
+    casterMovement.setMobileAxis(0,0);
+   }
+   if(key==='defend'&&defensePointer===event.pointerId){
+    defensePointer=null;casterMovement.setDefense(false);defend.dataset.held='false';
+   }
+  };
+  for(const type of ['pointerup','pointercancel','lostpointercapture'])
+   el.addEventListener(type,release);
+ }
+ const adaptOrientation=()=>{
+  if(!mobileQuery.matches){if(portraitPaused){portraitPaused=false;playing=restorePlaying;}return;}
+  for(const key of Object.keys(elements))applyPosition(key,offsets[key]||defaultPosition(key));
+  if(portraitQuery.matches){
+   if(!portraitPaused&&!opened){restorePlaying=playing;playing=false;}
+   portraitPaused=true;releaseInputs();
+  }else if(portraitPaused){
+   portraitPaused=false;
+   if(!opened){playing=restorePlaying;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';}
+  }
+ };
+ window.addEventListener('resize',adaptOrientation);
+ window.addEventListener('orientationchange',adaptOrientation);
+ window.addEventListener('blur',releaseInputs);
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseInputs();});
+ loadLayout();adaptOrientation();
+ return {get paused(){return opened||portraitPaused;}};
+}
+const mobileMobaControls=setupMobileMobaControls();
+
 // Revisión in situ: MISMA arena, mismos modelos, mixers y sistema de cámara.
 // Las selecciones no modifican ni eliminan ficheros; exportación para revisión GitHub.
 const casterReview={items:[], decisions:new Map(),clips:new Map(),active:false,wasPlaying:false,
@@ -3538,7 +3708,7 @@ function loop(now){
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
   if(loaded&&playing&&!casterReview.active)updateDuel(dt);
   // WASD is additive to the live battle, not a global pause.
-  if(loaded&&casterMovement?.enabled)casterMovement.step(dt);
+  if(loaded&&playing&&!mobileMobaControls.paused&&casterMovement?.enabled)casterMovement.step(dt);
   // Range must be visible for the SELECTED caster even before WASD begins.
   // Previously this indicator required casterMovement.enabled, making the
   // proximity system appear broken while the player stood still.
