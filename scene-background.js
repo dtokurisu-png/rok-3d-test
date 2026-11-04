@@ -2,9 +2,46 @@
  * A proportional Gothic room whose vaulted ceiling, walls and surrounding
  * ground are independent of the 15x30 arena and all gameplay objects.
  */
+export const DEFAULT_GOTHIC_TEXTURE='assets/texturas/Panorama gótica de vitrales zafiro';
 export const BACKGROUND_DEFAULTS=Object.freeze({
- enabled:true,type:'gothic-vault',width:70,height:18,archRise:12,texture:''
+ enabled:true,type:'gothic-vault',width:70,height:18,archRise:12,
+ texture:DEFAULT_GOTHIC_TEXTURE
 });
+const textureExtension=/\.(?:png|jpe?g|webp|avif|jfif|bmp)$/i;
+const textureRoot=/^assets\/(?:texturas|textures)\/[^/]+$/iu;
+export function textureCandidates(name){
+ const raw=String(name||'').trim();
+ if(!raw)return [];
+ if(!textureRoot.test(raw)||raw.includes('..'))throw Error('Ruta de textura no permitida');
+ if(textureExtension.test(raw))return [raw];
+ return ['.png','.jpg','.jpeg','.webp','.avif','.jfif','.bmp',
+  '.PNG','.JPG','.JPEG','.WEBP'].map(ext=>raw+ext);
+}
+export async function resolveBackgroundTexture(name,listing=undefined){
+ const candidates=textureCandidates(name);
+ if(!candidates.length||textureExtension.test(name))return candidates;
+ try{
+  const parts=name.split('/'),parent=parts.slice(0,-1).join('/');
+  const normalizeStem=str=>str.replace(textureExtension,'').normalize('NFD')
+   .replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es')
+   .replace(/\s+/g,' ').trim();
+  const stem=normalizeStem(parts.at(-1));
+  const files=listing||await (async()=>{
+   const api='https://api.github.com/repos/dtokurisu-png/rok-3d-test/contents/'+
+    parent.split('/').map(encodeURIComponent).join('/')+'?ref=main';
+   const response=await fetch(api,{headers:{Accept:'application/vnd.github+json'}});
+   if(!response.ok)throw Error('GitHub HTTP '+response.status);
+   return response.json();
+  })();
+  const match=Array.isArray(files)?files.find(item=>
+   item.type==='file'&&textureExtension.test(item.name)&&normalizeStem(item.name)===stem):null;
+  if(match){
+   const exact=parent+'/'+match.name;
+   return [exact,...candidates.filter(candidate=>candidate!==exact)];
+  }
+ }catch(error){/* If GitHub API is unavailable, try known extensions directly. */}
+ return candidates;
+}
 const finite=(x,fallback)=>Number.isFinite(Number(x))?Number(x):fallback;
 export function normalizeSceneBackground(raw={}){
  if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error('Background inválido');
@@ -12,8 +49,8 @@ export function normalizeSceneBackground(raw={}){
  const width=Math.max(30,Math.min(120,finite(raw.width,70)));
  const height=Math.max(10,Math.min(40,finite(raw.height,18)));
  const archRise=Math.max(4,Math.min(25,finite(raw.archRise,12)));
- const texture=String(raw.texture||'').trim();
- if(texture&&(!/^assets\/(?:texturas|textures)\/[\p{L}\p{N} _().-]+\.(?:png|jpe?g|webp)$/iu.test(texture)||texture.includes('..')))
+ const texture=String(raw.texture===undefined?BACKGROUND_DEFAULTS.texture:raw.texture||'').trim();
+ if(texture&&(!textureRoot.test(texture)||texture.includes('..')||(texture.includes('.')&&!textureExtension.test(texture))))
   throw Error('La textura debe estar dentro de assets/texturas o assets/textures');
  return {enabled:raw.enabled!==false,type:'gothic-vault',width,
   length:width*2,height,archRise,texture};
@@ -123,17 +160,29 @@ export function createSceneBackground(THREE,{onStatus}={}){
   group.visible=current.enabled;
   if(texture){texture.dispose();texture=null;}
   if(current.texture){
-   const ticket=generation;
-   const url='./'+current.texture.split('/').map(encodeURIComponent).join('/');
-   loader.load(url,loaded=>{
-    if(ticket!==generation){loaded.dispose();return;}
-    loaded.colorSpace=THREE.SRGBColorSpace;
-    loaded.wrapS=THREE.ClampToEdgeWrapping;loaded.wrapT=THREE.ClampToEdgeWrapping;
-    texture=loaded;material.map=loaded;material.color.set(0xffffff);
-    material.needsUpdate=true;
-    report('Textura del background aplicada.');
-   },undefined,()=>{
-    if(ticket===generation)report('No se encontró la textura: '+current.texture+' · background base visible.');
+   const ticket=generation,requested=current.texture;
+   // Resolve actual extension and case; no manual path entry required.
+   void resolveBackgroundTexture(requested).then(async candidates=>{
+    if(ticket!==generation)return;
+    for(const path of candidates){
+     if(ticket!==generation)return;
+     const url='./'+path.split('/').map(encodeURIComponent).join('/');
+     const loaded=await new Promise(resolve=>{
+      loader.load(url,tex=>resolve(tex),undefined,()=>resolve(null));
+     });
+     if(!loaded)continue;
+     if(ticket!==generation){loaded.dispose();return;}
+     loaded.colorSpace=THREE.SRGBColorSpace;
+     loaded.wrapS=THREE.ClampToEdgeWrapping;loaded.wrapT=THREE.ClampToEdgeWrapping;
+     texture=loaded;material.map=loaded;material.color.set(0xffffff);
+     material.needsUpdate=true;
+     current.texture=path;
+     report('Textura gótica aplicada: '+path.split('/').at(-1));
+     return;
+    }
+    if(ticket===generation)report('No se encontró «Panorama gótica de vitrales zafiro» en assets/texturas. Comprueba que esté publicado en GitHub.');
+   }).catch(error=>{
+    if(ticket===generation)report('Error al cargar textura gótica: '+error.message);
    });
   }
   return current;
