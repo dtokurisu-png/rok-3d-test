@@ -6,7 +6,8 @@
   "totals": {
     "models": 18,
     "clips": 6,
-    "archives": 1
+    "archives": 1,
+    "textures": 2
   },
   "assets": [
     {
@@ -208,6 +209,22 @@
       "gitBlobSha": "920915fbef1a3bdba7f75d5a0c98d52ebbbbdd85",
       "sizeBytes": 5046452,
       "legacyPathStatus": "removed (historical name retained for audit)"
+    },
+    {
+      "type": "texture",
+      "path": "assets/texturas/Panorama gótica de vitrales zafiro.webp",
+      "legacyPath": null,
+      "gitBlobSha": "c736fc97d4c382e4dab4f23ab74191e276e2fae0",
+      "sizeBytes": 385170,
+      "legacyPathStatus": "added from user-supplied Gothic panorama PNG; optimized WebP"
+    },
+    {
+      "type": "texture",
+      "path": "assets/texturas/Pavimento ornamental de piedra azul y beige.webp",
+      "legacyPath": null,
+      "gitBlobSha": "0daa6d40dfb52941c5b73cf02b34150eb5b8634f",
+      "sizeBytes": 546506,
+      "legacyPathStatus": "added from user-supplied combat-floor PNG; optimized WebP"
     }
   ],
   "rootCleanupCommit": "d49335476ad4b411cb4772ba360dffae69e59304",
