@@ -376,8 +376,9 @@ export function mountArenaSceneControls(overlay){
    visibility.checked=true;overlay.show(true);showCurrent();
    report('✓ '+overlay.currentName+' cargado: '+overlay.count+' objetos');
    bannerReport('✓ '+overlay.currentName+' · '+overlay.count+' objetos',true);
+   return true;
   }
-  catch(error){const msg='No se aplicó: '+String(error.message||error);report(msg);bannerReport(msg,false);}
+  catch(error){const msg='No se aplicó: '+String(error.message||error);report(msg);bannerReport(msg,false);return false;}
   finally{busy(false);}
  };
  const loadFromEditor=async()=>{
@@ -386,10 +387,13 @@ export function mountArenaSceneControls(overlay){
    if(!raw)throw Error('No hay un escenario guardado en este navegador. Desde el creador pulsa Guardar progreso y Ver Escenario 1 en probador.');
    const data=JSON.parse(raw);
    if(!data.packageId){data.name='Escenario 1';data.packageId='escenario-1';}
-   await applyScene(data);
+   const ok=await applyScene(data);
+   if(!ok)throw Error('No se pudo aplicar la composición guardada');
+   return true;
   }catch(error){
    const msg='Escenario 1: '+error.message;
    report(msg);bannerReport(msg,false);
+   return false;
   }
  };
  bannerLoad?.addEventListener('click',()=>{if(!working)void loadFromEditor();});
@@ -423,8 +427,10 @@ export function mountArenaSceneControls(overlay){
   // Published catalog is independent; an empty catalog must not reset status.
   const hasLocal=!!(localStorage.getItem(packageStorageKey)||localStorage.getItem(editorDraftKey));
   const requested=new URLSearchParams(location.search).get('scene')==='escenario-1';
-  if(hasLocal||requested)await loadFromEditor();
-  else bannerReport('Arena original · aún no hay Escenario 1 guardado en este navegador',false);
+  if(hasLocal||requested){
+   const sceneLoaded=await loadFromEditor();
+   if(!sceneLoaded)throw Error('El Escenario 1 guardado no se pudo cargar');
+  }else bannerReport('Arena original · aún no hay Escenario 1 guardado en este navegador',false);
   try{
    const response=await fetch('./assets/scenes/catalog.json',{cache:'no-store'});
    if(!response.ok)throw Error('HTTP '+response.status);
