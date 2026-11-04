@@ -37,6 +37,14 @@
    <label class="sceneField">Textura interior (ruta publicada en assets/texturas)
     <input id="sceneBackgroundTexture" type="text" placeholder="assets/texturas/panorama...png" spellcheck="false">
    </label>
+   <div class="sceneRow sceneBackgroundOffsets">
+    <label class="sceneField">Mover textura izquierda / derecha <output id="sceneBackgroundOffsetXValue">0.00</output>
+     <input id="sceneBackgroundOffsetX" type="range" min="-1" max="1" step=".01" value="0">
+    </label>
+    <label class="sceneField">Mover textura arriba / abajo <output id="sceneBackgroundOffsetYValue">0.00</output>
+     <input id="sceneBackgroundOffsetY" type="range" min="-1" max="1" step=".01" value="0">
+    </label>
+   </div>
    <button type="button" id="sceneBackgroundApply">Aplicar background</button>
    <p class="sceneQuiet">Paredes y bóveda independientes del combate. El piso exterior está al nivel de la arena. Puedes dejar la textura vacía para probar primero la geometría.</p>
   </section>
