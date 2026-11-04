@@ -12,9 +12,9 @@ const manifest=JSON.parse(await readFile(path('assets/manifests/asset-paths.json
 const clips=JSON.parse(await readFile(path('assets/manifests/caster-animations.json'),'utf8'));
 
 test('all registered canonical assets are present and match original Git blob SHA',async()=>{
-  assert.equal(manifest.assets.length,manifest.totals.models+manifest.totals.clips+manifest.totals.archives);
+  assert.equal(manifest.assets.length,manifest.totals.models+manifest.totals.clips+manifest.totals.archives+(manifest.totals.textures||0));
   for(const asset of manifest.assets){
-    assert.match(asset.path,/^assets\/(models|animations)\//);
+    assert.match(asset.path,/^assets\/(models|animations|texturas)\//);
     const file=path(asset.path);
     const meta=await stat(file);
     assert.equal(meta.size,asset.sizeBytes,asset.path);
