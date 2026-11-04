@@ -170,7 +170,8 @@ export function createSceneBackground(THREE,{onStatus}={}){
   group.add(new THREE.Mesh(roofGeometry(width,length,height,archRise),material));
   for(const sign of [-1,1])
    group.add(new THREE.Mesh(endCap(width,height,archRise,length,sign),material));
-  floorMaterial=floorRing(width,length);
+  // Exterior floor is a separate independently adjustable scene-floor.js layer.
+  // Do not create a fixed-height floor inside the background enclosure.
   group.visible=current.enabled;
   if(texture){texture.dispose();texture=null;}
   if(current.texture){
