@@ -243,7 +243,7 @@ export function mountArenaSceneControls(overlay){
  fileInput.addEventListener('change',async e=>{
   const file=e.target.files?.[0];e.target.value='';
   if(!file)return;
-  if(file.size>600000){report('JSON demasiado grande (máximo 600 KB)');return;}
+  if(file.size>2500000){report('JSON demasiado grande (máximo 2.5 MB)');return;}
   try{await applyScene(JSON.parse(await file.text()));}
   catch(error){report('Archivo inválido: '+String(error.message||error));}
  });
