@@ -124,7 +124,7 @@ canvas{display:block;touch-action:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css"></head>
 <body data-studio-page="tester">
-<div id="versionProof" aria-label="Versión de la arena">v0.9.31 · Cámara tras caster</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.32 · Encuadre elevado</div>
 
 <section id="top">
   <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
@@ -143,7 +143,7 @@ canvas{display:block;touch-action:none}
  <button id="cameraReframe" type="button">⌖ Reencuadrar ambos casters</button>
 </section>
 
-    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.31 · 04/11/2026: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
+    <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.32 · 04/11/2026: elevación e inclinación automáticas según distancia entre casters, menos techo visible. v0.9.31: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
     <a class="arenaBackLink" href="./index.html">Volver al visor de animaciones</a>
   </div>
 </section>
@@ -251,8 +251,14 @@ function areFramed(points,xMargin=cameraMarginX,yMargin=cameraMarginY){
  }
  return true;
 }
-function arrangeCameraAt(distance,ally,aim,back){
- camera.position.set(ally.x+back.x*distance,aim.y+2.2+distance*.38,
+function arrangeCameraAt(distance,ally,aim,back,separation){
+ // As the fighters spread apart, lift the camera and tilt DOWN to favor the
+ // arena rather than the distant ceiling. Keep its ground position behind ally.
+ const spread=THREE.MathUtils.smoothstep(separation,5,30);
+ const pitch=THREE.MathUtils.degToRad(17+spread*30);
+ const depthToAim=distance+separation*.42;
+ camera.position.set(ally.x+back.x*distance,
+  aim.y+Math.max(2.5,depthToAim*Math.tan(pitch)),
   ally.z+back.z*distance);
  camera.lookAt(aim);
  camera.updateMatrixWorld(true);
@@ -266,13 +272,17 @@ function findBattleCamera(){
  const forward=new THREE.Vector3(e.x-a.x,0,e.z-a.z);
  if(forward.lengthSq()>.8)cameraForwardXZ.copy(forward.normalize());
  const back=cameraForwardXZ.clone().negate();
- const aim=new THREE.Vector3((a.x+e.x)/2,1.08,(a.z+e.z)/2);
+ const separation=a.distanceTo(e);
+ // Aim slightly closer to the ally to push the opponent upward on the screen,
+ // but leave room for its head and for the health bar.
+ const aim=new THREE.Vector3(
+  a.x+(e.x-a.x)*.42,1.08,a.z+(e.z-a.z)*.42);
  const required=chars.flatMap(c=>[c.ground,c.head]);
  const oldPos=camera.position.clone(),oldQuat=camera.quaternion.clone();
  // Search the closest shot behind the ally that genuinely fits BOTH actors.
  let distance=5,found=false;
  for(let n=0;n<130;n++){
-  arrangeCameraAt(distance,a,aim,back);
+  arrangeCameraAt(distance,a,aim,back,separation);
   if(areFramed(required)){found=true;break;}
   distance=distance*1.095+.35;
   if(distance>175){distance=175;break;}
@@ -290,7 +300,7 @@ function findBattleCamera(){
    const maxDistance=Math.min(175,distance*1.25+2);
    while(distance<maxDistance&&!areFramed(summons,.9,.87)){
     distance=Math.min(maxDistance,distance*1.075+.3);
-    arrangeCameraAt(distance,a,aim,back);
+    arrangeCameraAt(distance,a,aim,back,separation);
    }
   }
  }
