@@ -1688,7 +1688,13 @@ function summonHudIconTexture(symbol,color){
  return texture;
 }
 const summonLifeIconTexture=summonHudIconTexture('♥','#31e790');
-const summonWeaponIconTexture=summonHudIconTexture('⚔','#ff6767');
+const summonWeaponIconTextures={
+ shield:summonHudIconTexture('⚔','#ff6767'),
+ mana:summonHudIconTexture('✦','#ff6767'),
+ archer:summonHudIconTexture('➶','#ff6767')
+};
+const summonShieldIconTexture=summonHudIconTexture('◆','#c3ccd6');
+const summonEnergyIconTexture=summonHudIconTexture('✦','#8b6bea');
 function createSummonGroundHud(c){
  if(summonGroundHuds.has(c))return;
  const group=new THREE.Group();group.name='ROK_summon_ground_HUD';root.add(group);
@@ -1707,12 +1713,13 @@ function createSummonGroundHud(c){
   sprite.position.set(x,.30,.40);sprite.scale.set(.30,.30,1);
   sprite.renderOrder=20;iconGroup.add(sprite);
  };
- icon(summonLifeIconTexture,-.19);icon(summonWeaponIconTexture,.19);
- const shieldIcon=new THREE.Sprite(new THREE.SpriteMaterial({map:summonHudIconTexture('◆','#c3ccd6'),
+ icon(summonLifeIconTexture,-.19);
+ icon(summonWeaponIconTextures[c.kind]||summonWeaponIconTextures.shield,.19);
+ const shieldIcon=new THREE.Sprite(new THREE.SpriteMaterial({map:summonShieldIconTexture,
   transparent:true,depthWrite:false,depthTest:false,toneMapped:false}));
  shieldIcon.position.set(-.37,.19,.64);shieldIcon.scale.set(.19,.19,1);shieldIcon.renderOrder=20;
  iconGroup.add(shieldIcon);
- const energyIcon=new THREE.Sprite(new THREE.SpriteMaterial({map:summonHudIconTexture('✦','#8b6bea'),
+ const energyIcon=new THREE.Sprite(new THREE.SpriteMaterial({map:summonEnergyIconTexture,
   transparent:true,depthWrite:false,depthTest:false,toneMapped:false}));
  energyIcon.position.set(.37,.19,.64);energyIcon.scale.set(.19,.19,1);energyIcon.renderOrder=20;
  iconGroup.add(energyIcon);
@@ -1769,6 +1776,7 @@ function makeNameplate(c){
     // El HUD de las invocaciones se renderiza en el suelo, no en HTML sobre su cabeza.
     createSummonGroundHud(c);
     el.hidden=true;
+    el.style.display='none';
   }
   qs('#nameplateLayer').appendChild(el);
   nameplates.set(c,el);
