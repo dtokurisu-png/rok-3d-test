@@ -1,7 +1,7 @@
 <!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#081720">
 <title>R.O.K. 3D — Creador de escenarios</title>
-<link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./scene-editor.css?v=20261104-multiselect-2">
+<link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./scene-editor.css?v=20261104-arena-select-2">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head><body data-studio-page="scenes">
 <main class="sceneStudio">
@@ -18,18 +18,19 @@
  <section class="sceneMain" aria-label="Vista 3D sin combate">
    <div class="sceneTop"><strong>Editor de escenarios · 15 × 30</strong><button id="sceneUndoTop" type="button" title="Deshacer · Ctrl+Z" disabled>↶ Deshacer</button><button id="sceneRedoTop" type="button" title="Rehacer · Ctrl+Y" disabled>↷ Rehacer</button><button id="sceneMultiToggle" type="button" aria-pressed="false" title="Activar selección múltiple sin mantener Ctrl/Shift">☑ Selección múltiple</button><button id="sceneCamera" type="button">Centrar</button><button id="sceneGrid" type="button" aria-pressed="true">Cuadrícula</button></div>
    <div id="sceneCanvas"></div>
+   <section id="sceneArenaInspector" class="sceneArenaInspector" aria-label="Propiedades de arena" hidden>
+    <div class="sceneArenaInspectorTitle"><strong>☑ Arena seleccionada</strong><button id="sceneArenaClose" type="button" aria-label="Cerrar controles de la arena">✕</button></div>
+    <label class="sceneField" for="sceneArenaOpacity">Transparencia del pavimento <output id="sceneArenaOpacityValue">100%</output>
+     <input id="sceneArenaOpacity" type="range" min="0" max="100" step="1" value="100">
+    </label>
+    <p class="sceneQuiet">0% invisible · 100% original. Solo cambia la textura, no el tablero.</p>
+   </section>
    <div class="sceneBottom"><span>450 casillas reservadas para jugar · Coloca decoración FUERA del borde naranja · Arrastrar: mover · Rueda: zoom</span><span id="sceneStatus" role="status">Inicializando…</span></div>
  </section>
  <aside class="scenePanel sceneInspector" aria-label="Objetos y propiedades">
   <h2>Escenario</h2>
   <label class="sceneField">Nombre<input id="sceneName" maxlength="70" value="Templo arcano"></label>
-  <section class="sceneBackgroundPanel" aria-label="Transparencia de la arena">
-   <h3>Arena · transparencia del pavimento</h3>
-   <label class="sceneField" for="sceneArenaOpacity">Opacidad de la textura de la arena <output id="sceneArenaOpacityValue">100%</output>
-    <input id="sceneArenaOpacity" type="range" min="0" max="100" step="1" value="100">
-   </label>
-   <p class="sceneQuiet">0% = textura invisible · 100% = textura original. Ajuste visual inmediato, sin modificar la cuadrícula, los modelos ni las colisiones.</p>
-  </section>
+
   <section class="sceneBackgroundPanel" aria-label="Contenedor de background">
    <h3>Background · recinto gótico</h3>
    <label class="sceneBackgroundEnable"><input id="sceneBackgroundEnabled" type="checkbox" checked> Mostrar recinto envolvente</label>
@@ -102,5 +103,5 @@
   <p class="sceneQuiet">Los cambios afectan únicamente a este escenario. Los GLB originales y el motor de combate permanecen intactos.</p>
  </aside>
 </main>
-<script src="./studio.js"></script><script type="module" src="./scene-editor.js?v=20261104-arena-opacity-1"></script>
+<script src="./studio.js"></script><script type="module" src="./scene-editor.js?v=20261104-arena-select-2"></script>
 </body></html>
