@@ -58,6 +58,18 @@ test('Gothic texture resolver discovers real filename extension and accented cas
  assert.equal(candidates[0],'assets/texturas/Panorama gótica de vitrales zafiro.webp');
  assert.equal(candidates.length>1,true);
 });
+test('Gothic panorama offsets are controllable and persist in scene JSON',()=>{
+ const config=normalizeSceneBackground({textureOffsetX:.25,textureOffsetY:-.35});
+ assert.equal(config.textureOffsetX,.25);
+ assert.equal(config.textureOffsetY,-.35);
+ assert.equal(normalizeSceneBackground({textureOffsetX:3}).textureOffsetX,1);
+ assert.equal(normalizeSceneBackground({textureOffsetY:-3}).textureOffsetY,-1);
+ const bg=createSceneBackground(THREE);
+ bg.setTextureOffset(.4,-.2);
+ assert.equal(bg.config.textureOffsetX,.4);
+ assert.equal(bg.config.textureOffsetY,-.2);
+ bg.dispose();
+});
 test('background custom width always keeps 1:2 ratio and safe height ranges',()=>{
  const c=normalizeSceneBackground({width:100,height:24,archRise:16});
  assert.equal(c.length,200);
@@ -99,6 +111,9 @@ test('editor saves, restores, and tester loads independent background JSON',asyn
  assert.match(html,/id="sceneBackgroundWidth"/);
  assert.match(html,/id="sceneBackgroundArch"/);
  assert.match(html,/id="sceneBackgroundTexture"/);
+ assert.match(html,/id="sceneBackgroundOffsetX"/);
+ assert.match(html,/id="sceneBackgroundOffsetY"/);
+ assert.match(editor,/environment\.setTextureOffset\(x,y\)/);
  assert.match(tester,/background\.build\(normalized\.background\)/);
  assert.match(tester,/background\.show\(false\)/);
 });
