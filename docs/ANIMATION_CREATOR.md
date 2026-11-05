@@ -11,8 +11,9 @@ categoría caster (Chiara, Lioren, Farolera y Arquera, según la biblioteca).
 
 ### Edición de poses
 
-- **IK básica CCD**: brazo izquierdo/derecho (brazo, antebrazo, mano) y pierna
-  izquierda/derecha (muslo, pierna, pie), cuando se reconocen esos huesos.
+- **IK básica CCD**: brazo izquierdo/derecho (brazo, antebrazo, mano), pierna
+  izquierda/derecha (muslo, pierna, pie), cadera/torso y torso/cabeza,
+  cuando se reconocen los huesos de cada cadena.
   Escoge la cadena y desplaza la esfera con los ejes 3D, o introduce XYZ.
   Es una aproximación cinemática, todavía sin límites anatómicos ni pole vectors.
 - **Rotación directa XYZ**: todos los huesos del rig, incluidos cadera, torso,
