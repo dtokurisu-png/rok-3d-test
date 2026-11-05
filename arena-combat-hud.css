@@ -1,0 +1,70 @@
+/* R.O.K. Stage 2 — fight-game arrangement, minimal GPU cost. */
+#rokCombatHud{
+ position:fixed;top:calc(7px + env(safe-area-inset-top,0px));
+ left:50%;transform:translateX(-50%);
+ width:min(850px,93vw);z-index:40;display:grid;
+ grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);
+ gap:0;align-items:start;pointer-events:none;
+ color:#fff;font-family:Roboto,system-ui,sans-serif;
+ text-shadow:0 2px 4px #000d;filter:drop-shadow(0 2px 3px #0008)
+}
+.rokHudSide{min-width:0;display:flex;align-items:flex-start;gap:5px}
+.rokHudSide[data-hud-side="ally"]{flex-direction:row}
+.rokHudSide[data-hud-side="enemy"]{flex-direction:row}
+.rokHudPortrait{
+ flex:0 0 43px;width:43px;height:43px;
+ background:radial-gradient(circle at 50% 35%,#3b8586,#12343b 75%);
+ border:1px solid #74f9e6;border-radius:5px;
+ display:flex;align-items:center;justify-content:center;
+ box-shadow:inset 0 0 12px #00ffe448
+}
+.rokHudPortrait svg{width:85%;height:92%;fill:#c6fff1}
+.rokHudSide[data-hud-side="enemy"] .rokHudPortrait{
+ border-color:#ffa0b6;background:radial-gradient(circle at 50% 35%,#8a4c72,#301c36 75%);
+ box-shadow:inset 0 0 12px #f8558744
+}
+.rokHudSide[data-hud-side="enemy"] .rokHudPortrait svg{fill:#ffc9d5}
+.rokHudBars{flex:1;min-width:0;padding-top:2px;display:flex;flex-direction:column;gap:3px}
+.rokHudName{color:#eafffb;font-size:10px;font-weight:800;letter-spacing:.09em;line-height:11px}
+.rokHudSide[data-hud-side="enemy"] .rokHudName{text-align:right;color:#ffe5ec}
+.rokHudHpTrack{height:12px;border:1px solid #5c8588;border-radius:3px;background:#11242a;
+ display:flex;overflow:hidden}
+.rokHudHpFill{height:100%;width:100%;transition:width .15s linear;
+ background:linear-gradient(180deg,#84ff96,#1abb69);box-shadow:inset 0 -2px 3px #0004}
+.rokHudSide[data-hud-side="ally"] .rokHudHpTrack{justify-content:flex-end}
+.rokHudSide[data-hud-side="enemy"] .rokHudHpTrack{justify-content:flex-start}
+.rokHudSide[data-hud-side="enemy"] .rokHudHpFill{
+ background:linear-gradient(180deg,#ff98a9,#db365c)}
+.rokHudElementRows{display:flex;flex-direction:column;gap:2px}
+.rokHudElementRow{display:flex;align-items:center;gap:3px}
+.rokHudSide[data-hud-side="enemy"] .rokHudElementRow{flex-direction:row-reverse}
+.rokHudElementDot{width:6px;height:6px;flex:0 0 6px;border-radius:50%;box-shadow:0 0 5px #c9fffa}
+.rokHudEnergyTrack{flex:1;min-width:0;height:7px;border-radius:3px;background:#132a31;
+ border:1px solid #587b83;display:flex;overflow:hidden}
+.rokHudSide[data-hud-side="ally"] .rokHudEnergyTrack{justify-content:flex-end}
+.rokHudSide[data-hud-side="enemy"] .rokHudEnergyTrack{justify-content:flex-start}
+.rokHudEnergyFill{height:100%;width:0%;transition:width .18s linear}
+.rokHudCenter{display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+#rokHudClock{font-size:18px;font-weight:900;line-height:22px;letter-spacing:.02em;
+ font-variant-numeric:tabular-nums;color:#fff}
+.rokHudVS{font-size:15px;font-weight:1000;font-style:italic;letter-spacing:.05em;
+ line-height:18px;color:#f3e49c;text-shadow:0 1px 4px #000,0 0 8px #c4a44c66}
+@media(pointer:coarse) and (max-width:950px){
+ #rokCombatHud{
+  top:calc(21px + env(safe-area-inset-top,0px));
+  width:97vw;grid-template-columns:minmax(0,1fr) 53px minmax(0,1fr)
+ }
+ .rokHudSide{gap:3px}
+ .rokHudPortrait{width:29px;height:33px;flex-basis:29px}
+ .rokHudName{font-size:8px;line-height:9px}
+ .rokHudBars{gap:2px}
+ .rokHudHpTrack{height:9px}
+ .rokHudElementRow{gap:2px}
+ .rokHudElementDot{width:5px;height:5px;flex-basis:5px}
+ .rokHudEnergyTrack{height:5px}
+ #rokHudClock{font-size:14px;line-height:18px}
+ .rokHudVS{font-size:13px;line-height:15px}
+}
+@media(pointer:coarse) and (max-width:950px) and (orientation:portrait){
+ #rokCombatHud{display:none}
+}
