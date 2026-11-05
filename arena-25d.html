@@ -4589,7 +4589,8 @@ function summonCardFarolera(caster){
  const direction=caster.side==='ally'?-1:1;
  const x=THREE.MathUtils.clamp(Math.round(caster.outer.position.x),-HALF_W,HALF_W);
  const z=THREE.MathUtils.clamp(
-  Math.round(caster.outer.position.z+direction+HALF_D)-HALF_D,-HALF_D,HALF_D);
+  Math.round(caster.outer.position.z+direction+HALF_D)-HALF_D,
+  caster.side==='enemy'?-HALF_D:.5,caster.side==='enemy'?-.5:HALF_D);
  const c=createFighter(prototype.scene,prototype.idle,caster.side,'mana');
  c.startX=x;c.startZ=z;c.endZ=z;
  c.model.userData.baseScale=c.model.scale.x;
