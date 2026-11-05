@@ -1,6 +1,7 @@
-/* R.O.K. Arena 2.5D — stage 2, visual-only segmented HUD.
-   Health uses real caster HP. Element reservoirs accept fractional units;
-   the resource economy can feed these values when implemented.
+/* R.O.K. Arena 2.5D — Stage 3: elemental time regeneration.
+   One fragment per second per player, four fragments per full unit.
+   Regeneration finishes one unit before continuing to the next element.
+   Cards, orbs and death fragments are reserved for subsequent stages.
  */
 export function createArenaCombatHud(){
  const el=document.getElementById('rokCombatHud');
@@ -12,8 +13,8 @@ export function createArenaCombatHud(){
   wind:{label:'Viento',color:'#8cda91'}
  };
  const sides={
-  ally:{root:el.querySelector('[data-hud-side="ally"]'),levels:['water'],hpMax:0,elementAmounts:{}},
-  enemy:{root:el.querySelector('[data-hud-side="enemy"]'),levels:['water'],hpMax:0,elementAmounts:{}}
+  ally:{root:el.querySelector('[data-hud-side="ally"]'),levels:['water'],hpMax:0,elementAmounts:{},fragmentClock:0,nextElement:0},
+  enemy:{root:el.querySelector('[data-hud-side="enemy"]'),levels:['water'],hpMax:0,elementAmounts:{},fragmentClock:0,nextElement:0}
  };
  const TOTAL=30;
  let seconds=0,refreshLeft=0;
@@ -35,6 +36,7 @@ export function createArenaCombatHud(){
   const ids=[...new Set((Array.isArray(selected)?selected:['water']).filter(id=>Object.hasOwn(palette,id)))].slice(0,3);
   player.levels=ids.length?ids:['water'];
   player.elementAmounts=Object.fromEntries(player.levels.map(id=>[id,0]));
+  player.fragmentClock=0;player.nextElement=0;
   const row=player.root.querySelector('.rokHudElementRows');
   row.replaceChildren();
   row.classList.add('rokHudElementRow');
@@ -50,7 +52,7 @@ export function createArenaCombatHud(){
   for(const id of displayOrder){
    const segment=make('div','rokHudElementSegment');
    segment.style.setProperty('--element-color',palette[id].color);
-   segment.title=palette[id].label+': 0/'+capacity+' unidades (fase visual)';
+   segment.title=palette[id].label+': 0/'+capacity+' unidades';
    for(let i=0;i<capacity;i++){
     const cell=make('span','rokHudElementCell');
     cell.dataset.element=id;
@@ -79,7 +81,7 @@ export function createArenaCombatHud(){
    const segment=[...track.children].find(node=>node.style.getPropertyValue('--element-color')===palette[id].color);
    if(!segment)continue;
    const cells=[...segment.querySelectorAll('.rokHudElementCell')];
-   // Ally fills from the portrait outward; enemy from portrait outward too.
+   // Fill toward the portrait on the ally and outward on the enemy.
    const visual=side==='ally'?[...cells].reverse():cells;
    visual.forEach((cell,index)=>{
     const portion=Math.max(0,Math.min(1,amount-index));
@@ -134,12 +136,46 @@ export function createArenaCombatHud(){
    player.root.querySelector('.rokHudHpTrack').title='Vida '+hp+' / '+max;
   }
  }
- function reset(){seconds=0;refreshLeft=0;
-  for(const side of ['ally','enemy'])setElements(side,{});
+ // A single global fragment stream for each player, not one stream per element.
+ // Every 4 ticks completes exactly one elemental unit.
+ function regenerateFragment(side){
+  const player=sides[side],capacity=TOTAL/player.levels.length;
+  let chosen=-1;
+  for(let n=0;n<player.levels.length;n++){
+   const index=(player.nextElement+n)%player.levels.length;
+   if((player.elementAmounts[player.levels[index]]||0)<capacity-1e-8){chosen=index;break;}
+  }
+  if(chosen<0)return false; // All selected elemental reservoirs are full.
+  const id=player.levels[chosen];
+  const current=player.elementAmounts[id]||0;
+  // Values are integral quarters; avoid floating-point drift over long fights.
+  const fragments=Math.round(current*4);
+  const next=Math.min(capacity,(fragments+1)/4);
+  player.elementAmounts[id]=next;
+  if(Math.round(next*4)%4===0 || next===capacity){
+   player.nextElement=(chosen+1)%player.levels.length;
+  }else player.nextElement=chosen;
+  paintElements(side);
+  return true;
+ }
+ function reset(){
+  seconds=0;refreshLeft=0;
+  for(const side of ['ally','enemy']){
+   sides[side].fragmentClock=0;sides[side].nextElement=0;
+   setElements(side,{});
+  }
  }
  function advance(dt,casters){
   if(!Number.isFinite(dt)||dt<=0)return;
   seconds+=dt;refreshLeft-=dt;
+  for(const side of ['ally','enemy']){
+   const player=sides[side];
+   player.fragmentClock+=dt;
+   while(player.fragmentClock>=1){
+    player.fragmentClock-=1;
+    regenerateFragment(side);
+   }
+  }
   if(refreshLeft<=0){refreshLeft=.12;draw(casters);}
  }
  configure('ally',['water']);configure('enemy',['water']);
