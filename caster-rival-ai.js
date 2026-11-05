@@ -1,5 +1,5 @@
 /* R.O.K. 3D — Rival caster decision module v0.1
- * Priority: elemental pickup > tactical summoning > defense > direct attack.
+ * Priority: safe-feasible elemental pickup > retreat into own half > tactical summons > combat.
  * Works through adapter callbacks; does not own Three.js, cards or models.
  * All distances measured in board world units.
  */
@@ -11,13 +11,14 @@ export function createRivalCasterAI({
 }){
  const cfg={
   pickupRadius:3.65,interceptRange:4.1,threatRange:5.1,
-  idealPressureZ:2.4,attackRange:3,castCooldown:.65,
+  idealPressureZ:-.85,attackRange:3,castCooldown:1.1,
+  territorialGrace:2.65,returnMargin:.35,minimumSurvivalHp:2,
   attackCooldown:1.1,guardDuration:.5,decisionInterval:.15,
   ...settings
  };
  const state={mode:'collect',target:null,elapsed:0,decision:0,
   castCooldown:0,attackCooldown:0,guardLeft:0,castLeft:0,castTarget:null,
-  castDone:false,casting:false,castDefensive:false,records:{collectedAttempts:0,casts:0,attacks:0}};
+  castDone:false,casting:false,castDefensive:false,incursion:false,records:{collectedAttempts:0,casts:0,attacks:0}};
  const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
  const current=()=>getCaster?.();
@@ -25,7 +26,7 @@ export function createRivalCasterAI({
   state.mode='collect';state.target=null;state.elapsed=0;state.decision=0;
   state.castCooldown=0;state.attackCooldown=0;state.guardLeft=0;
   state.castLeft=0;state.castTarget=null;state.castDone=false;state.casting=false;
-  state.castDefensive=false;
+  state.castDefensive=false;state.incursion=false;
   guard?.(false);
  }
  function nearest(from,items){
@@ -52,6 +53,7 @@ export function createRivalCasterAI({
  }
  function startCast(c,position,defensive){
   if(state.casting||state.castCooldown>0||!canCast?.(c))return false;
+  if(c.outer.position.z>=0||position.z>=0)return false;
   const duration=.5;
   if(!cast?.(c,{position,defensive,duration}))return false;
   state.mode=defensive?'intercept':'pressure';
@@ -60,6 +62,25 @@ export function createRivalCasterAI({
   state.castCooldown=cfg.castCooldown;
   state.records.casts++;
   return true;
+ }
+ // Orbs magnetize at about four units. Enter hostile ground only if the
+ // caster can reach pickup range AND return before territorial damage, or
+ // survive the estimated environmental ticks with a strict HP reserve.
+ function feasibleOrb(c,orb){
+  const pos=c.outer.position,point=orb.position;
+  if(point.z<=0)return true;
+  const magnet=Math.max(.5,cfg.pickupRadius);
+  const requiredZ=Math.max(0,point.z-magnet);
+  if(requiredZ<=.02)return true; // Collectible at the border.
+  const speed=Math.max(.1,c.moveSpeed||3.8);
+  const reach=distance(pos,point);
+  const toPickup=Math.max(0,(reach-magnet)/speed);
+  const returnSeconds=(requiredZ+cfg.returnMargin)/speed;
+  const exposed=pos.z>0?toPickup+returnSeconds:Math.max(0,requiredZ/speed)+returnSeconds;
+  const graceRemaining=Math.max(0,cfg.territorialGrace-(c.hostileZoneSeconds||0));
+  const excess=Math.max(0,exposed-graceRemaining);
+  const estimatedHits=excess>0?1+Math.floor(excess/2):0;
+  return c.hp-estimatedHits>cfg.minimumSurvivalHp;
  }
  function step(dt){
   const c=current();
@@ -85,26 +106,42 @@ export function createRivalCasterAI({
    return;
   }
   const pos=c.outer.position;
-  const orbs=nearest(pos,getOrbs?.());
+  // Home-side pickups beat invading the player's half, even if farther.
+  const visibleOrbs=(getOrbs?.()||[]).filter(orb=>orb?.position&&feasibleOrb(c,orb));
+  const homeOrbs=visibleOrbs.filter(orb=>orb.position.z<=0);
+  const orbs=nearest(pos,homeOrbs.length?homeOrbs:visibleOrbs);
   const opponents=getEnemies?.()||[];
   const nearby=nearest(pos,opponents);
   const incoming=(getThreats?.(c)||[]).filter(t=>t?.position&&
    distance(pos,t.position)<=cfg.threatRange);
   const atRisk=incoming.length>0||nearby.distance<cfg.interceptRange;
-  // Highest priority: seek and take the orb even at risk. Defense is
-  // nonexclusive and never prevents movement toward the resource.
-  if(orbs.item){
+  // Enter enemy territory ONLY for a feasible orb. Once magnetized or
+  // collected, immediately return to the enemy half of the arena.
+  const canPursue=orbs.item&&(!(pos.z>0)||feasibleOrb(c,orbs.item));
+  if(pos.z>0&&!canPursue){
+   state.mode='retreat';state.incursion=false;state.target=null;
+   advanceToward(c,{x:Math.max(-bounds.x,Math.min(bounds.x,pos.x)),z:-.55},dt,1);
+   return;
+  }
+  // Pickup still outranks defense and offense, except when the incursion
+  // would be lethal or would overrun the battlefield grace period.
+  if(canPursue){
    state.mode='collect';
    state.target=orbs.item.id??null;
    if(incoming.length&&state.guardLeft<=0){
     guard?.(true);state.guardLeft=cfg.guardDuration;
    }
-   if(orbs.distance>.65)advanceToward(c,orbs.item.position,dt,1);
+   const target=orbs.item.position;
+   const safeCollectPosition={x:target.x,z:Math.min(target.z,
+    Math.max(-bounds.z,target.z-cfg.pickupRadius+.25))};
+   state.incursion=safeCollectPosition.z>0;
+   if(distance(pos,target)>cfg.pickupRadius-.3)
+    advanceToward(c,safeCollectPosition,dt,1);
    else animate?.(c,'idle');
    state.records.collectedAttempts++;
    return;
   }
-  state.target=null;
+  state.target=null;state.incursion=false;
   const amount=Math.max(0,Number(getResourceState?.(c)?.available)||0);
   // Defensive invocation intercepts a rushing unit; only when not
   // contesting an elemental orb.
@@ -117,7 +154,7 @@ export function createRivalCasterAI({
   // Offensive summon: approach the player half of the map, but never
   // enter hostile territory solely to reach the ideal cast point.
   const objective={x:clamp(nearby.item?.position.x??0,-bounds.x,bounds.x),
-   z:cfg.idealPressureZ};
+   z:Math.min(-.15,cfg.idealPressureZ)};
   if(amount>=1){
    if(pos.z<cfg.idealPressureZ-0.8&&!atRisk){
     state.mode='advance';advanceToward(c,objective,dt);return;
