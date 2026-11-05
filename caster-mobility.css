@@ -124,3 +124,19 @@
   white-space:nowrap!important;pointer-events:none!important;
  }
 }
+
+/* Arena v0.9.108: distinct fullscreen button and unobstructed settings exit */
+@media(pointer:coarse) and (max-width:950px){
+ #mobaFullscreenButton{
+  position:fixed;right:calc(59px + env(safe-area-inset-right,0px));
+  top:calc(6px + env(safe-area-inset-top,0px));z-index:48;
+  width:41px;height:41px;border:1px solid #6ec5cb;border-radius:10px;
+  background:#091d29ed;color:#fff;font-size:21px;
+ }
+ .mobaSettingsCard{position:relative;max-height:75dvh;padding:12px;width:min(460px,90vw)}
+ #mobaCloseSettings{float:right;min-height:30px;padding:4px 9px;
+  border:1px solid #00ffe4;background:#17424c;color:#fff;border-radius:7px}
+ .mobaSettingsActions{flex-wrap:wrap}
+ .mobaSettingsActions button{min-width:105px}
+ #mobaSpellbookSize{width:100%;accent-color:#00ffdf}
+}
