@@ -84,6 +84,12 @@
   <section id="sceneTransform" hidden>
    <h3>Transformación</h3><p class="sceneQuiet">Con varios objetos seleccionados, los cambios de posición, rotación y escala se aplican al conjunto; la duplicación crea copias de todos.</p>
    <label class="sceneField">Nombre<input id="sceneObjectName" maxlength="70"></label>
+   <section class="sceneBackgroundPanel" id="sceneSourcePanel" aria-label="Fuentes elementales">
+    <h3>💧 Fuentes elementales (máximo 2)</h3>
+    <p class="sceneQuiet">Selecciona un modelo ya colocado y asígnalo a un jugador. Conservará su modelo, posición y efectos; el nombre quedará fijo y viajará en el JSON.</p>
+    <div class="sceneTools"><button type="button" id="sceneSource1">Fuente Jugador 1</button><button type="button" id="sceneSource2">Fuente de Jugador 2</button><button type="button" id="sceneSourceClear">Quitar asignación</button></div>
+    <p class="sceneQuiet" id="sceneSourceStatus" role="status">Selecciona un objeto.</p>
+   </section>
    <div class="sceneRow"><label class="sceneField">X<input id="scenePosX" type="number" min="-1000" max="1000" step=".1"></label><label class="sceneField">Y<input id="scenePosY" type="number" min="-10" max="20" step=".1"></label><label class="sceneField">Z<input id="scenePosZ" type="number" min="-1000" max="1000" step=".1"></label></div>
    <label class="sceneField">Rotación Y (grados)<input id="sceneRotation" type="number" min="-3600" max="3600" step="5"></label>
    <label class="sceneField">Escala uniforme <output id="sceneScaleValue">1.00</output><input id="sceneScale" type="range" min=".05" max="20" value="1" step=".05"></label>
