@@ -401,7 +401,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.112</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.113</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -490,7 +490,22 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  <button id="mobaDefend" class="mobaAction" type="button" aria-label="Mantener para defender">◆<span style="display:block;font-size:10px">DEFENSA</span></button>
  <button id="mobaSettingsButton" type="button" aria-label="Configurar controles y pausar" title="Ajustes">⚙</button>
 
- <div id="mobaAdjustIndicator">Arrastra los controles. Pulsa ⚙ para terminar.</div>
+ <div id="mobaAdjustIndicator">Selecciona un control para editarlo y arrástralo.</div>
+ <div id="mobaControlEditor" hidden>
+  <strong>Editar controles</strong>
+  <label for="mobaEditSelect">Control</label>
+  <select id="mobaEditSelect">
+   <option value="joystick">Joystick</option><option value="attack">Atacar</option>
+   <option value="defend">Defensa</option><option value="spellbook1">Grimorio 1</option>
+   <option value="spellbook2">Grimorio 2</option><option value="spellbook3">Grimorio 3</option>
+   <option value="settings">Configuración ⚙</option>
+  </select>
+  <label for="mobaEditSize">Tamaño <output id="mobaEditSizeValue">100%</output></label>
+  <input id="mobaEditSize" type="range" min="55" max="160" step="5" value="100">
+  <label for="mobaEditOpacity">Opacidad <output id="mobaEditOpacityValue">40%</output></label>
+  <input id="mobaEditOpacity" type="range" min="10" max="100" step="5" value="40">
+  <button id="mobaFinishEditing" type="button">✓ Guardar y terminar</button>
+ </div>
  
 </div>
 <div id="mobileMobaSettings" role="dialog" aria-modal="true" aria-label="Ajustes de controles móviles" data-open="false">
@@ -4549,7 +4564,7 @@ function setupMobileMobaControls(){
  const editNotice=qs('#mobaAdjustIndicator');
  const book=qs('#rokSpellbook');
  const pageButtons=[...book.querySelectorAll('.rokSpellbookPageKey')];
- const elements={joystick:joy,attack,defend,spellbook1:pageButtons[0],spellbook2:pageButtons[1],spellbook3:pageButtons[2]};
+ const elements={joystick:joy,attack,defend,spellbook1:pageButtons[0],spellbook2:pageButtons[1],spellbook3:pageButtons[2],settings};
  // Initialize media queries before evaluating default positions.
  const mobileQuery=window.matchMedia('(pointer:coarse) and (max-width:950px)');
  const portraitQuery=window.matchMedia('(orientation:portrait)');
@@ -4559,12 +4574,13 @@ function setupMobileMobaControls(){
  const defaults={joystick:{left:23,bottom:18},
   attack:{right:spellbookReservedWidth()+22,bottom:24},
   defend:{right:spellbookReservedWidth()+106,bottom:24},
-  spellbook1:{right:107,bottom:8},spellbook2:{right:57,bottom:8},spellbook3:{right:7,bottom:8}};
+  spellbook1:{right:107,bottom:8},spellbook2:{right:57,bottom:8},spellbook3:{right:7,bottom:8},
+  settings:{right:8,bottom:61}};
  const defaultPosition=key=>{
   const d=defaults[key];
   // During portrait lock the control layer is hidden (offsetWidth=0).
   // Use known touch-target sizes to preserve the correct landscape layout.
-  const width=key==='joystick'?120:key==='defend'?60:key.startsWith('spellbook')?43:76;
+  const width=key==='joystick'?120:key==='defend'?60:key.startsWith('spellbook')?43:key==='settings'?31:76;
   return {left:d.left??Math.max(8,innerWidth-(d.right??8)-width),
     bottom:d.bottom};
  };
@@ -4577,10 +4593,49 @@ function setupMobileMobaControls(){
  const layoutStatus=qs('#mobaLayoutStatus');
  const sceneStatus=qs('#mobaSceneStatus');
  const sceneFile=qs('#mobaSceneFile');
+ const editPanel=qs('#mobaControlEditor'),editSelect=qs('#mobaEditSelect');
+ const sizeInput=qs('#mobaEditSize'),opacityInput=qs('#mobaEditOpacity');
+ const sizeValue=qs('#mobaEditSizeValue'),opacityValue=qs('#mobaEditOpacityValue');
+ const styleDefaults={joystick:{size:100,opacity:100},attack:{size:100,opacity:40},
+  defend:{size:100,opacity:40},spellbook1:{size:100,opacity:40},
+  spellbook2:{size:100,opacity:40},spellbook3:{size:100,opacity:40},
+  settings:{size:100,opacity:65}};
+ const styles=Object.fromEntries(Object.entries(styleDefaults).map(([k,v])=>[k,{...v}]));
+ const baseSize=key=>key==='joystick'?120:key==='defend'?60:
+  key.startsWith('spellbook')?43:key==='settings'?31:76;
+ const scaledSize=key=>baseSize(key)*styles[key].size/100;
+ let selectedControl='joystick';
+ const applyControlStyle=key=>{
+  const el=elements[key],size=scaledSize(key);
+  el.style.setProperty('width',size+'px','important');
+  el.style.setProperty('height',size+'px','important');
+  el.style.setProperty('opacity',String(styles[key].opacity/100),'important');
+ };
+ const refreshStyleInputs=()=>{
+  editSelect.value=selectedControl;
+  sizeInput.value=String(styles[selectedControl].size);
+  opacityInput.value=String(styles[selectedControl].opacity);
+  sizeValue.textContent=styles[selectedControl].size+'%';
+  opacityValue.textContent=styles[selectedControl].opacity+'%';
+  for(const [key,el] of Object.entries(elements))el.dataset.layoutSelected=String(key===selectedControl&&editing);
+ };
+ const selectControl=key=>{if(!elements[key])return;selectedControl=key;refreshStyleInputs();};
+ const changeControlStyle=(property,value)=>{
+  const key=selectedControl;
+  styles[key][property]=THREE.MathUtils.clamp(Number(value)||100,
+   property==='size'?55:10,property==='size'?160:100);
+  applyControlStyle(key);
+  const prior=offsets[key]||defaultPosition(key);
+  applyPosition(key,prior);
+  refreshStyleInputs();saveLayout();
+ };
+ editSelect.addEventListener('change',event=>selectControl(event.target.value));
+ sizeInput.addEventListener('input',event=>changeControlStyle('size',event.target.value));
+ opacityInput.addEventListener('input',event=>changeControlStyle('opacity',event.target.value));
  const normalizeLayout=()=>Object.fromEntries(Object.entries(elements).map(([key,el])=>{
   const p=offsets[key]||defaultPosition(key);
-  const w=Math.max(1,innerWidth-(el.offsetWidth||(key==='joystick'?120:key==='defend'?60:key.startsWith('spellbook')?43:76)));
-  const h=Math.max(1,innerHeight-(el.offsetHeight||(key==='joystick'?120:key==='defend'?60:key.startsWith('spellbook')?43:76)));
+  const w=Math.max(1,innerWidth-scaledSize(key));
+  const h=Math.max(1,innerHeight-scaledSize(key));
   return [key,{x:p.left/w,y:p.bottom/h}];
  }));
  const migrateLegacyLayout=layout=>{
@@ -4605,14 +4660,17 @@ function setupMobileMobaControls(){
  };
  const clampPosition=(key,left,bottom)=>{
   const el=elements[key];
-  const width=el.offsetWidth||(key==='joystick'?120:key==='defend'?60:key.startsWith('spellbook')?43:76);
-  const height=el.offsetHeight||(key==='joystick'?120:key==='defend'?60:key.startsWith('spellbook')?43:76);
+  const width=scaledSize(key);
+  const height=scaledSize(key);
   return {left:THREE.MathUtils.clamp(left,5,Math.max(5,innerWidth-width-5)),
    bottom:THREE.MathUtils.clamp(bottom,5,Math.max(5,innerHeight-height-5))};
  };
  const applyPosition=(key,pos)=>{
   const el=elements[key],p=clampPosition(key,pos.left,pos.bottom);
-  offsets[key]=p;el.style.left=p.left+'px';el.style.bottom=p.bottom+'px';el.style.right='auto';
+  offsets[key]=p;el.style.setProperty('left',p.left+'px','important');
+  el.style.setProperty('bottom',p.bottom+'px','important');
+  el.style.setProperty('right','auto','important');
+  el.style.setProperty('top','auto','important');
  };
  const saveLayout=()=>{
   // Never overwrite saved LANDSCAPE coordinates when the device is portrait.
@@ -4621,13 +4679,19 @@ function setupMobileMobaControls(){
   customizedLayout=true;pendingLandscapeSaved=layout;
   try{
    localStorage.setItem('rokMobileMobaLayoutV2',JSON.stringify(layout));
+   localStorage.setItem('rokMobileMobaStylesV1',JSON.stringify(styles));
    layoutStatus.textContent='✓ Controles guardados en este dispositivo';
   }catch(error){layoutStatus.textContent='No se pudo guardar: '+error.message;}
  };
  function resetLayout(){
   customizedLayout=false;pendingLandscapeSaved=null;
-  for(const key of Object.keys(elements))applyPosition(key,defaultPosition(key));
+  for(const key of Object.keys(elements)){
+   styles[key]={...styleDefaults[key]};applyControlStyle(key);
+   applyPosition(key,defaultPosition(key));
+  }
+  refreshStyleInputs();
   try{
+   localStorage.removeItem('rokMobileMobaStylesV1');
    localStorage.removeItem('rokMobileMobaLayoutV2');
    localStorage.removeItem('rokMobileMobaLayoutV1');
   }catch{}
@@ -4636,6 +4700,14 @@ function setupMobileMobaControls(){
  function loadLayout(){
   let saved=null;
   try{
+   const savedStyles=JSON.parse(localStorage.getItem('rokMobileMobaStylesV1')||'null');
+   for(const key of Object.keys(elements)){
+    const data=savedStyles?.[key];
+    if(data){
+     if(Number.isFinite(data.size))styles[key].size=THREE.MathUtils.clamp(data.size,55,160);
+     if(Number.isFinite(data.opacity))styles[key].opacity=THREE.MathUtils.clamp(data.opacity,10,100);
+    }
+   }
    saved=migrateLegacyLayout(JSON.parse(localStorage.getItem('rokMobileMobaLayoutV2')||'null'));
    if(!saved){
     const legacy=JSON.parse(localStorage.getItem('rokMobileMobaLayoutV1')||'null');
@@ -4652,6 +4724,8 @@ function setupMobileMobaControls(){
   customizedLayout=!!saved&&Object.keys(elements).every(key=>
     Number.isFinite(saved[key]?.x)&&Number.isFinite(saved[key]?.y));
   pendingLandscapeSaved=customizedLayout?saved:null;
+  for(const key of Object.keys(elements))applyControlStyle(key);
+  refreshStyleInputs();
   for(const key of Object.keys(elements))applyPosition(key,defaultPosition(key));
   if(customizedLayout&&!portraitQuery.matches)applyNormalizedLayout(pendingLandscapeSaved);
   // Preserve custom layouts unless an action button overlaps the book.
@@ -4674,6 +4748,7 @@ function setupMobileMobaControls(){
  function stopEdit(){
   const wasEditing=editing;
   editing=false;document.body.classList.remove('mobaLayoutEditing');editNotice.dataset.visible='false';
+  editPanel.hidden=true;refreshStyleInputs();
   releaseInputs();
   if(wasEditing)saveLayout();
  }
@@ -4693,7 +4768,8 @@ function setupMobileMobaControls(){
  }
  settings.addEventListener('click',e=>{
   e.preventDefault();
-  if(editing)openSettings();else if(opened)resume();else openSettings();
+  if(editing)return;
+  if(opened)resume();else openSettings();
  });
  qs('#mobaResume').addEventListener('click',resume);
  qs('#mobaCloseSettings').addEventListener('click',resume);
@@ -4719,7 +4795,15 @@ function setupMobileMobaControls(){
   fsButton.setAttribute('aria-label',document.fullscreenElement?'Salir de pantalla completa':'Pantalla completa');
  });
  qs('#mobaReposition').addEventListener('click',()=>{
-  editing=true;document.body.classList.add('mobaLayoutEditing');dialog.dataset.open='false';editNotice.dataset.visible='true';
+  editing=true;document.body.classList.add('mobaLayoutEditing');dialog.dataset.open='false';
+  editNotice.dataset.visible='true';editPanel.hidden=false;
+  selectControl(selectedControl);
+ });
+ qs('#mobaFinishEditing').addEventListener('click',()=>{
+  stopEdit();opened=false;dialog.dataset.open='false';
+  if(mobileQuery.matches&&!portraitQuery.matches){
+   playing=restorePlaying;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';
+  }
  });
  qs('#mobaResetLayout').addEventListener('click',resetLayout);
  qs('#mobaSaveLayout').addEventListener('click',saveLayout);
@@ -4727,7 +4811,8 @@ function setupMobileMobaControls(){
   if(portraitQuery.matches){layoutStatus.textContent='Gira el móvil a horizontal para exportar la distribución';return;}
   saveLayout();
   const payload={schema:'ROK_MOBILE_HUD_LAYOUT',version:1,mode:'landscape',
-   reference:{width:innerWidth,height:innerHeight},positions:normalizeLayout()};
+   reference:{width:innerWidth,height:innerHeight},positions:normalizeLayout(),
+   controls:Object.fromEntries(Object.entries(styles).map(([k,v])=>[k,{...v}]))};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download='rok-arena-hud-movil.json';document.body.append(a);a.click();a.remove();
@@ -4750,8 +4835,19 @@ function setupMobileMobaControls(){
       positions[k].x>=0&&positions[k].x<=1&&
       positions[k].y>=0&&positions[k].y<=1))
     throw Error('Coordenadas inválidas');
+   if(data.controls){
+    for(const key of Object.keys(elements)){
+     const spec=data.controls[key];
+     if(!spec)continue;
+     if(Number.isFinite(spec.size))styles[key].size=THREE.MathUtils.clamp(spec.size,55,160);
+     if(Number.isFinite(spec.opacity))styles[key].opacity=THREE.MathUtils.clamp(spec.opacity,10,100);
+     applyControlStyle(key);
+    }
+    localStorage.setItem('rokMobileMobaStylesV1',JSON.stringify(styles));
+   }
    customizedLayout=true;pendingLandscapeSaved=positions;
    if(!portraitQuery.matches)applyNormalizedLayout(positions);
+   refreshStyleInputs();
    localStorage.setItem('rokMobileMobaLayoutV2',JSON.stringify(positions));
    layoutStatus.textContent='✓ Distribución importada y guardada';
   }catch(error){layoutStatus.textContent='No se pudo importar: '+error.message;}
@@ -4792,15 +4888,15 @@ function setupMobileMobaControls(){
  }
  let drag=null;
  for(const [key,el] of Object.entries(elements)){
-  if(key.startsWith('spellbook'))el.addEventListener('click',event=>{
+  if(key.startsWith('spellbook')||key==='settings')el.addEventListener('click',event=>{
    if(editing){event.preventDefault();event.stopImmediatePropagation();}
   },true);
   el.addEventListener('pointerdown',event=>{
    if(!mobileQuery.matches)return;
    // Allow native button clicks without interfering with the active joystick pointer.
-   if(key.startsWith('spellbook')&&!editing)return;
+   if((key.startsWith('spellbook')||key==='settings')&&!editing)return;
    event.preventDefault();el.setPointerCapture?.(event.pointerId);
-   if(editing){drag={key,pointer:event.pointerId,...dragStart(key,event)};return;}
+   if(editing){selectControl(key);drag={key,pointer:event.pointerId,...dragStart(key,event)};return;}
    if(opened||portraitPaused)return;
    if(key==='joystick'){
     joyPointer=event.pointerId;joystickMove(event);
