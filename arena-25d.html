@@ -264,8 +264,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.92 · Indicador de orbe al doble</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.92</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.93 · Territorios y daño de invasión</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.93</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -723,6 +723,20 @@ const coordinateLayer=new THREE.Mesh(new THREE.PlaneGeometry(W,D),
 coordinateLayer.rotation.x=-Math.PI/2;coordinateLayer.position.y=.105;
 coordinateLayer.renderOrder=9;coordinateLayer.visible=false;
 root.add(coordinateLayer);
+// Phase 1: subtle red field warning. Each half is a visual-only translucent
+// layer; no collision, cell changes or effect on model/scenery textures.
+const hostileZoneGeometry=new THREE.PlaneGeometry(W,D/2);
+const hostileZoneGlow={};
+for(const side of ['ally','enemy']){
+ const material=new THREE.MeshBasicMaterial({color:0xd9273d,transparent:true,
+  opacity:0,depthWrite:false,depthTest:true,side:THREE.DoubleSide,toneMapped:false});
+ const patch=new THREE.Mesh(hostileZoneGeometry,material);
+ patch.rotation.x=-Math.PI/2;
+ patch.position.set(0,.112,side==='ally'?D/4:-D/4);
+ patch.renderOrder=10;
+ root.add(patch);
+ hostileZoneGlow[side]=patch;
+}
 qs('#arenaCoordinatesToggle').addEventListener('change',e=>{
  coordinateLayer.visible=e.target.checked;
 });
@@ -1627,6 +1641,7 @@ function resetCaster(c){
   clearEmbeddedArrows(c);
   casterLayers.reset(c);
   c.hp=12;c.maxHp=12;c.stage='active';c.deathAnimationActive=false;c.manualDefending=false;c.model.visible=true;
+  c.hostileZoneSeconds=0;c.hostileZoneGlow=0;
   c.outer.position.set(0,0,c.startZ);
   c.outer.rotation.y=c.side==='ally'?Math.PI:0;
   c.model.position.y=c.model.userData.baseY||0;
@@ -3199,14 +3214,14 @@ function playCasterDeath(target){
  action.clampWhenFinished=true;action.play();
  target.deathAnimationActive=true;
 }
-function damage(target,value,source,{committed=false}={}){
+function damage(target,value,source,{committed=false,environment=false}={}){
   // La validez del duelo quedó fijada al lanzar el proyectil.
   // Incluso si un caster ya cayó, los tiros que estaban en vuelo se resuelven.
   if((matchRestartLeft!==null&&!committed)||!canDamageTarget(target)||
      (!committed&&!canAttackSummonTarget(source,target)))return false;
   if(target.role==='caster'){
     // Temporary Shift guard blocks damage while held; animation composition 23 is pending.
-    if(target.manualDefending&&target.stage==='active'){
+    if(!environment&&target.manualDefending&&target.stage==='active'){
       const el=qs('#casterMoveStatus');
       if(el&&casterMovement?.caster===target){
         el.textContent='◆ Defensa · golpe bloqueado';
@@ -3593,6 +3608,44 @@ function updateCasterThreatIndicators(){
   node.style.display='block';
  }
 }
+// Territorial pressure: crossing z=0 is legal, but after one full second
+// beyond the boundary the invader receives 1 HP/s until they return home.
+// Applies symmetrically to both casters, bypassing manual Shift guard.
+function updateHostileTerritories(dt){
+ const active=loaded&&playing&&matchGate.isRunning&&!casterReview.active;
+ for(const caster of casters){
+  if(!caster.outer)continue;
+  const z=caster.outer.position.z;
+  const hostileDepth=caster.side==='ally'?Math.max(0,-z):Math.max(0,z);
+  const distanceToBorder=caster.side==='ally'?z:-z;
+  if(!active||caster.stage!=='active'){
+   if(caster.stage!=='active')caster.hostileZoneSeconds=0;
+   caster.hostileZoneGlow=0;
+   continue;
+  }
+  if(hostileDepth>0){
+   caster.hostileZoneSeconds=(caster.hostileZoneSeconds||0)+dt;
+   // Do not damage during the initial one-second grace period.
+   if(caster.hostileZoneSeconds>=1){
+    const hits=Math.floor(caster.hostileZoneSeconds);
+    caster.hostileZoneSeconds-=hits;
+    for(let i=0;i<hits&&caster.stage==='active';i++)
+     damage(caster,1,caster,{committed:true,environment:true});
+   }
+  }else caster.hostileZoneSeconds=0;
+  // The nearer/deeper in hostile territory, the clearer the red warning.
+  const targetTint=hostileDepth>0?
+   Math.min(.18,.075+hostileDepth*.014):
+   Math.max(0,.052*(1-Math.max(0,distanceToBorder)/4));
+  caster.hostileZoneGlow=THREE.MathUtils.damp(caster.hostileZoneGlow||0,targetTint,6,dt);
+ }
+ // Red is applied only to the territory HOSTILE to the approaching caster.
+ const ally=casters.find(c=>c.side==='ally');
+ const enemy=casters.find(c=>c.side==='enemy');
+ hostileZoneGlow.enemy.material.opacity=active?(ally?.hostileZoneGlow||0):0;
+ hostileZoneGlow.ally.material.opacity=active?(enemy?.hostileZoneGlow||0):0;
+}
+
 function updateDuel(dt){
   if(matchRestartLeft!==null){
     // Un caster derrotado no anula proyectiles que YA habían salido.
@@ -4341,6 +4394,7 @@ function loop(now){
     else casterRangeIndicator.hide(c);
    }
   }
+  updateHostileTerritories(dt);
   if(loaded&&playing&&matchGate.isRunning)for(const c of casters)
     if(c.stage==='defeated'&&c.deathAnimationActive)c.mixer.update(dt);
   if(casterReview.active&&casterReview.previousCaster)casterReview.previousCaster.mixer.update(dt);
