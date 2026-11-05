@@ -201,6 +201,35 @@ showBackgroundFields(environment.config);
 const pointer=new THREE.Vector2(),raycaster=new THREE.Raycaster(),groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const hitPoint=new THREE.Vector3();
 const modelCatalog=new Map(),cache=new Map(),compositions=new Map();
+const ELEMENT_SOURCE_NAMES={1:'Fuente Jugador 1',2:'Fuente de Jugador 2'};
+const sourcePlayer=raw=>Number(raw)===1?1:Number(raw)===2?2:null;
+const sourceName=player=>ELEMENT_SOURCE_NAMES[player]||'';
+function sourceOwner(player,except=null){return objects.find(o=>o!==except&&o.elementSourcePlayer===player)||null;}
+function refreshSourceControls(){
+ const chosen=selection?.elementSourcePlayer;
+ $('sceneSourceStatus').textContent='Jugador 1: '+(sourceOwner(1)?'Asignada':'Libre')+
+  ' · Jugador 2: '+(sourceOwner(2)?'Asignada':'Libre')+
+  (chosen?' · Seleccionada: '+sourceName(chosen):'');
+ for(const player of [1,2]){
+  const btn=$('sceneSource'+player);
+  btn.disabled=!selection||selectedIds.size!==1||!!sourceOwner(player,selection);
+  btn.setAttribute('aria-pressed',String(chosen===player));
+ }
+ $('sceneSourceClear').disabled=!chosen||selectedIds.size!==1;
+}
+for(const player of [1,2])$('sceneSource'+player).addEventListener('click',()=>{
+ if(!selection||selectedIds.size!==1||sourceOwner(player,selection))return;
+ const before=objectSnapshot();
+ selection.elementSourcePlayer=player;selection.name=sourceName(player);
+ renderObjects();recordChange(before);status(sourceName(player)+' asignada');
+});
+$('sceneSourceClear').addEventListener('click',()=>{
+ if(!selection||!selection.elementSourcePlayer||selectedIds.size!==1)return;
+ const before=objectSnapshot();
+ selection.elementSourcePlayer=null;
+ selection.name=modelFor(selection.modelId)?.name||'Decoración';
+ renderObjects();recordChange(before);status('La fuente vuelve a ser una decoración');
+});
 let objects=[],selection=null,selectedIds=new Set(),multiSelectMode=false,serial=0,loadGeneration=0,drag=null,adding=null,instanceCounter=0;
 const undoStack=[],redoStack=[],MAX_HISTORY=60;
 let restoringHistory=false;
@@ -366,16 +395,17 @@ function renderObjects(){
  for(const obj of objects){
   const b=document.createElement('button');b.type='button';
   b.textContent=obj.name;b.setAttribute('aria-pressed',String(selectedIds.has(obj.id)));
-  const sub=document.createElement('small');sub.textContent=obj.compositionId?'Compuesto':'GLB · '+obj.modelId;b.append(sub);
+  const sub=document.createElement('small');sub.textContent=obj.elementSourcePlayer?'FUENTE · Jugador '+obj.elementSourcePlayer:(obj.compositionId?'Compuesto':'GLB · '+obj.modelId);b.append(sub);
   b.addEventListener('click',event=>selectObject(obj,multiSelectMode||event.ctrlKey||event.metaKey||event.shiftKey));target.append(b);
  }
  $('sceneTransform').hidden=!selection;
  const count=$('sceneSelectionCount');if(count)count.textContent=selectedIds.size?selectedIds.size+' seleccionado(s) · Ctrl/Shift + clic o modo múltiple para sumar o quitar':'Selecciona objetos en el escenario o la lista';
  if(selection)fillControls();
+ refreshSourceControls();
 }
 function fillControls(){
  const v=selection;if(!v)return;
- $('sceneObjectName').disabled=selectedIds.size>1;
+ $('sceneObjectName').disabled=selectedIds.size>1||!!v.elementSourcePlayer;
  $('sceneModelTexture').disabled=selectedIds.size>1;
  $('sceneModelApplyTexture').disabled=selectedIds.size>1;
  $('sceneObjectName').value=selectedIds.size>1?'(varios objetos)':v.name;
@@ -468,7 +498,11 @@ async function insertObject(data,generation=loadGeneration){
  const rotation=num(data.rotation,-3600,3600),scale=num(data.scale,.05,20,1);
  const scaleX=num(data.scaleX,.05,20,scale),scaleY=num(data.scaleY,.05,20,scale),
   scaleZ=num(data.scaleZ,.05,20,scale);
- const obj={id:data.id||newId(),modelId:source.id,name:String(data.name||source.name).slice(0,70),
+ const player=sourcePlayer(data.elementSourcePlayer);
+ if(player&&sourceOwner(player))throw Error('Ya existe '+sourceName(player)+'. Solo una fuente por jugador.');
+ const obj={id:data.id||newId(),modelId:source.id,
+  name:player?sourceName(player):String(data.name||source.name).slice(0,70),
+  elementSourcePlayer:player,
   compositionId:data.compositionId||null,effects:(data.effects||[]).map(cleanFx),
   x:Number.isFinite(Number(data.x))?Number(data.x):W/2+3,
   y:num(data.y,-100,100,0),z:Number.isFinite(Number(data.z))?Number(data.z):0,
@@ -588,7 +622,7 @@ function readControls(event){
  const before=objectSnapshot(),v=selection,group=selectedObjects(),id=event?.target?.id;
  try{
   if(group.length===1){
-   v.name=$('sceneObjectName').value.slice(0,70)||modelFor(v.modelId).name;
+   v.name=v.elementSourcePlayer?sourceName(v.elementSourcePlayer):($('sceneObjectName').value.slice(0,70)||modelFor(v.modelId).name);
    v.x=Number($('scenePosX').value);v.y=num($('scenePosY').value,-100,100);
    v.z=Number($('scenePosZ').value);
    v.rotation=num($('sceneRotation').value,-3600,3600);
@@ -655,7 +689,8 @@ $('sceneDuplicate').addEventListener('click',async()=>{
  const added=[];
  try{
   for(const old of sources){
-   const data={...serializeObject(old),id:undefined,name:(old.name+' copia').slice(0,70)};
+   const data={...serializeObject(old),id:undefined,elementSourcePlayer:null,
+     name:((old.elementSourcePlayer?(modelFor(old.modelId)?.name||'Decoración'):old.name)+' copia').slice(0,70)};
    if(mode==='mirrorX'||mode==='mirrorXZ')data.x=-old.x;
    if(mode==='mirrorZ'||mode==='mirrorXZ')data.z=-old.z;
    if(mode==='normal'){data.x=old.x+1;data.z=old.z+1;}
@@ -681,13 +716,20 @@ $('sceneDuplicate').addEventListener('click',async()=>{
 $('sceneSearch').addEventListener('input',renderLibrary);
 $('sceneCamera').addEventListener('click',()=>{camera.position.set(32,37,51);controls.target.set(0,0,0);controls.update();});
 $('sceneGrid').addEventListener('click',()=>{grid.visible=!grid.visible;$('sceneGrid').setAttribute('aria-pressed',String(grid.visible));});
-function serializeObject(o){return {id:o.id,name:o.name,modelId:o.modelId,
+function serializeObject(o){return {id:o.id,
+ name:o.elementSourcePlayer?sourceName(o.elementSourcePlayer):o.name,
+ elementSourcePlayer:o.elementSourcePlayer||null,modelId:o.modelId,
  compositionId:o.compositionId,effects:o.effects.map(x=>({...x})),
  x:o.x,y:o.y,z:o.z,rotation:o.rotation,scale:o.scale,
  scaleX:o.scaleX,scaleY:o.scaleY,scaleZ:o.scaleZ,
  modelTexture:o.modelTexture||''};}
 function sceneDocument(){
+ const usedSources=new Set();
  for(const obj of objects){
+  if(obj.elementSourcePlayer){
+   if(usedSources.has(obj.elementSourcePlayer))throw Error('Fuente duplicada para jugador '+obj.elementSourcePlayer);
+   usedSources.add(obj.elementSourcePlayer);
+  }
   const {middle,size}=renderedFootprint(obj);
   assertPlacement(middle.x,middle.z,size.x/2,size.z/2);
  }
@@ -777,12 +819,17 @@ async function readJSONFile(file){
 }
 function verifyScene(json){
  if(json?.kind!=='rok3d.scene'||json.schemaVersion!==1||json.arena?.columns!==W||json.arena?.rows!==D||!Array.isArray(json.objects)||json.objects.length>250)throw Error('Escenario incompatible');
- const result=[];
+ const result=[],usedSources=new Set();
  for(const raw of json.objects){
   const model=modelFor(raw.modelId);
   if(!model||!model.enabledInSceneEditor)throw Error('Contiene un modelo no permitido: '+raw.modelId);
   if(!Array.isArray(raw.effects)||raw.effects.length>40)throw Error('Lista de efectos inválida');
-  result.push({id:newId(),modelId:raw.modelId,name:String(raw.name||model.name).slice(0,70),compositionId:raw.compositionId?String(raw.compositionId).slice(0,70):null,effects:raw.effects.map(cleanFx),x:Number(raw.x)||0,y:num(raw.y,-100,100),z:Number(raw.z)||0,rotation:num(raw.rotation,-3600,3600),scale:num(raw.scale,.05,20,1),
+  const player=sourcePlayer(raw.elementSourcePlayer);
+  if(raw.elementSourcePlayer!=null&&!player)throw Error('ID de fuente elemental inválido');
+  if(player&&usedSources.has(player))throw Error('Fuente duplicada para jugador '+player);
+  if(player)usedSources.add(player);
+  result.push({id:newId(),modelId:raw.modelId,elementSourcePlayer:player,
+   name:player?sourceName(player):String(raw.name||model.name).slice(0,70),compositionId:raw.compositionId?String(raw.compositionId).slice(0,70):null,effects:raw.effects.map(cleanFx),x:Number(raw.x)||0,y:num(raw.y,-100,100),z:Number(raw.z)||0,rotation:num(raw.rotation,-3600,3600),scale:num(raw.scale,.05,20,1),
    scaleX:num(raw.scaleX,.05,20,num(raw.scale,.05,20,1)),
    scaleY:num(raw.scaleY,.05,20,num(raw.scale,.05,20,1)),
    scaleZ:num(raw.scaleZ,.05,20,num(raw.scale,.05,20,1)),
