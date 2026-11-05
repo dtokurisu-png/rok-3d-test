@@ -417,7 +417,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.115</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.116</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -640,11 +640,12 @@ import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-real-fountains-1';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.100';
 import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.68';
-import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.103';
+import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.116';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.105';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
+import {createRivalCasterAI} from './caster-rival-ai.js?v=0.1';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 
 const qs=s=>document.querySelector(s);
@@ -2870,6 +2871,7 @@ function resetCombatant(c){
 function resetDemoCombat(){
   // A new match invalidates any in-progress manual attack/cooldown.
   casterMovement?.disable();
+  rivalAI?.reset();
   // Switch to downloaded real caster skins at a round boundary only.
   for(const install of pendingCasterInstalls.splice(0)){
    try{install();}catch(error){console.warn('[R.O.K.] Caster aplazado:',error);}
@@ -4390,6 +4392,7 @@ function casterAttackTarget(c){
 }
 // Mode for manually controlling the real Chiara/Lioren models.
 let casterMovement=null;
+let rivalAI=null;
 const movementLoader=createCasterMovementLoader({
  FBXLoader,adaptClip:adaptAnimationFBX,getManualController:()=>casterMovement,
  onClipReady:(caster,role,clip)=>casterLayers.register(caster,{[role]:clip})
@@ -4596,6 +4599,77 @@ document.addEventListener('keydown',event=>{
  if(loaded&&playing&&matchGate.isRunning)event.preventDefault();
 });
 renderSpellbook();
+
+// Rival autonomy is isolated from the manual controller. The only currently
+// distributable card is the real Farolera; future decks will be assigned here.
+const rivalAction={attackUntil:0,castingUntil:0};
+rivalAI=createRivalCasterAI({
+ getCaster:()=>casters.find(c=>c.side==='enemy'&&c.stage==='active'&&
+  !(casterMovement?.enabled&&casterMovement.caster===c)),
+ getOrbs:()=>{
+  const available=[];
+  elementOrbs.forEachActiveOrb((orb,index)=>{
+   if(orb.group?.visible&&!orb.target)
+    available.push({id:index,position:orb.group.position});
+  });
+  return available;
+ },
+ getEnemies:()=>[...combatants,...casters].filter(c=>c.side==='ally'&&canDamageTarget(c))
+  .map(c=>({position:c.outer.position,target:c})),
+ getThreats:c=>missiles.filter(m=>m.target===c&&m.attacker?.side!==c.side)
+  .map(m=>({position:m.group.position})),
+ getResourceState:c=>combatHud.getResources(c.side,'water'),
+ bounds:{x:MAX_X,z:MAX_Z},
+ settings:{idealPressureZ:-.9,attackRange:3,pickupRadius:3.65},
+ move:(c,x,z)=>{c.outer.position.x=x;c.outer.position.z=z;},
+ face:(c,p)=>{
+  const dx=p.x-c.outer.position.x,dz=p.z-c.outer.position.z;
+  if(Math.hypot(dx,dz)>.01)c.outer.rotation.y=Math.atan2(dx,dz);
+ },
+ animate:(c,kind)=>{
+  // Keep the already-loaded caster's original locomotion layers.
+  if(performance.now()<rivalAction.castingUntil)return;
+  casterLayers.movement(c,kind);
+ },
+ guard:active=>{
+  const c=casters.find(c=>c.side==='enemy');
+  if(!c||c.stage!=='active')return;
+  c.manualDefending=active;
+  casterLayers.shield(c,active);
+  if(active){
+   const clip=c.model?.userData?.rokDefenseClip;
+   if(clip)casterLayers.upper(c,'defense',clip,1.8);
+  }else casterLayers.endUpper(c,'defense');
+ },
+ canCast:c=>c.stage==='active'&&!!window.ROKSummonAssets?.farolera?.scene,
+ cast:(c,{defensive,duration})=>{
+  const card=spellCards[0][0]; // Temporary rival deck: Farolera only.
+  if(!card||!combatHud.spend(c.side,card.element,card.cost))return false;
+  // Never spend the resource if the physical summoning prototype is absent.
+  if(!window.ROKSummonAssets?.farolera?.scene){
+   combatHud.refund(c.side,card.element,card.cost);return false;
+  }
+  casterLayers.shield(c,false);c.manualDefending=false;
+  casterLayers.endUpper(c,'defense');
+  const clip=c.model?.userData?.rokCast22Clip;
+  if(clip)casterLayers.upper(c,'card-cast',clip,
+   Math.max(.1,clip.duration/Math.max(.1,duration)));
+  rivalAction.castingUntil=performance.now()+duration*1000;
+  // Use the same actual Farolera spawn and resource economy as the player.
+  summonCardFarolera(c);
+  return true;
+ },
+ attack:(c,target)=>{
+  if(!target||!canDamageTarget(target))return false;
+  const clip=c.model?.userData?.rokAttackClip;
+  if(!clip)return false;
+  casterLayers.upper(c,'attack',clip,1);
+  c.kind='caster';c.attackDamage=1;
+  launchSpell(c,target,{manualCasterShot:true});
+  rivalAction.attackUntil=performance.now()+clip.duration*1000;
+  return true;
+ }
+});
 
 /* Control táctil MOBA: no duplica ni reemplaza la lógica de combate.
    Los botones llaman a las mismas acciones que WASD/Espacio/Shift. */
@@ -5142,6 +5216,7 @@ function loop(now){
    updateDuel(dt);
    combatHud.advance(dt,casters);
    elementOrbs.tick(dt);
+   rivalAI?.step(dt);
   }else if(loaded){
    elementOrbs.idle(dt);
   }
