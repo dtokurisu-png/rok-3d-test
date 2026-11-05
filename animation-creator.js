@@ -7,6 +7,7 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {TransformControls} from 'three/addons/controls/TransformControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {GLTFExporter} from 'three/addons/exporters/GLTFExporter.js';
+import {numberedSources,newSources,loadCreatorClip} from './animation-creator-sources.js';
 
 const $=id=>document.getElementById(id);
 const status=(msg,error=false)=>{
@@ -16,7 +17,9 @@ const status=(msg,error=false)=>{
 const viewStatus=msg=>$('creatorViewportStatus').textContent=msg;
 const defaults={model:null,loadedPath:'',bones:[],pose:new Map(),chains:[],
  targets:new Map(),currentChain:null,currentBone:null,keys:new Map(),
- playing:false,time:0,duration:4,baseScale:1,modelId:null};
+ playing:false,time:0,duration:4,baseScale:1,modelId:null,
+ sourceClip:null,sourceMixer:null,sourceAction:null,sourceId:null,
+ modelClips:[],recording:false};
 const state=defaults;
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x081520);
@@ -43,6 +46,7 @@ gizmo.addEventListener('dragging-changed',e=>orbit.enabled=!e.value);
 gizmo.addEventListener('objectChange',()=>{
  if(state.currentChain&&!state.playing){
   solveIK(state.currentChain);
+  recordEditedFrame();
   refreshTargetInputs();
   viewStatus('IK aplicada · pulsa «Guardar pose clave» para conservarla.');
  }
@@ -203,6 +207,11 @@ function selectBone(uuid){
  state.currentBone=bone||null;
  if(bone){$('creatorBone').value=bone.uuid;refreshBoneInputs();}
 }
+function recordEditedFrame(){
+ if(!state.model||state.playing||state.recording)return;
+ state.keys.set(Math.round(state.time*30),snapshot());
+ refreshTimeline();
+}
 function snapshot(){
  const pose={};
  for(const bone of state.bones)pose[bone.name]=bone.quaternion.toArray();
@@ -242,6 +251,21 @@ function refreshTimeline(){
   'Sin poses clave. Coloca el modelo y pulsa «Guardar pose clave».';
 }
 function sampleFrame(frame){
+ if(state.sourceClip&&state.sourceMixer){
+  // Always evaluate the ORIGINAL source animation at exactly this frame.
+  // Only frames explicitly edited replace that original pose; nothing
+  // outside the selected frame is erased or interpolated over.
+  for(const bone of state.bones){
+   const rest=state.pose.get(bone.name);
+   if(rest)bone.quaternion.copy(rest);
+  }
+  state.sourceMixer.setTime(Math.min(state.sourceClip.duration,frame/30));
+  const edited=state.keys.get(frame);
+  if(edited)applyPose(edited);
+  state.model?.updateMatrixWorld(true);
+  refreshBoneInputs();
+  return;
+ }
  if(!state.keys.size)return;
  const frames=[...state.keys.keys()].sort((a,b)=>a-b);
  let lo=frames[0],hi=frames[frames.length-1];
@@ -283,17 +307,47 @@ function serialize(){
 }
 function createClip(){
  const frames=[...state.keys.keys()].sort((a,b)=>a-b);
- if(!frames.length)throw Error('Guarda al menos una pose clave antes de exportar.');
- if(frames.length===1)throw Error('Para exportar GLB se necesitan al menos dos fotogramas clave.');
- const times=frames.map(f=>f/30),tracks=[];
- for(const bone of state.bones){
-  if(!bone.name)continue;
-  const values=[];
-  for(const frame of frames){
-   const q=state.keys.get(frame)[bone.name]||state.pose.get(bone.name).toArray();
-   values.push(...q);
+ if(!state.sourceClip&&frames.length<2)
+  throw Error('Para exportar desde una pose, guarda al menos dos fotogramas clave.');
+ if(!state.sourceClip&&!frames.length)throw Error('Guarda una pose clave.');
+ const tracks=[];
+ if(state.sourceClip){
+  // Dense 30 FPS quaternion bake: every unedited frame is evaluated from
+  // the original animation; edited frames are replaced individually.
+  const count=Math.max(2,Math.round(state.duration*30)+1);
+  if(count>3601)throw Error('Animación demasiado larga para el editor.');
+  const savedFrame=Math.round(state.time*30);
+  const times=Array.from({length:count},(_,i)=>i/30);
+  const perBone=new Map(state.bones.map(b=>[b.name,[]]));
+  state.recording=true;
+  try{
+   for(let frame=0;frame<count;frame++){
+    sampleFrame(frame);
+    for(const bone of state.bones)perBone.get(bone.name).push(...bone.quaternion.toArray());
+   }
+  }finally{
+   state.recording=false;
+   sampleFrame(savedFrame);
+   // sampleFrame(savedFrame) is the correct active visual pose.
   }
-  tracks.push(new THREE.QuaternionKeyframeTrack(bone.name+'.quaternion',times,values));
+  for(const bone of state.bones){
+   tracks.push(new THREE.QuaternionKeyframeTrack(
+    bone.name+'.quaternion',times,perBone.get(bone.name)));
+  }
+  // Keep the source's position/scale channels (notably hips vertical motion).
+  for(const track of state.sourceClip.tracks){
+   if(/\.(position|scale)$/.test(track.name))tracks.push(track.clone());
+  }
+ }else{
+  const times=frames.map(f=>f/30);
+  for(const bone of state.bones){
+   const values=[];
+   for(const frame of frames){
+    const q=state.keys.get(frame)[bone.name]||state.pose.get(bone.name).toArray();
+    values.push(...q);
+   }
+   tracks.push(new THREE.QuaternionKeyframeTrack(bone.name+'.quaternion',times,values));
+  }
  }
  const clip=new THREE.AnimationClip($('creatorName').value||'ROK Animation',-1,tracks);
  clip.resetDuration();
@@ -305,11 +359,13 @@ async function loadModel(item){
  clearTargets();
  if(state.model){scene.remove(state.model);state.model=null;}
  state.keys.clear();state.bones=[];state.pose.clear();state.currentBone=null;
+ state.sourceClip=null;state.sourceMixer=null;state.sourceAction=null;state.sourceId=null;
  status('Descargando '+item.name+'…');
  const url='./'+item.path.split('/').map(encodeURIComponent).join('/');
  try{
   const gltf=await loader.loadAsync(url);
   const model=gltf.scene;
+  state.modelClips=gltf.animations||[];
   model.traverse(o=>{if(o.isSkinnedMesh||o.isMesh)o.frustumCulled=false;});
   const box=new THREE.Box3().setFromObject(model);
   const size=box.getSize(new THREE.Vector3()),height=Math.max(.01,size.y);
@@ -333,8 +389,9 @@ async function loadModel(item){
   for(const {label,bone} of available)boneSelect.append(new Option(label,bone.uuid));
   if(available.length)selectBone(available[0].bone.uuid);
   makeTargets();frameModel();
+  populateSources();
   state.time=0;state.duration=4;$('creatorDuration').value='4';refreshTimeline();
-  status('✓ '+item.name+' · '+state.bones.length+' huesos · '+state.chains.length+' cadenas IK.');
+  status('✓ '+item.name+' · '+state.bones.length+' huesos · '+state.chains.length+' cadenas IK. Puedes cargar una animación existente.');
   viewStatus('Selecciona una cadena IK y mueve su objetivo para editar la pose.');
  }catch(error){
   if(state.model){scene.remove(state.model);state.model=null;}
@@ -376,7 +433,8 @@ for(const [axis,id] of [['x','creatorTargetX'],['y','creatorTargetY'],['z','crea
   if(!state.currentChain)return;
   const target=state.targets.get(state.chains.indexOf(state.currentChain));
   const value=Number(e.target.value);if(!Number.isFinite(value))return;
-  target.position[axis]=value;solveIK(state.currentChain);refreshTargetInputs();
+  target.position[axis]=value;solveIK(state.currentChain);
+  recordEditedFrame();refreshTargetInputs();
  });
 $('creatorSolve').addEventListener('click',()=>solveIK(state.currentChain));
 $('creatorResetTarget').addEventListener('click',resetTarget);
@@ -389,11 +447,12 @@ for(const id of ['creatorRotX','creatorRotY','creatorRotZ'])
   bone.rotation.set(THREE.MathUtils.degToRad(x),THREE.MathUtils.degToRad(y),
    THREE.MathUtils.degToRad(z),'XYZ');
   state.model.updateMatrixWorld(true);
-  viewStatus('Rotación aplicada a '+bone.name+'. Guarda una pose clave para conservarla.');
+  recordEditedFrame();
+  viewStatus('Rotación aplicada a '+bone.name+' · fotograma '+Math.round(state.time*30)+' guardado.');
  });
 $('creatorResetBone').addEventListener('click',()=>{
  const bone=state.currentBone;if(!bone)return;
- bone.quaternion.copy(state.pose.get(bone.name));refreshBoneInputs();
+ bone.quaternion.copy(state.pose.get(bone.name));refreshBoneInputs();recordEditedFrame();
 });
 $('creatorResetPose').addEventListener('click',resetPose);
 $('creatorDuration').addEventListener('change',e=>{
@@ -414,7 +473,7 @@ $('creatorDeleteKey').addEventListener('click',()=>{
  state.keys.delete(Math.round(state.time*30));refreshTimeline();
 });
 $('creatorPlay').addEventListener('click',()=>{
- if(!state.model||!state.keys.size){status('Guarda poses clave antes de reproducir.',true);return;}
+ if(!state.model||(!state.keys.size&&!state.sourceClip)){status('Carga una animación o guarda poses clave antes de reproducir.',true);return;}
  state.playing=!state.playing;
  if(state.time>=state.duration)state.time=0;
  if(state.playing)gizmo.detach();
@@ -482,7 +541,7 @@ let last=0;
 function render(now){
  requestAnimationFrame(render);
  const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;
- if(state.playing&&state.keys.size){
+ if(state.playing&&(state.keys.size||state.sourceClip)){
   state.time=Math.min(state.duration,state.time+dt);
   sampleFrame(Math.round(state.time*30));
   refreshTimeline();
