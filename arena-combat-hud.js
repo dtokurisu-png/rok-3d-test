@@ -1,6 +1,6 @@
 /* R.O.K. Arena 2.5D — stage 2, visual-only segmented HUD.
-   Health uses real caster HP; all 30 elemental cells remain empty until
-   the separately approved elemental economy is implemented.
+   Health uses real caster HP. Element reservoirs accept fractional units;
+   the resource economy can feed these values when implemented.
  */
 export function createArenaCombatHud(){
  const el=document.getElementById('rokCombatHud');
@@ -12,8 +12,8 @@ export function createArenaCombatHud(){
   wind:{label:'Viento',color:'#8cda91'}
  };
  const sides={
-  ally:{root:el.querySelector('[data-hud-side="ally"]'),levels:['water'],hpMax:0},
-  enemy:{root:el.querySelector('[data-hud-side="enemy"]'),levels:['water'],hpMax:0}
+  ally:{root:el.querySelector('[data-hud-side="ally"]'),levels:['water'],hpMax:0,elementAmounts:{}},
+  enemy:{root:el.querySelector('[data-hud-side="enemy"]'),levels:['water'],hpMax:0,elementAmounts:{}}
  };
  const TOTAL=30;
  let seconds=0,refreshLeft=0;
@@ -34,6 +34,7 @@ export function createArenaCombatHud(){
   if(!player)return;
   const ids=[...new Set((Array.isArray(selected)?selected:['water']).filter(id=>Object.hasOwn(palette,id)))].slice(0,3);
   player.levels=ids.length?ids:['water'];
+  player.elementAmounts=Object.fromEntries(player.levels.map(id=>[id,0]));
   const row=player.root.querySelector('.rokHudElementRows');
   row.replaceChildren();
   row.classList.add('rokHudElementRow');
@@ -52,7 +53,9 @@ export function createArenaCombatHud(){
    segment.title=palette[id].label+': 0/'+capacity+' unidades (fase visual)';
    for(let i=0;i<capacity;i++){
     const cell=make('span','rokHudElementCell');
-    cell.dataset.element=id;cell.dataset.filled='false';segment.append(cell);
+    cell.dataset.element=id;
+    cell.dataset.filled='false';cell.style.setProperty('--fill','0%');
+    segment.append(cell);
    }
    track.append(segment);
    const label=make('span','rokHudSectionLabel');label.style.color=palette[id].color;
@@ -62,7 +65,39 @@ export function createArenaCombatHud(){
   const entry=make('div','rokHudElementBar');
   entry.append(labels,track);
   if(left){row.append(entry,icon('drop'));}else{row.append(icon('drop'),entry);}
+  paintElements(side);
   }
+ // Each elemental unit is one vertical reservoir; fractions (e.g. 2.35)
+ // fill the next cell to 35% without changing the 30-unit partition.
+ function paintElements(side){
+  const player=sides[side];if(!player)return;
+  const capacity=TOTAL/player.levels.length;
+  const track=player.root.querySelector('.rokHudElementTrack');
+  if(!track)return;
+  for(const id of player.levels){
+   const amount=Math.min(capacity,Math.max(0,Number(player.elementAmounts[id])||0));
+   const segment=[...track.children].find(node=>node.style.getPropertyValue('--element-color')===palette[id].color);
+   if(!segment)continue;
+   const cells=[...segment.querySelectorAll('.rokHudElementCell')];
+   // Ally fills from the portrait outward; enemy from portrait outward too.
+   const visual=side==='ally'?[...cells].reverse():cells;
+   visual.forEach((cell,index)=>{
+    const portion=Math.max(0,Math.min(1,amount-index));
+    cell.style.setProperty('--fill',(portion*100).toFixed(2)+'%');
+    cell.dataset.filled=String(portion>=1);
+    cell.title=palette[id].label+': '+Math.round(portion*100)+'%';
+   });
+   segment.title=palette[id].label+': '+amount.toFixed(2)+'/'+capacity+' unidades';
+  }
+ }
+ function setElements(side,amounts={}){
+  const player=sides[side];if(!player)return;
+  for(const id of player.levels){
+   const value=Number(amounts[id]);
+   player.elementAmounts[id]=Number.isFinite(value)?Math.max(0,value):0;
+  }
+  paintElements(side);
+ }
  function buildLife(side,max){
   const player=sides[side];
   const rounded=Math.max(1,Math.ceil(max));
@@ -99,7 +134,9 @@ export function createArenaCombatHud(){
    player.root.querySelector('.rokHudHpTrack').title='Vida '+hp+' / '+max;
   }
  }
- function reset(){seconds=0;refreshLeft=0;}
+ function reset(){seconds=0;refreshLeft=0;
+  for(const side of ['ally','enemy'])setElements(side,{});
+ }
  function advance(dt,casters){
   if(!Number.isFinite(dt)||dt<=0)return;
   seconds+=dt;refreshLeft-=dt;
@@ -107,5 +144,5 @@ export function createArenaCombatHud(){
  }
  configure('ally',['water']);configure('enemy',['water']);
  draw([]);
- return {configure,draw,reset,advance};
+ return {configure,draw,reset,advance,setElements};
 }
