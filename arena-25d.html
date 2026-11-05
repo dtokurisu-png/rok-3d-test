@@ -264,8 +264,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.93 · Territorios y daño de invasión</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.93</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.94 · Daño territorial cada 2 s y partículas</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.94</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -1642,6 +1642,8 @@ function resetCaster(c){
   casterLayers.reset(c);
   c.hp=12;c.maxHp=12;c.stage='active';c.deathAnimationActive=false;c.manualDefending=false;c.model.visible=true;
   c.hostileZoneSeconds=0;c.hostileZoneGlow=0;
+  c.hostileDamageFlash=0;
+  resetTerritoryDamageVisuals(c);
   c.outer.position.set(0,0,c.startZ);
   c.outer.rotation.y=c.side==='ally'?Math.PI:0;
   c.model.position.y=c.model.userData.baseY||0;
@@ -3611,6 +3613,102 @@ function updateCasterThreatIndicators(){
 // Territorial pressure: crossing z=0 is legal, but after one full second
 // beyond the boundary the invader receives 1 HP/s until they return home.
 // Applies symmetrically to both casters, bypassing manual Shift guard.
+// The territory hit is deliberately a visual effect, not a hit animation:
+// locomotion and caster attack/defense tracks remain untouched.
+const territorySparkGeometry=new THREE.TetrahedronGeometry(.09,0);
+const territorySparkParticles=new Map();
+const territoryTintCache=new Map();
+function setupTerritoryParticles(caster){
+ if(territorySparkParticles.has(caster))return territorySparkParticles.get(caster);
+ const particles=[];
+ for(let i=0;i<12;i++){
+  const material=new THREE.MeshBasicMaterial({color:i%3===0?0xff9e72:0xff334f,
+   transparent:true,opacity:0,depthWrite:false,depthTest:true});
+  const mesh=new THREE.Mesh(territorySparkGeometry,material);
+  mesh.visible=false;mesh.renderOrder=11;root.add(mesh);
+  particles.push({mesh,age:0,lifetime:0,velocity:0,driftX:0,driftZ:0});
+ }
+ territorySparkParticles.set(caster,particles);
+ return particles;
+}
+function restoreTerritoryTint(caster){
+ const cache=territoryTintCache.get(caster);
+ if(!cache)return;
+ for(const {material,color,emissive,emissiveIntensity} of cache.entries){
+  material.color?.copy(color);
+  if(emissive)material.emissive?.copy(emissive);
+  if(emissiveIntensity!==undefined)material.emissiveIntensity=emissiveIntensity;
+ }
+ territoryTintCache.delete(caster);
+}
+function resetTerritoryDamageVisuals(caster){
+ restoreTerritoryTint(caster);
+ const particles=territorySparkParticles.get(caster)||[];
+ for(const p of particles){p.mesh.visible=false;p.age=0;p.mesh.material.opacity=0;}
+}
+function flashTerritoryHit(caster){
+ caster.hostileDamageFlash=.65;
+ // Cache the existing model's material state exactly, including textured
+ // colors, and restore it after flashing rather than altering game assets.
+ if(!territoryTintCache.has(caster)){
+  const entries=[],seen=new Set();
+  caster.model?.traverse(node=>{
+   if(!node.isMesh)return;
+   for(const material of (Array.isArray(node.material)?node.material:[node.material])){
+    if(!material||seen.has(material)||!material.color)continue;
+    seen.add(material);
+    entries.push({material,color:material.color.clone(),
+     emissive:material.emissive?.clone(),
+     emissiveIntensity:material.emissiveIntensity});
+   }
+  });
+  territoryTintCache.set(caster,{model:caster.model,entries});
+ }
+ // All sparks remain inside the ONE grid square beneath the caster.
+ const cx=THREE.MathUtils.clamp(Math.round(caster.outer.position.x),-HALF_W,HALF_W);
+ const cz=THREE.MathUtils.clamp(Math.round(caster.outer.position.z-.5)+.5,-HALF_D,HALF_D);
+ for(const p of setupTerritoryParticles(caster)){
+  p.age=0;p.lifetime=.7+Math.random()*.5;
+  p.velocity=.85+Math.random()*1.05;
+  p.driftX=(Math.random()-.5)*.20;p.driftZ=(Math.random()-.5)*.20;
+  p.mesh.position.set(cx+(Math.random()-.5)*.78,.14+Math.random()*.12,
+   cz+(Math.random()-.5)*.78);
+  p.mesh.material.opacity=.8;p.mesh.visible=true;
+  p.mesh.scale.setScalar(.65+Math.random()*.6);
+ }
+}
+function updateTerritoryDamageVisuals(dt){
+ for(const caster of casters){
+  const cache=territoryTintCache.get(caster);
+  if(cache&&cache.model!==caster.model)restoreTerritoryTint(caster);
+  caster.hostileDamageFlash=Math.max(0,(caster.hostileDamageFlash||0)-dt);
+  const tint=territoryTintCache.get(caster);
+  if(tint){
+   if(caster.hostileDamageFlash<=0||caster.stage!=='active')
+    restoreTerritoryTint(caster);
+   else{
+    const time=caster.hostileDamageFlash;
+    const intensity=(.35+.65*Math.abs(Math.sin(time*23)))*Math.min(1,time*3);
+    for(const {material,color,emissive,emissiveIntensity} of tint.entries){
+     material.color.copy(color).lerp(new THREE.Color(0xff3443),intensity*.72);
+     if(emissive){
+      material.emissive.copy(emissive).lerp(new THREE.Color(0xff1025),intensity);
+      material.emissiveIntensity=Math.max(emissiveIntensity??1,1.5*intensity);
+     }
+    }
+   }
+  }
+  for(const p of territorySparkParticles.get(caster)||[]){
+   if(!p.mesh.visible)continue;
+   p.age+=dt;
+   if(p.age>=p.lifetime){p.mesh.visible=false;continue;}
+   p.mesh.position.y+=p.velocity*dt;
+   p.mesh.position.x+=p.driftX*dt;p.mesh.position.z+=p.driftZ*dt;
+   p.mesh.material.opacity=Math.max(0,(1-p.age/p.lifetime)*.85);
+   p.mesh.rotation.y+=dt*4;
+  }
+ }
+}
 function updateHostileTerritories(dt){
  const active=loaded&&playing&&matchGate.isRunning&&!casterReview.active;
  for(const caster of casters){
@@ -3625,12 +3723,15 @@ function updateHostileTerritories(dt){
   }
   if(hostileDepth>0){
    caster.hostileZoneSeconds=(caster.hostileZoneSeconds||0)+dt;
-   // Do not damage during the initial one-second grace period.
-   if(caster.hostileZoneSeconds>=1){
-    const hits=Math.floor(caster.hostileZoneSeconds);
-    caster.hostileZoneSeconds-=hits;
-    for(let i=0;i<hits&&caster.stage==='active';i++)
-     damage(caster,1,caster,{committed:true,environment:true});
+   // One second of grace, then one point every TWO additional seconds.
+   // Preserve the remainder across frames; leaving resets the entire clock.
+   if(caster.hostileZoneSeconds>=3){
+    const hits=1+Math.floor((caster.hostileZoneSeconds-3)/2);
+    caster.hostileZoneSeconds-=2*hits;
+    for(let i=0;i<hits&&caster.stage==='active';i++){
+     if(damage(caster,1,caster,{committed:true,environment:true}))
+      flashTerritoryHit(caster);
+    }
    }
   }else caster.hostileZoneSeconds=0;
   // The nearer/deeper in hostile territory, the clearer the red warning.
@@ -4410,6 +4511,7 @@ function loop(now){
   const allyForVisibility=casters.find(c=>c.side==='ally');
   if(allyForVisibility?.outer)sceneryOverlay.updateOcclusion(camera,allyForVisibility.outer.position,now/1000);
   updateCameraMarker();
+  if(loaded&&playing&&matchGate.isRunning&&!casterReview.active)updateTerritoryDamageVisuals(dt);
   updateOrbEdgeIndicators();
   updateSummonEdgeIndicators();
   if(loaded){
