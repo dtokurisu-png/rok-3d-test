@@ -1,6 +1,6 @@
 /* R.O.K. Stage 2 — readable segmented health and elemental HUD. */
 #rokCombatHud{
- --element-reservoir-height:132px;--element-offset-y:0px;
+ --element-reservoir-height:35px;--element-offset-y:-8px;
  position:fixed;top:calc(7px + env(safe-area-inset-top,0px));
  left:50%;transform:translateX(-50%);
  width:min(900px,94vw);z-index:40;display:grid;
