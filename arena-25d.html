@@ -212,8 +212,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.74 · Regeneración elemental</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.74</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.75 · Fuentes y orbes elementales</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.75</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -387,7 +387,8 @@ import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-sightcone-1';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.69';
 import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.68';
-import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.74';
+import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.75';
+import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.75';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.69';
@@ -1655,6 +1656,7 @@ function selectCombatTarget(c){
 }
 let loaded=false,playing=false,tm=0,prevTime=performance.now();
 const combatHud=createArenaCombatHud();
+const elementOrbs=createArenaElementOrbs({THREE,root,casters,onCollect:side=>combatHud.collectOrb(side)});
 const pendingCasterInstalls=[];
 const matchGate=createArenaMatchGate({
  onStart:configuration=>{
@@ -1666,6 +1668,7 @@ const matchGate=createArenaMatchGate({
   combatHud.configure('ally',configuration);
   combatHud.configure('enemy',['water']);
   combatHud.reset();
+  elementOrbs.reset();
   combatHud.draw(casters);
   playing=true;
   qs('#pause').textContent='Ⅱ Pausar';
@@ -2439,6 +2442,7 @@ function resetDemoCombat(){
   combatants.forEach(resetCombatant);
   casters.forEach(resetCaster);
   combatHud.reset();
+  elementOrbs.reset();
   combatHud.draw(casters);
   qs('#phase').textContent='✦ Materializando las invocaciones y los dos casters';
 }
@@ -4072,6 +4076,7 @@ function loop(now){
   if(loaded&&playing&&matchGate.isRunning&&!casterReview.active){
    updateDuel(dt);
    combatHud.advance(dt,casters);
+   elementOrbs.tick(dt);
   }
   // WASD is additive to the live battle, not a global pause.
   if(loaded&&playing&&matchGate.isRunning&&!mobileMobaControls.paused&&casterMovement?.enabled)casterMovement.step(dt);
