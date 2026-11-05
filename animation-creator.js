@@ -7,7 +7,7 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {TransformControls} from 'three/addons/controls/TransformControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {GLTFExporter} from 'three/addons/exporters/GLTFExporter.js';
-import {numberedSources,newSources,originalSources,loadCreatorClip} from './animation-creator-sources.js';
+import {numberedSources,newSources,originalSources,compositeSources,loadCreatorClip} from './animation-creator-sources.js';
 
 const $=id=>document.getElementById(id);
 const status=(msg,error=false)=>{
@@ -449,7 +449,8 @@ function populateSources(){
   })),
   ...originalSources.map(item=>({...item,id:'archive:'+item.id})),
   ...numberedSources.map(item=>({...item,id:'fbx:'+item.id,kind:'fbx'})),
-  ...newSources.map(item=>({...item,id:'fbx:'+item.id,kind:'fbx'}))
+  ...newSources.map(item=>({...item,id:'fbx:'+item.id,kind:'fbx'})),
+  ...compositeSources.map(item=>({...item,id:'composite:'+item.id}))
  ];
  const select=$('creatorSource');
  select.replaceChildren(new Option('Pose inicial / T-pose',''));
