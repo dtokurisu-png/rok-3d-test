@@ -312,6 +312,9 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  #rokSpellbook .rokSpellbookPageKey[aria-pressed="true"]{
   border-color:#00ffdf!important;box-shadow:0 0 11px #00ffdf,inset 0 0 7px #000!important
  }
+ #rokSpellbook .rokSpellbookPageKey[data-page]{opacity:.4!important}
+ #rokSpellbook .rokSpellbookPageKey[data-page][aria-pressed="true"],
+ #rokSpellbook .rokSpellbookPageKey[data-page]:active{opacity:.9!important}
  #rokSpellbookCards[hidden]{display:block!important}
  #rokSpellbookCards{
   position:fixed!important;z-index:52!important;right:4px!important;left:auto!important;
@@ -354,7 +357,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 @media(prefers-reduced-motion:reduce){#rokSpellbookCards{transition:none!important}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261105-mobile-109"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.80"></head>
+<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261105-mobile-111"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.80"></head>
 <body data-studio-page="tester" data-rok-boot="loading">
 <div id="gameLoadingOverlay" role="status" aria-live="polite">
  <div id="gameLoadingCard">
