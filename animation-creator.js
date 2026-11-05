@@ -890,12 +890,30 @@ function handle(radius,color,data){
  h.userData.control=data;h.renderOrder=250;state.handles.push(h);scene.add(h);return h;
 }
 // One curl controller per hand, with no separate finger manipulation points.
+// Determine the bending plane from each phalanx's actual rig direction.
+// Global Y is vertical in Three.js; the finger curl should point toward -Y,
+// rather than applying the same local Z rotation to unrelated bone axes.
 function fingerBones(side){
  return state.bones.filter(b=>{
   const n=cleanName(b.name);
   return n.startsWith(side)&&/(thumb|index|middle|ring|pinky|little)/.test(n)
     &&!/(metacarpal|nub|end$|tip$)/.test(n);
  });
+}
+function fingerCurlAxis(bone){
+ bone.updateWorldMatrix(true,false);
+ const child=bone.children.find(c=>c.isBone&&c.position.lengthSq()>1e-9);
+ const along=child?child.position.clone().normalize():null;
+ if(!along)return null;
+ const inverseWorld=bone.getWorldQuaternion(new THREE.Quaternion()).invert();
+ const down=new THREE.Vector3(0,-1,0).applyQuaternion(inverseWorld);
+ let axis=new THREE.Vector3().crossVectors(along,down);
+ if(axis.lengthSq()<1e-6){
+  // Rare joint aligned vertically; fall back to the horizontal palm direction.
+  const towardPalm=new THREE.Vector3(0,0,-1).applyQuaternion(inverseWorld);
+  axis.crossVectors(along,towardPalm);
+ }
+ return axis.lengthSq()>1e-9?axis.normalize():null;
 }
 function createHandCurl(side){
  const wrist=roleBone([side+'hand',side+'wrist']);
@@ -905,32 +923,42 @@ function createHandCurl(side){
  const pos=wrist.getWorldPosition(new THREE.Vector3());
  const forward=rigForwardVector();
  marker.position.copy(pos).addScaledVector(forward,.25).add(new THREE.Vector3(0,.12,0));
- state.handCurl.set(side,{marker,wrist,bones,openY:marker.position.y,amount:0,
-  baseline:new Map(),lastOpenY:marker.position.y});
+ const axisByBone=new Map();
+ for(const bone of bones){
+  const axis=fingerCurlAxis(bone);
+  if(axis)axisByBone.set(bone.uuid,axis);
+ }
+ state.handCurl.set(side,{
+  marker,wrist,bones: bones.filter(b=>axisByBone.has(b.uuid)),
+  axisByBone,openY:marker.position.y,amount:0,baseline:new Map()
+ });
 }
 function beginHandCurl(side){
  const info=state.handCurl.get(side);if(!info)return;
- // Cache the original open pose rather than treating every partially curled
- // pose as a fresh baseline (which would accumulate unwanted rotations).
  info.openY=info.marker.position.y+info.amount*.24;
- if(!info.baseline.size){
-  info.baseline=new Map(info.bones.map(b=>[b.uuid,b.quaternion.clone()]));
+ // Reconstruct the open base pose before each new drag. The former curl
+ // is removed mathematically, so the hand doesn't accumulate extra twist.
+ info.baseline.clear();
+ for(const bone of info.bones){
+  const axis=info.axisByBone.get(bone.uuid);
+  const n=cleanName(bone.name);
+  const strength=n.includes('thumb')?.58:1;
+  const previous=new THREE.Quaternion().setFromAxisAngle(axis,info.amount*strength*.95);
+  info.baseline.set(bone.uuid,bone.quaternion.clone().multiply(previous.invert()));
  }
 }
 function applyHandCurl(side){
  const info=state.handCurl.get(side);if(!info)return;
  const amount=THREE.MathUtils.clamp((info.openY-info.marker.position.y)/.24,0,1);
  info.amount=amount;
- const minY=info.openY-.24;info.marker.position.y=THREE.MathUtils.clamp(info.marker.position.y,minY,info.openY);
+ info.marker.position.y=THREE.MathUtils.clamp(info.marker.position.y,info.openY-.24,info.openY);
  for(const bone of info.bones){
-  const reference=info.baseline.get(bone.uuid);if(!reference)continue;
-  const n=cleanName(bone.name);
-  // Moderate spread of rotations over the phalanges, avoiding wrist motion.
-  const isThumb=n.includes('thumb');
-  const strength=isThumb?.62:1;
-  const q=new THREE.Quaternion().setFromAxisAngle(
-   new THREE.Vector3(0,0,1),amount*strength*.95);
-  bone.quaternion.copy(reference).multiply(q).normalize();
+  const base=info.baseline.get(bone.uuid);
+  const axis=info.axisByBone.get(bone.uuid);
+  if(!base||!axis)continue;
+  const strength=cleanName(bone.name).includes('thumb')?.58:1;
+  const bend=new THREE.Quaternion().setFromAxisAngle(axis,amount*strength*.95);
+  bone.quaternion.copy(base).multiply(bend).normalize();
  }
  state.model.updateMatrixWorld(true);
 }
