@@ -388,7 +388,7 @@ import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-ove
 import {createCasterMobility} from './caster-mobility.js?v=0.9.69';
 import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.68';
 import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.75';
-import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.76';
+import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.76-2';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.69';
@@ -4102,6 +4102,8 @@ function loop(now){
    updateDuel(dt);
    combatHud.advance(dt,casters);
    elementOrbs.tick(dt);
+  }else if(loaded){
+   elementOrbs.idle(dt);
   }
   // WASD is additive to the live battle, not a global pause.
   if(loaded&&playing&&matchGate.isRunning&&!mobileMobaControls.paused&&casterMovement?.enabled)casterMovement.step(dt);
