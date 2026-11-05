@@ -9,6 +9,7 @@ export function createArenaMatchGate({onStart,onResume,onPause}){
  const confirm=document.getElementById('rokConfirmElements');
  const start=document.getElementById('rokManualStart');
  const warning=document.getElementById('rokMatchGateWarning');
+ const readyWarning=document.getElementById('rokMatchReadyWarning');
  const info=document.getElementById('rokMatchReadySummary');
  const mobile=window.matchMedia('(pointer:coarse) and (max-width:950px)');
  const portrait=window.matchMedia('(orientation:portrait)');
@@ -50,6 +51,7 @@ export function createArenaMatchGate({onStart,onResume,onPause}){
   configuration=chosen.slice();confirmed=chosen.slice();
   info.textContent='Orden seleccionado: '+chosen.map(id=>options.find(o=>o[0]===id)[1]).join(' → ');
   warning.textContent='';
+  readyWarning.textContent='';
   mode='armed';view();
  });
  start.addEventListener('click',()=>{
@@ -61,7 +63,7 @@ export function createArenaMatchGate({onStart,onResume,onPause}){
    else onStart?.(confirmed.slice());
    mode='running';view();
   }catch(error){
-   warning.textContent='No se pudo iniciar: '+String(error?.message||error);
+   readyWarning.textContent='No se pudo iniciar: '+String(error?.message||error);
    // An unsuccessful reset never starts the round.
    mode=resuming?'rotation-paused':'armed';view();
   }finally{start.disabled=false;}
