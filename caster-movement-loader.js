@@ -4,8 +4,8 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
  const definitions={
   idle:{path:'assets/animations/casters/shared/Standing Idle.fbx',id:'standing-idle'},
   // Use directly published FBXs instead of requiring a 17 MB nested ZIP.
-  // Only attack 02 uses a provisional direct FBX; forward 07 retains the approved original ZIP clip.
-  attack:{path:'assets/animations/casters/shared/Standing 1H Cast Spell 01.fbx',id:2},
+  // Restore original catalog attack 02; the direct Standing 1H clip was only provisional.
+  attack:{name:'Magic Heal.fbx',id:2},
   death:{name:'Sword And Shield Death.fbx',id:8},
   defense:{path:'assets/animations/casters/shared/Sword And Shield Impact.fbx',id:23},
   hit:{name:'Standing React Small From Headshot.fbx',id:9},
@@ -45,7 +45,7 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
   }else{
    // Legacy archived clips must not trigger another 17 MB download on
    // low-bandwidth phones. Direct forward/attack/strafe clips work without it.
-   if(window.matchMedia?.('(pointer:coarse) and (max-width:950px)').matches)
+   if(spec.id!==2&&window.matchMedia?.('(pointer:coarse) and (max-width:950px)').matches)
     throw Error('Clip de ZIP opcional omitido en móvil: '+spec.id);
    const archive=await zip();
    const item=Object.values(archive.files).find(x=>!x.dir&&x.name.split('/').pop().toLowerCase()===spec.name.toLowerCase());
@@ -63,7 +63,7 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
    const result={_unavailable:[]};
    // Download/action readiness prioritizes the gestures the user actually
   // needs; rare optional clips can remain absent without stalling the others.
-  const order=['idle','forward','attack','left','right','defense','backward','hit','death'];
+  const order=['idle','attack','forward','left','right','defense','backward','hit','death'];
   for(const role of order){
     const def=definitions[role];
     try{
