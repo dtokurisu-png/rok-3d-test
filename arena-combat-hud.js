@@ -43,7 +43,7 @@ export function createArenaCombatHud(){
   for(const side of ['ally','enemy']){
    const player=sides[side].root;
    const caster=casters.find(c=>c.side===side);
-   const health=Math.max(0,Number(caster?.hp)??0);
+   const health=Math.max(0,Number(caster?.hp)||0);
    const max=Math.max(1,Number(caster?.maxHp)||12);
    const amount=Math.min(100,health/max*100);
    player.querySelector('.rokHudHpFill').style.width=amount+'%';
