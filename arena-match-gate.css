@@ -1,0 +1,26 @@
+/* Match entry gate. No combat canvas, cards or HUD changes. */
+#rokMatchGate{position:fixed;inset:0;z-index:68;display:flex;align-items:center;
+ justify-content:center;padding:15px;background:#061721d8;color:#efffff;
+ font:13px/1.45 Roboto,system-ui,sans-serif}
+#rokMatchGate[hidden],#rokMatchSelection[hidden],#rokMatchReady[hidden]{display:none!important}
+.rokMatchCard{width:min(410px,92vw);max-height:88dvh;overflow-y:auto;
+ padding:17px 20px;background:#0a2532f5;border:1px solid #00ffe4;
+ border-radius:14px;box-shadow:0 10px 28px #000a}
+.rokMatchCard h2{margin:0 0 7px;color:#00ffe4;font-size:18px}
+.rokMatchCard p{margin:6px 0 11px;color:#c2d9db}
+.rokMatchCard>label,.rokMatchCard #rokMatchElementPriorities label{
+ display:flex;gap:10px;align-items:center;justify-content:space-between;margin:7px 0;
+ font-size:12px}
+.rokMatchCard select{min-height:36px;min-width:45%;border:1px solid #3a9793;
+ border-radius:7px;background:#123e49;color:#fff;padding:5px 8px;font-size:13px}
+.rokMatchCard button{width:100%;min-height:43px;margin-top:9px;border:1px solid #7fffe9;
+ border-radius:9px;color:#fff;background:#077e78;font-size:14px;font-weight:800;cursor:pointer}
+.rokMatchCard button:disabled{opacity:.45}
+#rokMatchGateWarning,#rokMatchReadyWarning{color:#ffbbbb}
+#rokMatchReady{width:min(280px,84vw);text-align:center}
+#rokMatchReadySummary{font-size:11px;color:#c1f8ec}
+#rokManualStart{font-size:18px;min-height:55px;background:#07967f}
+body:not([data-match-state="running"]) #mobileMobaControls{visibility:hidden!important}
+@media(pointer:coarse) and (max-width:950px) and (orientation:portrait){
+ #rokMatchGate{display:none!important}
+}
