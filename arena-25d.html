@@ -4606,6 +4606,7 @@ function setupMobileMobaControls(){
  const scaledSize=key=>baseSize(key)*styles[key].size/100;
  let selectedControl='joystick';
  const applyControlStyle=key=>{
+  if(!mobileQuery.matches)return;
   const el=elements[key],size=scaledSize(key);
   el.style.setProperty('width',size+'px','important');
   el.style.setProperty('height',size+'px','important');
@@ -4647,14 +4648,19 @@ function setupMobileMobaControls(){
     for(let n=1;n<=3;n++)result['spellbook'+n]={
      x:THREE.MathUtils.clamp(old.x+step*(n-1),0,1),y:old.y};
   }
+  if(!result.settings){
+   const p=defaultPosition('settings');
+   result.settings={x:p.left/Math.max(1,innerWidth-scaledSize('settings')),
+    y:p.bottom/Math.max(1,innerHeight-scaledSize('settings'))};
+  }
   return result;
  };
  const applyNormalizedLayout=layout=>{
   for(const [key,el] of Object.entries(elements)){
    const pos=layout?.[key];
    if(!pos||!Number.isFinite(pos.x)||!Number.isFinite(pos.y))continue;
-   const w=Math.max(1,innerWidth-(el.offsetWidth||(key==='joystick'?120:key==='defend'?60:key.startsWith('spellbook')?43:76)));
-   const h=Math.max(1,innerHeight-(el.offsetHeight||(key==='joystick'?120:key==='defend'?60:key.startsWith('spellbook')?43:76)));
+   const w=Math.max(1,innerWidth-scaledSize(key));
+   const h=Math.max(1,innerHeight-scaledSize(key));
    applyPosition(key,{left:pos.x*w,bottom:pos.y*h});
   }
  };
@@ -4726,8 +4732,10 @@ function setupMobileMobaControls(){
   pendingLandscapeSaved=customizedLayout?saved:null;
   for(const key of Object.keys(elements))applyControlStyle(key);
   refreshStyleInputs();
-  for(const key of Object.keys(elements))applyPosition(key,defaultPosition(key));
-  if(customizedLayout&&!portraitQuery.matches)applyNormalizedLayout(pendingLandscapeSaved);
+  if(mobileQuery.matches){
+   for(const key of Object.keys(elements))applyPosition(key,defaultPosition(key));
+   if(customizedLayout&&!portraitQuery.matches)applyNormalizedLayout(pendingLandscapeSaved);
+  }
   // Preserve custom layouts unless an action button overlaps the book.
   if(mobileQuery.matches&&!portraitQuery.matches){
    const book=qs('#rokSpellbook')?.getBoundingClientRect();
