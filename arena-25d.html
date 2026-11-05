@@ -3573,7 +3573,7 @@ function updateDuel(dt){
       v.restorationPhase==='rise'?'✧ Restauración · emergiendo entre rayos':
       '✧ Restauración · Standing → Idle';
   }else if(combatants.some(c=>c.stage==='casting')){
-    qs('#phase').textContent='✦ Farolera 2 s / Arquera 3 s · preparación variable';
+    qs('#phase').textContent='✦ Farolera · preparando ataque mágico';
   }else if(missiles.length){
     qs('#phase').textContent=attackMode==='magic'?'✦ Intercambio de hechizos mágicos':'➜ Ataques simples a distancia';
   }else if(combatants.every(c=>c.stage==='active')){
@@ -3677,7 +3677,7 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     }
    })();
   }
-  qs('#modelStatus').textContent='4 Faroleras + '+combatants.filter(c=>c.kind==='archer').length+' Arqueras + 2 casters · Arquera: 3 PV, alcance 9, daño 2 · ataque 3 s / Farolera 2 s';
+  qs('#modelStatus').textContent='4 invocaciones de prueba + 2 casters · Arquera: 3 PV, alcance 9, daño 2 · ataque 3 s / Farolera 2 s';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
   // The preparation interface was shown before downloading models.
   playing=false;
