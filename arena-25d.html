@@ -355,7 +355,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.80"></head>
+<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261105-mobile-fix-108"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.80"></head>
 <body data-studio-page="tester" data-rok-boot="loading">
 <div id="gameLoadingOverlay" role="status" aria-live="polite">
  <div id="gameLoadingCard">
@@ -488,7 +488,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  <button id="mobaDefend" class="mobaAction" type="button" aria-label="Mantener para defender">◆<span style="display:block;font-size:10px">DEFENSA</span></button>
  <button id="mobaSettingsButton" type="button" aria-label="Configurar controles y pausar" title="Ajustes">⚙</button>
  <button id="mobaFullscreenButton" type="button" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
- <div id="mobaAdjustIndicator">Arrastra joystick, ataque y defensa. Pulsa ⚙ para terminar.</div>
+ <div id="mobaAdjustIndicator">Arrastra los controles. Pulsa ⚙ para terminar.</div>
+ <div id="mobaResizePanel" hidden><label for="mobaLiveSpellbookSize">Tamaño cartas</label><input type="range" id="mobaLiveSpellbookSize" min="40" max="100" step="5" value="65"><span id="mobaLiveSpellbookValue">65%</span></div>
 </div>
 <div id="mobileMobaSettings" role="dialog" aria-modal="true" aria-label="Ajustes de controles móviles" data-open="false">
  <div class="mobaSettingsCard">
@@ -4554,16 +4555,19 @@ function setupMobileMobaControls(){
  const sceneStatus=qs('#mobaSceneStatus');
  const sceneFile=qs('#mobaSceneFile');
  const sizeSlider=qs('#mobaSpellbookSize'),sizeText=qs('#mobaSpellbookSizeValue');
+ const liveSlider=qs('#mobaLiveSpellbookSize'),liveValue=qs('#mobaLiveSpellbookValue'),livePanel=qs('#mobaResizePanel');
  let bookSize=65;
  const setBookSize=(value,persist=true)=>{
   bookSize=THREE.MathUtils.clamp(Number(value)||65,40,100);
   sizeSlider.value=String(bookSize);sizeText.textContent=bookSize+'%';
+  liveSlider.value=String(bookSize);liveValue.textContent=bookSize+'%';
   document.documentElement.style.setProperty('--rok-mobile-book-width',(Math.min(innerWidth*.43,245)*bookSize/100).toFixed(1)+'px');
   document.documentElement.style.setProperty('--rok-mobile-book-height',(Math.min(innerHeight*.85,355)*bookSize/100).toFixed(1)+'px');
   if(persist)try{localStorage.setItem('rokMobileSpellbookScaleV1',String(bookSize));}catch{}
  };
  try{setBookSize(localStorage.getItem('rokMobileSpellbookScaleV1')||65,false);}catch{setBookSize(65,false);}
  sizeSlider.addEventListener('input',event=>setBookSize(event.target.value));
+ liveSlider.addEventListener('input',event=>setBookSize(event.target.value));
  const normalizeLayout=()=>Object.fromEntries(Object.entries(elements).map(([key,el])=>{
   const p=offsets[key]||defaultPosition(key);
   const w=Math.max(1,innerWidth-(el.offsetWidth||(key==='joystick'?120:key==='defend'?60:76)));
@@ -4651,7 +4655,7 @@ function setupMobileMobaControls(){
  };
  function stopEdit(){
   const wasEditing=editing;
-  editing=false;document.body.classList.remove('mobaLayoutEditing');editNotice.dataset.visible='false';
+  editing=false;document.body.classList.remove('mobaLayoutEditing');editNotice.dataset.visible='false';livePanel.hidden=true;
   releaseInputs();
   if(wasEditing)saveLayout();
  }
@@ -4697,7 +4701,7 @@ function setupMobileMobaControls(){
   fsButton.setAttribute('aria-label',document.fullscreenElement?'Salir de pantalla completa':'Pantalla completa');
  });
  qs('#mobaReposition').addEventListener('click',()=>{
-  editing=true;document.body.classList.add('mobaLayoutEditing');dialog.dataset.open='false';editNotice.dataset.visible='true';
+  editing=true;document.body.classList.add('mobaLayoutEditing');dialog.dataset.open='false';editNotice.dataset.visible='true';livePanel.hidden=false;
  });
  qs('#mobaResetLayout').addEventListener('click',resetLayout);
  qs('#mobaSaveLayout').addEventListener('click',saveLayout);
