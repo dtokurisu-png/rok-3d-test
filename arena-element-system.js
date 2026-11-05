@@ -1,7 +1,7 @@
 /* R.O.K. pre-combat element priority and fair shared-fragment regeneration.
  * No cast card logic here: this module owns only the energy economy and HUD.
  */
-export function createArenaElementSystem({THREE,root,getCasters,onBegin}){
+export function createArenaElementSystem({THREE,root,getCasters,onBegin,onPrepare}){
  const palette={
   water:{label:'Agua',color:'#00ffe4'},
   fire:{label:'Fuego',color:'#ff7846'},
@@ -17,7 +17,7 @@ export function createArenaElementSystem({THREE,root,getCasters,onBegin}){
   <div class="rokPlayer rokEnemy"><div class="rokPlayerBars"><strong>CHIARA</strong><div class="rokHpTrack"><div class="rokHpFill"></div></div><div class="rokEnergyTracks"></div></div><div class="rokPortrait">C</div></div>`;
  document.body.append(hud);
  const modal=document.createElement('section');
- modal.id='rokElementPrep';modal.hidden=true;
+ modal.id='rokElementPrep';modal.hidden=false;
  modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');
  modal.innerHTML=`<div class="rokPrepCard">
  <h2>Preparación elemental</h2>
@@ -28,7 +28,7 @@ export function createArenaElementSystem({THREE,root,getCasters,onBegin}){
  <div id="rokElementOrders"></div>
  <p class="rokPrepHelp">Cada segundo se genera un fragmento TOTAL. Cuatro fragmentos completan una unidad. El sistema llena una unidad antes de avanzar al siguiente elemento de la lista.</p>
  <p id="rokPrepWarning" role="status"></p>
- <button type="button" id="rokBeginRound">Comenzar combate</button></div>`;
+ <button type="button" id="rokBeginRound" disabled>Preparando partida…</button></div>`;
  document.body.append(modal);
  const count=modal.querySelector('#rokElementCount');
  const orderZone=modal.querySelector('#rokElementOrders');
@@ -157,8 +157,11 @@ export function createArenaElementSystem({THREE,root,getCasters,onBegin}){
   chooseOrder();
  });
  function prepare(){
+  // The selection gate is authoritative: no gameplay step while visible.
   active=false;ready=true;
+  onPrepare?.();
   modal.hidden=false;
+  modal.querySelector('#rokBeginRound').disabled=false;
   modal.querySelector('#rokPrepRound').textContent=finished?
    'Serie terminada · '+(scores.ally>scores.enemy?'Ganó Lioren':'Ganó Chiara')+' '+scores.ally+'–'+scores.enemy:
    'Combate '+round+' de 3 · Marcador '+scores.ally+'–'+scores.enemy;
@@ -177,14 +180,29 @@ export function createArenaElementSystem({THREE,root,getCasters,onBegin}){
    modal.querySelector('#rokPrepWarning').textContent='No puedes repetir el mismo elemento. Elige un orden sin duplicados.';
    return;
   }
+  const button=modal.querySelector('#rokBeginRound');
+  button.disabled=true;
+  // Do not uncover the world until the round has been reset successfully.
+  // Previously modal.hidden=true happened BEFORE onBegin(), so a reset error
+  // left an apparently running/broken match with no selection screen.
+  try{
+   onBegin?.();
+  }catch(error){
+   button.disabled=false;active=false;ready=true;modal.hidden=false;
+   modal.querySelector('#rokPrepWarning').textContent=
+    'No se pudo iniciar el combate: '+String(error?.message||error);
+   console.error('[R.O.K.] Preparación de combate fallida:',error);
+   return;
+  }
   if(finished){scores={ally:0,enemy:0};round=1;finished=false;}
   order=selected;
   enemyOrder=['water']; // Temporary prototype opponent; same energy rate.
   resetState('ally',order);resetState('enemy',enemyOrder);
   clearPickups();
   for(const side of ['ally','enemy'])spawnTimers[side]={next:0,steps:0};
-  elapsed=0;redrawLeft=0;active=true;ready=false;modal.hidden=true;
-  onBegin();render();
+  elapsed=0;redrawLeft=0;
+  ready=false;active=true;modal.hidden=true;
+  render();
  }
  modal.querySelector('#rokBeginRound').addEventListener('click',begin);
  function grantFragment(side){
