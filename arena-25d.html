@@ -160,7 +160,7 @@ canvas{display:block;touch-action:none}
 body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-element-system.css?v=0.9.62"></head>
+<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"></head>
 <body data-studio-page="tester" data-rok-boot="loading">
 <div id="gameLoadingOverlay" role="status" aria-live="polite">
  <div id="gameLoadingCard">
@@ -197,14 +197,12 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
    window.ROKBoot.fail(event.message);
  });
  window.addEventListener('unhandledrejection',event=>{
-  // Optional FX, scene catalog and animation assets may fail harmlessly.
-  // The required model loader has its own explicit fatal error handler.
-  if(!done)console.warn('[R.O.K.] Recurso secundario pendiente o fallido:',event.reason);
+  if(!done&&event.reason)window.ROKBoot.fail(event.reason.message||String(event.reason));
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.62 · Inicio solo tras elegir elementos</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.62</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.63 · Restauración sin elementos</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.63</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -291,7 +289,6 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-sightcone-1';
 import {createCasterMobility} from './caster-mobility.js?v=20261104-moba-1';
-import {createArenaElementSystem} from './arena-element-system.js?v=0.9.62';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js';
@@ -1356,8 +1353,7 @@ async function activateArenaAnimationPack(baseModel){
   const far=animationNeeds.filter(id=>combatAnimations.has(id));
   const arch=archerAnimationNeeds.filter(id=>archerCombatAnimations.has(id));
   magicReleaseFraction=detectMagicRelease(combatAnimations.get(2),combatants.find(c=>c.kind==='mana')?.model||baseModel);
-  // Do not force every summon into Idle when a deferred animation ZIP finishes.
- // That used to interrupt combat already started while clips arrived late.
+  for(const c of combatants)setAnim(c,'idle',{force:true,fade:.08});
   const magicClip=combatAnimations.get(2),bowClip=archerCombatAnimations.get(10);
   const magicPost=magicClip?magicClip.duration*(1-magicReleaseFraction):0;
   const bowPre=bowClip?Math.min(bowClip.duration,ATTACK_PROFILES.archer.windupFrame/
@@ -1544,23 +1540,7 @@ function selectCombatTarget(c){
   // This is not an acquired enemy to attack until the caster comes in range.
   return enemyCaster;
 }
-let loaded=false,playing=false,tm=0,prevTime=performance.now();
-const elementSystem=createArenaElementSystem({
- THREE,root,getCasters:()=>casters,
- onPrepare:()=>{
-  // Clear all running controls and keep simulation frozen throughout
-  // the selection screen, even across an orientation change.
-  playing=false;
-  casterMovement?.disable();
-  qs('#pause').textContent='▶ Reanudar';
- },
- onBegin:()=>{
-  // Pre-fight selection is the ONLY place priority may change.
-  resetDemoCombat();
-  playing=true;
-  qs('#pause').textContent='Ⅱ Pausar';
- }
-});
+let loaded=false,playing=true,tm=0,prevTime=performance.now();
 const CASTER_RESTART_DELAY=1.8; // Mostrar victoria/derrota antes de reiniciar.
 let matchRestartLeft=null;
 const DURATION=10.25;
@@ -2932,8 +2912,6 @@ function damage(target,value,source,{committed=false}={}){
     target.pendV.x+=.6;
   }
   if(target.hp<=0){
-    // Cards will supply actual costs later; fallback cost 1 for test summons.
-    elementSystem.dropFragments(target,target.elementCost??1);
     beginDeath(target);
     // Antes de restaurar al vencedor, resolver los ataques enemigos que
     // habían sido disparados: los dos combatientes pueden morir.
@@ -3237,11 +3215,7 @@ function updateDuel(dt){
     matchRestartLeft-=dt;
     if(matchRestartLeft<=0){
       if(missiles.length)matchRestartLeft=.05;
-      else{
-       playing=false;
-       matchRestartLeft=null;
-       elementSystem.roundFinished(casters);
-      }
+      else resetDemoCombat();
     }
     if(casters.every(c=>c.stage==='defeated'))
       qs('#phase').textContent='★ EMPATE · ambos casters derrotados';
@@ -3434,7 +3408,6 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   // vida, etiquetas, combate y animaciones del resto de invocaciones.
   // Mientras descargan, permanece el caster provisional; no bloquean la arena.
   const casterModelTasks=[];
-  const optionalAnimationJobs=[];
   for(const spec of [
     {side:'ally',path:'lioren kaster.glb',label:'Lioren'},
     {side:'enemy',path:'chiara kaster.glb',label:'Chiara'}
@@ -3464,13 +3437,10 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
       caster.idleClip=gltf.animations.find(clip=>/idle|standing/i.test(clip.name))||
         gltf.animations[0]||new THREE.AnimationClip('Reposo',1,[]);
       caster.mixer.clipAction(caster.idleClip).reset().play();
-      // The GLB Idle is gameplay-ready already. Retargeting nine additional
-      // FBX files takes substantial CPU on phones: never block arena startup.
-      optionalAnimationJobs.push(async()=>{
-       const clips=await movementLoader.load(caster);
-       if(caster.model===model)casterLayers.register(caster,clips);
-      });
-      qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' listo (FBX adicionales en segundo plano)';
+      // Wait for the real caster's required FBX controller before gameplay.
+      const clips=await movementLoader.load(caster);
+      casterLayers.register(caster,clips);
+      qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' cargado · animaciones preparadas';
     }).catch(error=>{
      console.error('[R.O.K.] Caster '+spec.label+' no cargado:',error);
      throw Error('Modelo de '+spec.label+': '+String(error?.message||error));
@@ -3478,36 +3448,17 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     casterModelTasks.push(modelTask);
   }
   window.ROKBoot.progress('Descargando escenario y casters reales…',48);
-  // Heavy ZIP/FBX retargeting is deferred until after the core assets
-  // have initialized, then staggered to prevent concurrent CPU spikes.
   const readiness=await Promise.all([Promise.all(casterModelTasks),
-   initialSceneLoading,sharedBackgroundReady,arenaTextureReady]);
-  if(readiness[1]?.fallback){
-   // Unavailable scene-editor library must not make the basic arena unplayable.
-   console.warn('[R.O.K.] Escenario personalizado no disponible:',readiness[1].reason);
-  }
+   activateArenaAnimationPack(g.scene),initialSceneLoading,
+   sharedBackgroundReady,arenaTextureReady]);
+  if(readiness[2]?.fallback)throw Error('Escenario: '+readiness[2].reason);
   window.ROKBoot.progress('Comprobando y preparando el combate…',92);
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
   qs('#modelStatus').textContent='4 Faroleras + '+combatants.filter(c=>c.kind==='archer').length+' Arqueras + 2 casters · Arquera: 3 PV, alcance 9, daño 2 · ataque 3 s / Farolera 2 s';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
-  // Selection must become visible BEFORE the loading overlay disappears.
-  playing=false;
-  elementSystem.prepare();
   window.ROKBoot.ready();
-  // Optional animations do not block first paint, movement or the round UI.
-  // Process them sequentially to reduce peak memory usage on mobile devices.
-  setTimeout(()=>{
-   void (async()=>{
-    const jobs=[...optionalAnimationJobs,()=>activateArenaAnimationPack(g.scene)];
-    for(const job of jobs){
-     await new Promise(resolve=>setTimeout(resolve,650));
-     try{await job();}
-     catch(error){console.warn('[R.O.K.] Animación opcional no preparada:',error);}
-    }
-   })();
-  },900);
   }catch(error){
     const message=String(error?.message||error);
     console.error('[R.O.K.] Error de inicialización del combate:',error);
@@ -3912,22 +3863,15 @@ fetch('./assets/manifests/caster-animations.json',{cache:'no-store'}).then(respo
   reviewMessage('Lista de '+casterReview.items.length+' animaciones · selecciona Probar en esta arena.');}
 ).catch(error=>reviewMessage('No se pudo cargar catálogo: '+String(error.message||error)));
 
-qs('#repeat').onclick=()=>{
- casterMovement?.disable();
- playing=false;
- elementSystem.prepare();
-};
+qs('#repeat').onclick=()=>{casterMovement?.disable();playing=true;qs('#pause').textContent='Ⅱ Pausar';resetDemoCombat();};
 qs('#pause').onclick=()=>{if(casterMovement?.enabled){casterMovement.disable();return;}playing=!playing;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';};
 let fpsTime=0,fpsCount=0;
 function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
-  if(loaded&&playing&&elementSystem.active&&!casterReview.active){
-    updateDuel(dt);
-    elementSystem.step(dt);
-   }
+  if(loaded&&playing&&!casterReview.active)updateDuel(dt);
   // WASD is additive to the live battle, not a global pause.
-  if(loaded&&playing&&elementSystem.active&&!mobileMobaControls.paused&&casterMovement?.enabled)casterMovement.step(dt);
+  if(loaded&&playing&&!mobileMobaControls.paused&&casterMovement?.enabled)casterMovement.step(dt);
   // Range must be visible for the SELECTED caster even before WASD begins.
   // Previously this indicator required casterMovement.enabled, making the
   // proximity system appear broken while the player stood still.
@@ -3940,14 +3884,14 @@ function loop(now){
     else casterRangeIndicator.hide(c);
    }
   }
-  if(loaded&&playing&&elementSystem.active)for(const c of casters)
+  if(loaded&&playing)for(const c of casters)
     if(c.stage==='defeated'&&c.deathAnimationActive)c.mixer.update(dt);
   if(casterReview.active&&casterReview.previousCaster)casterReview.previousCaster.mixer.update(dt);
   if(loaded){
     for(const c of combatants){updateNameplate(c);updateSummonCountdown(c);}
     for(const c of casters)updateNameplate(c);
   }
-  if(loaded&&playing&&elementSystem.active)sceneryOverlay.update(now/1000);
+  sceneryOverlay.update(now/1000);
   updateCameraTracking(dt);
   // Remove only nearby decorative obstacles between camera and allied caster.
   const allyForVisibility=casters.find(c=>c.side==='ally');
