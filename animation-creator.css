@@ -33,3 +33,13 @@ input[type=range]{accent-color:#00ffe4;padding:0}
  .creatorSection{padding:9px}
  .creatorBadge{font-size:10px;top:6px;right:6px}
 }
+/* Distinct from the existing blue/cyan catalog and composite clips. */
+.creatorQueue{margin-top:12px;border-top:1px solid #36585c;padding-top:9px}
+.creatorQueue>strong{display:block;margin-bottom:7px;color:#e8f5f0}
+.creatorQueueItem{display:grid;grid-template-columns:1fr auto auto;
+ align-items:center;gap:6px;margin:6px 0;padding:7px;border-radius:7px;
+ border:1px solid #974be1;background:#2a1746;color:#f2d8ff}
+.creatorQueueItem small{font-size:10px;font-weight:800;color:#d2aaff}
+.creatorQueueItem.creatorReplacement{border-color:#d18a3e;background:#332315;color:#ffdfb0}
+.creatorQueueItem.creatorReplacement small{color:#ffcb78}
+.creatorQueueItem button{min-height:26px;padding:4px 6px;font-size:11px}
