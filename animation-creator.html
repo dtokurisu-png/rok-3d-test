@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R.O.K. 3D — Creador de Animaciones</title>
+<link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./animation-creator.css">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
+</head><body data-studio-page="creator">
+<main class="creatorShell">
+ <aside class="creatorPanel">
+  <h1>Creador de Animaciones</h1>
+  <p class="creatorNote">Edición no destructiva de rigs: poses, cinemática inversa y fotogramas clave.</p>
+  <section class="creatorSection"><h2>Personaje</h2>
+   <label for="creatorModel">Modelo de GitHub</label><select id="creatorModel"></select>
+   <div class="creatorRow"><button id="creatorLoad" type="button">Cargar modelo</button><button id="creatorFrame" type="button">Centrar cámara</button></div>
+   <p class="creatorStatus" id="creatorStatus" role="status">Cargando biblioteca de modelos…</p>
+  </section>
+  <section class="creatorSection"><h2>IK · Brazos y piernas</h2>
+   <label for="creatorChain">Cadena de huesos</label><select id="creatorChain"></select>
+   <p class="creatorNote">Arrastra la esfera del objetivo con las flechas 3D. También puedes ajustar sus coordenadas. El modelo debe tener huesos compatibles.</p>
+   <div class="creatorRow creatorAxes">
+    <label>X <input type="number" id="creatorTargetX" step="0.05"></label>
+    <label>Y <input type="number" id="creatorTargetY" step="0.05"></label>
+    <label>Z <input type="number" id="creatorTargetZ" step="0.05"></label>
+   </div>
+   <div class="creatorRow"><button id="creatorResetTarget" type="button">Recentrar objetivo</button><button id="creatorSolve" type="button">Resolver IK</button></div>
+  </section>
+  <section class="creatorSection"><h2>Rotación · Huesos clave</h2>
+   <label for="creatorBone">Hueso</label><select id="creatorBone"></select>
+   <div class="creatorRow creatorAxes">
+    <label>X° <input type="number" id="creatorRotX" step="1"></label>
+    <label>Y° <input type="number" id="creatorRotY" step="1"></label>
+    <label>Z° <input type="number" id="creatorRotZ" step="1"></label>
+   </div>
+   <div class="creatorRow"><button id="creatorResetBone" type="button">Restablecer hueso</button><button id="creatorResetPose" type="button">Restablecer pose</button></div>
+  </section>
+  <section class="creatorSection"><h2>Línea de tiempo</h2>
+   <label for="creatorDuration">Duración (segundos)</label><input type="number" min="0.5" max="120" step="0.5" id="creatorDuration" value="4">
+   <label for="creatorTime">Fotograma actual · <output id="creatorFrameNumber">0</output> / <output id="creatorLastFrame">120</output> (30 FPS)</label>
+   <input type="range" id="creatorTime" min="0" max="120" step="1" value="0">
+   <div class="creatorRow"><button id="creatorKey" type="button">◆ Guardar pose clave</button><button id="creatorDeleteKey" type="button">Eliminar clave</button></div>
+   <div class="creatorRow"><button id="creatorPlay" type="button">▶ Reproducir</button><button id="creatorStop" type="button">■ Detener</button></div>
+   <p id="creatorKeys" class="creatorNote">0 poses guardadas</p>
+  </section>
+  <section class="creatorSection"><h2>Guardar y exportar</h2>
+   <label for="creatorName">Nombre de la animación</label><input id="creatorName" value="Mi animación R.O.K.">
+   <div class="creatorRow"><button type="button" id="creatorExportJson">Guardar proyecto JSON</button><button type="button" id="creatorImport">Abrir JSON</button></div>
+   <input hidden type="file" accept=".json,application/json" id="creatorImportFile">
+   <button type="button" id="creatorExportGlb">Exportar GLB animado</button>
+   <p class="creatorNote">El proyecto JSON permite continuar editando. El GLB incluye el modelo y la animación interpolada; se descarga localmente, sin modificar el archivo original ni publicar en GitHub.</p>
+  </section>
+ </aside>
+ <section class="creatorViewport" aria-label="Vista tridimensional editable">
+  <div id="creatorCanvas"></div>
+  <div class="creatorBadge">Ratón: orbitar · rueda: zoom · arrastrar flechas: IK</div>
+  <p class="creatorOverlayStatus" id="creatorViewportStatus">Selecciona y carga un personaje con huesos.</p>
+ </section>
+</main>
+<script type="module" src="./animation-creator.js"></script>
+<script src="./studio.js"></script>
+</body></html>
