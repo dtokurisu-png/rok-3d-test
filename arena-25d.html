@@ -212,8 +212,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.78 · Depósitos desbloqueables 0/0</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.78</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.79 · HUD superior único para casters</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.79</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -2069,8 +2069,11 @@ function updateSummonGroundHuds(){
  }
 }
 function makeNameplate(c){
+  // Caster HP is exclusively displayed in the upper combat HUD.
+  // Future target and threat markers will use separate visual elements.
+  if(c.role==='caster')return;
   const el=document.createElement('div');
-  const caster=c.role==='caster';
+  const caster=false;
   el.className='unitTag '+(c.side==='enemy'?'enemy':'ally')+(caster?' caster':'');
   const life='<div class="unitBar unitHealth"><div class="unitBarFill"></div><div class="unitBarText"></div></div>';
   // La estrella del caster acompaña únicamente su barra de 12 PV.
@@ -2093,6 +2096,8 @@ function makeNameplate(c){
   nameplates.set(c,el);
 }
 function updateNameplate(c){
+  // Never recreate or update an obsolete overhead caster health bar.
+  if(c.role==='caster')return;
   // El valor se actualiza directamente en updateSummonGroundHuds().
   if(c.role==='summon')return;
   const el=nameplates.get(c);
