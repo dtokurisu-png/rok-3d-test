@@ -221,5 +221,6 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   },
   releaseMobile(){mobileAxisX=0;mobileAxisY=0;setDefense(false);},
   get enabled(){return enabled;},
-  get defending(){return defending;},get caster(){return caster;}};
+  get defending(){return defending;},get caster(){return caster;},
+  get threatTarget(){return attackDuration>0&&!attackReleased?committedAttackTarget:null;}};
 }
