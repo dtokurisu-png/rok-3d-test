@@ -19,7 +19,7 @@ const defaults={model:null,loadedPath:'',bones:[],pose:new Map(),chains:[],
  targets:new Map(),currentChain:null,currentBone:null,keys:new Map(),
  playing:false,time:0,duration:4,baseScale:1,modelId:null,
  sourceClip:null,sourceMixer:null,sourceAction:null,sourceId:null,
- modelClips:[],recording:false};
+ modelClips:[],recording:false,handles:[],poles:new Map(),selectedHandle:null,centerHandle:null};
 const state=defaults;
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x081520);
@@ -44,8 +44,10 @@ gizmo.setSize(.72);
 scene.add(gizmo.getHelper());
 gizmo.addEventListener('dragging-changed',e=>orbit.enabled=!e.value);
 gizmo.addEventListener('objectChange',()=>{
- if(state.currentChain&&!state.playing){
-  solveIK(state.currentChain);
+ if(!state.playing){
+  if(state.selectedHandle?.type==='pole')solveIK(state.chains[state.selectedHandle.index]);
+  else if(state.selectedHandle?.type==='center')moveCenter();
+  else if(state.selectedHandle?.type==='ik')solveIK(state.currentChain);
   recordEditedFrame();
   refreshTargetInputs();
   viewStatus('IK aplicada · pulsa «Guardar pose clave» para conservarla.');
@@ -127,6 +129,8 @@ function clearTargets(){
   item.geometry.dispose();item.material.dispose();
  }
  state.targets.clear();state.currentChain=null;
+ for(const h of state.handles){scene.remove(h);h.geometry.dispose();h.material.dispose();}
+ state.handles=[];state.poles.clear();state.selectedHandle=null;state.centerHandle=null;
 }
 function makeTargets(){
  clearTargets();
@@ -143,7 +147,7 @@ function makeTargets(){
   scene.add(target);state.targets.set(i,target);
   picker.append(new Option(chain.label,String(i)));
  }
- picker.disabled=!state.chains.length;
+ picker.disabled=!state.chains.length;createDirectHandles();
  if(state.chains.length)selectChain(0);
  else viewStatus('El modelo no contiene cadenas IK reconocibles; puedes rotar sus huesos manualmente.');
 }
@@ -151,7 +155,7 @@ function selectChain(i){
  if(!Number.isInteger(i)||!state.chains[i]){gizmo.detach();state.currentChain=null;return;}
  state.currentChain=state.chains[i];
  $('creatorChain').value=String(i);
- gizmo.attach(state.targets.get(i));
+ gizmo.setMode('translate');gizmo.attach(state.targets.get(i));state.selectedHandle={type:'ik',index:i};
  refreshTargetInputs();
  viewStatus('Objetivo IK: '+state.currentChain.label+' · mueve la esfera con las flechas 3D.');
 }
@@ -188,7 +192,7 @@ function solveIK(chain){
    joint.updateWorldMatrix(false,true);
   }
  }
- refreshBoneInputs();
+ applyPole(chain);refreshBoneInputs();
 }
 function resetTarget(){
  if(!state.currentChain)return;
@@ -223,8 +227,7 @@ function applyPose(pose){
   if(Array.isArray(q)&&q.length===4&&q.every(Number.isFinite))
    bone.quaternion.fromArray(q).normalize();
  }
- state.model?.updateMatrixWorld(true);
- refreshBoneInputs();
+ state.model?.updateMatrixWorld(true);syncHandles();refreshBoneInputs();
 }
 function resetPose(){
  if(!state.model)return;
@@ -265,7 +268,7 @@ function sampleFrame(frame){
   const edited=state.keys.get(frame);
   if(edited)applyPose(edited);
   state.model?.updateMatrixWorld(true);
-  if(!state.recording)refreshBoneInputs();
+  if(!state.recording){syncHandles();refreshBoneInputs();}
   return;
  }
  if(!state.keys.size)return;
@@ -285,8 +288,7 @@ function sampleFrame(frame){
   const b=new THREE.Quaternion().fromArray(qb||qa);
   bone.quaternion.copy(a.slerp(b,t));
  }
- state.model.updateMatrixWorld(true);
- refreshBoneInputs();
+ state.model.updateMatrixWorld(true);syncHandles();refreshBoneInputs();
 }
 function setFrame(frame,sample=true){
  state.time=THREE.MathUtils.clamp(frame/30,0,state.duration);
@@ -298,7 +300,7 @@ function setFrame(frame,sample=true){
    const tip=state.chains[index]?.tip;
    if(tip)target.position.copy(tip.getWorldPosition(new THREE.Vector3()));
   }
-  refreshTargetInputs();
+  syncHandles();refreshTargetInputs();
  }
  refreshTimeline();
 }
@@ -699,6 +701,109 @@ $('creatorExportGlb').addEventListener('click',async()=>{
  finally{button.disabled=false;}
 });
 
+
+const directRay=new THREE.Raycaster(),directVec=new THREE.Vector2();
+function handle(radius,color,data){
+ const h=new THREE.Mesh(new THREE.SphereGeometry(radius,14,12),
+  new THREE.MeshBasicMaterial({color,depthTest:false,transparent:true,opacity:.9}));
+ h.userData.control=data;h.renderOrder=250;state.handles.push(h);scene.add(h);return h;
+}
+function createDirectHandles(){
+ for(const bone of state.bones){
+  const n=cleanName(bone.name);
+  if(/finger|toe|twist|helper/.test(n))continue;
+  if(!/hips|pelvis|spine|chest|head|neck|arm|forearm|hand|wrist|upleg|thigh|calf|shin|foot/.test(n))continue;
+  handle(.055,/hand|wrist/.test(n)?0xff9bd4:0x85b2ff,{type:'bone',bone});
+ }
+ // Pole controls orient the plane of elbow and knee bending.
+ for(let i=0;i<state.chains.length;i++){
+  const c=state.chains[i];if(!/Brazo|Pierna/.test(c.label))continue;
+  const elbow=c.lower.getWorldPosition(new THREE.Vector3());
+  const root=c.upper.getWorldPosition(new THREE.Vector3());
+  const tip=c.tip.getWorldPosition(new THREE.Vector3());
+  const direction=elbow.clone().sub(root.clone().add(tip).multiplyScalar(.5));
+  if(direction.lengthSq()<.00001)direction.set(0,0,/Brazo/.test(c.label)?-1:1);
+  const pole=handle(.075,/Brazo/.test(c.label)?0xffae5b:0xdfee66,{type:'pole',index:i});
+  pole.position.copy(elbow).addScaledVector(direction.normalize(),.5);state.poles.set(i,pole);
+ }
+ const hips=roleBone(['hips','pelvis']);
+ if(hips){state.centerHandle=handle(.12,0xff60b4,{type:'center'});
+  state.centerHandle.position.copy(hips.getWorldPosition(new THREE.Vector3()));}
+ syncHandles();
+}
+function syncHandles(){
+ if(!state.model)return;state.model.updateMatrixWorld(true);
+ for(const h of state.handles){
+  if(h.userData.control.type==='bone')
+   h.position.copy(h.userData.control.bone.getWorldPosition(new THREE.Vector3()));
+  else if(h.userData.control.type==='center'&&!gizmo.dragging){
+   const hips=roleBone(['hips','pelvis']);
+   if(hips)h.position.copy(hips.getWorldPosition(new THREE.Vector3()));
+  }
+ }
+}
+function applyPole(chain){
+ const p=state.poles.get(state.chains.indexOf(chain));if(!p)return;
+ state.model.updateMatrixWorld(true);
+ const root=chain.upper.getWorldPosition(new THREE.Vector3());
+ const elbow=chain.lower.getWorldPosition(new THREE.Vector3());
+ const axis=chain.tip.getWorldPosition(new THREE.Vector3()).sub(root).normalize();
+ const project=v=>v.sub(axis.clone().multiplyScalar(v.dot(axis)));
+ const a=project(elbow.sub(root)),b=project(p.position.clone().sub(root));
+ if(a.lengthSq()<1e-9||b.lengthSq()<1e-9)return;
+ a.normalize();b.normalize();
+ const angle=Math.atan2(axis.dot(new THREE.Vector3().crossVectors(a,b)),a.dot(b));
+ const parent=chain.upper.parent.getWorldQuaternion(new THREE.Quaternion());
+ const q=new THREE.Quaternion().setFromAxisAngle(axis,angle);
+ chain.upper.quaternion.premultiply(parent.clone().invert().multiply(q).multiply(parent)).normalize();
+ state.model.updateMatrixWorld(true);
+}
+function moveCenter(){
+ const hips=roleBone(['hips','pelvis']),h=state.centerHandle;
+ if(!hips||!h||!state.previousCenter)return;
+ const delta=h.position.clone().sub(state.previousCenter);state.previousCenter.copy(h.position);
+ const p=hips.parent;
+ const local=delta.clone().applyQuaternion(p.getWorldQuaternion(new THREE.Quaternion()).invert())
+  .divide(p.getWorldScale(new THREE.Vector3()));
+ hips.position.add(local);state.model.updateMatrixWorld(true);
+ // Plant feet when going down; lift the pelvis and feet when going upward.
+ for(let i=0;i<state.chains.length;i++){
+  const c=state.chains[i];if(!/Pierna/.test(c.label))continue;
+  const target=state.targets.get(i);if(!target)continue;
+  if(delta.y>0)target.position.y=Math.max(0,target.position.y+delta.y);
+  else target.position.y=Math.max(0,target.position.y);
+  solveIK(c);
+ }
+}
+function activateHandle(info,obj){
+ state.selectedHandle=info;
+ if(info.type==='ik'){selectChain(info.index);return;}
+ if(info.type==='bone'){
+  selectBone(info.bone.uuid);gizmo.setMode('rotate');gizmo.attach(info.bone);
+  viewStatus('Hueso '+info.bone.name+' · R: rotar');
+ }else if(info.type==='pole'){
+  state.currentChain=state.chains[info.index];
+  gizmo.setMode('translate');gizmo.attach(obj);
+  viewStatus('Pole target: arrastra para orientar la flexión.');
+ }else if(info.type==='center'){
+  gizmo.setMode('translate');gizmo.attach(obj);
+  state.previousCenter=obj.position.clone();
+  for(let i=0;i<state.chains.length;i++)if(/Pierna/.test(state.chains[i].label)){
+   const c=state.chains[i],t=state.targets.get(i);
+   if(t)t.position.copy(c.tip.getWorldPosition(new THREE.Vector3()));
+  }
+  viewStatus('Centro de gravedad · pies fijados al bajar.');
+ }
+}
+renderer.domElement.addEventListener('pointerup',e=>{
+ if(!state.model||state.playing)return;
+ const rect=renderer.domElement.getBoundingClientRect();
+ directVec.set(2*(e.clientX-rect.left)/rect.width-1,1-2*(e.clientY-rect.top)/rect.height);
+ directRay.setFromCamera(directVec,camera);
+ const hit=directRay.intersectObjects(state.handles,false)[0];
+ if(hit)activateHandle(hit.object.userData.control,hit.object);
+});
+
 /* v0.3: visible per-bone keyframe tracks and direct interactive IK targets */
 const pickRay=new THREE.Raycaster(),pickVec=new THREE.Vector2();
 let activeTimelineKey=null,tracksPending=false;
@@ -759,11 +864,11 @@ renderer.domElement.addEventListener('pointerup',e=>{
  pickVec.set(2*(e.clientX-r.left)/r.width-1,1-2*(e.clientY-r.top)/r.height);
  pickRay.setFromCamera(pickVec,camera);
  const hit=pickRay.intersectObjects([...state.targets.values()],false)[0];
- if(hit&&Number.isInteger(hit.object.userData.rokIKTarget))selectChain(hit.object.userData.rokIKTarget);
+ if(hit&&Number.isInteger(hit.object.userData.rokIKTarget))activateHandle({type:'ik',index:hit.object.userData.rokIKTarget},hit.object);
 });
 document.addEventListener('keydown',e=>{
  if(e.key.toLowerCase()!=='r'||!state.currentBone||/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName||''))return;
- e.preventDefault();gizmo.setMode('rotate');gizmo.attach(state.currentBone);
+ e.preventDefault();gizmo.setMode('rotate');gizmo.attach(state.currentBone);state.selectedHandle={type:'bone',bone:state.currentBone};
 });
 let last=0;
 function render(now){
