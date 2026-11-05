@@ -5,7 +5,7 @@ import {createSceneBackground,normalizeSceneBackground} from './scene-background
 import {createSceneFloor,normalizeSceneFloor} from './scene-floor.js';
 import {ARENA_COLUMNS,ARENA_ROWS,SCENERY_BOUNDS,assertPlacement} from './scene-placement-rules.js';
 
-export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual}){
+export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual,onSourcesChange}){
  const catalog=new Map(), cache=new Map();
  const loader=new GLTFLoader();
  const scenery=new THREE.Group();scenery.name='ROK_scenery_visual_only';root.add(scenery);
@@ -236,6 +236,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
    scenery.add(nextRoot);
    objects.length=0;objects.push(...nextObjects);
    sceneName=normalized.name;
+   onSourcesChange?.(getElementSources());
    background.build(normalized.background);
    floor.apply(normalized.floor);
    onArenaVisual?.(normalized.arenaArtOpacity);
@@ -253,7 +254,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
   ++generation;
   const current=scenery.children[0];
   if(current){scenery.remove(current);clearGroup(current,objects);}
-  objects.length=0;sceneName='';background.show(false);floor.setVisible(false);onArenaVisual?.(100);say('Escenario original · sin decoraciones');
+  objects.length=0;onSourcesChange?.([]);sceneName='';background.show(false);floor.setVisible(false);onArenaVisual?.(100);say('Escenario original · sin decoraciones');
  }
  function show(value){visible=!!value;scenery.visible=visible;background.group.visible=visible&&background.config.enabled&&!!sceneName;floor.group.visible=visible&&floor.config.enabled&&!!sceneName;}
  function getElementSources(){return objects.filter(o=>o.elementSourcePlayer===1||o.elementSourcePlayer===2).map(o=>({player:o.elementSourcePlayer,instance:o.instance,bounds:o.bounds.clone()}));}
@@ -435,7 +436,7 @@ export function mountArenaSceneControls(overlay){
   // Published catalog is independent; an empty catalog must not reset status.
   const hasLocal=!!(localStorage.getItem(packageStorageKey)||localStorage.getItem(editorDraftKey));
   const requested=new URLSearchParams(location.search).get('scene')==='escenario-1';
-  if(hasLocal||requested){
+  if(requested){
    const sceneLoaded=await loadFromEditor();
    if(!sceneLoaded)throw Error('El Escenario 1 guardado no se pudo cargar');
   }else bannerReport('Arena original · aún no hay Escenario 1 guardado en este navegador',false);
