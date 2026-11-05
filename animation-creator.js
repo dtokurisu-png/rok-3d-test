@@ -29,7 +29,7 @@ camera.position.set(3.3,2.3,5.4);
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
 renderer.outputColorSpace=THREE.SRGBColorSpace;
-renderer.setSize(500,500);
+renderer.setSize(1,1);
 $('creatorCanvas').appendChild(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xcaffed,0x344a65,2.1));
 const keyLight=new THREE.DirectionalLight(0xffffff,2.3);
@@ -918,6 +918,10 @@ function render(now){
    if(state.currentChain)selectChain(state.chains.indexOf(state.currentChain));
   }
  }
+ // Catch delayed layout changes and browser zoom without relying on a stale canvas size.
+ const viewRect=$('creatorCanvas').getBoundingClientRect();
+ if(viewRect.width>1&&viewRect.height>1&&
+  (Math.abs(viewRect.width-viewportWidth)>1||Math.abs(viewRect.height-viewportHeight)>1))resize();
  orbit.update();renderer.render(scene,camera);
 }
 requestAnimationFrame(render);
