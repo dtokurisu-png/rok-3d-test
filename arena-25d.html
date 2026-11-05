@@ -69,6 +69,20 @@ canvas{display:block;touch-action:none}
 .rokOrbEdgeArrow{font:900 20px/1 Roboto,system-ui,sans-serif;color:#8cfff0;
  text-shadow:0 0 6px #00ffe4;display:block;transform-origin:center}
 @media(min-width:760px){.rokOrbEdge{bottom:calc(67px + env(safe-area-inset-bottom,0px))}}
+/* Summon portrait compass uses the same lower screen edge as elemental orbs. */
+#summonEdgeLayer{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:24}
+.rokSummonEdge{position:absolute;display:none;bottom:calc(90px + env(safe-area-inset-bottom,0px));
+ width:38px;align-items:center;flex-direction:column;gap:3px;
+ transform:translateX(-50%);filter:drop-shadow(0 0 5px #000b)}
+.rokSummonEdgePortrait{display:block;width:34px;height:34px;box-sizing:border-box;
+ border:3px solid #00ffe4;border-radius:50%;overflow:hidden;background:#0a1b28d9;
+ box-shadow:0 0 9px #00ffe488}
+.rokSummonEdgePortrait img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.rokSummonEdge.enemy .rokSummonEdgePortrait{border-color:#ff667f;box-shadow:0 0 9px #ff486dbb}
+.rokSummonEdgeArrow{display:block;font:900 20px/1 Roboto,system-ui,sans-serif;
+ color:#71fff0;text-shadow:0 0 6px #00ffe4;transform-origin:center}
+.rokSummonEdge.enemy .rokSummonEdgeArrow{color:#ff859a;text-shadow:0 0 6px #ff486d}
+@media(min-width:760px){.rokSummonEdge{bottom:calc(67px + env(safe-area-inset-bottom,0px))}}
 .rokAttackReticle{position:absolute;display:none;width:26px;height:26px;
  border:4px solid #7dff8a;border-radius:50%;box-sizing:border-box;
  transform:translate(-50%,-100%);
@@ -250,8 +264,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.89 · Templo arcano actualizado</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.89</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.90 · Señales de invocaciones fuera de cámara</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.90</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -290,6 +304,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <div id="casterThreatLayer" aria-hidden="true"></div>
 <div id="casterAttackTargetLayer" aria-hidden="true"><span id="casterAttackReticle" class="rokAttackReticle"></span></div>
 <div id="orbEdgeLayer" aria-hidden="true"></div>
+<div id="summonEdgeLayer" aria-hidden="true"></div>
 <div id="summonCastLayer" aria-hidden="true"></div>
 <div id="phase">Preparando combate…</div>
 <div id="hint">WASD: mover · Opciones: coordenadas<br>Arriba: rival · Abajo: aliado</div>
@@ -433,6 +448,7 @@ import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.88';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.86';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.86';
+import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 
 const qs=s=>document.querySelector(s);
 const hud=qs('#top'), head=qs('#head');
@@ -1748,6 +1764,64 @@ function updateOrbEdgeIndicators(){
  }
  for(let i=orbEdgeCount;i<orbEdgeMarkers.length;i++)
   orbEdgeMarkers[i].node.style.display='none';
+}
+
+// Summon indicators are display-only; never touch combat targeting or physics.
+// Every existing fighter owns its node, so death hides the correct icon even
+// when summons are added/removed in future encounters.
+const summonEdgeLayer=qs('#summonEdgeLayer');
+const summonEdgeMarkers=new Map();
+const summonEdgePoint=new THREE.Vector3();
+const summonEdgeCameraPoint=new THREE.Vector3();
+const summonEdgeInverseCamera=new THREE.Quaternion();
+function updateSummonEdgeIndicators(){
+ const active=loaded&&playing&&matchGate.isRunning&&!casterReview.active;
+ if(active)summonEdgeInverseCamera.copy(camera.quaternion).invert();
+ const width=window.innerWidth;
+ for(const summon of combatants){
+  let entry=summonEdgeMarkers.get(summon);
+  if(!entry){
+   const node=document.createElement('span');
+   node.className='rokSummonEdge '+(summon.side==='enemy'?'enemy':'ally');
+   const face=document.createElement('span');
+   face.className='rokSummonEdgePortrait';
+   const img=document.createElement('img');
+   // Current shield/mana tester fighters both use the Farolera GLB.
+   // Preserve future telepata/other character artwork where applicable.
+   img.src=summon.kind==='telepata'?arenaCharacterArt.telepata:arenaCharacterArt.farolera;
+   img.alt='';
+   face.appendChild(img);
+   const arrow=document.createElement('span');
+   arrow.className='rokSummonEdgeArrow';
+   arrow.textContent='➤';
+   node.append(face,arrow);summonEdgeLayer.appendChild(node);
+   entry={node,arrow};summonEdgeMarkers.set(summon,entry);
+  }
+  const {node,arrow}=entry;
+  if(!active||!canDamageTarget(summon)||!summon.model?.visible){
+   node.style.display='none';continue;
+  }
+  summonEdgePoint.set(0,.95,0);
+  summon.outer.localToWorld(summonEdgePoint);
+  summonEdgeCameraPoint.copy(summonEdgePoint).sub(camera.position)
+   .applyQuaternion(summonEdgeInverseCamera);
+  const behind=summonEdgeCameraPoint.z>=0;
+  summonEdgePoint.project(camera);
+  const visible=!behind&&summonEdgePoint.z>=-1&&summonEdgePoint.z<=1&&
+    Math.abs(summonEdgePoint.x)<=.96&&Math.abs(summonEdgePoint.y)<=.96;
+  if(visible){node.style.display='none';continue;}
+  const perspective=Math.tan(THREE.MathUtils.degToRad(camera.fov)*.5);
+  const divisor=Math.max(.001,Math.abs(summonEdgeCameraPoint.z)*perspective);
+  let dx=summonEdgeCameraPoint.x/(divisor*camera.aspect);
+  let dy=-summonEdgeCameraPoint.y/divisor;
+  if(behind){dx=-dx;dy=-dy;}
+  if(Math.abs(dx)+Math.abs(dy)<.05)dy=1;
+  const magnitude=Math.hypot(dx,dy)||1;
+  dx/=magnitude;dy/=magnitude;
+  node.style.left=THREE.MathUtils.clamp(width*.5+dx*width*.42,24,width-24)+'px';
+  arrow.style.transform='rotate('+Math.atan2(dy,dx)+'rad)';
+  node.style.display='flex';
+ }
 }
 
 attachRealElementSources(sceneryOverlay.getElementSources());
@@ -4283,6 +4357,7 @@ function loop(now){
   if(allyForVisibility?.outer)sceneryOverlay.updateOcclusion(camera,allyForVisibility.outer.position,now/1000);
   updateCameraMarker();
   updateOrbEdgeIndicators();
+  updateSummonEdgeIndicators();
   if(loaded){
     try{updateSummonGroundHuds();}
     catch(error){
