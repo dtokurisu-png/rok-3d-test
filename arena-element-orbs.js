@@ -13,7 +13,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
  const haloGeo=new THREE.SphereGeometry(.37,12,8);
  const pointMaterial=new THREE.PointsMaterial({size:.18,vertexColors:true,sizeAttenuation:true,
   transparent:true,opacity:.95,depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending});
- const coreMaterial=new THREE.MeshBasicMaterial({color:0xc8fff9});
+ const coreMaterial=new THREE.MeshBasicMaterial({color:0xc8fff9,transparent:true,depthWrite:false});
  const haloMaterial=new THREE.MeshBasicMaterial({color:0x00ffe4,transparent:true,
   opacity:.24,depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending});
  const waterGeo=new THREE.CircleGeometry(1,48);
