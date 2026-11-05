@@ -417,7 +417,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.116</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.117</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -645,7 +645,7 @@ import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.105';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
-import {createRivalCasterAI} from './caster-rival-ai.js?v=0.2';
+import {createRivalCasterAI} from './caster-rival-ai.js?v=0.3';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 
 const qs=s=>document.querySelector(s);
@@ -675,6 +675,10 @@ const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,350);
 // camera-object collision raycast, dolly collision or animated field of view.
 const casters=[],combatants=[];
 const cardSummons=new Set();
+const MAX_ACTIVE_SUMMONS_PER_SIDE=6;
+const occupiedSummonSlots=side=>combatants.filter(c=>c.side===side&&c.role==='summon'&&
+ c.hp>0&&!['dead','vanishing','dying'].includes(c.stage)).length;
+const hasSummonRoom=side=>occupiedSummonSlots(side)<MAX_ACTIVE_SUMMONS_PER_SIDE;
 const CAMERA_PITCH=THREE.MathUtils.degToRad(23);
 const CAMERA_FOV=53;
 const CAMERA_MIN_DISTANCE=5;
@@ -4501,7 +4505,13 @@ function openSpellbook(page){
 }
 function summonCardFarolera(caster){
  const prototype=window.ROKSummonAssets?.farolera;
- if(!prototype?.scene||!prototype.idle){spellStatus('Modelo de Farolera todavía no disponible.');return;}
+ if(!prototype?.scene||!prototype.idle){spellStatus('Modelo de Farolera todavía no disponible.');return false;}
+ if(!hasSummonRoom(caster.side)){spellStatus('Límite de 6 invocaciones activas por jugador.');return false;}
+ // Both sides may summon only on their OWN territory (boundary at z=0).
+ if((caster.side==='enemy'&&caster.outer.position.z>=0)||
+    (caster.side==='ally'&&caster.outer.position.z<=0)){
+  spellStatus('No se puede invocar en el campo rival.');return false;
+ }
  // A temporary spawn position for the first playable card. Final
  // placement rules and per-card exceptions arrive in phase 6.
  const direction=caster.side==='ally'?-1:1;
@@ -4521,6 +4531,7 @@ function summonCardFarolera(caster){
  c.stage='summonCasting';c.summonCastLeft=0;
  beginSummonEmergence(c);
  spellStatus('✦ Farolera invocada · nexo de restauración activo');
+ return true;
 }
 function selectSpellCard(index){
  if(!spellbook.page||index<0||index>=9)return;
@@ -4531,6 +4542,10 @@ function selectSpellCard(index){
  }
  const caster=casters.find(c=>c.side===qs('#casterMoveSide').value);
  if(!caster||caster.stage!=='active'){spellStatus('Caster no disponible.');return;}
+ if(card.id==='farolera'&&(!hasSummonRoom(caster.side)||
+    (caster.side==='enemy'?caster.outer.position.z>=0:caster.outer.position.z<=0))){
+  spellStatus('Necesitas espacio para invocar y estar en tu propio campo.');return;
+ }
  // Validate cast readiness BEFORE paying, so a failed attempt does not
  // consume resources. The definitive resource charge is on selection.
  const ready=!!(caster.model?.userData?.rokCast22Clip&&caster.model?.userData?.rokCast21Clip);
@@ -4620,7 +4635,8 @@ rivalAI=createRivalCasterAI({
   .map(m=>({position:m.group.position})),
  getResourceState:c=>combatHud.getResources(c.side,'water'),
  bounds:{x:MAX_X,z:MAX_Z},
- settings:{idealPressureZ:-.9,attackRange:3,pickupRadius:3.65},
+ settings:{idealPressureZ:-.85,attackRange:3,pickupRadius:3.65,
+  territorialGrace:2.65,minimumSurvivalHp:2},
  move:(c,x,z)=>{c.outer.position.x=x;c.outer.position.z=z;},
  face:(c,p)=>{
   const dx=p.x-c.outer.position.x,dz=p.z-c.outer.position.z;
@@ -4641,10 +4657,12 @@ rivalAI=createRivalCasterAI({
    if(clip)casterLayers.upper(c,'defense',clip,1.8);
   }else casterLayers.endUpper(c,'defense');
  },
- canCast:c=>c.stage==='active'&&!!window.ROKSummonAssets?.farolera?.scene,
+ canCast:c=>c.stage==='active'&&c.outer.position.z<0&&
+  hasSummonRoom(c.side)&&!!window.ROKSummonAssets?.farolera?.scene,
  cast:(c,{defensive,duration})=>{
   const card=spellCards[0][0]; // Temporary rival deck: Farolera only.
-  if(!card||!combatHud.spend(c.side,card.element,card.cost))return false;
+  if(!card||c.outer.position.z>=0||!hasSummonRoom(c.side)||
+    !combatHud.spend(c.side,card.element,card.cost))return false;
   // Never spend the resource if the physical summoning prototype is absent.
   if(!window.ROKSummonAssets?.farolera?.scene){
    combatHud.refund(c.side,card.element,card.cost);return false;
@@ -4661,9 +4679,9 @@ rivalAI=createRivalCasterAI({
   return true;
  },
  onCastResolve:c=>{
-  // Exactly one real summon per paid cast, only after the windup.
-  if(c.stage!=='active')return;
-  summonCardFarolera(c);
+  // Revalidate at release; refund a reserved resource if the unit cannot spawn.
+  if(c.stage!=='active'||!summonCardFarolera(c))
+   combatHud.refund(c.side,'water',1);
   const finish=c.model?.userData?.rokCast21Clip;
   if(finish&&finish.duration>20/30){
    casterLayers.upper(c,'card-finish',finish,1,{startTime:20/30,transition:true});
