@@ -27,7 +27,7 @@ export const originalSources=[
  'Idle.fbx','Walk W_ Briefcase.fbx','Standing.fbx',
  'Standing 2H Magic Area Attack 01.fbx'
 ].map((name,index)=>({
- id:index+1,name:String(index+1).padStart(2,'0')+' · '+name.replace(/\\.fbx$/,''),
+ id:index+1,name:String(index+1).padStart(2,'0')+' · '+name.replace(/\.fbx$/,''),
  file:name,kind:'archive'
 }));
 let archivePromise=null;
