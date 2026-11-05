@@ -363,6 +363,25 @@ function createClip(){
  clip.resetDuration();
  return clip;
 }
+async function initializeTPose(){
+ if(!state.model||!state.bones.length)return false;
+ try{
+  const source={kind:'fbx',id:'37',path:
+   'assets/animations/casters/shared/T-Pose.fbx',name:'T-Pose'};
+  const clip=await loadCreatorClip(source,state.model);
+  const mixer=new THREE.AnimationMixer(state.model);
+  const action=mixer.clipAction(clip);action.play();mixer.setTime(0);
+  const pose=state.bones.map(b=>({bone:b,quaternion:b.quaternion.clone()}));
+  mixer.stopAllAction();
+  for(const {bone,quaternion} of pose)bone.quaternion.copy(quaternion);
+  state.model.updateMatrixWorld(true);
+  for(const {bone} of pose)state.pose.set(bone.name,bone.quaternion.clone());
+  return true;
+ }catch(error){
+  // Non-Mixamo rigs remain safely in their GLB bind pose.
+  return false;
+ }
+}
 async function loadModel(item){
  if(!item)return;
  state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
@@ -393,6 +412,7 @@ async function loadModel(item){
   for(const b of state.bones)if(seen.has(b.name))throw Error('El rig tiene nombres de hueso duplicados: '+b.name);
   else seen.add(b.name);
   for(const bone of state.bones)state.pose.set(bone.name,bone.quaternion.clone());
+  const usedTPose=await initializeTPose();
   state.chains=buildChains();
   const boneSelect=$('creatorBone');boneSelect.replaceChildren();
   const available=sortedBones();
@@ -401,7 +421,9 @@ async function loadModel(item){
   makeTargets();frameModel();
   populateSources();
   state.time=0;state.duration=4;$('creatorDuration').value='4';refreshTimeline();
-  status('✓ '+item.name+' · '+state.bones.length+' huesos · '+state.chains.length+' cadenas IK. Puedes cargar una animación existente.');
+  status('✓ '+item.name+' · '+state.bones.length+' huesos · '+state.chains.length+
+   ' cadenas IK · '+(usedTPose?'T-Pose':'pose de rig')+
+   '. Puedes cargar una animación existente.');
   viewStatus('Selecciona una cadena IK y mueve su objetivo para editar la pose.');
  }catch(error){
   if(state.model){scene.remove(state.model);state.model=null;}
