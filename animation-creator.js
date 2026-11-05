@@ -55,18 +55,27 @@ gizmo.addEventListener('objectChange',()=>{
   else if(state.selectedHandle?.type==='ik'&&gizmo.getMode()==='translate')solveIK(state.currentChain);
   else if(state.selectedHandle?.type==='ik'&&gizmo.getMode()==='rotate')state.orientationTargets.set(state.selectedHandle.index,state.currentChain.tip.getWorldQuaternion(new THREE.Quaternion()));
   if(state.selectedHandle?.type==='footPole'&&gizmo.getMode()==='translate'){
-   const chain=state.chains[state.selectedHandle.index],marker=state.handles.find(h=>h.userData.control===state.selectedHandle);
-   if(marker){
-    const toe=roleBone([chain.label.includes('izquierda')?'lefttoebase':'righttoebase',chain.label.includes('izquierda')?'lefttoe':'righttoe']);
-    const toePos=toe?.getWorldPosition(new THREE.Vector3())||chain.tip.getWorldPosition(new THREE.Vector3());
-    const footPos=chain.tip.getWorldPosition(new THREE.Vector3());
-    const direction=marker.position.clone().sub(footPos);direction.y=0;
-    if(direction.lengthSq()>1e-6){
-     const q=new THREE.Quaternion().setFromUnitVectors(rigForwardVector(),direction.normalize());
-     state.orientationTargets.set(state.selectedHandle.index,q.multiply(state.orientationTargets.get(state.selectedHandle.index)?.clone()||new THREE.Quaternion()));
-     const parentQ=chain.tip.parent.getWorldQuaternion(new THREE.Quaternion());
-     chain.tip.quaternion.copy(parentQ.invert().multiply(state.orientationTargets.get(state.selectedHandle.index)));
-    }
+   // The toe-side handle translates the foot IK target without accumulating rotations.
+   const i=state.selectedHandle.index;
+   const marker=state.handles.find(h=>h.userData.control===state.selectedHandle);
+   const target=state.targets.get(i);
+   if(marker&&target&&state.previousFootPole){
+    const delta=marker.position.clone().sub(state.previousFootPole);
+    state.previousFootPole.copy(marker.position);
+    target.position.add(delta);
+    state.plantedFeet.delete(i);
+    solveIK(state.chains[i]);
+   }
+  }
+  if(state.selectedHandle?.type==='torso'&&gizmo.getMode()==='translate'){
+   const marker=state.handles.find(h=>h.userData.control===state.selectedHandle);
+   if(marker&&state.previousTorso){
+    const delta=marker.position.clone().sub(state.previousTorso);
+    state.previousTorso.copy(marker.position);
+    const p=state.selectedHandle.bone.parent;
+    state.selectedHandle.bone.position.add(delta.applyQuaternion(p.getWorldQuaternion(new THREE.Quaternion()).invert())
+     .divide(p.getWorldScale(new THREE.Vector3())));
+    state.model.updateMatrixWorld(true);
    }
   }
   recordEditedFrame();
@@ -925,16 +934,26 @@ function setControlMode(mode){
  const hip=roleBone(['hips','pelvis']);
  if(info.type==='center'){
   gizmo.setMode(mode);
+  if(mode==='translate'){
+   state.previousCenter=state.centerHandle.position.clone();
+   for(let i=0;i<state.chains.length;i++)if(/Pierna/.test(state.chains[i].label)){
+    const c=state.chains[i],t=state.targets.get(i);
+    if(t){t.position.copy(c.tip.getWorldPosition(new THREE.Vector3()));state.plantedFeet.set(i,t.position.clone());}
+   }
+  }
   gizmo.attach(mode==='rotate'?hip:state.centerHandle);
  }else if(info.type==='torso'){
   gizmo.setMode(mode);
-  gizmo.attach(mode==='rotate'?info.bone:state.handles.find(h=>h.userData.control===info));
+  const marker=state.handles.find(h=>h.userData.control===info);
+  if(mode==='translate'&&marker)state.previousTorso=marker.position.clone();
+  gizmo.attach(mode==='rotate'?info.bone:marker);
  }else if(info.type==='ik' || info.type==='pole'||info.type==='footPole'){
   // Orient the end effector with R, translate its controller with G.
   const chain=state.chains[info.index];
   const marker=info.type==='ik'?state.targets.get(info.index):
    state.handles.find(h=>h.userData.control===info);
   gizmo.setMode(mode);
+  if(mode==='translate'&&info.type==='footPole'&&marker)state.previousFootPole=marker.position.clone();
   gizmo.attach(mode==='rotate'?chain.tip:marker);
  }
 }
@@ -975,10 +994,12 @@ function activateHandle(info,obj){
   viewStatus('Cadera / centro de gravedad: G mover · R rotar.');
  }else if(info.type==='torso'){
   gizmo.setMode('translate');gizmo.attach(obj);
-  viewStatus('Torso independiente: R rotar.');
+  state.previousTorso=obj.position.clone();
+  viewStatus('Torso independiente: G mover · R rotar.');
  }else if(info.type==='footPole'){
   gizmo.setMode('translate');gizmo.attach(obj);
-  viewStatus('Orientación del pie: R rotar; el IK mantiene su orientación.');
+  state.previousFootPole=obj.position.clone();
+  viewStatus('Control de dedos: G mover pie sin girarlo · R rotar voluntariamente.');
  }
 }
 renderer.domElement.addEventListener('pointerup',e=>{
