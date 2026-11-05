@@ -29,3 +29,11 @@ El navegador no recibe tokens. La exportación es local. Para publicar definitiv
 - El movimiento con arrastre funciona en el plano de la arena; `Y` se ajusta en el panel.
 - Los efectos `fog` y `glow` son visualizaciones de prueba basadas en geometría/materiales, no simulaciones volumétricas.
 - Verificación estática de rutas y sintaxis: realizada. Renderizado WebGL, desplazamiento táctil y carga real de GLB: pendientes de confirmar en navegador.
+
+## Fuentes elementales vinculadas a jugadores (noviembre de 2026)
+
+En el **Creador de escenarios**, coloca los modelos GLB o composiciones que representarán las fuentes fuera de la cuadrícula. Selecciona uno y, en **Transformación → Fuentes elementales**, pulsa **Fuente Jugador 1** o **Fuente de Jugador 2**. Solo hay una asignación por jugador (máximo dos). Se conservan geometría, efectos y posición; el nombre queda fijado automáticamente. No es posible duplicar lógicamente una fuente: una copia por espejo se convierte en decoración normal. **Quitar asignación** libera el cupo sin borrar el modelo.
+
+El objeto exportado mantiene los campos de siempre y añade `elementSourcePlayer: 1` o `elementSourcePlayer: 2` (decoraciones normales: `null`). El botón **Guardar y exportar JSON** guarda el progreso local y descarga un JSON que conserva estas referencias. Los escenarios antiguos sin esta propiedad siguen siendo compatibles. Un JSON importado con dos fuentes asignadas al mismo jugador se rechaza.
+
+La conexión del modelo 3D y su VFX a la **lógica real de generación de orbes de la arena** se hará tras recibir el JSON definitivo del escenario; no se presupone que un prop sin esta propiedad es una fuente. Los orbes continúan apareciendo aleatoriamente en zonas permitidas de la arena.
