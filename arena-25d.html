@@ -4358,8 +4358,13 @@ function setupMobileMobaControls(){
  const settings=qs('#mobaSettingsButton'),dialog=qs('#mobileMobaSettings');
  const editNotice=qs('#mobaAdjustIndicator');
  const elements={joystick:joy,attack,defend};
+ // Keep the joystick left and position touch actions beside the book.
+ const spellbookReservedWidth=()=>innerWidth<=759?
+  THREE.MathUtils.clamp(innerWidth*.31,172,245):
+  THREE.MathUtils.clamp(innerWidth*.31,210,370);
  const defaults={joystick:{left:23,bottom:18},
-  attack:{right:28,bottom:24},defend:{right:117,bottom:102}};
+  attack:{right:spellbookReservedWidth()+22,bottom:24},
+  defend:{right:spellbookReservedWidth()+106,bottom:24}};
  const defaultPosition=key=>{
   const d=defaults[key];
   // During portrait lock the control layer is hidden (offsetWidth=0).
@@ -4445,6 +4450,16 @@ function setupMobileMobaControls(){
   pendingLandscapeSaved=customizedLayout?saved:null;
   for(const key of Object.keys(elements))applyPosition(key,defaultPosition(key));
   if(customizedLayout&&!portraitQuery.matches)applyNormalizedLayout(pendingLandscapeSaved);
+  // Preserve custom layouts unless an action button overlaps the book.
+  if(mobileQuery.matches&&!portraitQuery.matches){
+   const book=qs('#rokSpellbook')?.getBoundingClientRect();
+   if(book)for(const key of ['attack','defend']){
+    const rect=elements[key].getBoundingClientRect();
+    const overlaps=rect.left<book.right&&rect.right>book.left&&
+     rect.top<book.bottom&&rect.bottom>book.top;
+    if(overlaps)applyPosition(key,defaultPosition(key));
+   }
+  }
  }
  const releaseInputs=()=>{
   joyPointer=null;defensePointer=null;
