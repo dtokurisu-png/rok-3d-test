@@ -18,6 +18,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
  let priorPlaying=false,attackElapsed=0,attackDuration=0,attackReleased=false,attackCooldown=0;
  let committedAttackTarget=null;
  let defending=false,shown='';
+ let cardCast=null;
  const notify=message=>{
   status.textContent=message;status.title=message;
   if(message!==shown){shown=message;onStatus?.(message);}
@@ -56,7 +57,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   loadingModel=model;
   Promise.resolve().then(()=>prepareClips(c)).then(result=>{
    if(ticket!==revision||!enabled||caster!==c||c.model!==model)return;
-   for(const role of ['idle','forward','backward','left','right','attack','death','defense','hit'])
+   for(const role of ['idle','forward','backward','left','right','attack','castPrepare','castFinish','death','defense','hit'])
     if(result?.[role])clips.set(role,result[role]);
    layers.register(c,result);
    loadedModel=model;loadingModel=null;
@@ -76,6 +77,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   attackDuration=0;attackElapsed=0;attackReleased=false;attackCooldown=0;
   committedAttackTarget=null;
   if(caster){
+   cancelCardCast(caster);
    caster.manualDefending=false;
    layers.shield(caster,false);
    layers.reset(caster);
@@ -96,6 +98,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
    if(value){
     // Guard supersedes attack, but never suspends leg motion.
     attackDuration=0;attackReleased=false;committedAttackTarget=null;
+    cancelCardCast(caster);
     layers.endUpper(caster,'attack');
     const clip=clips.get('defense')||caster.model?.userData?.rokDefenseClip;
     if(clip)layers.upper(caster,'defense',clip,1.8);
@@ -112,7 +115,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
  function startAttack(){
   if(!engage())return false;
   const c=caster;
-  if(c.stage!=='active'||defending||attackDuration>0||attackCooldown>0)return false;
+  if(c.stage!=='active'||defending||attackDuration>0||attackCooldown>0||cardCast)return false;
   // Validate ON PRESS, not at projectile release. A caster can move away
   // during wind-up without cancelling the already accepted attack.
   const target=getAttackTarget?.(c)||null;
@@ -142,6 +145,80 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   notify('Ataque original 02 · Magic Heal');
   return true;
  }
+ // Phase 3: two original clips compose one cast, without creating a card.
+ // Clip 22 is TRIMMED at frame 48, normalized to the future cost-based time;
+ // the action is committed only at that boundary, then clip 21 plays complete.
+ function cancelCardCast(c){
+  if(!cardCast)return;
+  layers.clearCastLower(c);
+  layers.endUpper(c,'card-cast');
+  layers.endUpper(c,'card-finish');
+  cardCast=null;
+ }
+ function castDuration(cost){
+  const n=Math.max(0,Math.floor(Number(cost)||0));
+  return n<=1?.5:n===2?1:n===3?1.5:n===4?2:2.5;
+ }
+ function startCardCast({cost=1,onRelease}={}){
+  if(!engage())return false;
+  const c=caster;
+  if(c.stage!=='active'||defending||cardCast||attackDuration>0)return false;
+  const source22=clips.get('castPrepare')||c.model?.userData?.rokCast22Clip;
+  const source21=clips.get('castFinish')||c.model?.userData?.rokCast21Clip;
+  if(!source22||!source21){
+   requestClips(c);
+   notify('Cargando animaciones 22 y 21 originales · repite la prueba');
+   return false;
+  }
+  const fps=30;
+  const clip22=THREE.AnimationUtils.subclip(source22,'ROK_Cast22_0_48',0,48,fps);
+  if(!clip22.tracks.length||clip22.duration<=.01||source21.duration<=.01){
+   notify('La animación 22 (0–48) o la 21 está incompleta');
+   return false;
+  }
+  const duration=castDuration(cost);
+  const speed=clip22.duration/duration;
+  if(!layers.upper(c,'card-cast',clip22,speed)){
+   notify('No hay huesos superiores válidos para el casteo 22');
+   return false;
+  }
+  layers.setCastLower(c,clip22,speed,0);
+  cardCast={caster:c,clip22,clip21:source21,duration,elapsed:0,
+   postElapsed:0,phase:'preparing',onRelease:typeof onRelease==='function'?onRelease:null};
+  notify('Casteo 22 · '+duration.toFixed(1)+' s · preparación');
+  return true;
+ }
+ function stepCardCast(dt){
+  const cast=cardCast;
+  if(!cast)return;
+  if(cast.caster!==caster||caster?.stage!=='active'){
+   cancelCardCast(cast.caster);return;
+  }
+  if(cast.phase==='preparing'){
+   cast.elapsed=Math.min(cast.duration,cast.elapsed+dt);
+   layers.syncCastLower(caster,cast.elapsed/cast.duration);
+   if(cast.elapsed>=cast.duration){
+    cast.phase='finishing';cast.postElapsed=0;
+    // Frame 48: this callback is the ONLY point at which a future card
+    // can materialize; there is no cost handling in phase 3.
+    try{cast.onRelease?.(caster);}catch(error){console.warn('[ROK] Casteo:',error);}
+    layers.clearCastLower(caster);
+    layers.endUpper(caster,'card-cast');
+    if(!layers.upper(caster,'card-finish',cast.clip21,1)){
+     cancelCardCast(caster);return;
+    }
+    layers.setCastLower(caster,cast.clip21,1,0);
+    notify('Frame 48 · casteo ejecutado · animación 21');
+   }
+  }else{
+   cast.postElapsed+=dt;
+   layers.syncCastLower(caster,cast.postElapsed/Math.max(.01,cast.clip21.duration));
+   if(cast.postElapsed>=cast.clip21.duration){
+    cancelCardCast(caster);
+    notify('Casteo compuesto completado · 22 → 21');
+   }
+  }
+ }
  function step(dt){
   if(!enabled){if(held.size&&!engage())return;if(!enabled)return;}
   const c=selected();
@@ -158,6 +235,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
    c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+forward/len*sign*v*delta,-bounds.z,bounds.z);
   }
   // Always update hips + legs, even while upper-body attack or guard plays.
+  stepCardCast(dt);
   layers.movement(c,kind);
   if(attackDuration>0){
    attackElapsed+=dt;
@@ -226,7 +304,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
  select.addEventListener('change',()=>{stop();select.blur();});
  speed.addEventListener('input',()=>{speedText.textContent=Number(speed.value).toFixed(1);});
  notify('WASD · listo');
- return {step,disable:stop,startAttack,setDefense,
+ return {step,disable:stop,startAttack,startCardCast,setDefense,
   setMobileAxis(x,y){
    if(!canControl()){mobileAxisX=0;mobileAxisY=0;return;}
    mobileAxisX=THREE.MathUtils.clamp(Number(x)||0,-1,1);
