@@ -339,8 +339,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.105 · Fuentes y orbes de 11 colores</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.105</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.106</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -1640,6 +1640,74 @@ async function activateArenaAnimationPack(baseModel){
     (!bowClip?' · falta ataque 10':'');
   qs('#sceneStatus').textContent='Arena 2.5D lista · invocaciones mediante cartas';
 }
+// Each card-created summon owns a permanent restoration nexus on its
+// original square (startX/startZ). The death -> restore cycle reuses that
+// same position, and the portrait remains visible during restoration.
+const summonNexuses=new Map();
+const nexusPortraitCache=new Map();
+const nexusDiscGeometry=new THREE.CircleGeometry(.37,48);
+const nexusRingGeometry=new THREE.RingGeometry(.405,.48,48);
+function nexusPortraitTexture(src){
+ let texture=nexusPortraitCache.get(src);
+ if(texture)return texture;
+ const canvas=document.createElement('canvas');
+ canvas.width=256;canvas.height=256;
+ const ctx=canvas.getContext('2d');
+ ctx.clearRect(0,0,256,256);
+ ctx.fillStyle='#101918';
+ ctx.beginPath();ctx.arc(128,128,120,0,Math.PI*2);ctx.fill();
+ texture=new THREE.CanvasTexture(canvas);
+ texture.colorSpace=THREE.SRGBColorSpace;
+ texture.anisotropy=Math.min(renderer.capabilities.getMaxAnisotropy(),8);
+ nexusPortraitCache.set(src,texture);
+ const picture=new Image();
+ picture.onload=()=>{
+  ctx.clearRect(0,0,256,256);
+  ctx.save();ctx.beginPath();ctx.arc(128,128,120,0,Math.PI*2);ctx.clip();
+  const ratio=Math.max(256/picture.width,256/picture.height);
+  const w=picture.width*ratio,h=picture.height*ratio;
+  ctx.drawImage(picture,(256-w)/2,(256-h)/2,w,h);ctx.restore();
+  texture.needsUpdate=true;
+ };
+ picture.src=src;
+ return texture;
+}
+function createSummonNexus(c,portrait){
+ const group=new THREE.Group();
+ group.name='ROK_Summon_Restoration_Nexus';
+ group.position.set(c.startX,.07,c.startZ);
+ const ally=c.side==='ally';
+ const face=new THREE.Mesh(nexusDiscGeometry,new THREE.MeshBasicMaterial({
+  map:nexusPortraitTexture(portrait),color:0xffffff,
+  transparent:true,depthWrite:false,depthTest:false,side:THREE.DoubleSide
+ }));
+ face.rotation.x=-Math.PI/2;face.position.y=.008;face.renderOrder=14;
+ group.add(face);
+ const ring=new THREE.Mesh(nexusRingGeometry,new THREE.MeshBasicMaterial({
+  color:ally?0x00ffe4:0xff779a,transparent:true,opacity:.88,
+  depthWrite:false,depthTest:false,side:THREE.DoubleSide
+ }));
+ ring.rotation.x=-Math.PI/2;ring.position.y=.013;ring.renderOrder=15;
+ group.add(ring);root.add(group);
+ summonNexuses.set(c,{group,ring,phase:0});
+}
+function removeSummonNexus(c){
+ const nexus=summonNexuses.get(c);
+ if(!nexus)return;
+ root.remove(nexus.group);
+ nexus.group.traverse(node=>node.material?.dispose?.());
+ summonNexuses.delete(c);
+}
+function updateSummonNexuses(dt){
+ for(const [c,nexus] of summonNexuses){
+  nexus.phase+=dt;
+  const restoring=['dying','vanishing','dead','summonCasting',
+   'summonEmerging','summonStanding','summonBlend'].includes(c.stage);
+  nexus.ring.material.opacity=(restoring?.90:.66)+.08*Math.sin(nexus.phase*2.8);
+  nexus.ring.scale.setScalar(1+.035*Math.sin(nexus.phase*2.2));
+ }
+}
+
 function createFighter(baseScene,clip,side,kind){
   const model=cloneSkinned(baseScene);
   const outer=new THREE.Group();root.add(outer);outer.add(model);
@@ -2722,6 +2790,7 @@ function resetDemoCombat(){
    releaseSummonDuel(c);
    clearEmbeddedArrows(c);
    c.mixer?.stopAllAction();root.remove(c.outer);
+   removeSummonNexus(c);
    const plate=nameplates.get(c);
    plate?.remove();nameplates.delete(c);
    c.summonBar?.remove();
@@ -4312,8 +4381,14 @@ function summonCardFarolera(caster){
  c.model.userData.baseScale=c.model.scale.x;
  resetCombatant(c);
  makeNameplate(c);makeSummonCountdown(c);
+ createSummonNexus(c,arenaCharacterArt.farolera);
  cardSummons.add(c);
- spellStatus('✦ Farolera invocada · casilla frontal');
+ // Use the ORIGINAL emergence: rise from beneath the floor with the
+ // colored ring, sparks and rays, then Standing 13 blending into Idle.
+ // The caster already completed/pay'd the 22 animation; no extra timer.
+ c.stage='summonCasting';c.summonCastLeft=0;
+ beginSummonEmergence(c);
+ spellStatus('✦ Farolera invocada · nexo de restauración activo');
 }
 function selectSpellCard(index){
  if(!spellbook.page||index<0||index>=9)return;
@@ -4793,6 +4868,7 @@ function loop(now){
   updateOrbEdgeIndicators();
   updateSummonEdgeIndicators();
   if(loaded){
+    updateSummonNexuses(dt);
     try{updateSummonGroundHuds();}
     catch(error){
       console.error('[R.O.K.] HUD 3D desactivado por error:',error);
