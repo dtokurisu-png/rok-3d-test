@@ -1,7 +1,7 @@
 /* R.O.K. Studio — navegación y presentación no destructiva; sin alterar motores 3D. */
 (function(){
  'use strict';
- const pages=[['tester','Tester de juego','arena-25d.html'],['animations','Animaciones','index.html'],['assets','Creador de assets','asset-editor.html'],['scenes','Escenarios','scene-editor.html']];
+ const pages=[['tester','Tester de juego','arena-25d.html'],['animations','Animaciones','index.html'],['creator','Creador de animaciones','animation-creator.html'],['assets','Creador de assets','asset-editor.html'],['scenes','Escenarios','scene-editor.html']];
  const page=document.body.dataset.studioPage||'animations';
  document.body.classList.add('studio'+page[0].toUpperCase()+page.slice(1));
  const nav=document.createElement('nav');
