@@ -25,7 +25,7 @@ export function createArenaCombatHud(){
   node.setAttribute('aria-hidden','true');
   // SVG icon matched to the symbolic heart/droplet in summon HUD.
   node.innerHTML=kind==='life'
-   ?'<svg viewBox="0 0 24 24"><path d="M12 21s-9-5.8-9-12a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6.2-9 12-9 12Z"/></svg>'
+   ?'♥'
    :'<svg viewBox="0 0 24 24"><path d="M12 2C9 7 4.5 12 4.5 16.1A7.5 7.5 0 0 0 19.5 16C19.5 12 15 7 12 2Z"/></svg>';
   return node;
  };
@@ -56,13 +56,13 @@ export function createArenaCombatHud(){
    }
    track.append(segment);
    const label=make('span','rokHudSectionLabel');label.style.color=palette[id].color;
-   label.textContent='◆';label.title=palette[id].label+' ('+capacity+')';labels.append(label);
+   label.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 2C9 7 4.5 12 4.5 16.1A7.5 7.5 0 0 0 19.5 16C19.5 12 15 7 12 2Z"/></svg>';
+   label.title=palette[id].label+' ('+capacity+')';labels.append(label);
   }
   const entry=make('div','rokHudElementBar');
   entry.append(labels,track);
   if(left){row.append(entry,icon('drop'));}else{row.append(icon('drop'),entry);}
-  player.root.querySelector('.rokHudEnergyTrack')?.remove();
- }
+  }
  function buildLife(side,max){
   const player=sides[side];
   const rounded=Math.max(1,Math.ceil(max));
