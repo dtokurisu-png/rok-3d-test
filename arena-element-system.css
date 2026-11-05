@@ -14,7 +14,7 @@
  border:1px solid #67d5c9;border-radius:6px;background:linear-gradient(145deg,#274b53,#071a24);
  color:#ddfff9;font-size:14px;font-weight:800}
 .rokEnemy .rokPortrait{border-color:#ff8095;background:linear-gradient(145deg,#633b53,#1e1722)}
-.rokHpTrack{height:10px;overflow:hidden;background:#172328;border:1px solid #6e878b;border-radius:3px}
+.rokHpTrack{display:flex;justify-content:flex-end;height:10px;overflow:hidden;background:#172328;border:1px solid #6e878b;border-radius:3px}
 .rokHpFill{height:100%;width:100%;background:linear-gradient(180deg,#72ff97,#12b765)}
 .rokEnemy .rokHpFill{background:linear-gradient(180deg,#ff9b9a,#d82f50)}
 .rokEnergyTracks{display:flex;flex-direction:column;gap:2px}
@@ -24,7 +24,7 @@
 .rokEnergyTrack>div{height:100%;width:0;transition:width .15s linear}
 .rokEnergyRow>small{flex:0 0 34px;color:#f5ffff;font:600 8px/1 Roboto,system-ui}
 .rokEnemy .rokEnergyRow{flex-direction:row-reverse}
-.rokEnemy .rokHpTrack{display:flex;justify-content:flex-end}
+.rokEnemy .rokHpTrack{justify-content:flex-start}
 .rokClock{text-align:center;display:flex;flex-direction:column;align-items:center;gap:1px}
 .rokClock>span{color:#b5fff3;font-size:9px;font-weight:800;letter-spacing:.12em}
 .rokClock>strong{font-size:19px;line-height:1.1;font-variant-numeric:tabular-nums}
