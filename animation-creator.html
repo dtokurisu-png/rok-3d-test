@@ -5,6 +5,7 @@
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head><body data-studio-page="creator">
 <main class="creatorShell">
+ <button type="button" id="creatorTogglePanel" class="creatorTogglePanel" aria-label="Mostrar u ocultar herramientas">☰ Herramientas</button>
  <aside class="creatorPanel">
   <h1>Creador de Animaciones <small style="font-size:11px;color:#e7c67d">v0.2 · Edición de clips</small></h1>
   <p class="creatorNote">Edita animaciones existentes fotograma a fotograma mediante IK, o crea una nueva desde una pose.</p>
@@ -66,8 +67,12 @@
  </aside>
  <section class="creatorViewport" aria-label="Vista tridimensional editable">
   <div id="creatorCanvas"></div>
-  <div class="creatorBadge">Ratón: orbitar · rueda: zoom · arrastrar flechas: IK</div>
+  <div class="creatorBadge">Clic: seleccionar control · G: mover · R: rotar · rueda: zoom</div>
   <p class="creatorOverlayStatus" id="creatorViewportStatus">Selecciona y carga un personaje con huesos.</p>
+ </section>
+ <section class="creatorDopeSheet" aria-label="Editor de fotogramas clave">
+  <div class="creatorDopeHeader"><strong>◆ Línea temporal · pistas por hueso</strong><span id="creatorTrackInfo">Cargar personaje para ver pistas</span><button type="button" id="creatorTrackDelete">Eliminar clave seleccionada</button></div>
+  <div class="creatorTrackScroll" id="creatorTrackScroll"><div class="creatorTracks" id="creatorTracks"></div></div>
  </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
