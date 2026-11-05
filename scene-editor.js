@@ -806,8 +806,13 @@ $('sceneRestoreLocal').addEventListener('click',async()=>{
  }catch(error){status('Recuperación: '+error.message);}
 });
 $('sceneSave').addEventListener('click',()=>{
- try{downloadJSON(sceneDocument());status('Escenario JSON descargado · cuadrícula jugable despejada');}
- catch(error){status('No se pudo guardar: '+error.message);}
+ try{
+  const document=sceneDocument();
+  localStorage.setItem(sceneStorageKey,JSON.stringify(document));
+  downloadJSON(document);
+  $('sceneLocalStatus').textContent='✓ Progreso guardado y copia JSON exportada ('+objects.length+' objetos).';
+  status('Escenario guardado en el navegador y exportado a JSON');
+ }catch(error){status('No se pudo guardar/exportar: '+error.message);}
 });
 $('sceneNew').addEventListener('click',()=>{if(objects.length&&!confirm('¿Crear un escenario nuevo y descartar los cambios sin exportar?'))return;clearHistory();removeAll();$('sceneName').value='Nuevo escenario';applyArenaOpacity(100);environment.build(BACKGROUND_DEFAULTS);showBackgroundFields(environment.config);
  outdoorFloor.apply(DEFAULT_SCENE_FLOOR);showFloorFields(outdoorFloor.config);
