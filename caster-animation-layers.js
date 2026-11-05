@@ -11,7 +11,6 @@ export function createCasterLayerSystem(THREE){
   'leftfoot','rightfoot','lefttoebase','righttoebase','lefttoe','righttoe',
   'lefttoes','righttoes','leftfootend','rightfootend']);
  const key=name=>String(name).replace(/^.*?mixamorig[:_]?/i,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
- const isLeftArm=name=>/^left(shoulder|arm|forearm|hand|finger|thumb|index|middle|ring|pinky)/.test(key(name.replace(/\.(quaternion|position|scale)$/,'')));
 
  function isLower(track){
   const match=/^(.*)\.(quaternion|position|scale)$/.exec(track.name);
