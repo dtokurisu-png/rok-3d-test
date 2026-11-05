@@ -105,7 +105,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
  }
  function animateWater(source,dt){
   // Effects follow the real source and disappear when scenery is hidden.
-  source.visual.visible=!!source.instance.parent?.visible;
+  source.visual.visible=!!(source.instance.parent?.visible&&source.instance.parent?.parent?.visible);
   source.phase+=dt*1.1;
   const t=source.phase;
   source.water.material.opacity=.27+Math.sin(t*1.5)*.07;
@@ -142,6 +142,23 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
    }
   }
  }
+ // Water continues to ripple while waiting for a match. Source casting and
+ // spawn timers never advance during pause or preparation.
+ function idle(dt){
+  if(!Number.isFinite(dt)||dt<=0)return;
+  for(const source of sources){
+   if(!source.instance.parent)continue;
+   source.visual.visible=!!(source.instance.parent.visible&&source.instance.parent.parent?.visible);
+   source.phase+=dt*1.1;
+   const t=source.phase;
+   source.water.material.opacity=.27+Math.sin(t*1.5)*.07;
+   source.water.rotation.z+=dt*.11;
+   source.ripple1.scale.setScalar(source.radius*(.82+.13*(1+Math.sin(t*1.7))));
+   source.ripple1.material.opacity=.32+.13*Math.sin(t*2);
+   source.ripple2.scale.setScalar(source.radius*(.76+.16*(1+Math.sin(t*1.2+2))));
+   source.ripple2.material.opacity=.26+.09*Math.sin(t*1.7+1);
+  }
+ }
  function tick(dt){
   if(!Number.isFinite(dt)||dt<=0)return;
   for(const source of sources){
@@ -174,5 +191,5 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   }
  }
  function dispose(){clearOrbs();clearSources();coreGeo.dispose();haloGeo.dispose();ringGeo.dispose();waterGeo.dispose();waterRingGeo.dispose();beamGeo.dispose();sparkGeo.dispose();}
- return {bindSources,reset,tick,dispose,get sourceCount(){return sources.length;}};
+ return {bindSources,reset,tick,idle,dispose,get sourceCount(){return sources.length;}};
 }
