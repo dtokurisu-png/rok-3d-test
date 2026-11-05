@@ -4355,27 +4355,35 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
-  // Load the published Chiara scene for PC and mobile; legacy editor
-  // transfer remains opt-in via ?scene=escenario-1.
+  // The playable arena depends on the published scenery: its two real
+  // elemental fountains are required to create and emit collectible orbs.
+  // Do not unlock combat while the scene is still loading.
   if(new URLSearchParams(location.search).get('scene')!=='escenario-1'){
-   void (async()=>{
-    try{
-     await sceneryOverlay.init();
-     if(sceneryOverlay.currentName)return;
+   try{
+    window.ROKBoot.progress('Cargando templo y fuentes elementales…',94);
+    await sceneryOverlay.init();
+    if(!sceneryOverlay.currentName){
      const response=await fetch('./assets/scenes/arena-de-chiara.json',{cache:'no-store'});
      if(!response.ok)throw Error('HTTP '+response.status);
      const ok=await sceneryOverlay.loadScene(await response.json());
-     if(ok){
-      sceneryOverlay.show(true);
-      const name=qs('#testerSceneCurrent');
-      if(name)name.textContent=sceneryOverlay.currentName;
-     }
-    }catch(error){
-     console.warn('[R.O.K.] Arena de Chiara no cargada:',error);
-     const sceneMessage=qs('#testerSceneStatus');
-     if(sceneMessage)sceneMessage.textContent='Arena de Chiara: '+String(error.message||error);
+     if(!ok)throw Error('No se pudo instalar el escenario publicado');
     }
-   })();
+    sceneryOverlay.show(true);
+    // Also refresh bindings for already loaded/local scenes.
+    const realSources=sceneryOverlay.getElementSources();
+    if(realSources.length<2)throw Error('Faltan las dos fuentes elementales del escenario');
+    attachRealElementSources(realSources);
+    const name=qs('#testerSceneCurrent');
+    if(name)name.textContent=sceneryOverlay.currentName;
+    qs('#testerSceneStatus').textContent='Escenario y fuentes elementales listos';
+   }catch(error){
+    console.error('[R.O.K.] No se puede iniciar el combate sin escenario:',error);
+    const message='Error al preparar escenario y fuentes: '+String(error.message||error);
+    qs('#testerSceneStatus').textContent=message;
+    qs('#sceneStatus').textContent=message;
+    window.ROKBoot.progress(message,94);
+    return;
+   }
   }
   qs('#modelStatus').textContent='Lioren y Chiara listos · Farolera solo como invocación';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
