@@ -59,7 +59,7 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
    const result={_unavailable:[]};
    // Download/action readiness prioritizes the gestures the user actually
   // needs; rare optional clips can remain absent without stalling the others.
-  const order=['idle','forward','attack','backward','left','right','defense','hit','death'];
+  const order=['idle','forward','attack','left','right','defense','backward','hit','death'];
   for(const role of order){
     const def=definitions[role];
     try{
