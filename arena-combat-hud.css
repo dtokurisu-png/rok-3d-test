@@ -40,7 +40,7 @@
 .rokHudDropIcon{color:#79eefa}
 .rokHudElementBar{min-width:0;flex:1;position:relative;display:flex;flex-direction:column;gap:1px}
 .rokHudElementTrack{
- height:44px;padding:3px;gap:2px;align-items:stretch;
+ height:132px;padding:4px;gap:3px;align-items:stretch;
  border:1px solid #7e9aa2;border-radius:4px;
  background:linear-gradient(180deg,#152b36,#0b1a24);
  box-shadow:inset 0 1px 0 #bdd8d533,inset 0 -2px 7px #0009
@@ -95,7 +95,7 @@
  .rokHudName{font-size:8px;line-height:9px}
  .rokHudBars{gap:2px}
  .rokHudLifeCells{height:9px;gap:1px}
- .rokHudElementTrack{height:32px;padding:2px}
+ .rokHudElementTrack{height:96px;padding:3px}
  .rokHudSide[data-hud-side="ally"] .rokHudElementRow{width:calc(100% + 12px);margin-left:-12px}
  .rokHudSide[data-hud-side="enemy"] .rokHudElementRow{width:calc(100% + 12px);margin-right:-12px}
  .rokHudStatIcon{width:10px;flex-basis:10px;height:10px}
