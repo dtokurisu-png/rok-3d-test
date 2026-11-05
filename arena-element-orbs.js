@@ -21,7 +21,8 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   0x277bff, // blue
   0x6229ad, // purple / violet
   0xf22aa2, // magenta
-  0xffb3a2  // salmon / luminous pink, transitioning into white
+  0xffb3a2, // salmon / luminous pink
+  0xffffff  // luminous white
  ];
  const rainbowColors=rainbowHex.map(hex=>new THREE.Color(hex));
  const white=new THREE.Color(0xffffff);
