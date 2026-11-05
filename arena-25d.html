@@ -160,7 +160,7 @@ canvas{display:block;touch-action:none}
 body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"></head>
+<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.64"></head>
 <body data-studio-page="tester" data-rok-boot="loading">
 <div id="gameLoadingOverlay" role="status" aria-live="polite">
  <div id="gameLoadingCard">
@@ -201,8 +201,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.63 · Restauración sin elementos</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.63</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.64 · Inicio manual seguro</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.64</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -273,6 +273,23 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  </div>
 </div>
 <div id="mobileRotatePrompt" role="status"><span>↻</span>Gira el móvil a horizontal para jugar R.O.K.</div>
+<section id="rokMatchGate" aria-label="Preparación del combate">
+ <div id="rokMatchSelection" class="rokMatchCard">
+  <h2>Preparar combate</h2>
+  <p>Selecciona de uno a tres elementos y establece su orden antes de empezar. El orden quedará bloqueado durante el combate.</p>
+  <label for="rokMatchElementCount">Elementos equipados
+   <select id="rokMatchElementCount"><option value="1">1 elemento</option><option value="2">2 elementos</option><option value="3">3 elementos</option></select>
+  </label>
+  <div id="rokMatchElementPriorities"></div>
+  <p id="rokMatchGateWarning" role="status"></p>
+  <button id="rokConfirmElements" type="button">Confirmar selección</button>
+ </div>
+ <div id="rokMatchReady" class="rokMatchCard" hidden>
+  <p id="rokMatchReadySummary" hidden></p>
+  <p id="rokMatchReadyWarning" role="status"></p>
+  <button id="rokManualStart" type="button">▶ INICIAR</button>
+ </div>
+</section>
 <div id="bottom" hidden aria-hidden="true">
   <button class="primary" id="repeat" disabled>↻ Repetir</button>
   <button id="pause" disabled>Ⅱ Pausar</button>
@@ -289,6 +306,7 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-sightcone-1';
 import {createCasterMobility} from './caster-mobility.js?v=20261104-moba-1';
+import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.64';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js';
@@ -1540,7 +1558,27 @@ function selectCombatTarget(c){
   // This is not an acquired enemy to attack until the caster comes in range.
   return enemyCaster;
 }
-let loaded=false,playing=true,tm=0,prevTime=performance.now();
+let loaded=false,playing=false,tm=0,prevTime=performance.now();
+const matchGate=createArenaMatchGate({
+ onStart:configuration=>{
+  // This is the ONLY transition from preparation to active combat.
+  // Configuration remains locked; resource economy is deferred to stage 3.
+  if(!loaded)throw Error('Los modelos todavía no están listos');
+  casterMovement?.disable();
+  resetDemoCombat();
+  playing=true;
+  qs('#pause').textContent='Ⅱ Pausar';
+ },
+ onResume:()=>{
+  if(!loaded)throw Error('La arena no está preparada');
+  playing=true;qs('#pause').textContent='Ⅱ Pausar';
+ },
+ onPause:()=>{
+  playing=false;
+  casterMovement?.disable();
+  qs('#pause').textContent='▶ Reanudar';
+ }
+});
 const CASTER_RESTART_DELAY=1.8; // Mostrar victoria/derrota antes de reiniciar.
 let matchRestartLeft=null;
 const DURATION=10.25;
@@ -3458,6 +3496,9 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
   qs('#modelStatus').textContent='4 Faroleras + '+combatants.filter(c=>c.kind==='archer').length+' Arqueras + 2 casters · Arquera: 3 PV, alcance 9, daño 2 · ataque 3 s / Farolera 2 s';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
+  // Open preparation only after all essential resources have loaded.
+  playing=false;
+  matchGate.resourcesReady();
   window.ROKBoot.ready();
   }catch(error){
     const message=String(error?.message||error);
@@ -3863,15 +3904,24 @@ fetch('./assets/manifests/caster-animations.json',{cache:'no-store'}).then(respo
   reviewMessage('Lista de '+casterReview.items.length+' animaciones · selecciona Probar en esta arena.');}
 ).catch(error=>reviewMessage('No se pudo cargar catálogo: '+String(error.message||error)));
 
-qs('#repeat').onclick=()=>{casterMovement?.disable();playing=true;qs('#pause').textContent='Ⅱ Pausar';resetDemoCombat();};
-qs('#pause').onclick=()=>{if(casterMovement?.enabled){casterMovement.disable();return;}playing=!playing;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';};
+qs('#repeat').onclick=()=>{
+ if(!matchGate.isRunning)return;
+ casterMovement?.disable();
+ playing=true;qs('#pause').textContent='Ⅱ Pausar';
+ resetDemoCombat();
+};
+qs('#pause').onclick=()=>{
+ if(!matchGate.isRunning)return;
+ if(casterMovement?.enabled){casterMovement.disable();return;}
+ playing=!playing;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';
+};
 let fpsTime=0,fpsCount=0;
 function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
-  if(loaded&&playing&&!casterReview.active)updateDuel(dt);
+  if(loaded&&playing&&matchGate.isRunning&&!casterReview.active)updateDuel(dt);
   // WASD is additive to the live battle, not a global pause.
-  if(loaded&&playing&&!mobileMobaControls.paused&&casterMovement?.enabled)casterMovement.step(dt);
+  if(loaded&&playing&&matchGate.isRunning&&!mobileMobaControls.paused&&casterMovement?.enabled)casterMovement.step(dt);
   // Range must be visible for the SELECTED caster even before WASD begins.
   // Previously this indicator required casterMovement.enabled, making the
   // proximity system appear broken while the player stood still.
@@ -3884,7 +3934,7 @@ function loop(now){
     else casterRangeIndicator.hide(c);
    }
   }
-  if(loaded&&playing)for(const c of casters)
+  if(loaded&&playing&&matchGate.isRunning)for(const c of casters)
     if(c.stage==='defeated'&&c.deathAnimationActive)c.mixer.update(dt);
   if(casterReview.active&&casterReview.previousCaster)casterReview.previousCaster.mixer.update(dt);
   if(loaded){
