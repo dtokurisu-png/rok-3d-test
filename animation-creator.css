@@ -43,3 +43,26 @@ input[type=range]{accent-color:#00ffe4;padding:0}
 .creatorQueueItem.creatorReplacement{border-color:#d18a3e;background:#332315;color:#ffdfb0}
 .creatorQueueItem.creatorReplacement small{color:#ffcb78}
 .creatorQueueItem button{min-height:26px;padding:4px 6px;font-size:11px}
+
+/* v0.3 · Escenario a toda la pantalla, panel flotante y dope sheet inferior */
+.creatorShell{position:fixed;inset:54px 0 0;display:block;overflow:hidden}
+.creatorViewport{position:absolute;inset:0;min-height:0;min-width:0}
+#creatorCanvas{position:absolute;inset:0}
+.creatorPanel{position:absolute;z-index:12;top:12px;left:12px;width:min(340px,calc(100vw - 24px));max-height:calc(100% - 220px);border:1px solid #327a77;border-radius:12px;box-shadow:0 12px 38px #000b;transition:transform .22s,opacity .22s}
+.creatorShell.panelHidden .creatorPanel{transform:translateX(calc(-100% - 22px));opacity:0;pointer-events:none}
+.creatorTogglePanel{position:absolute;z-index:14;top:16px;left:365px;background:#083b40e8;border-color:#00ffe4}
+.creatorShell.panelHidden .creatorTogglePanel{left:14px}
+.creatorDopeSheet{position:absolute;z-index:11;left:0;right:0;bottom:0;height:194px;background:#081923f2;border-top:1px solid #367d79;display:flex;flex-direction:column}
+.creatorDopeHeader{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #274f59;min-height:42px}
+.creatorDopeHeader strong{color:#00ffe4;white-space:nowrap}.creatorDopeHeader span{font-size:11px;color:#bddad5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.creatorDopeHeader button{padding:4px 9px;min-height:27px}
+.creatorTrackScroll{overflow:auto;flex:1}.creatorTracks{min-width:660px;padding-bottom:6px}
+.creatorTrackRow{height:24px;display:grid;grid-template-columns:155px minmax(500px,1fr);border-bottom:1px solid #173842;align-items:stretch}
+.creatorTrackLabel{font-size:11px;padding:4px 9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cce1e1;border-right:1px solid #27555d;cursor:pointer}
+.creatorTrackLabel.active{color:#00ffe4;background:#174449}
+.creatorTrackLane{position:relative;background:repeating-linear-gradient(to right,transparent 0,transparent calc(10% - 1px),#21404c calc(10% - 1px),#21404c 10%);cursor:crosshair}
+.creatorTrackKey{position:absolute;top:7px;width:10px;height:10px;transform:translateX(-50%) rotate(45deg);border:1px solid #ffe6ae;background:#f0ba60;cursor:pointer;padding:0;min-height:0;border-radius:0}
+.creatorTrackKey.source{width:7px;height:7px;top:8px;background:#567c85;border-color:#7d9ba1;opacity:.6}
+.creatorTrackKey.selected{background:#00ffe4;border-color:white;box-shadow:0 0 8px #00ffe4}
+.creatorBadge{right:12px;top:12px}.creatorOverlayStatus{bottom:204px}
+@media(max-width:700px){.creatorShell{inset:54px 0 0;display:block}.creatorPanel{position:absolute;top:10px;left:8px;max-height:calc(100% - 185px);width:min(315px,calc(100vw - 16px))}.creatorTogglePanel{top:10px;left:auto;right:12px}.creatorShell.panelHidden .creatorTogglePanel{left:auto;right:12px}.creatorDopeSheet{height:164px}.creatorOverlayStatus{bottom:175px}.creatorBadge{top:48px}}
