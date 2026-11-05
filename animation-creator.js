@@ -225,10 +225,90 @@ function selectBone(uuid){
  state.currentBone=bone||null;
  if(bone){$('creatorBone').value=bone.uuid;refreshBoneInputs();}
 }
+
+/* v0.3.5: reversible editing history. One entry per completed drag, not per mouse movement. */
+const editHistory={items:[],cursor:-1,limit:75,restoring:false,dragging:false};
+function captureEdit(){
+ if(!state.model)return null;
+ return {
+  frame:Math.round(state.time*30),duration:state.duration,
+  pose:state.bones.map(b=>[b.name,b.position.toArray(),b.quaternion.toArray(),b.scale.toArray()]),
+  keys:[...state.keys.entries()].map(([frame,pose])=>[frame,structuredClone(pose)]),
+  targets:[...state.targets.entries()].map(([i,m])=>[i,m.position.toArray()]),
+  handles:state.handles.map(m=>[m.userData.control.type,
+    m.userData.control.index??null,m.position.toArray()]),
+  planted:[...state.plantedFeet.entries()].map(([i,v])=>[i,v.toArray()])
+ };
+}
+function updateHistoryButtons(){
+ $('creatorUndo').disabled=editHistory.cursor<=0;
+ $('creatorRedo').disabled=editHistory.cursor<0||editHistory.cursor>=editHistory.items.length-1;
+ $('creatorHistoryStatus').textContent=editHistory.cursor<=0?'Sin cambios':
+  'Cambio '+editHistory.cursor+' de '+(editHistory.items.length-1);
+}
+function resetEditHistory(){
+ editHistory.items=[];editHistory.cursor=-1;editHistory.dragging=false;
+ const initial=captureEdit();
+ if(initial){editHistory.items=[initial];editHistory.cursor=0;}
+ updateHistoryButtons();
+}
+function checkpointEdit(){
+ if(editHistory.restoring||editHistory.dragging||!state.model)return;
+ const current=captureEdit();if(!current)return;
+ const prior=editHistory.items[editHistory.cursor];
+ if(prior&&JSON.stringify(prior)===JSON.stringify(current))return;
+ editHistory.items.splice(editHistory.cursor+1);
+ editHistory.items.push(current);
+ if(editHistory.items.length>editHistory.limit)editHistory.items.shift();
+ editHistory.cursor=editHistory.items.length-1;
+ updateHistoryButtons();
+}
+function restoreEdit(entry){
+ if(!entry||!state.model)return;
+ editHistory.restoring=true;
+ try{
+  state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
+  state.duration=entry.duration;$('creatorDuration').value=String(entry.duration);
+  const bones=new Map(state.bones.map(b=>[b.name,b]));
+  for(const [name,pos,q,scale] of entry.pose){
+   const bone=bones.get(name);if(!bone)continue;
+   bone.position.fromArray(pos);bone.quaternion.fromArray(q);bone.scale.fromArray(scale);
+  }
+  state.keys=new Map(entry.keys.map(([f,p])=>[f,structuredClone(p)]));
+  for(const [i,pos] of entry.targets){state.targets.get(i)?.position.fromArray(pos);}
+  for(const [i,pos] of entry.planted){state.plantedFeet.set(i,new THREE.Vector3().fromArray(pos));}
+  if(!entry.planted.length)state.plantedFeet.clear();
+  for(let i=0;i<Math.min(state.handles.length,entry.handles.length);i++)
+   state.handles[i].position.fromArray(entry.handles[i][2]);
+  state.time=entry.frame/30;
+  state.model.updateMatrixWorld(true);syncHandles();refreshTargetInputs();refreshBoneInputs();refreshTimeline();
+ }finally{editHistory.restoring=false;}
+}
+function undoEdit(){
+ if(editHistory.cursor<=0)return;
+ restoreEdit(editHistory.items[--editHistory.cursor]);updateHistoryButtons();
+}
+function redoEdit(){
+ if(editHistory.cursor>=editHistory.items.length-1)return;
+ restoreEdit(editHistory.items[++editHistory.cursor]);updateHistoryButtons();
+}
+$('creatorUndo').addEventListener('click',undoEdit);
+$('creatorRedo').addEventListener('click',redoEdit);
+document.addEventListener('keydown',e=>{
+ if(!(e.ctrlKey||e.metaKey)||e.altKey||!['z','y'].includes(e.key.toLowerCase()))return;
+ if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||''))return;
+ e.preventDefault();
+ if(e.key.toLowerCase()==='y'||e.shiftKey)redoEdit();else undoEdit();
+});
+gizmo.addEventListener('dragging-changed',e=>{
+ if(e.value)editHistory.dragging=true;
+ else if(editHistory.dragging){editHistory.dragging=false;checkpointEdit();}
+});
+
 function recordEditedFrame(){
  if(!state.model||state.playing||state.recording)return;
  state.keys.set(Math.round(state.time*30),snapshot());
- refreshTimeline();
+ refreshTimeline();checkpointEdit();
 }
 function snapshot(){
  const pose={};
@@ -254,7 +334,7 @@ function resetPose(){
   const tip=state.chains[index]?.tip;
   if(tip)target.position.copy(tip.getWorldPosition(new THREE.Vector3()));
  }
- refreshTargetInputs();refreshBoneInputs();
+ refreshTargetInputs();refreshBoneInputs();checkpointEdit();
 }
 function refreshTimeline(){
  const max=Math.max(1,Math.round(state.duration*30));
@@ -440,7 +520,7 @@ async function loadModel(item){
   if(available.length)selectBone(available[0].bone.uuid);
   makeTargets();frameModel();
   populateSources();
-  state.time=0;state.duration=4;$('creatorDuration').value='4';refreshTimeline();
+  state.time=0;state.duration=4;$('creatorDuration').value='4';refreshTimeline();resetEditHistory();
   status('✓ '+item.name+' · '+state.bones.length+' huesos · '+state.chains.length+
    ' cadenas IK · '+(usedTPose?'T-Pose':'pose de rig')+
    '. Puedes cargar una animación existente.');
@@ -485,7 +565,7 @@ function resetSource(){
  state.sourceMixer=null;state.sourceClip=null;state.sourceAction=null;state.sourceId=null;
  state.keys.clear();state.duration=4;$('creatorDuration').value='4';
  if(state.model)resetPose();
- setFrame(0,false);refreshTimeline();
+ setFrame(0,false);refreshTimeline();resetEditHistory();
  $('creatorSource').value='';
  status('Pose inicial preparada; también puedes cargar T-Pose.fbx o una animación existente.');
 }
@@ -519,6 +599,7 @@ async function loadSource(id){
  $('creatorName').value=source.name.replace(/^\\d+\\s*·\\s*/,'').replace(/^GLB · /,'')+' · editada';
  status('✓ '+source.name+' · '+matched.length+' pistas vinculadas · '+(Math.round(state.duration*30)+1)+
   ' fotogramas. Reproduciendo referencia.');
+ resetEditHistory();
  state.playing=true;$('creatorPlay').textContent='Ⅱ Pausar';gizmo.detach();
 }
 function readQueue(){
@@ -572,7 +653,7 @@ async function applyProject(data){
   }
   state.keys.set(frame,pose);
  }
- setFrame(0);renderQueue();
+ setFrame(0);renderQueue();resetEditHistory();
  status('Proyecto recuperado · '+state.keys.size+' fotogramas modificados.');
 }
 $('creatorLoadSource').addEventListener('click',async()=>{
@@ -668,7 +749,7 @@ $('creatorResetBone').addEventListener('click',()=>{
 $('creatorResetPose').addEventListener('click',resetPose);
 $('creatorDuration').addEventListener('change',e=>{
  const duration=THREE.MathUtils.clamp(Number(e.target.value)||4,.5,120);
- state.duration=duration;e.target.value=String(duration);setFrame(Math.round(state.time*30),false);
+ state.duration=duration;e.target.value=String(duration);setFrame(Math.round(state.time*30),false);checkpointEdit();
 });
 $('creatorTime').addEventListener('input',e=>{
  state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
@@ -678,10 +759,10 @@ $('creatorKey').addEventListener('click',()=>{
  if(!state.model){status('Carga un modelo antes de crear poses.',true);return;}
  state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
  state.keys.set(Math.round(state.time*30),snapshot());
- refreshTimeline();status('Pose clave guardada en fotograma '+Math.round(state.time*30));
+ refreshTimeline();checkpointEdit();status('Pose clave guardada en fotograma '+Math.round(state.time*30));
 });
 $('creatorDeleteKey').addEventListener('click',()=>{
- state.keys.delete(Math.round(state.time*30));refreshTimeline();
+ state.keys.delete(Math.round(state.time*30));refreshTimeline();checkpointEdit();
 });
 $('creatorPlay').addEventListener('click',()=>{
  if(!state.model||(!state.keys.size&&!state.sourceClip)){status('Carga una animación o guarda poses clave antes de reproducir.',true);return;}
@@ -884,7 +965,7 @@ $('creatorTrackDelete').onclick=()=>{
  const {bone,frame}=activeTimelineKey,pose=state.keys.get(frame);if(!pose)return;
  delete pose[bone];if(!Object.keys(pose).length)state.keys.delete(frame);
  activeTimelineKey=null;setFrame(frame);queueTrackUpdate();
- status('Clave eliminada de '+bone+' en fotograma '+frame);
+ checkpointEdit();status('Clave eliminada de '+bone+' en fotograma '+frame);
 };
 $('creatorTogglePanel').onclick=()=>{
  const shell=document.querySelector('.creatorShell');
