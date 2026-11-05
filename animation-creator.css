@@ -146,3 +146,10 @@ input[type=range]{accent-color:#00ffe4;padding:0}
 .creatorAxisLegend b{display:inline-block;min-width:15px;font-weight:900;font-size:12px;margin-right:5px}
 .creatorAxisX{color:#ff6666}.creatorAxisY{color:#59e48d}.creatorAxisZ{color:#75aaff}
 @media(max-width:740px){.creatorAxisLegend{left:7px;top:7px;max-width:145px;font-size:10px;padding:5px 7px}}
+
+/* v0.3.10: source-frame cloning on the master composition track. */
+#creatorClonePose{min-height:27px;padding:4px 9px;font-size:11px;font-weight:800;border-color:#00a99a;background:#124b46;color:#d6fff7;white-space:nowrap}
+#creatorClonePose:not(:disabled):hover{background:#167168;border-color:#00ffe4}
+#creatorClonePose:disabled{opacity:.38;cursor:default}
+.creatorDopeHeader{flex-wrap:wrap}
+@media(max-width:740px){#creatorClonePose{font-size:10px;padding:3px 6px}}
