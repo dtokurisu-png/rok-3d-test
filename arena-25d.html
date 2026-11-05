@@ -4652,12 +4652,23 @@ rivalAI=createRivalCasterAI({
   casterLayers.shield(c,false);c.manualDefending=false;
   casterLayers.endUpper(c,'defense');
   const clip=c.model?.userData?.rokCast22Clip;
-  if(clip)casterLayers.upper(c,'card-cast',clip,
-   Math.max(.1,clip.duration/Math.max(.1,duration)));
+  if(clip){
+   const prep=THREE.AnimationUtils.subclip(clip,'ROK_Rival_Cast22_0_48',0,48,30);
+   if(prep.tracks.length)casterLayers.upper(c,'card-cast',prep,
+    Math.max(.1,prep.duration/Math.max(.1,duration)));
+  }
   rivalAction.castingUntil=performance.now()+duration*1000;
-  // Use the same actual Farolera spawn and resource economy as the player.
-  summonCardFarolera(c);
   return true;
+ },
+ onCastResolve:c=>{
+  // Exactly one real summon per paid cast, only after the windup.
+  if(c.stage!=='active')return;
+  summonCardFarolera(c);
+  const finish=c.model?.userData?.rokCast21Clip;
+  if(finish&&finish.duration>20/30){
+   casterLayers.upper(c,'card-finish',finish,1,{startTime:20/30,transition:true});
+  }else casterLayers.endUpper(c,'card-cast');
+  rivalAction.castingUntil=performance.now()+250;
  },
  attack:(c,target)=>{
   if(!target||!canDamageTarget(target))return false;
