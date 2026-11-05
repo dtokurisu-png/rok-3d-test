@@ -390,7 +390,7 @@ import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-real-fountains-1';
-import {createCasterMobility} from './caster-mobility.js?v=0.9.69';
+import {createCasterMobility} from './caster-mobility.js?v=0.9.80';
 import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.68';
 import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.80';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.77';
@@ -2390,6 +2390,7 @@ function finishNewSummon(c,winner=false){
 }
 
 function resetCombatant(c){
+  c.currentThreatTarget=null;
   clearEmbeddedArrows(c);
   c.pendingRestore=false;
   c.restorationHp=null;
@@ -3391,7 +3392,9 @@ function updateCasterThreatIndicators(){
     enemy.stage==='active'&&enemy.currentThreatTarget===caster));
   const incoming=missiles.some(m=>m.attacker?.role==='caster'&&m.attacker.side!==caster.side&&
     (m.target===caster||m.committedTargets?.has(caster)));
-  if(!pursuing&&!incoming){node.style.display='none';continue;}
+  const enemyCasterCasting=casterMovement?.caster?.side!==caster.side&&
+    casterMovement?.threatTarget===caster;
+  if(!pursuing&&!incoming&&!enemyCasterCasting){node.style.display='none';continue;}
   threatPoint.set(0,2.20,0);caster.outer.localToWorld(threatPoint);threatPoint.project(camera);
   if(threatPoint.z<-1||threatPoint.z>1||Math.abs(threatPoint.x)>1||Math.abs(threatPoint.y)>1){
    node.style.display='none';continue;
