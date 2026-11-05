@@ -231,8 +231,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 #casterMobilityPanel{display:none!important}
 #rokSpellbook{position:fixed;z-index:49;right:10px;bottom:calc(8px + env(safe-area-inset-bottom,0px));
  width:clamp(210px,31vw,370px);aspect-ratio:1535/1024;pointer-events:none;
- background-image:url('./assets/ui/grimorio-bosque-encantado.svg');
- background-size:100% 100%;background-position:center;background-repeat:no-repeat;
+ background-image:url('./assets/ui/grimorio-bosque-hd.webp'),url('./assets/ui/grimorio-bosque-encantado.svg');
+ background-size:100% 100%,100% 100%;background-position:center;background-repeat:no-repeat;
  filter:drop-shadow(0 6px 12px #000a)}
 #rokSpellbook .rokSpellbookPageKey{position:absolute;top:31%;width:16%;aspect-ratio:1;transform:translate(-50%,-50%);
  border:2px solid #d4ac5d;border-radius:50%;
@@ -246,25 +246,39 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 #rokSpellbook .rokSpellbookPageKey[aria-pressed="true"]{border-color:#00ffdf;
  box-shadow:0 0 11px #00ffdf,inset 0 0 7px #000}
 #rokSpellbook .rokSpellbookPageKey:focus-visible{outline:3px solid white;outline-offset:3px}
-#rokSpellbookCards{position:fixed;z-index:52;right:10px;bottom:calc(212px + env(safe-area-inset-bottom,0px));
- width:clamp(245px,29vw,345px);padding:10px;border:1px solid #d8b96b;
- border-radius:11px;background:linear-gradient(155deg,#17302ceb,#0a1717f2);
- box-shadow:0 8px 25px #000c;color:white}
+/* The supplied golden-vine frame is a transparent PNG converted to WebP.
+   The gradients remain visible through its nine circular openings. */
+#rokSpellbookCards{position:fixed;z-index:52;right:10px;
+ bottom:calc(212px + env(safe-area-inset-bottom,0px));
+ width:clamp(270px,29vw,360px);aspect-ratio:1086/1448;
+ padding:0;border:0;border-radius:18px;
+ background:radial-gradient(ellipse at 44% 30%,#45602d 0%,#263c24 27%,#3d2b1b 57%,#090c09 100%);
+ box-shadow:0 12px 30px #000b;color:#fff;isolation:isolate}
+#rokSpellbookCards::before{content:"";position:absolute;inset:0;z-index:3;
+ pointer-events:none;background-image:url('./assets/ui/marco-pagina-tierra.webp');
+ background-position:center;background-repeat:no-repeat;background-size:100% 100%;
+ filter:drop-shadow(0 0 4px #b28c3666)}
 #rokSpellbookCards[hidden]{display:none!important}
-#rokSpellbookCards .rokSpellbookCardsHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;
- color:#e6ce8e;font:700 13px Roboto,system-ui,sans-serif;margin-bottom:8px}
-#rokSpellbookCards .rokSpellbookCardsHeader button{border:1px solid #bdac76;color:white;
- background:#1c2725;border-radius:6px;cursor:pointer}
-#rokSpellbookGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.rokSpellSlot{position:relative;aspect-ratio:.8;border:1px solid #8b805a;
- border-radius:7px;background:#0b1c1ce0;display:flex;align-items:center;justify-content:center;
- flex-direction:column;color:#88a39d;font:700 10px Roboto,system-ui,sans-serif;overflow:hidden}
-.rokSpellSlot:not(:disabled){cursor:pointer;border-color:#e0bd66;color:white}
-.rokSpellSlot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.9}
+#rokSpellbookCards .rokSpellbookCardsHeader{position:absolute;z-index:5;
+ top:5%;left:10%;right:10%;display:flex;align-items:center;justify-content:space-between;
+ color:#f8e4a4;font:700 12px Roboto,system-ui,sans-serif;text-shadow:0 1px 4px #000}
+#rokSpellbookCards .rokSpellbookCardsHeader button{border:1px solid #bdac76;
+ color:white;background:#1c2725e9;border-radius:6px;cursor:pointer;padding:3px 6px}
+#rokSpellbookGrid{position:absolute;z-index:2;left:8%;right:8%;top:15%;height:62%;
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+ grid-template-rows:repeat(3,minmax(0,1fr));gap:1.7% 2%}
+.rokSpellSlot{position:relative;min-width:0;min-height:0;border:0;border-radius:12%;
+ background:radial-gradient(circle at 35% 28%,#264c31b8,#241a12ec 65%,#080d09 100%);
+ box-shadow:inset 0 0 12px #020403cc;display:flex;align-items:center;justify-content:center;
+ flex-direction:column;color:#90a895;font:700 10px Roboto,system-ui,sans-serif;
+ overflow:hidden;isolation:isolate}
+.rokSpellSlot:not(:disabled){cursor:pointer;color:white}
+.rokSpellSlot:not(:disabled):focus-visible{outline:3px solid #00ffdf;outline-offset:-3px}
+.rokSpellSlot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.94}
 .rokSpellSlot .rokSpellName{position:absolute;bottom:0;width:100%;padding:3px 2px;
  color:white;background:#07150ddc;font:700 10px Roboto,system-ui,sans-serif;text-align:center}
-.rokSpellSlot .rokSpellNumber{position:absolute;top:3px;left:4px;color:#fff;background:#000b;
- padding:2px 4px;border-radius:4px;font-weight:900}
+.rokSpellSlot .rokSpellNumber{position:absolute;top:3px;left:4px;color:#fff;background:#000d;
+ padding:2px 5px;border-radius:50%;font-weight:900}
 .rokSpellSlot .rokSpellCost{position:absolute;top:3px;right:3px;color:#f6e6a1;background:#000b;
  padding:2px 4px;border-radius:4px;font-weight:900}
 #rokSpellbookStatus{position:fixed;z-index:52;right:12px;
@@ -273,8 +287,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  color:#d5fff5;text-align:right;text-shadow:0 1px 3px #000}
 @media(max-width:759px){
  #rokSpellbook{width:clamp(172px,31vw,245px);right:3px;bottom:2px}
- #rokSpellbookCards{right:5px;bottom:calc(110px + env(safe-area-inset-bottom,0px));width:min(220px,40vw);
- max-height:60vh;overflow:auto}
+ #rokSpellbookCards{right:5px;bottom:calc(110px + env(safe-area-inset-bottom,0px));
+ width:min(40vw,56vh,280px);max-height:73vh}
  #rokSpellbook .rokSpellbookPageKey{font-size:14px}
  #rokSpellbookStatus{bottom:calc(108px + env(safe-area-inset-bottom,0px));max-width:35vw}
 }
@@ -323,8 +337,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.100 · Casteo 21 desde frame 20 y Farolera costo 1</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.100</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.101 · Marco tierra y cuadrícula numérica</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.101</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -4249,7 +4263,10 @@ function renderSpellbook(){
  spellbookGrid.replaceChildren();
  if(spellbook.page===0)return;
  const cards=spellCards[spellbook.page-1];
- for(let i=0;i<9;i++){
+ // Numpad order (visual top to bottom): 7 8 9 / 4 5 6 / 1 2 3.
+ // Keep the underlying card indices (1..9) unchanged for keyboard selection.
+ for(const slotNumber of [7,8,9,4,5,6,1,2,3]){
+  const i=slotNumber-1;
   const card=cards[i],button=document.createElement('button');
   button.type='button';button.className='rokSpellSlot';
   button.disabled=!card;
@@ -4342,10 +4359,11 @@ document.addEventListener('keydown',event=>{
  const match=/^(?:Digit|Numpad)([1-9])$/.exec(event.code);
  if(!match)return;
  const digit=Number(match[1]);
- if(digit<=3){
-  if(spellbook.page===digit)selectSpellCard(digit-1);
-  else openSpellbook(digit);
- }else if(spellbook.page)selectSpellCard(digit-1);
+ // When a page is already open, ALL digit keys select its slot.
+ // On a closed book, 1/2/3 select the page. The book buttons always
+ // permit switching pages while one remains open.
+ if(spellbook.page)selectSpellCard(digit-1);
+ else if(digit<=3)openSpellbook(digit);
  if(loaded&&playing&&matchGate.isRunning)event.preventDefault();
 });
 renderSpellbook();
