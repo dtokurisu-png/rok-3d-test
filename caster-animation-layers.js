@@ -11,6 +11,8 @@ export function createCasterLayerSystem(THREE){
   'leftfoot','rightfoot','lefttoebase','righttoebase','lefttoe','righttoe',
   'lefttoes','righttoes','leftfootend','rightfootend']);
  const key=name=>String(name).replace(/^.*?mixamorig[:_]?/i,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
+ const isLeftArm=name=>/^left(shoulder|arm|forearm|hand|finger|thumb|index|middle|ring|pinky)/.test(key(name.replace(/\.(quaternion|position|scale)$/,'')));
+
  function isLower(track){
   const match=/^(.*)\.(quaternion|position|scale)$/.exec(track.name);
   return match&&lower.has(key(match[1].replace(/^\.bones\[(.*)\]$/,'$1')));
@@ -73,7 +75,7 @@ export function createCasterLayerSystem(THREE){
   if(!st.overlayKind&&upperClip)st.upperAction=switchAction(c,st.upperAction,upperClip);
   st.movement=kind;st.refreshBase=false;
  }
- function upper(c,kind,source,speed=1){
+ function upper(c,kind,source,speed=1,{startTime=0}={}){
   const st=state(c);
   movement(c,st.movement||'idle');
   const clip=prepared(st,source, 'upper');
@@ -82,6 +84,7 @@ export function createCasterLayerSystem(THREE){
   // Upper movement fades while upper attack/defense takes the same bones.
   if(st.upperAction)st.upperAction.fadeOut(.09);
   st.overlay=switchAction(c,null,clip,true,speed);
+  if(startTime>0&&st.overlay)st.overlay.time=Math.max(0,Math.min(clip.duration-.0001,startTime));
   st.overlayKind=kind;st.overlayClip=clip;
   return true;
  }
