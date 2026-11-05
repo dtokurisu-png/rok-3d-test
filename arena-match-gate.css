@@ -24,3 +24,15 @@ body:not([data-match-state="running"]) #mobileMobaControls{visibility:hidden!imp
 @media(pointer:coarse) and (max-width:950px) and (orientation:portrait){
  #rokMatchGate{display:none!important}
 }
+
+/* Once configured, show the playable scene behind ONLY the start button. */
+body[data-match-state="armed"] #rokMatchGate,
+body[data-match-state="rotation-paused"] #rokMatchGate{
+ background:transparent;pointer-events:none
+}
+body[data-match-state="armed"] #rokMatchReady,
+body[data-match-state="rotation-paused"] #rokMatchReady{
+ pointer-events:auto;width:min(235px,80vw);padding:0;background:transparent;
+ border:0;box-shadow:none;overflow:visible
+}
+#rokManualStart{background:#038a74e8;box-shadow:0 4px 18px #000b}
