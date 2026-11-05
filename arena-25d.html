@@ -203,8 +203,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.66 · HUD de combate visual</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.66</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.67 · Inicio móvil ligero</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.67</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -326,7 +326,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
   <button id="full">▦ Encuadrar</button>
   <button id="attackMode" class="primary" disabled>✦ Ataque: mágico</button>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<!-- JSZip is optional; never block the browser parser or first view. -->
 <script type="module">
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
@@ -335,8 +335,8 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-sightcone-1';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.64';
-import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.65';
-import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.66';
+import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.67';
+import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.67';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js';
@@ -1628,6 +1628,9 @@ const matchGate=createArenaMatchGate({
   qs('#pause').textContent='▶ Reanudar';
  }
 });
+// Show element selection without waiting for any GLB, FBX or ZIP.
+matchGate.resourcesReady();
+window.ROKBoot.ready();
 const CASTER_RESTART_DELAY=1.8; // Mostrar victoria/derrota antes de reiniciar.
 let matchRestartLeft=null;
 const DURATION=10.25;
@@ -3478,6 +3481,9 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
   let archerScene=null,archerIdle=null;
   try{
+    // The 30 MB archer is not needed for the mobile tester's first match.
+    if(window.matchMedia('(pointer:coarse) and (max-width:950px)').matches)
+     throw Error('Arquera de 30 MB omitida en móvil');
     const a=await new GLTFLoader().loadAsync('./assets/models/casters/arquera/ARQUERA%20DEL%20DECIERTO%20GLTF.glb?arena=0.9.8');
     archerScene=a.scene;
     archerIdle=a.animations.find(x=>/idle/i.test(x.name))||a.animations[0]||null;
@@ -3549,17 +3555,30 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
   qs('#modelStatus').textContent='4 Faroleras + '+combatants.filter(c=>c.kind==='archer').length+' Arqueras + 2 casters · Arquera: 3 PV, alcance 9, daño 2 · ataque 3 s / Farolera 2 s';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
-  // Open preparation only after all essential resources have loaded.
+  // The preparation interface was shown before downloading models.
   playing=false;
-  matchGate.resourcesReady();
-  window.ROKBoot.ready();
+  matchGate.setCoreReady();
   // The scene catalog no longer competes with core models for bandwidth.
   setTimeout(initializeOptionalSceneControls,1800);
   // Load optional animations gradually, never on the critical startup path.
   // They can be cached by the browser for subsequent rounds.
   setTimeout(()=>{
    void (async()=>{
-    const jobs=[...deferredCasterAnimations,()=>activateArenaAnimationPack(g.scene)];
+    const jobs=[...deferredCasterAnimations];
+    // Optional 17 MB ZIP is excluded entirely on mobile. Desktop may
+    // fetch it after core models, with JSZip loaded asynchronously.
+    if(!window.matchMedia('(pointer:coarse) and (max-width:950px)').matches)
+     jobs.push(async()=>{
+      if(!window.JSZip){
+       await new Promise((resolve,reject)=>{
+        const tag=document.createElement('script');
+        tag.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+        tag.onload=resolve;tag.onerror=()=>reject(Error('JSZip no disponible'));
+        document.head.append(tag);
+       });
+      }
+      await activateArenaAnimationPack(g.scene);
+     });
     for(const job of jobs){
      await new Promise(resolve=>setTimeout(resolve,650));
      try{await job();}
@@ -3572,7 +3591,7 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     console.error('[R.O.K.] Error de inicialización del combate:',error);
     qs('#phase').textContent='⚠ No se pudo iniciar el combate: '+message;
     qs('#sceneStatus').textContent='Error de arranque: '+message;
-    window.ROKBoot.fail(message);
+    matchGate.setCoreError(message);
   }
 },e=>{if(e.total){
    const percent=Math.round(e.loaded/e.total*100);
@@ -3581,7 +3600,7 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
  }},err=>{
   qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
   qs('#phase').textContent='⚠ Error al cargar el modelo de Farolera';
-  window.ROKBoot.fail('Farolera: '+String(err?.message||err));
+  matchGate.setCoreError('Farolera: '+String(err?.message||err));
   console.error(err);
 });
 
