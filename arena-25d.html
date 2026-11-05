@@ -393,7 +393,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.109</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.110</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -4277,20 +4277,20 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   setTimeout(()=>{
    void (async()=>{
     const jobs=[...deferredCasterAnimations];
-    // Optional 17 MB ZIP is excluded entirely on mobile. Desktop may
-    // fetch it after core models, with JSZip loaded asynchronously.
-    if(!window.matchMedia('(pointer:coarse) and (max-width:950px)').matches)
-     jobs.push(async()=>{
-      if(!window.JSZip){
-       await new Promise((resolve,reject)=>{
-        const tag=document.createElement('script');
-        tag.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
-        tag.onload=resolve;tag.onerror=()=>reject(Error('JSZip no disponible'));
-        document.head.append(tag);
-       });
-      }
-      await activateArenaAnimationPack(g.scene);
-     });
+    // Summon animations are required on BOTH desktop and mobile.
+    // Defer the archive until after core GLBs and caster clips load so
+    // the arena becomes interactive before the optional 17 MB request.
+    jobs.push(async()=>{
+     if(!window.JSZip){
+      await new Promise((resolve,reject)=>{
+       const tag=document.createElement('script');
+       tag.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+       tag.onload=resolve;tag.onerror=()=>reject(Error('JSZip no disponible'));
+       document.head.append(tag);
+      });
+     }
+     await activateArenaAnimationPack(g.scene);
+    });
     for(const job of jobs){
      await new Promise(resolve=>setTimeout(resolve,650));
      try{await job();}
@@ -4488,7 +4488,7 @@ function closeSpellbook(){
 }
 qs('#rokSpellbookExit').addEventListener('click',closeSpellbook);
 document.addEventListener('pointerdown',event=>{
- if(spellbook.page&&!event.target.closest('#rokSpellbook,#rokSpellbookCards')){
+ if(spellbook.page&&!event.target.closest('#rokSpellbook,#rokSpellbookCards,#mobileMobaControls,#mobaSettingsButton,#mobaFullscreenButton')){
   closeSpellbook();
  }
 },true);
