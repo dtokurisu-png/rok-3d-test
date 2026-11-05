@@ -244,5 +244,11 @@ export function createArenaCombatHud(){
  }
  configure('ally',['water']);configure('enemy',['water']);
  draw([]);
- return {configure,draw,reset,advance,setElements,collectOrb,spend,refund};
+ function getResources(side,element='water'){
+  const player=sides[side];
+  if(!player||!player.levels.includes(element))return {available:0,unlocked:0};
+  return {available:Number(player.elementAmounts[element]||0),
+   unlocked:Number(player.unlocked[element]||0)};
+ }
+ return {configure,draw,reset,advance,setElements,collectOrb,spend,refund,getResources};
 }
