@@ -480,6 +480,8 @@ async function loadSource(id){
  status('Adaptando '+source.name+' al esqueleto…');
  const clip=await loadCreatorClip(source,state.model);
  if(!clip?.tracks?.length||clip.duration<=0)throw Error('Animación vacía o incompatible.');
+ const matched=clip.tracks.filter(t=>state.bones.some(b=>t.name===b.name+'.quaternion'||t.name===b.name+'.position'||t.name===b.name+'.scale'));
+ if(matched.length<4)throw Error('El clip no tiene pistas compatibles con el esqueleto cargado ('+matched.length+'/'+clip.tracks.length+').');
  state.sourceMixer?.stopAllAction();
  // The original action plays ONLY inside this editor. No repository changes.
  const mixer=new THREE.AnimationMixer(state.model);
@@ -493,8 +495,9 @@ async function loadSource(id){
  $('creatorDuration').value=String(state.duration);
  setFrame(0);refreshTimeline();
  $('creatorName').value=source.name.replace(/^\\d+\\s*·\\s*/,'').replace(/^GLB · /,'')+' · editada';
- status('✓ '+source.name+' · '+(Math.round(state.duration*30)+1)+
-  ' fotogramas disponibles. El movimiento original se conserva.');
+ status('✓ '+source.name+' · '+matched.length+' pistas vinculadas · '+(Math.round(state.duration*30)+1)+
+  ' fotogramas. Reproduciendo referencia.');
+ state.playing=true;$('creatorPlay').textContent='Ⅱ Pausar';gizmo.detach();
 }
 function readQueue(){
  try{
@@ -557,6 +560,12 @@ $('creatorLoadSource').addEventListener('click',async()=>{
  finally{button.disabled=false;}
 });
 $('creatorNoSource').addEventListener('click',resetSource);
+$('creatorSource').addEventListener('change',async e=>{
+ if(!state.model)return;
+ const button=$('creatorLoadSource');button.disabled=true;
+ try{await loadSource(e.target.value);}catch(error){status('Animación incompatible: '+error.message,true);}
+ finally{button.disabled=false;}
+});
 $('creatorCommit').addEventListener('click',()=>{
  if(!state.model){status('Primero carga un personaje.',true);return;}
  const mode=$('creatorSaveMode').value;
@@ -597,7 +606,8 @@ async function fillModels(){
   if(!models.length)throw Error('No hay personajes GLB en el catálogo.');
   const pref=models.find(m=>m.id==='caster-chiara')||models[0];
   select.value=pref.id;
-  status(models.length+' personajes disponibles. Pulsa «Cargar modelo».');
+  status(models.length+' personajes disponibles. Cargando modelo inicial…');
+  await loadModel(pref);
  }catch(error){status('No se pudo leer biblioteca: '+error.message,true);}
 }
 $('creatorLoad').addEventListener('click',async()=>{
