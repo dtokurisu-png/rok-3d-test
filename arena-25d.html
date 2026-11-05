@@ -160,7 +160,7 @@ canvas{display:block;touch-action:none}
 body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"></head>
+<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.66"></head>
 <body data-studio-page="tester" data-rok-boot="loading">
 <div id="gameLoadingOverlay" role="status" aria-live="polite">
  <div id="gameLoadingCard">
@@ -203,8 +203,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.65 · Carga móvil ligera</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.65</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.66 · HUD de combate visual</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.66</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -275,6 +275,33 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  </div>
 </div>
 <div id="mobileRotatePrompt" role="status"><span>↻</span>Gira el móvil a horizontal para jugar R.O.K.</div>
+<!-- Stage 2: low-cost combat overlay, no elemental economy or new 3D resources. -->
+<section id="rokCombatHud" aria-label="Vida y tiempo de los dos casters">
+ <div class="rokHudSide" data-hud-side="ally">
+  <div class="rokHudBars">
+   <div class="rokHudName">LIOREN</div>
+   <div class="rokHudHpTrack"><span class="rokHudHpFill"></span></div>
+   <div class="rokHudElementRows"></div>
+  </div>
+  <div class="rokHudPortrait" role="img" aria-label="Retrato provisional de Lioren">
+   <svg viewBox="0 0 40 44" aria-hidden="true"><path d="M20 5c-7 0-11 6-11 12 0 7 3 12 11 12s11-5 11-12C31 10 27 5 20 5Zm-8 26c-8 2-10 6-11 12h38c-1-6-3-10-11-12l-8 5Z"/></svg>
+  </div>
+ </div>
+ <div class="rokHudCenter">
+  <div id="rokHudClock">00:00</div>
+  <div class="rokHudVS">VS</div>
+ </div>
+ <div class="rokHudSide" data-hud-side="enemy">
+  <div class="rokHudPortrait" role="img" aria-label="Retrato provisional de Chiara">
+   <svg viewBox="0 0 40 44" aria-hidden="true"><path d="M20 4C12 4 9 10 9 17c0 8 4 12 11 12s11-4 11-12c0-7-3-13-11-13ZM11 31C4 33 2 37 1 43h38c-1-6-3-10-10-12l-9 5Z"/></svg>
+  </div>
+  <div class="rokHudBars">
+   <div class="rokHudName">CHIARA</div>
+   <div class="rokHudHpTrack"><span class="rokHudHpFill"></span></div>
+   <div class="rokHudElementRows"></div>
+  </div>
+ </div>
+</section>
 <section id="rokMatchGate" aria-label="Preparación del combate">
  <div id="rokMatchSelection" class="rokMatchCard">
   <h2>Preparar combate</h2>
@@ -309,6 +336,7 @@ import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-sightcone-1';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.64';
 import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.65';
+import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.66';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js';
@@ -1575,6 +1603,7 @@ function selectCombatTarget(c){
   return enemyCaster;
 }
 let loaded=false,playing=false,tm=0,prevTime=performance.now();
+const combatHud=createArenaCombatHud();
 const matchGate=createArenaMatchGate({
  onStart:configuration=>{
   // This is the ONLY transition from preparation to active combat.
@@ -1582,6 +1611,10 @@ const matchGate=createArenaMatchGate({
   if(!loaded)throw Error('Los modelos todavía no están listos');
   casterMovement?.disable();
   resetDemoCombat();
+  combatHud.configure('ally',configuration);
+  combatHud.configure('enemy',['water']);
+  combatHud.reset();
+  combatHud.draw(casters);
   playing=true;
   qs('#pause').textContent='Ⅱ Pausar';
  },
@@ -2346,6 +2379,8 @@ function resetDemoCombat(){
   magicImpacts.length=0;
   combatants.forEach(resetCombatant);
   casters.forEach(resetCaster);
+  combatHud.reset();
+  combatHud.draw(casters);
   qs('#phase').textContent='✦ Materializando las invocaciones y los dos casters';
 }
 // Coordenadas físicas y casillas siempre derivadas de W y D.
@@ -3952,7 +3987,10 @@ let fpsTime=0,fpsCount=0;
 function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
-  if(loaded&&playing&&matchGate.isRunning&&!casterReview.active)updateDuel(dt);
+  if(loaded&&playing&&matchGate.isRunning&&!casterReview.active){
+   updateDuel(dt);
+   combatHud.advance(dt,casters);
+  }
   // WASD is additive to the live battle, not a global pause.
   if(loaded&&playing&&matchGate.isRunning&&!mobileMobaControls.paused&&casterMovement?.enabled)casterMovement.step(dt);
   // Range must be visible for the SELECTED caster even before WASD begins.
