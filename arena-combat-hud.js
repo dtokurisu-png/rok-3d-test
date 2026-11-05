@@ -2,10 +2,20 @@
    Starts at 0/0: orbs unlock ONE new full reservoir (maximum 30 total).
    Passive quarter-unit fragments regenerate only unlocked reservoirs.
    Equipped elements share the maximum capacity equally. */
+import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 export function createArenaCombatHud(){
  const el=document.getElementById('rokCombatHud');
  if(!el)throw Error('Falta el HUD superior');
  const clock=el.querySelector('#rokHudClock');
+ // Portraits use the two supplied character images, cropped to faces.
+ for(const [side,key,label] of [['ally','lyoren','Lyoren'],['enemy','chiara','Chiara']]){
+  const portrait=el.querySelector('[data-hud-side="'+side+'"] .rokHudPortrait');
+  if(!portrait)continue;
+  const img=document.createElement('img');img.src=arenaCharacterArt[key];
+  img.alt='Rostro de '+label;img.decoding='async';img.draggable=false;
+  portrait.replaceChildren(img);
+  portrait.setAttribute('aria-label','Retrato de '+label);
+ }
  const palette={
   water:{label:'Agua',color:'#00ffe4'},
   fire:{label:'Fuego',color:'#ff884d'},
