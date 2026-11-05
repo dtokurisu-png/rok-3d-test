@@ -30,3 +30,12 @@ body.studioTester #versionProof{top:125px}
  body.studioTester #top{top:calc(env(safe-area-inset-top,0px) + 63px)}
  body.studioTester #versionProof{top:115px}
 }
+
+/* Browser-local authored animations; never confused with original or composite clips. */
+body.studioAnimations .rokEditedQueue .studioToolButtons{gap:5px}
+body.studioAnimations .rokEditedQueue .studioToolButtons a{
+ display:inline-block;padding:6px 8px;text-decoration:none;border-radius:7px;
+ font-weight:800;font-size:11px;border:1px solid #9f66ee;
+ background:#321752;color:#f2d9ff}
+body.studioAnimations .rokEditedQueue .studioToolButtons a.rokLocalOverride{
+ border-color:#d49a51;background:#3a2817;color:#ffe0a3}
