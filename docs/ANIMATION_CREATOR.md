@@ -57,3 +57,37 @@ No confundir esta herramienta con el inspector del catálogo del visor.
    que las poses se recuperan.
 6. Exportar GLB e inspeccionarlo en un visor externo antes de integrarlo
    al catálogo de animaciones.
+
+## Adaptación a animaciones existentes (v0.2 · 05/11/2026)
+
+La edición habitual comienza seleccionando un modelo, que aparece en su
+pose de rig original (en los modelos sin T-pose nativa puede no ser una T
+perfecta). Luego se elige **Animación de referencia**, incluyendo los
+números 01–14 del ZIP original, las animaciones publicadas directamente
+(15, 16, 21–23, 34–37, Standing Idle) y los clips integrados en el GLB.
+Las animaciones descartadas 04, 05 y 17–20 siguen identificadas en la
+biblioteca histórica; seleccionar una de 01–14 no significa que vuelva
+a estar aprobada para combate.
+
+La animación se adapta al esqueleto del personaje, se muestra en la línea
+de tiempo a **30 FPS** y conserva todos sus fotogramas. Se puede recorrer
+cada fotograma, cambiar la posición de brazos, piernas, cadera, torso,
+cabeza o muñecas con IK/XYZ y guardar su nueva pose. Mientras hay una
+animación de referencia, las modificaciones se registran solo en los
+fotogramas intervenidos; el resto se lee del clip original. La exportación
+hornea el clip en 30 FPS y conserva las pistas de posición/escala
+compatibles que procedan de la animación original.
+
+**Crear nueva animación** pide un nombre y la agrega a una cola local
+con color morado. **Reemplazar versión editada** sobrescribe la entrada
+de esa animación en la cola local, en ámbar. El Gestor de Animaciones
+muestra estos dos tipos separados de las animaciones originales y las
+compuestas. La cola utiliza el almacenamiento local del navegador:
+ni la cola ni el botón de reemplazo escriben en GitHub o borran el FBX
+original. Se debe exportar el proyecto/GLB para conservar una copia
+portable y posteriormente publicar la revisión verificada.
+
+La previsualización real de las adaptaciones FBX y el GLB exportado
+necesita prueba en navegador; los rigs no Mixamo pueden requerir ajustes
+de correspondencia de huesos. Todavía no hay editor de curvas avanzado
+ni un exportador FBX de reemplazo directo.
