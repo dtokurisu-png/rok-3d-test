@@ -234,8 +234,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.84 · Diana verde reforzada</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.84</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.85 · Diana verde más baja</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.85</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -3407,7 +3407,7 @@ function updateCasterAttackReticle(){
  }
  // Approximate the head level of a summon; sprites/HTML HUD are independent
  // from the actual yellow ground ring and never interfere with pointer input.
- const height=1.85;
+ const height=1.70;
  attackReticlePoint.set(0,height,0);
  target.outer.localToWorld(attackReticlePoint);
  attackReticlePoint.project(camera);
