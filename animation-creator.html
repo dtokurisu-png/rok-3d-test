@@ -7,13 +7,29 @@
 <main class="creatorShell">
  <aside class="creatorPanel">
   <h1>Creador de Animaciones</h1>
-  <p class="creatorNote">Edición no destructiva de rigs: poses, cinemática inversa y fotogramas clave.</p>
+  <p class="creatorNote">Edita animaciones existentes fotograma a fotograma mediante IK, o crea una nueva desde una pose.</p>
   <section class="creatorSection"><h2>Personaje</h2>
    <label for="creatorModel">Modelo de GitHub</label><select id="creatorModel"></select>
    <div class="creatorRow"><button id="creatorLoad" type="button">Cargar modelo</button><button id="creatorFrame" type="button">Centrar cámara</button></div>
    <p class="creatorStatus" id="creatorStatus" role="status">Cargando biblioteca de modelos…</p>
   </section>
-  <section class="creatorSection"><h2>IK · Brazos y piernas</h2>
+  <section class="creatorSection"><h2>Animación de referencia</h2>
+   <label for="creatorSource">Animación existente</label>
+   <select id="creatorSource"><option value="">Pose original / T-pose</option></select>
+   <div class="creatorRow"><button type="button" id="creatorLoadSource">Cargar animación</button>
+   <button type="button" id="creatorNoSource">Volver a pose inicial</button></div>
+   <p class="creatorNote">Al cargar una animación, todos sus fotogramas se mantienen. Puedes editar cualquier fotograma con IK o rotaciones y guardar solo los cambios.</p>
+   <label for="creatorSaveMode">Destino</label>
+   <select id="creatorSaveMode">
+    <option value="new">Crear nueva animación</option>
+    <option value="replace">Reemplazar versión editada de la animación seleccionada</option>
+   </select>
+   <div class="creatorRow"><button type="button" id="creatorCommit">Agregar a cola local</button></div>
+   <p class="creatorNote">El reemplazo se realiza en la cola local, sin borrar los FBX/GLB originales del repositorio.</p>
+   <div class="creatorQueue"><strong>Cola de animaciones</strong>
+    <div id="creatorQueue"></div></div>
+  </section>
+  <section class="creatorSection"><h2>Controles IK · cuerpo</h2>
    <label for="creatorChain">Cadena de huesos</label><select id="creatorChain"></select>
    <p class="creatorNote">Arrastra la esfera del objetivo con las flechas 3D. También puedes ajustar sus coordenadas. El modelo debe tener huesos compatibles.</p>
    <div class="creatorRow creatorAxes">
