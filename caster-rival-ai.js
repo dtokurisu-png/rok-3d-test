@@ -5,7 +5,7 @@
  */
 export function createRivalCasterAI({
  getCaster,getOrbs,getEnemies,getThreats,getResourceState,
- move,face,guard,attack,cast,animate,canCast,
+ move,face,guard,attack,cast,onCastResolve,animate,canCast,
  bounds={x:7.25,z:14.75},
  settings={}
 }){
@@ -17,7 +17,7 @@ export function createRivalCasterAI({
  };
  const state={mode:'collect',target:null,elapsed:0,decision:0,
   castCooldown:0,attackCooldown:0,guardLeft:0,castLeft:0,castTarget:null,
-  castDone:false,casting:false,records:{collectedAttempts:0,casts:0,attacks:0}};
+  castDone:false,casting:false,castDefensive:false,records:{collectedAttempts:0,casts:0,attacks:0}};
  const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
  const current=()=>getCaster?.();
@@ -25,6 +25,7 @@ export function createRivalCasterAI({
   state.mode='collect';state.target=null;state.elapsed=0;state.decision=0;
   state.castCooldown=0;state.attackCooldown=0;state.guardLeft=0;
   state.castLeft=0;state.castTarget=null;state.castDone=false;state.casting=false;
+  state.castDefensive=false;
   guard?.(false);
  }
  function nearest(from,items){
@@ -55,7 +56,8 @@ export function createRivalCasterAI({
   if(!cast?.(c,{position,defensive,duration}))return false;
   state.mode=defensive?'intercept':'pressure';
   state.casting=true;state.castLeft=duration;state.castDone=false;
-  state.castTarget={...position};state.castCooldown=cfg.castCooldown;
+  state.castTarget={...position};state.castDefensive=defensive;
+  state.castCooldown=cfg.castCooldown;
   state.records.casts++;
   return true;
  }
@@ -74,7 +76,11 @@ export function createRivalCasterAI({
   }
   if(state.casting){
    state.castLeft=Math.max(0,state.castLeft-dt);
-   if(state.castLeft===0){state.casting=false;state.castTarget=null;}
+   if(state.castLeft===0){
+    // Commit the physical invocation when the casting windup completes.
+    onCastResolve?.(c,{position:state.castTarget,defensive:state.castDefensive});
+    state.casting=false;state.castTarget=null;state.castDefensive=false;
+   }
    animate?.(c,'idle');
    return;
   }
