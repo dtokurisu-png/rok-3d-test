@@ -158,6 +158,13 @@ export function createArenaCombatHud(){
   paintElements(side);
   return true;
  }
+ // A collected orb contributes one full elemental unit (4 fragments),
+ // using the same rotating allocation as passive regeneration.
+ function collectOrb(side){
+  let added=0;
+  for(let i=0;i<4;i++)if(regenerateFragment(side))added++;
+  return added;
+ }
  function reset(){
   seconds=0;refreshLeft=0;
   for(const side of ['ally','enemy']){
@@ -180,5 +187,5 @@ export function createArenaCombatHud(){
  }
  configure('ally',['water']);configure('enemy',['water']);
  draw([]);
- return {configure,draw,reset,advance,setElements};
+ return {configure,draw,reset,advance,setElements,collectOrb};
 }
