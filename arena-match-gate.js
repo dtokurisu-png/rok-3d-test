@@ -13,8 +13,8 @@ export function createArenaMatchGate({onStart,onResume,onPause}){
  const info=document.getElementById('rokMatchReadySummary');
  const mobile=window.matchMedia('(pointer:coarse) and (max-width:950px)');
  const portrait=window.matchMedia('(orientation:portrait)');
- const options=[['water','Agua'],['fire','Fuego'],['wind','Viento']];
- let mode='loading',configuration=['water'],coreReady=false,coreError='';
+ const options=[['earth','Tierra'],['water','Agua'],['fire','Fuego'],['wind','Viento']];
+ let mode='loading',configuration=['earth'],coreReady=false,coreError='';
  let confirmed=null;
  const orientationBlocked=()=>mobile.matches&&portrait.matches;
  function view(){
@@ -74,7 +74,7 @@ export function createArenaMatchGate({onStart,onResume,onPause}){
  });
  function resourcesReady(){
   if(mode!=='loading')return;
-  mode='selecting';configuration=['water'];confirmed=null;
+  mode='selecting';configuration=['earth'];confirmed=null;
   count.value='1';selectInputs();view();
  }
  function setCoreReady(){
