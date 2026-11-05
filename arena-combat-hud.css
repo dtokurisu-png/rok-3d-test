@@ -1,6 +1,6 @@
 /* R.O.K. Stage 2 — readable segmented health and elemental HUD. */
 #rokCombatHud{
- --element-reservoir-height:35px;--element-offset-y:-8px;
+ --element-reservoir-height:35px;--element-offset-y:-3px;
  position:fixed;top:calc(7px + env(safe-area-inset-top,0px));
  left:50%;transform:translateX(-50%);
  width:min(900px,94vw);z-index:40;display:grid;
@@ -54,6 +54,7 @@
 .rokHudSide[data-hud-side="enemy"] .rokHudElementRow{width:calc(100% + 26px);margin-right:-26px}
 .rokHudElementSegment{min-width:0;flex:1;display:flex;gap:1px;overflow:hidden}
 .rokHudElementSegment+.rokHudElementSegment{border-left:2px solid #bbccd1;padding-left:2px}
+.rokHudElementCell[hidden]{display:none!important}
 .rokHudElementCell{
  --fill:0%;position:relative;min-width:0;flex:1;overflow:hidden;
  border-radius:2px;background:linear-gradient(180deg,#304957 0%,#172c39 43%,#091a25 100%);
