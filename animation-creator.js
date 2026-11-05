@@ -20,7 +20,7 @@ const defaults={model:null,loadedPath:'',bones:[],pose:new Map(),chains:[],
  playing:false,time:0,duration:4,baseScale:1,modelId:null,
  sourceClip:null,sourceMixer:null,sourceAction:null,sourceId:null,
  modelClips:[],recording:false,handles:[],poles:new Map(),selectedHandle:null,centerHandle:null,
- bindPose:new Map(),sourceLoadToken:0,sourceAnimatedBones:null,plantedFeet:new Map()};
+ bindPose:new Map(),sourceLoadToken:0,sourceAnimatedBones:null,plantedFeet:new Map(),orientationTargets:new Map()};
 const state=defaults;
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x081520);
@@ -47,8 +47,28 @@ gizmo.addEventListener('dragging-changed',e=>orbit.enabled=!e.value);
 gizmo.addEventListener('objectChange',()=>{
  if(!state.playing){
   if(state.selectedHandle?.type==='pole')solveIK(state.chains[state.selectedHandle.index]);
-  else if(state.selectedHandle?.type==='center')moveCenter();
-  else if(state.selectedHandle?.type==='ik')solveIK(state.currentChain);
+  else if(state.selectedHandle?.type==='footPole'){
+   const chain=state.chains[state.selectedHandle.index];
+   state.orientationTargets.set(state.selectedHandle.index,chain.tip.getWorldQuaternion(new THREE.Quaternion()));
+  }
+  else if(state.selectedHandle?.type==='center'&&gizmo.getMode()==='translate')moveCenter();
+  else if(state.selectedHandle?.type==='ik'&&gizmo.getMode()==='translate')solveIK(state.currentChain);
+  else if(state.selectedHandle?.type==='ik'&&gizmo.getMode()==='rotate')state.orientationTargets.set(state.selectedHandle.index,state.currentChain.tip.getWorldQuaternion(new THREE.Quaternion()));
+  if(state.selectedHandle?.type==='footPole'&&gizmo.getMode()==='translate'){
+   const chain=state.chains[state.selectedHandle.index],marker=state.handles.find(h=>h.userData.control===state.selectedHandle);
+   if(marker){
+    const toe=roleBone([chain.label.includes('izquierda')?'lefttoebase':'righttoebase',chain.label.includes('izquierda')?'lefttoe':'righttoe']);
+    const toePos=toe?.getWorldPosition(new THREE.Vector3())||chain.tip.getWorldPosition(new THREE.Vector3());
+    const footPos=chain.tip.getWorldPosition(new THREE.Vector3());
+    const direction=marker.position.clone().sub(footPos);direction.y=0;
+    if(direction.lengthSq()>1e-6){
+     const q=new THREE.Quaternion().setFromUnitVectors(rigForwardVector(),direction.normalize());
+     state.orientationTargets.set(state.selectedHandle.index,q.multiply(state.orientationTargets.get(state.selectedHandle.index)?.clone()||new THREE.Quaternion()));
+     const parentQ=chain.tip.parent.getWorldQuaternion(new THREE.Quaternion());
+     chain.tip.quaternion.copy(parentQ.invert().multiply(state.orientationTargets.get(state.selectedHandle.index)));
+    }
+   }
+  }
   recordEditedFrame();
   refreshTargetInputs();
   viewStatus('IK aplicada · pulsa «Guardar pose clave» para conservarla.');
@@ -98,7 +118,6 @@ function buildChains(){
   ['Brazo derecho',['rightarm','rightupperarm'],['rightforearm','rightlowerarm'],['righthand','rightwrist']],
   ['Pierna izquierda',['leftupleg','leftthigh'],['leftleg','leftcalf','leftshin'],['leftfoot','leftankle']],
   ['Pierna derecha',['rightupleg','rightthigh'],['rightleg','rightcalf','rightshin'],['rightfoot','rightankle']],
-  ['Cadera y torso',['hips','pelvis'],['spine'],['spine1','spine2','chest']],
   ['Torso y cabeza',['spine1','spine2','upperchest'],['neck'],['head']]
  ];
  return defs.map(([label,upper,lower,tip])=>({
@@ -144,7 +163,7 @@ function clearTargets(){
  }
  state.targets.clear();state.currentChain=null;
  for(const h of state.handles){scene.remove(h);h.geometry.dispose();h.material.dispose();}
- state.handles=[];state.poles.clear();state.selectedHandle=null;state.centerHandle=null;state.plantedFeet.clear();
+ state.handles=[];state.poles.clear();state.selectedHandle=null;state.centerHandle=null;state.plantedFeet.clear();state.orientationTargets.clear();
 }
 function makeTargets(){
  clearTargets();
@@ -185,6 +204,7 @@ function solveIK(chain){
  const idx=state.chains.indexOf(chain),target=state.targets.get(idx);
  if(!target)return;
  state.model.updateMatrixWorld(true);
+ const lockedWorldOrientation=state.orientationTargets.get(idx)?.clone() || chain.tip.getWorldQuaternion(new THREE.Quaternion());
  // Cyclic coordinate descent, applying each correction in parent-local space.
  // The target is in WORLD coordinates and therefore does not drift during posing.
  for(let pass=0;pass<18;pass++){
@@ -206,7 +226,14 @@ function solveIK(chain){
    joint.updateWorldMatrix(false,true);
   }
  }
- applyPole(chain);refreshBoneInputs();
+ applyPole(chain);
+ // Keep the end effector's world orientation independent of limb bending.
+ if(lockedWorldOrientation){
+  const parentQ=chain.tip.parent.getWorldQuaternion(new THREE.Quaternion());
+  chain.tip.quaternion.copy(parentQ.invert().multiply(lockedWorldOrientation));
+  chain.tip.updateWorldMatrix(false,true);
+ }
+ refreshBoneInputs();
 }
 function resetTarget(){
  if(!state.currentChain)return;
@@ -822,34 +849,56 @@ function handle(radius,color,data){
  h.userData.control=data;h.renderOrder=250;state.handles.push(h);scene.add(h);return h;
 }
 function createDirectHandles(){
- for(const bone of state.bones){
-  const n=cleanName(bone.name);
-  if(/finger|toe|twist|helper/.test(n))continue;
-  if(!/hips|pelvis|spine|chest|head|neck|arm|forearm|hand|wrist|upleg|thigh|calf|shin|foot/.test(n))continue;
-  handle(.055,/hand|wrist/.test(n)?0xff9bd4:0x85b2ff,{type:'bone',bone});
- }
- // Pole controls orient the plane of elbow and knee bending.
- for(let i=0;i<state.chains.length;i++){
-  const c=state.chains[i];if(!/Brazo|Pierna/.test(c.label))continue;
-  const elbow=c.lower.getWorldPosition(new THREE.Vector3());
-  const root=c.upper.getWorldPosition(new THREE.Vector3());
-  const tip=c.tip.getWorldPosition(new THREE.Vector3());
-  const direction=elbow.clone().sub(root.clone().add(tip).multiplyScalar(.5));
-  if(direction.lengthSq()<.00001)direction.set(0,0,/Brazo/.test(c.label)?-1:1);
-  const pole=handle(.075,/Brazo/.test(c.label)?0xffae5b:0xdfee66,{type:'pole',index:i});
-  pole.position.copy(elbow).addScaledVector(direction.normalize(),.5);state.poles.set(i,pole);
- }
+ // One shared controller for pelvis/center of gravity, and a separate torso rotation controller.
  const hips=roleBone(['hips','pelvis']);
- if(hips){state.centerHandle=handle(.12,0xff60b4,{type:'center'});
-  state.centerHandle.position.copy(hips.getWorldPosition(new THREE.Vector3()));}
+ if(hips){
+  state.centerHandle=handle(.125,0xff60b4,{type:'center'});
+  state.centerHandle.position.copy(hips.getWorldPosition(new THREE.Vector3()));
+ }
+ const torso=roleBone(['spine2','spine1','spine','chest','upperchest']);
+ if(torso){
+  const torsoMarker=handle(.09,0x8ce8fc,{type:'torso',bone:torso});
+  torsoMarker.position.copy(torso.getWorldPosition(new THREE.Vector3()));
+ }
+ state.chains.forEach((chain,i)=>{
+  if(!/Brazo|Pierna/.test(chain.label))return;
+  const joint=chain.lower.getWorldPosition(new THREE.Vector3());
+  const forward=rigForwardVector();
+  const direction=/Brazo/.test(chain.label)?forward.clone().negate():forward.clone();
+  // Height is EXACTLY the elbow/knee joint height; only horizontal offset changes.
+  const p=handle(.075,/Brazo/.test(chain.label)?0xffa457:0xe3dd63,{type:'pole',index:i});
+  p.position.copy(joint).addScaledVector(direction,.48);
+  state.poles.set(i,p);
+  state.orientationTargets.set(i,chain.tip.getWorldQuaternion(new THREE.Quaternion()));
+  if(/Pierna/.test(chain.label)){
+   const toe=roleBone([chain.label.includes('izquierda')?'lefttoebase':'righttoebase',
+    chain.label.includes('izquierda')?'lefttoe':'righttoe']);
+   const toePos=toe?toe.getWorldPosition(new THREE.Vector3()):chain.tip.getWorldPosition(new THREE.Vector3());
+   const footControl=handle(.078,0x50efc6,{type:'footPole',index:i});
+   footControl.position.copy(toePos).addScaledVector(forward,.24);
+  }
+ });
  syncHandles();
 }
+function rigForwardVector(){
+ // Derive character forward from its toes when present; otherwise +Z.
+ const leftFoot=roleBone(['leftfoot']),leftToe=roleBone(['lefttoebase','lefttoe']);
+ const rightFoot=roleBone(['rightfoot']),rightToe=roleBone(['righttoebase','righttoe']);
+ const v=new THREE.Vector3();
+ for(const [foot,toe] of [[leftFoot,leftToe],[rightFoot,rightToe]]){
+  if(foot&&toe)v.add(toe.getWorldPosition(new THREE.Vector3()).sub(foot.getWorldPosition(new THREE.Vector3())));
+ }
+ v.y=0;
+ if(v.lengthSq()<.0001)v.set(0,0,1);
+ return v.normalize();
+}
 function syncHandles(){
- if(!state.model)return;state.model.updateMatrixWorld(true);
+ if(!state.model)return;
+ state.model.updateMatrixWorld(true);
  for(const h of state.handles){
-  if(h.userData.control.type==='bone')
+  if(h.userData.control.type==='torso'&&h!==gizmo.object)
    h.position.copy(h.userData.control.bone.getWorldPosition(new THREE.Vector3()));
-  else if(h.userData.control.type==='center'&&!gizmo.dragging){
+  else if(h.userData.control.type==='center'&&h!==gizmo.object){
    const hips=roleBone(['hips','pelvis']);
    if(hips)h.position.copy(hips.getWorldPosition(new THREE.Vector3()));
   }
@@ -870,6 +919,24 @@ function applyPole(chain){
  const q=new THREE.Quaternion().setFromAxisAngle(axis,angle);
  chain.upper.quaternion.premultiply(parent.clone().invert().multiply(q).multiply(parent)).normalize();
  state.model.updateMatrixWorld(true);
+}
+function setControlMode(mode){
+ const info=state.selectedHandle;if(!info)return;
+ const hip=roleBone(['hips','pelvis']);
+ if(info.type==='center'){
+  gizmo.setMode(mode);
+  gizmo.attach(mode==='rotate'?hip:state.centerHandle);
+ }else if(info.type==='torso'){
+  gizmo.setMode(mode);
+  gizmo.attach(mode==='rotate'?info.bone:state.handles.find(h=>h.userData.control===info));
+ }else if(info.type==='ik' || info.type==='pole'||info.type==='footPole'){
+  // Orient the end effector with R, translate its controller with G.
+  const chain=state.chains[info.index];
+  const marker=info.type==='ik'?state.targets.get(info.index):
+   state.handles.find(h=>h.userData.control===info);
+  gizmo.setMode(mode);
+  gizmo.attach(mode==='rotate'?chain.tip:marker);
+ }
 }
 function moveCenter(){
  const hips=roleBone(['hips','pelvis']),h=state.centerHandle;
@@ -892,13 +959,10 @@ function moveCenter(){
 function activateHandle(info,obj){
  state.selectedHandle=info;
  if(info.type==='ik'){selectChain(info.index);return;}
- if(info.type==='bone'){
-  selectBone(info.bone.uuid);gizmo.setMode('rotate');gizmo.attach(info.bone);
-  viewStatus('Hueso '+info.bone.name+' · R: rotar');
- }else if(info.type==='pole'){
+ if(info.type==='pole'){
   state.currentChain=state.chains[info.index];
   gizmo.setMode('translate');gizmo.attach(obj);
-  viewStatus('Pole target: arrastra para orientar la flexión.');
+  viewStatus('Pole: arrastra para orientar codo o rodilla.');
  }else if(info.type==='center'){
   gizmo.setMode('translate');gizmo.attach(obj);
   state.previousCenter=obj.position.clone();
@@ -908,7 +972,13 @@ function activateHandle(info,obj){
     t.position.y=Math.max(0,t.position.y);
     state.plantedFeet.set(i,t.position.clone());}
   }
-  viewStatus('Centro de gravedad · pies fijados al bajar.');
+  viewStatus('Cadera / centro de gravedad: G mover · R rotar.');
+ }else if(info.type==='torso'){
+  gizmo.setMode('translate');gizmo.attach(obj);
+  viewStatus('Torso independiente: R rotar.');
+ }else if(info.type==='footPole'){
+  gizmo.setMode('translate');gizmo.attach(obj);
+  viewStatus('Orientación del pie: R rotar; el IK mantiene su orientación.');
  }
 }
 renderer.domElement.addEventListener('pointerup',e=>{
@@ -983,8 +1053,9 @@ renderer.domElement.addEventListener('pointerup',e=>{
  if(hit&&Number.isInteger(hit.object.userData.rokIKTarget))activateHandle({type:'ik',index:hit.object.userData.rokIKTarget},hit.object);
 });
 document.addEventListener('keydown',e=>{
- if(e.key.toLowerCase()!=='r'||!state.currentBone||/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName||''))return;
- e.preventDefault();gizmo.setMode('rotate');gizmo.attach(state.currentBone);state.selectedHandle={type:'bone',bone:state.currentBone};
+ if(!state.selectedHandle||e.altKey||e.ctrlKey||e.metaKey||/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName||''))return;
+ const key=e.key.toLowerCase();
+ if(key==='r'||key==='g'){e.preventDefault();setControlMode(key==='r'?'rotate':'translate');}
 });
 let last=0;
 function render(now){
