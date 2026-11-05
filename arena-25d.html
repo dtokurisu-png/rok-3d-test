@@ -56,17 +56,17 @@ canvas{display:block;touch-action:none}
 /* Off-screen orb compass sits above the bottom toolbar, never steals input. */
 #orbEdgeLayer{position:fixed;inset:0;z-index:24;pointer-events:none;overflow:hidden}
 .rokOrbEdge{position:absolute;display:none;bottom:calc(92px + env(safe-area-inset-bottom,0px));
- transform:translateX(-50%);width:44px;height:64px;opacity:.85;
- align-items:center;flex-direction:column;gap:4px;
+ transform:translateX(-50%);width:88px;height:128px;opacity:.85;
+ align-items:center;flex-direction:column;gap:8px;
  filter:drop-shadow(0 0 9px #00ffe4cc)}
-.rokOrbEdgeAtom{width:28px;height:28px;border:3px solid #b3fff6;border-radius:50%;
+.rokOrbEdgeAtom{width:56px;height:56px;border:6px solid #b3fff6;border-radius:50%;
  background:radial-gradient(circle at 37% 30%,#d0fffaad,#00eecb55 40%,#00ffe411 75%);
  box-shadow:0 0 13px #00ffe4bb,inset 0 0 9px #a3fff6aa;position:relative}
 .rokOrbEdgeAtom::before,.rokOrbEdgeAtom::after{content:"";position:absolute;
- width:33px;height:13px;border:2px solid #76fff0;border-radius:50%;
- top:5px;left:-6px;transform:rotate(55deg)}
+ width:66px;height:26px;border:4px solid #76fff0;border-radius:50%;
+ top:10px;left:-12px;transform:rotate(55deg)}
 .rokOrbEdgeAtom::after{transform:rotate(-55deg)}
-.rokOrbEdgeArrow{font:900 28px/1 Roboto,system-ui,sans-serif;color:#b3fff6;
+.rokOrbEdgeArrow{font:900 56px/1 Roboto,system-ui,sans-serif;color:#b3fff6;
  text-shadow:0 0 9px #00ffe4;display:block;transform-origin:center}
 @media(min-width:760px){.rokOrbEdge{bottom:calc(67px + env(safe-area-inset-bottom,0px))}}
 /* Summon portrait compass uses the same lower screen edge as elemental orbs. */
@@ -264,8 +264,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.91 · Orbes fuera de cámara más visibles</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.91</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.92 · Indicador de orbe al doble</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.92</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -1749,7 +1749,7 @@ function drawOrbEdgeMarker(orb){
  const magnitude=Math.hypot(dx,dy)||1;
  dx/=magnitude;dy/=magnitude;
  const width=window.innerWidth;
- node.style.left=THREE.MathUtils.clamp(width*.5+dx*width*.42,28,width-28)+'px';
+ node.style.left=THREE.MathUtils.clamp(width*.5+dx*width*.42,48,width-48)+'px';
  // The arrow points from screen center toward the actual orb direction.
  arrow.style.transform='rotate('+Math.atan2(dy,dx)+'rad)';
  node.style.opacity=String(.9*Math.min(1,Math.max(.1,(10-orb.age)/3)));
