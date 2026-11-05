@@ -140,3 +140,17 @@
  .mobaSettingsActions button{min-width:105px}
  #mobaSpellbookSize{width:100%;accent-color:#00ffdf}
 }
+
+@media(pointer:coarse) and (max-width:950px){
+ #mobaResizePanel:not([hidden]){
+  display:flex;align-items:center;gap:7px;position:fixed;z-index:55;
+  right:calc(8px + env(safe-area-inset-right,0px));
+  top:calc(55px + env(safe-area-inset-top,0px));
+  width:min(235px,50vw);padding:7px;border-radius:8px;
+  border:1px solid #00ffdf;background:#081c27ef;color:#fff;
+  font:600 10px Roboto,system-ui,sans-serif;pointer-events:auto;
+ }
+ #mobaResizePanel label{white-space:nowrap}
+ #mobaLiveSpellbookSize{width:100%;min-width:35px;accent-color:#00ffdf}
+ #mobaLiveSpellbookValue{min-width:30px;text-align:right}
+}
