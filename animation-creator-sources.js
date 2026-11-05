@@ -31,7 +31,7 @@ export const originalSources=[
 ].map((name,index)=>({
  id:index+1,name:String(index+1).padStart(2,'0')+' · '+name.replace(/\.fbx$/,''),
  file:name,kind:'archive'
-}));
+})).filter(item=>item.id!==4&&item.id!==5);
 let archivePromise=null;
 async function loadOriginalArchive(){
  if(!archivePromise)archivePromise=(async()=>{
