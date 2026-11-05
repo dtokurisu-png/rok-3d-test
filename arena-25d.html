@@ -340,8 +340,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 /* Mobile reliability and usability — v0.9.108 */
 @media (pointer:coarse) and (max-width:950px) and (orientation:landscape){
  #rokSpellbookCards{
-  width:min(calc(43vw * var(--rok-mobile-book-size, .65)),calc(245px * var(--rok-mobile-book-size, .65)))!important;
-  height:min(calc(85vh * var(--rok-mobile-book-size, .65)),calc(355px * var(--rok-mobile-book-size, .65)))!important;
+  width:var(--rok-mobile-book-width,160px)!important;
+  height:var(--rok-mobile-book-height,230px)!important;
   max-height:85vh!important;
  }
  #rokSpellbookExit{
@@ -4558,7 +4558,8 @@ function setupMobileMobaControls(){
  const setBookSize=(value,persist=true)=>{
   bookSize=THREE.MathUtils.clamp(Number(value)||65,40,100);
   sizeSlider.value=String(bookSize);sizeText.textContent=bookSize+'%';
-  document.documentElement.style.setProperty('--rok-mobile-book-size',bookSize/100);
+  document.documentElement.style.setProperty('--rok-mobile-book-width',(Math.min(innerWidth*.43,245)*bookSize/100).toFixed(1)+'px');
+  document.documentElement.style.setProperty('--rok-mobile-book-height',(Math.min(innerHeight*.85,355)*bookSize/100).toFixed(1)+'px');
   if(persist)try{localStorage.setItem('rokMobileSpellbookScaleV1',String(bookSize));}catch{}
  };
  try{setBookSize(localStorage.getItem('rokMobileSpellbookScaleV1')||65,false);}catch{setBookSize(65,false);}
@@ -4807,6 +4808,7 @@ function setupMobileMobaControls(){
    el.addEventListener(type,release);
  }
  const adaptOrientation=()=>{
+  setBookSize(bookSize,false);
   if(!mobileQuery.matches){if(portraitPaused){portraitPaused=false;playing=restorePlaying;}return;}
   // Default positions follow the screen's CURRENT landscape width.
   // Only player-customized coordinates remain anchored to saved positions.
