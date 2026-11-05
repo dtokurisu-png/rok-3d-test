@@ -259,11 +259,12 @@ function sampleFrame(frame){
    const rest=state.pose.get(bone.name);
    if(rest)bone.quaternion.copy(rest);
   }
-  state.sourceMixer.setTime(Math.min(state.sourceClip.duration,frame/30));
+  // Scrubbing must work in either direction, even after the last frame.
+  state.sourceMixer.setTime(Math.max(0,Math.min(state.sourceClip.duration-.00001,frame/30)));
   const edited=state.keys.get(frame);
   if(edited)applyPose(edited);
   state.model?.updateMatrixWorld(true);
-  refreshBoneInputs();
+  if(!state.recording)refreshBoneInputs();
   return;
  }
  if(!state.keys.size)return;
@@ -480,8 +481,8 @@ async function loadSource(id){
  // The original action plays ONLY inside this editor. No repository changes.
  const mixer=new THREE.AnimationMixer(state.model);
  const action=mixer.clipAction(clip);
- action.setLoop(THREE.LoopOnce,1);
- action.clampWhenFinished=true;
+ action.setLoop(THREE.LoopRepeat,Infinity);
+ action.clampWhenFinished=false;
  action.play();mixer.setTime(0);
  state.sourceClip=clip;state.sourceMixer=mixer;state.sourceAction=action;
  state.sourceId=id;state.duration=Math.ceil(clip.duration*30)/30;
