@@ -39,7 +39,10 @@
 .rokHudSide[data-hud-side="enemy"] .rokHudLifeIcon{color:#ff6f8e}
 .rokHudDropIcon{color:#79eefa}
 .rokHudElementBar{min-width:0;flex:1;position:relative;display:flex;flex-direction:column;gap:1px}
-.rokHudElementTrack{height:10px;padding:1px;gap:2px}
+.rokHudElementTrack{height:17px;padding:2px;gap:2px}
+/* More room for the 30 elemental cells, extending away from both portraits. */
+.rokHudSide[data-hud-side="ally"] .rokHudElementRow{width:calc(100% + 22px);margin-left:-22px}
+.rokHudSide[data-hud-side="enemy"] .rokHudElementRow{width:calc(100% + 22px);margin-right:-22px}
 .rokHudElementSegment{min-width:0;flex:1;display:flex;gap:1px;overflow:hidden}
 .rokHudElementSegment+.rokHudElementSegment{border-left:2px solid #bbccd1;padding-left:2px}
 .rokHudElementCell{min-width:0;flex:1;border-radius:1px;background:#1b323a;
@@ -62,7 +65,9 @@
  .rokHudName{font-size:8px;line-height:9px}
  .rokHudBars{gap:2px}
  .rokHudLifeCells{height:9px;gap:1px}
- .rokHudElementTrack{height:8px}
+ .rokHudElementTrack{height:14px;padding:1px}
+ .rokHudSide[data-hud-side="ally"] .rokHudElementRow{width:calc(100% + 12px);margin-left:-12px}
+ .rokHudSide[data-hud-side="enemy"] .rokHudElementRow{width:calc(100% + 12px);margin-right:-12px}
  .rokHudStatIcon{width:10px;flex-basis:10px;height:10px}
  .rokHudStatIcon svg{width:10px;height:10px}
  .rokHudSectionLabels{height:8px;line-height:8px}
