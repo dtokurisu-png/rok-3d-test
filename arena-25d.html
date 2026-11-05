@@ -210,6 +210,13 @@ canvas{display:block;touch-action:none}
  border:1px solid #00ffe4;background:#16434c;color:white;font-weight:700}
 #gameLoadingOverlay[data-error="true"] #gameLoadingRetry{display:block}
 body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
+#casterCastTest{margin:12px 0;padding:12px;border:1px solid #385f8a;border-radius:9px;background:#0e2635}
+#casterCastTest strong{color:#a1fff4}
+#casterCastTest p{font-size:12px;line-height:1.5}
+#casterCastTest .casterCastTestControls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#casterCastTest select,#casterCastTest button{padding:7px 9px;border:1px solid #4d9eac;border-radius:6px;background:#153d4d;color:#fff;font:inherit}
+#casterCastTest button{cursor:pointer}
+#casterCastTestStatus{color:#a6ebec}
 #elementHudTuning{margin:12px 0;padding:12px;border:1px solid #278e93;border-radius:9px;background:#0b2732}
 #elementHudTuning strong{color:#00ffe4;font-size:13px}
 #elementHudTuning label{display:block;margin:10px 0 5px;color:#d9f4f6;font-weight:700}
@@ -264,8 +271,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.96 · Arena sin invocaciones automáticas</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.96</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.97 · Casteo compuesto 22 → 21</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.97</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -277,6 +284,20 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
     <section id="testerSceneTools" aria-label="Escenario">
       <div class="sceneTesterButtons"><button id="testerSceneLocal" type="button">↻ Cargar escenario</button><span id="testerSceneCurrent" class="sceneTesterCurrent">Arena original</span></div>
       <p id="testerSceneStatus" class="sceneTesterStatus" role="status">Comprobando escenario…</p>
+    </section>
+    <section id="casterCastTest" aria-label="Prueba de animación compuesta de casteo">
+      <strong>✦ Probar casteo 22 → 21</strong>
+      <p>Prueba temporal de animación; todavía no lanza cartas ni consume recursos.</p>
+      <div class="casterCastTestControls">
+        <label for="casterCastTestCost">Costo</label>
+        <select id="casterCastTestCost" aria-label="Costo para la prueba de casteo">
+          <option value="0">0 · 0.5 s</option><option value="1" selected>1 · 0.5 s</option>
+          <option value="2">2 · 1.0 s</option><option value="3">3 · 1.5 s</option>
+          <option value="4">4 · 2.0 s</option><option value="5">5+ · 2.5 s</option>
+        </select>
+        <button id="casterCastTestRun" type="button">▶ Probar 22 + 21</button>
+      </div>
+      <p id="casterCastTestStatus" role="status">Comienza el combate para probar la secuencia.</p>
     </section>
     <section id="cameraTuningPanel" aria-label="Cámara automática">
  <div class="cameraHeader"><strong>📷 Seguimiento automático</strong></div>
@@ -441,13 +462,13 @@ import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-real-fountains-1';
-import {createCasterMobility} from './caster-mobility.js?v=0.9.86';
+import {createCasterMobility} from './caster-mobility.js?v=0.9.97';
 import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.68';
 import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.80';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.88';
-import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.86';
+import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.97';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
-import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.86';
+import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.97';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 
 const qs=s=>document.querySelector(s);
@@ -4112,6 +4133,20 @@ casterMovement=createCasterMobility({
   if(enabled&&casterReview.active)finishCasterReview();
   return playing;
  }
+});
+// Temporary phase-3 test only. The actual card will trigger this same
+// startCardCast API from the spellbook in the following phases.
+qs('#casterCastTestRun').addEventListener('click',()=>{
+ const status=qs('#casterCastTestStatus');
+ if(!loaded||!playing||!matchGate.isRunning){
+  status.textContent='Inicia el combate antes de probar el casteo.';return;
+ }
+ const cost=Number(qs('#casterCastTestCost').value)||0;
+ const started=casterMovement.startCardCast({cost,onRelease:caster=>{
+  status.textContent='✓ Fotograma 48 alcanzado: acción de casteo ejecutada. Ahora se reproduce la animación 21.';
+ }});
+ if(started)status.textContent='Preparación: animación 22 (fotogramas 0–48), costo '+cost+'.';
+ else status.textContent='Casteo no iniciado: revisa que los clips 22 y 21 estén cargados, que el caster esté activo y que no haya otra acción en curso.';
 });
 /* Control táctil MOBA: no duplica ni reemplaza la lógica de combate.
    Los botones llaman a las mismas acciones que WASD/Espacio/Shift. */
