@@ -160,7 +160,7 @@ canvas{display:block;touch-action:none}
 body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-element-system.css?v=0.9.60"></head>
+<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-element-system.css?v=0.9.61"></head>
 <body data-studio-page="tester" data-rok-boot="loading">
 <div id="gameLoadingOverlay" role="status" aria-live="polite">
  <div id="gameLoadingCard">
@@ -203,8 +203,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.60 · Fuentes y fragmentos elementales</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.60</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.61 · Carga móvil optimizada y elementos</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.61</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -291,7 +291,7 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-sightcone-1';
 import {createCasterMobility} from './caster-mobility.js?v=20261104-moba-1';
-import {createArenaElementSystem} from './arena-element-system.js?v=0.9.60';
+import {createArenaElementSystem} from './arena-element-system.js?v=0.9.61';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js';
@@ -3426,6 +3426,7 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   // vida, etiquetas, combate y animaciones del resto de invocaciones.
   // Mientras descargan, permanece el caster provisional; no bloquean la arena.
   const casterModelTasks=[];
+  const optionalAnimationJobs=[];
   for(const spec of [
     {side:'ally',path:'lioren kaster.glb',label:'Lioren'},
     {side:'enemy',path:'chiara kaster.glb',label:'Chiara'}
@@ -3457,9 +3458,10 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
       caster.mixer.clipAction(caster.idleClip).reset().play();
       // The GLB Idle is gameplay-ready already. Retargeting nine additional
       // FBX files takes substantial CPU on phones: never block arena startup.
-      void movementLoader.load(caster).then(clips=>{
+      optionalAnimationJobs.push(async()=>{
+       const clips=await movementLoader.load(caster);
        if(caster.model===model)casterLayers.register(caster,clips);
-      }).catch(error=>console.warn('[R.O.K.] FBX opcionales de '+spec.label,error));
+      });
       qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' listo (FBX adicionales en segundo plano)';
     }).catch(error=>{
      console.error('[R.O.K.] Caster '+spec.label+' no cargado:',error);
@@ -3468,10 +3470,8 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     casterModelTasks.push(modelTask);
   }
   window.ROKBoot.progress('Descargando escenario y casters reales…',48);
-  // Optional Mixamo ZIP retargeting runs independently. Do not download
-  // and parse multiple animation archives before revealing the arena.
-  void activateArenaAnimationPack(g.scene).catch(error=>
-   console.warn('[R.O.K.] Animaciones secundarias disponibles parcialmente',error));
+  // Heavy ZIP/FBX retargeting is deferred until after the core assets
+  // have initialized, then staggered to prevent concurrent CPU spikes.
   const readiness=await Promise.all([Promise.all(casterModelTasks),
    initialSceneLoading,sharedBackgroundReady,arenaTextureReady]);
   if(readiness[1]?.fallback){
@@ -3486,6 +3486,18 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
   window.ROKBoot.ready();
   elementSystem.prepare();
+  // Optional animations do not block first paint, movement or the round UI.
+  // Process them sequentially to reduce peak memory usage on mobile devices.
+  setTimeout(()=>{
+   void (async()=>{
+    const jobs=[...optionalAnimationJobs,()=>activateArenaAnimationPack(g.scene)];
+    for(const job of jobs){
+     await new Promise(resolve=>setTimeout(resolve,650));
+     try{await job();}
+     catch(error){console.warn('[R.O.K.] Animación opcional no preparada:',error);}
+    }
+   })();
+  },900);
   }catch(error){
     const message=String(error?.message||error);
     console.error('[R.O.K.] Error de inicialización del combate:',error);
