@@ -797,6 +797,15 @@ async function restoreScene(json,notice='Escenario restaurado'){
  status(notice+' · '+objects.length+' objetos'+(failed?' · '+failed+' pendientes':''));
  return {loaded:objects.length,failed};
 }
+$('sceneLoadChiara').addEventListener('click',async()=>{
+ if(objects.length&&!confirm('¿Abrir Arena de Chiara publicada? Los cambios actuales no guardados se perderán.'))return;
+ try{
+  const response=await fetch('./assets/scenes/arena-de-chiara.json',{cache:'no-store'});
+  if(!response.ok)throw Error('No se pudo abrir Arena de Chiara (HTTP '+response.status+')');
+  const result=await restoreScene(await response.json(),'Arena de Chiara publicada cargada');
+  if(result.failed)status('Arena de Chiara: '+result.failed+' objeto(s) no cargaron; revisa el catálogo de modelos.');
+ }catch(error){status('Arena de Chiara: '+error.message);}
+});
 $('sceneSaveLocal').addEventListener('click',saveLocalScene);
 $('sceneRestoreLocal').addEventListener('click',async()=>{
  try{
