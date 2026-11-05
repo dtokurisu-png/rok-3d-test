@@ -297,7 +297,13 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 
 /* v0.9.109: separate spellbook page buttons and top-down panel */
 @media(pointer:coarse) and (max-width:950px) and (orientation:landscape){
- #rokSpellbook{display:contents!important;background:none!important;filter:none!important}
+ #rokSpellbook{
+  display:block!important;position:fixed!important;inset:0!important;
+  left:0!important;right:0!important;top:0!important;bottom:0!important;
+  width:100vw!important;height:100dvh!important;aspect-ratio:auto!important;
+  z-index:49!important;pointer-events:none!important;
+  background:none!important;background-image:none!important;filter:none!important;
+ }
  #rokSpellbook .rokSpellbookPageKey,#rokSpellbook .rokSpellbookPageKey[data-page]{
   position:fixed!important;z-index:49!important;transform:none!important;
   left:0;right:auto!important;top:auto!important;bottom:0;
@@ -327,14 +333,17 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
   transition:transform .24s ease,visibility .24s!important
  }
  #rokSpellbookCards:not([hidden]){
-  transform:translateY(0)!important;visibility:visible;pointer-events:auto!important
+  transform:translateY(0)!important;visibility:visible;pointer-events:auto!important;
+  touch-action:none!important
  }
 
  #rokSpellbookGrid{top:15%!important;height:62%!important;left:8%!important;right:8%!important;
   display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
   grid-template-rows:repeat(3,minmax(0,1fr))!important}
  #rokSpellbookGrid .rokSpellSlot{width:100%!important;height:100%!important;min-width:0!important;
-  min-height:0!important;padding:0!important;overflow:hidden!important}
+  min-height:0!important;padding:0!important;overflow:hidden!important;touch-action:none!important;
+  -webkit-user-select:none!important;user-select:none!important}
+ #rokSpellbookGrid .rokSpellNumber{display:none!important}
  #rokSpellbookGrid .rokSpellSlot img{max-width:100%!important;max-height:100%!important;object-fit:cover!important}
  #rokSpellbookGrid .rokSpellName{font-size:clamp(6px,1.5vw,10px)!important;line-height:1.1!important}
  #rokSpellbookGrid .rokSpellNumber,#rokSpellbookGrid .rokSpellCost{font-size:clamp(7px,1.4vw,10px)!important;
@@ -401,7 +410,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.113</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.114</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -4453,7 +4462,19 @@ function renderSpellbook(){
    name.textContent=card.name;button.append(name);
    const cost=document.createElement('span');cost.className='rokSpellCost';
    cost.textContent='✦ '+card.cost;button.append(cost);
-   button.addEventListener('click',()=>selectSpellCard(i));
+   // Secondary touch must work even with a separate joystick touch held.
+   // Pointerdown is handled immediately instead of depending on a synthesized click.
+   let lastTouch=0;
+   button.addEventListener('pointerdown',event=>{
+    if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;
+    event.preventDefault();event.stopPropagation();
+    lastTouch=Date.now();
+    selectSpellCard(i);
+   });
+   button.addEventListener('click',()=>{
+    if(Date.now()-lastTouch<650)return;
+    selectSpellCard(i);
+   });
   }else{
    const empty=document.createElement('span');empty.textContent='Vacío';
    button.append(empty);
@@ -4525,8 +4546,22 @@ function selectSpellCard(index){
  spellbook.page=0;renderSpellbook();
  spellStatus('Casteando '+card.name+' · '+(card.cost<=1?.5:Math.min(2.5,card.cost*.5)).toFixed(1)+' s');
 }
-for(const button of document.querySelectorAll('.rokSpellbookPageKey'))
- button.addEventListener('click',()=>openSpellbook(Number(button.dataset.page)));
+for(const button of document.querySelectorAll('.rokSpellbookPageKey')){
+ let lastTouch=0;
+ button.addEventListener('pointerdown',event=>{
+  if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;
+  // An independent finger opens the page while joystick keeps its pointer.
+  // Prevent synthetic click from toggling the same page closed again.
+  if(document.body.classList.contains('mobaLayoutEditing'))return;
+  event.preventDefault();event.stopPropagation();
+  lastTouch=Date.now();
+  openSpellbook(Number(button.dataset.page));
+ });
+ button.addEventListener('click',()=>{
+  if(Date.now()-lastTouch<650)return;
+  openSpellbook(Number(button.dataset.page));
+ });
+}
 function closeSpellbook(){
  spellbook.page=0;renderSpellbook();
 }
