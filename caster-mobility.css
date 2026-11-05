@@ -154,3 +154,24 @@
  #mobaLiveSpellbookSize{width:100%;min-width:35px;accent-color:#00ffdf}
  #mobaLiveSpellbookValue{min-width:30px;text-align:right}
 }
+
+/* v0.9.111: quieter mobile actions and single settings entry away from HUD. */
+@media(pointer:coarse) and (max-width:950px){
+ #mobaSettingsButton{
+  top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom,0px))!important;
+  right:calc(8px + env(safe-area-inset-right,0px))!important;
+  width:31px!important;height:31px!important;font-size:16px!important;
+  border-radius:8px!important;background:rgba(9,29,41,.42)!important;
+  border-color:rgba(0,255,228,.45)!important;opacity:.65!important;
+ }
+ #mobaSettingsButton:active,#mobaSettingsButton:focus-visible{opacity:1!important}
+ #mobaFullscreenButton{
+  position:static!important;display:block!important;
+  width:100%!important;height:34px!important;min-height:34px!important;
+  font-size:12px!important;z-index:auto!important;
+  background:#17424c!important;border:1px solid #56aead!important;
+  border-radius:7px!important;color:#fff!important
+ }
+ #mobaAttack,#mobaDefend{opacity:.4!important}
+ #mobaAttack:active,#mobaDefend:active,#mobaDefend[data-held="true"]{opacity:.85!important}
+}
