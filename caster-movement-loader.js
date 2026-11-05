@@ -4,13 +4,13 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
  const definitions={
   idle:{path:'assets/animations/casters/shared/Standing Idle.fbx',id:'standing-idle'},
   // Use directly published FBXs instead of requiring a 17 MB nested ZIP.
-  // Provisional replacements for the original catalog IDs 2 and 7.
+  // Only attack 02 uses a provisional direct FBX; forward 07 retains the approved original ZIP clip.
   attack:{path:'assets/animations/casters/shared/Standing 1H Cast Spell 01.fbx',id:2},
   death:{name:'Sword And Shield Death.fbx',id:8},
   defense:{path:'assets/animations/casters/shared/Sword And Shield Impact.fbx',id:23},
   hit:{name:'Standing React Small From Headshot.fbx',id:9},
   backward:{name:'Running Backward.fbx',id:6},
-  forward:{path:'Catwalk Walk Forward HighKnees.fbx',id:7},
+  forward:{name:'Running.fbx',id:7},
   left:{path:'assets/animations/casters/shared/Right Strafe.fbx',id:15},
   right:{path:'assets/animations/casters/shared/Right Strafe (1).fbx',id:16}
  };
