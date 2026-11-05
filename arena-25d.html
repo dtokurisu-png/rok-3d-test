@@ -48,6 +48,10 @@ canvas{display:block;touch-action:none}
   #bottom button{font-size:12px}
 }
 #nameplateLayer{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:8}
+#casterThreatLayer{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:22}
+.rokCasterThreat{position:absolute;display:none;transform:translate(-50%,-100%);font:900 27px/1 Roboto,system-ui,sans-serif;color:#ffe780;text-shadow:0 0 4px #000,0 0 8px #ff651c,0 0 13px #ff3823;animation:rokThreatBlink .65s ease-in-out infinite alternate;will-change:opacity,transform}
+@keyframes rokThreatBlink{from{opacity:.25;transform:translate(-50%,-100%) scale(.84)}to{opacity:1;transform:translate(-50%,-100%) scale(1.15)}}
+@media(prefers-reduced-motion:reduce){.rokCasterThreat{animation:none}}
 /* Mini HUD proporcional: 40% de largo y grosor; centro anclado al personaje. */
 .unitTag{position:absolute;width:104px;transform:translate(-50%,-100%) scale(.8);transform-origin:50% 100%;
   display:flex;flex-direction:column;gap:2px;text-align:center;pointer-events:none;
@@ -169,7 +173,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 #elementHudReadout{color:#00ffe4;font-weight:700}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.78"></head>
+<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.80"></head>
 <body data-studio-page="tester" data-rok-boot="loading">
 <div id="gameLoadingOverlay" role="status" aria-live="polite">
  <div id="gameLoadingCard">
@@ -212,8 +216,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.79 · HUD superior único para casters</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.79</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.80 · Retratos y alerta de peligro</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.80</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -249,6 +253,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 </section>
 <div id="legacyArenaDiagnostics" hidden aria-hidden="true"><button id="testerSceneImport"></button><input id="testerSceneFile" type="file"><button id="testerSceneReset"></button><select id="testerScenePublished"></select><button id="testerSceneApply"></button><input id="testerSceneVisible" type="checkbox" checked><select id="reviewCaster"><option value="ally">Aliado</option><option value="enemy">Rival</option></select><input id="reviewSpeed" type="range" min="0.25" max="2" value="1"><output id="reviewSpeedLabel"></output><div id="reviewAnimationList"></div><button id="reviewStop"></button><button id="reviewCopy"></button><button id="reviewExport"></button><p id="reviewStatus"></p><p id="animationStatus"></p><p id="modelStatus"></p><p id="textureStatus"></p><p id="sceneStatus"></p><p id="fps"></p><input id="arenaSpriteWidth" type="range" min="100" max="220" value="100"><input id="arenaSpriteLength" type="range" min="100" max="220" value="100"><output id="arenaSpriteWidthValue"></output><output id="arenaSpriteLengthValue"></output><button id="saveArenaBackground"></button><p id="backgroundSaveStatus"></p></div>
 <div id="nameplateLayer" aria-hidden="true"></div>
+<div id="casterThreatLayer" aria-hidden="true"></div>
 <div id="summonCastLayer" aria-hidden="true"></div>
 <div id="phase">Preparando combate…</div>
 <div id="hint">WASD: mover · Opciones: coordenadas<br>Arriba: rival · Abajo: aliado</div>
@@ -387,7 +392,7 @@ import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-real-fountains-1';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.69';
 import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.68';
-import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.78';
+import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.80';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.77';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
@@ -700,7 +705,7 @@ const ease=x=>{x=THREE.MathUtils.clamp(x,0,1);return x*x*(3-2*x)};
 const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
 // Combatants and casters are initialized above for camera framing.
 const combatAnimations=new Map(),archerCombatAnimations=new Map();
-const animationNeeds=[2,8,9,12,13,14],archerAnimationNeeds=[2,8,9,10,12,13,14];
+const animationNeeds=[2,8,9,12,13,14],archerAnimationNeeds=[];
 const animationNames={2:'Magic Heal',3:'Frisbee Throw',8:'Sword And Shield Death',9:'Standing React Small From Headshot',
   10:'Standing Aim Recoil',12:'Walk W_ Briefcase',13:'Standing',14:'Standing 2H Magic Area Attack 01'};
 const ATTACK_PROFILES={shield:{period:2,clip:2},mana:{period:2,clip:2},
@@ -3366,6 +3371,36 @@ function updateMagic(dt){
     }
   }
 }
+// Threat marker: an actual rival summon pursuing/casting at a caster,
+// or a rival caster's committed projectile against that caster.
+const casterThreatLayer=qs('#casterThreatLayer');
+const casterThreatMarkers=new Map(),threatPoint=new THREE.Vector3();
+function updateCasterThreatIndicators(){
+ const active=loaded&&playing&&matchGate.isRunning&&!casterReview.active;
+ const rect=renderer.domElement.getBoundingClientRect();
+ for(const caster of casters){
+  let node=casterThreatMarkers.get(caster);
+  if(!node){
+   node=document.createElement('span');node.className='rokCasterThreat';
+   node.textContent='!';node.title='Peligro: enemigo apuntando al caster';
+   casterThreatLayer.appendChild(node);casterThreatMarkers.set(caster,node);
+  }
+  if(!active||!canDamageTarget(caster)){node.style.display='none';continue;}
+  const pursuing=combatants.some(enemy=>enemy.side!==caster.side&&canDamageTarget(enemy)&&
+   (enemy.stage==='casting'?enemy.castTarget===caster:
+    enemy.stage==='active'&&enemy.currentThreatTarget===caster));
+  const incoming=missiles.some(m=>m.attacker?.role==='caster'&&m.attacker.side!==caster.side&&
+    (m.target===caster||m.committedTargets?.has(caster)));
+  if(!pursuing&&!incoming){node.style.display='none';continue;}
+  threatPoint.set(0,2.20,0);caster.outer.localToWorld(threatPoint);threatPoint.project(camera);
+  if(threatPoint.z<-1||threatPoint.z>1||Math.abs(threatPoint.x)>1||Math.abs(threatPoint.y)>1){
+   node.style.display='none';continue;
+  }
+  node.style.left=(rect.left+(threatPoint.x*.5+.5)*rect.width)+'px';
+  node.style.top=(rect.top+(-threatPoint.y*.5+.5)*rect.height)+'px';
+  node.style.display='block';
+ }
+}
 function updateDuel(dt){
   if(matchRestartLeft!==null){
     // Un caster derrotado no anula proyectiles que YA habían salido.
@@ -3467,6 +3502,7 @@ function updateDuel(dt){
   if(!casterLost())for(const c of combatants){
     if(c.stage!=='active')continue;
     const target=selectCombatTarget(c);
+    c.currentThreatTarget=target;
     if(!target){setAnim(c,'idle',{fade:.15});continue;}
     // La Farolera aturdida sigue siendo un objetivo legal, incluso si el
     // enemigo está en su ciclo de reacción al golpe.
@@ -3547,21 +3583,10 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
  window.ROKBoot.progress('Preparando modelos, materiales y animaciones…',27);
   try{
   if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
-  let archerScene=null,archerIdle=null;
-  try{
-    // The 30 MB archer is not needed for the mobile tester's first match.
-    if(window.matchMedia('(pointer:coarse) and (max-width:950px)').matches)
-     throw Error('Arquera de 30 MB omitida en móvil');
-    const a=await new GLTFLoader().loadAsync('./assets/models/casters/arquera/ARQUERA%20DEL%20DECIERTO%20GLTF.glb?arena=0.9.8');
-    archerScene=a.scene;
-    archerIdle=a.animations.find(x=>/idle/i.test(x.name))||a.animations[0]||null;
-    if(!archerIdle)throw Error('Falta Idle en GLB de Arquera');
-    archerRigReference=captureArcherRig(archerScene);
-  }catch(e){archerScene=null;console.warn('[R.O.K.] Arquera no cargada',e);}
+  // Desert archer excluded from the test arena: not part of R.O.K.
   for(const side of ['ally','enemy']){
     createFighter(g.scene,g.animations[0],side,'shield');
     createFighter(g.scene,g.animations[0],side,'mana');
-    if(archerScene&&archerIdle)createFighter(archerScene,archerIdle,side,'archer');
     createCaster(g.scene,g.animations[0],side);
   }
   for(const c of combatants)c.model.userData.baseScale=c.model.scale.x;
@@ -4130,6 +4155,7 @@ function loop(now){
   if(loaded){
     for(const c of combatants){updateNameplate(c);updateSummonCountdown(c);}
     for(const c of casters)updateNameplate(c);
+    updateCasterThreatIndicators();
   }
   sceneryOverlay.update(now/1000);
   updateCameraTracking(dt);
