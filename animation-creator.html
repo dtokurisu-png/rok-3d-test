@@ -7,7 +7,7 @@
 <main class="creatorShell">
  <button type="button" id="creatorTogglePanel" class="creatorTogglePanel" aria-label="Mostrar u ocultar herramientas">☰ Herramientas</button>
  <aside class="creatorPanel">
-  <h1>Creador de Animaciones <small style="font-size:11px;color:#e7c67d">v0.2 · Edición de clips</small></h1>
+  <h1>Creador de Animaciones <small style="font-size:11px;color:#e7c67d">v0.3 · Controladores directos</small></h1>
   <p class="creatorNote">Edita animaciones existentes fotograma a fotograma mediante IK, o crea una nueva desde una pose.</p>
   <section class="creatorSection"><h2>Personaje</h2>
    <label for="creatorModel">Modelo de GitHub</label><select id="creatorModel"></select>
@@ -29,25 +29,6 @@
    <p class="creatorNote">El reemplazo se realiza en la cola local, sin borrar los FBX/GLB originales del repositorio.</p>
    <div class="creatorQueue"><strong>Cola de animaciones</strong>
     <div id="creatorQueue"></div></div>
-  </section>
-  <section class="creatorSection"><h2>Controles IK · cuerpo</h2>
-   <label for="creatorChain">Cadena de huesos</label><select id="creatorChain"></select>
-   <p class="creatorNote">Arrastra la esfera del objetivo con las flechas 3D. También puedes ajustar sus coordenadas. El modelo debe tener huesos compatibles.</p>
-   <div class="creatorRow creatorAxes">
-    <label>X <input type="number" id="creatorTargetX" step="0.05"></label>
-    <label>Y <input type="number" id="creatorTargetY" step="0.05"></label>
-    <label>Z <input type="number" id="creatorTargetZ" step="0.05"></label>
-   </div>
-   <div class="creatorRow"><button id="creatorResetTarget" type="button">Recentrar objetivo</button><button id="creatorSolve" type="button">Resolver IK</button></div>
-  </section>
-  <section class="creatorSection"><h2>Rotación · Huesos clave</h2>
-   <label for="creatorBone">Hueso</label><select id="creatorBone"></select>
-   <div class="creatorRow creatorAxes">
-    <label>X° <input type="number" id="creatorRotX" step="1"></label>
-    <label>Y° <input type="number" id="creatorRotY" step="1"></label>
-    <label>Z° <input type="number" id="creatorRotZ" step="1"></label>
-   </div>
-   <div class="creatorRow"><button id="creatorResetBone" type="button">Restablecer hueso</button><button id="creatorResetPose" type="button">Restablecer pose</button></div>
   </section>
   <section class="creatorSection"><h2>Línea de tiempo</h2>
    <label for="creatorDuration">Duración (segundos)</label><input type="number" min="0.5" max="120" step="0.5" id="creatorDuration" value="4">
@@ -74,7 +55,7 @@
   <div class="creatorDopeHeader"><strong>◆ Línea temporal · pistas por hueso</strong><span id="creatorTrackInfo">Cargar personaje para ver pistas</span><button type="button" id="creatorTrackDelete">Eliminar clave seleccionada</button></div>
   <div class="creatorTrackScroll" id="creatorTrackScroll"><div class="creatorTracks" id="creatorTracks"></div></div>
  </section>
-</main>
+<div id="creatorLegacy" hidden><select id="creatorChain"></select><input id="creatorTargetX"><input id="creatorTargetY"><input id="creatorTargetZ"><button type="button" id="creatorResetTarget"></button><button type="button" id="creatorSolve"></button><select id="creatorBone"></select><input id="creatorRotX"><input id="creatorRotY"><input id="creatorRotZ"><button type="button" id="creatorResetBone"></button><button type="button" id="creatorResetPose"></button></div></main>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script type="module" src="./animation-creator.js"></script>
 <script src="./studio.js"></script>
