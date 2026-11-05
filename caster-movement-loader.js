@@ -3,12 +3,14 @@
 export function createCasterMovementLoader({FBXLoader,adaptClip,getManualController,onClipReady}){
  const definitions={
   idle:{path:'assets/animations/casters/shared/Standing Idle.fbx',id:'standing-idle'},
-  attack:{name:'Magic Heal.fbx',id:2},
+  // Use directly published FBXs instead of requiring a 17 MB nested ZIP.
+  // Provisional replacements for the original catalog IDs 2 and 7.
+  attack:{path:'assets/animations/casters/shared/Standing 1H Cast Spell 01.fbx',id:2},
   death:{name:'Sword And Shield Death.fbx',id:8},
   defense:{path:'assets/animations/casters/shared/Sword And Shield Impact.fbx',id:23},
   hit:{name:'Standing React Small From Headshot.fbx',id:9},
   backward:{name:'Running Backward.fbx',id:6},
-  forward:{name:'Running.fbx',id:7},
+  forward:{path:'Catwalk Walk Forward HighKnees.fbx',id:7},
   left:{path:'assets/animations/casters/shared/Right Strafe.fbx',id:15},
   right:{path:'assets/animations/casters/shared/Right Strafe (1).fbx',id:16}
  };
@@ -16,6 +18,15 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
  let zipPromise=null;
  async function zip(){
   if(!zipPromise)zipPromise=(async()=>{
+   // Load JSZip only when a legacy animation is specifically requested.
+   if(!window.JSZip){
+    await new Promise((resolve,reject)=>{
+     const script=document.createElement('script');
+     script.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+     script.onload=resolve;script.onerror=()=>reject(Error('JSZip no disponible'));
+     document.head.append(script);
+    });
+   }
    const response=await fetch('./assets/animations/casters/farolera/ROK_PUBLICAR_ANIMACIONES.zip',{cache:'force-cache'});
    if(!response.ok||!window.JSZip)throw Error('Paquete original no disponible');
    const archive=await window.JSZip.loadAsync(await response.arrayBuffer());
@@ -46,7 +57,11 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
   if(cache.has(model))return cache.get(model);
   const promise=(async()=>{
    const result={_unavailable:[]};
-   for(const [role,def] of Object.entries(definitions)){
+   // Download/action readiness prioritizes the gestures the user actually
+  // needs; rare optional clips can remain absent without stalling the others.
+  const order=['idle','forward','attack','backward','left','right','defense','hit','death'];
+  for(const role of order){
+    const def=definitions[role];
     try{
      const fbx=await source(def);
      result[role]=adaptClip(fbx,fbx.animations[0],model,'Caster_'+String(def.id));
