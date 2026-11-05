@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>R.O.K. 3D — Creador de Animaciones</title>
-<link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./animation-creator.css?v=0.3.5">
+<link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./animation-creator.css?v=0.3.6">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head><body data-studio-page="creator">
 <main class="creatorShell">
  <div class="creatorHistoryBar" role="toolbar" aria-label="Historial de cambios"><button type="button" id="creatorUndo" disabled title="Deshacer · Ctrl+Z">↶ Deshacer</button><button type="button" id="creatorRedo" disabled title="Rehacer · Ctrl+Y o Ctrl+Shift+Z">↷ Rehacer</button><span id="creatorHistoryStatus">Sin cambios</span></div>
  <button type="button" id="creatorTogglePanel" class="creatorTogglePanel" aria-label="Mostrar u ocultar herramientas">☰ Herramientas</button>
  <aside class="creatorPanel">
-  <h1>Creador de Animaciones <small style="font-size:11px;color:#e7c67d">v0.3.5 · Historial de edición</small></h1>
+  <h1>Creador de Animaciones <small style="font-size:11px;color:#e7c67d">v0.3.6 · Controles anatómicos</small></h1>
   <p class="creatorNote">Edita animaciones existentes fotograma a fotograma mediante IK, o crea una nueva desde una pose.</p>
   <section class="creatorSection"><h2>Personaje</h2>
    <label for="creatorModel">Modelo de GitHub</label><select id="creatorModel"></select>
@@ -58,6 +58,6 @@
  </section>
 <div id="creatorLegacy" hidden><select id="creatorChain"></select><input id="creatorTargetX"><input id="creatorTargetY"><input id="creatorTargetZ"><button type="button" id="creatorResetTarget"></button><button type="button" id="creatorSolve"></button><select id="creatorBone"></select><input id="creatorRotX"><input id="creatorRotY"><input id="creatorRotZ"><button type="button" id="creatorResetBone"></button><button type="button" id="creatorResetPose"></button></div></main>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script type="module" src="./animation-creator.js?v=0.3.5"></script>
+<script type="module" src="./animation-creator.js?v=0.3.6"></script>
 <script src="./studio.js"></script>
 </body></html>
