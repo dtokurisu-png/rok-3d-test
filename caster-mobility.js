@@ -159,6 +159,11 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   const n=Math.max(0,Math.floor(Number(cost)||0));
   return n<=1?.5:n===2?1:n===3?1.5:n===4?2:2.5;
  }
+ function prepareCardCast(){
+  if(!engage())return false;
+  requestClips(caster);
+  return true;
+ }
  function startCardCast({cost=1,onRelease}={}){
   if(!engage())return false;
   const c=caster;
@@ -183,8 +188,14 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
    return false;
   }
   layers.setCastLower(c,clip22,speed,0);
+  const finishStart=20/30;
+  if(source21.duration<=finishStart+.01){
+   layers.clearCastLower(c);layers.endUpper(c,'card-cast');
+   notify('La animación 21 no llega al fotograma 20');return false;
+  }
   cardCast={caster:c,clip22,clip21:source21,duration,elapsed:0,
-   postElapsed:0,phase:'preparing',onRelease:typeof onRelease==='function'?onRelease:null};
+   postElapsed:0,finishStart,finishDuration:source21.duration-finishStart,
+   phase:'preparing',onRelease:typeof onRelease==='function'?onRelease:null};
   notify('Casteo 22 · '+duration.toFixed(1)+' s · preparación');
   return true;
  }
@@ -202,18 +213,21 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
     // Frame 48: this callback is the ONLY point at which a future card
     // can materialize; there is no cost handling in phase 3.
     try{cast.onRelease?.(caster);}catch(error){console.warn('[ROK] Casteo:',error);}
-    layers.clearCastLower(caster);
-    layers.endUpper(caster,'card-cast');
-    if(!layers.upper(caster,'card-finish',cast.clip21,1)){
+    // Crossfade directly from the prepared pose of 22 into frame 20
+    // of 21: no transient Idle pose between the two actions.
+    if(!layers.upper(caster,'card-finish',cast.clip21,1,
+     {startTime:cast.finishStart,transition:true})){
      cancelCardCast(caster);return;
     }
-    layers.setCastLower(caster,cast.clip21,1,0);
-    notify('Frame 48 · casteo ejecutado · animación 21');
+    layers.setCastLower(caster,cast.clip21,1,
+     cast.finishStart/cast.clip21.duration);
+    notify('Frame 48 · casteo ejecutado · animación 21 desde frame 20');
    }
   }else{
    cast.postElapsed+=dt;
-   layers.syncCastLower(caster,cast.postElapsed/Math.max(.01,cast.clip21.duration));
-   if(cast.postElapsed>=cast.clip21.duration){
+   layers.syncCastLower(caster,Math.min(1,
+    (cast.finishStart+cast.postElapsed)/Math.max(.01,cast.clip21.duration)));
+   if(cast.postElapsed>=cast.finishDuration){
     cancelCardCast(caster);
     notify('Casteo compuesto completado · 22 → 21');
    }
@@ -304,7 +318,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
  select.addEventListener('change',()=>{stop();select.blur();});
  speed.addEventListener('input',()=>{speedText.textContent=Number(speed.value).toFixed(1);});
  notify('WASD · listo');
- return {step,disable:stop,startAttack,startCardCast,setDefense,
+ return {step,disable:stop,startAttack,startCardCast,prepareCardCast,setDefense,
   setMobileAxis(x,y){
    if(!canControl()){mobileAxisX=0;mobileAxisY=0;return;}
    mobileAxisX=THREE.MathUtils.clamp(Number(x)||0,-1,1);
