@@ -284,5 +284,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   coreGeo.dispose();haloGeo.dispose();pointMaterial.dispose();coreMaterial.dispose();haloMaterial.dispose();
   waterGeo.dispose();waterRingGeo.dispose();beamGeo.dispose();sparkGeo.dispose();
  }
- return {bindSources,reset,tick,idle,dispose,get sourceCount(){return sources.length;}};
+ return {bindSources,reset,tick,idle,dispose,
+  forEachActiveOrb(callback){for(let i=0;i<orbs.length;i++)callback(orbs[i],i);},
+  get sourceCount(){return sources.length;}};
 }
