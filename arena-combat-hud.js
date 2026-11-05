@@ -1,8 +1,7 @@
-/* R.O.K. Arena 2.5D — Stage 3: elemental time regeneration.
-   One fragment per second per player, four fragments per full unit.
-   Regeneration finishes one unit before continuing to the next element.
-   Cards, orbs and death fragments are reserved for subsequent stages.
- */
+/* R.O.K. Arena 2.5D — incremental elemental storage.
+   Starts at 0/0: orbs unlock ONE new full reservoir (maximum 30 total).
+   Passive quarter-unit fragments regenerate only unlocked reservoirs.
+   Equipped elements share the maximum capacity equally. */
 export function createArenaCombatHud(){
  const el=document.getElementById('rokCombatHud');
  if(!el)throw Error('Falta el HUD superior');
@@ -13,8 +12,8 @@ export function createArenaCombatHud(){
   wind:{label:'Viento',color:'#8cda91'}
  };
  const sides={
-  ally:{root:el.querySelector('[data-hud-side="ally"]'),levels:['water'],hpMax:0,elementAmounts:{},fragmentClock:0,nextElement:0},
-  enemy:{root:el.querySelector('[data-hud-side="enemy"]'),levels:['water'],hpMax:0,elementAmounts:{},fragmentClock:0,nextElement:0}
+  ally:{root:el.querySelector('[data-hud-side="ally"]'),levels:['water'],hpMax:0,elementAmounts:{},unlocked:{},fragmentClock:0,nextElement:0,unlockCursor:0},
+  enemy:{root:el.querySelector('[data-hud-side="enemy"]'),levels:['water'],hpMax:0,elementAmounts:{},unlocked:{},fragmentClock:0,nextElement:0,unlockCursor:0}
  };
  const TOTAL=30;
  let seconds=0,refreshLeft=0;
@@ -36,7 +35,8 @@ export function createArenaCombatHud(){
   const ids=[...new Set((Array.isArray(selected)?selected:['water']).filter(id=>Object.hasOwn(palette,id)))].slice(0,3);
   player.levels=ids.length?ids:['water'];
   player.elementAmounts=Object.fromEntries(player.levels.map(id=>[id,0]));
-  player.fragmentClock=0;player.nextElement=0;
+  player.unlocked=Object.fromEntries(player.levels.map(id=>[id,0]));
+  player.fragmentClock=0;player.nextElement=0;player.unlockCursor=0;
   const row=player.root.querySelector('.rokHudElementRows');
   row.replaceChildren();
   row.classList.add('rokHudElementRow');
@@ -52,11 +52,14 @@ export function createArenaCombatHud(){
   for(const id of displayOrder){
    const segment=make('div','rokHudElementSegment');
    segment.style.setProperty('--element-color',palette[id].color);
-   segment.title=palette[id].label+': 0/'+capacity+' unidades';
+   segment.style.setProperty('--slot-count',String(capacity));
+   segment.title=palette[id].label+': 0/0 depósitos obtenidos (límite '+capacity+')';
    for(let i=0;i<capacity;i++){
     const cell=make('span','rokHudElementCell');
     cell.dataset.element=id;
     cell.dataset.filled='false';cell.style.setProperty('--fill','0%');
+    cell.hidden=true;
+    cell.style.flex='0 0 calc('+(100/capacity).toFixed(5)+'% - 1px)';
     segment.append(cell);
    }
    track.append(segment);
@@ -76,27 +79,38 @@ export function createArenaCombatHud(){
   const capacity=TOTAL/player.levels.length;
   const track=player.root.querySelector('.rokHudElementTrack');
   if(!track)return;
+  let totalStored=0,totalUnlocked=0;
   for(const id of player.levels){
-   const amount=Math.min(capacity,Math.max(0,Number(player.elementAmounts[id])||0));
+   const unlocked=Math.min(capacity,Math.max(0,Math.floor(player.unlocked[id]||0)));
+   const amount=Math.min(unlocked,Math.max(0,Number(player.elementAmounts[id])||0));
    const segment=[...track.children].find(node=>node.style.getPropertyValue('--element-color')===palette[id].color);
    if(!segment)continue;
    const cells=[...segment.querySelectorAll('.rokHudElementCell')];
-   // Fill toward the portrait on the ally and outward on the enemy.
    const visual=side==='ally'?[...cells].reverse():cells;
    visual.forEach((cell,index)=>{
+    const available=index<unlocked;
+    cell.hidden=!available;
+    if(!available)return;
     const portion=Math.max(0,Math.min(1,amount-index));
     cell.style.setProperty('--fill',(portion*100).toFixed(2)+'%');
     cell.dataset.filled=String(portion>=1);
     cell.title=palette[id].label+': '+Math.round(portion*100)+'%';
    });
-   segment.title=palette[id].label+': '+amount.toFixed(2)+'/'+capacity+' unidades';
+   segment.title=palette[id].label+': '+amount.toFixed(2)+'/'+unlocked+
+    ' unidades (límite '+capacity+')';
+   totalStored+=amount;totalUnlocked+=unlocked;
   }
+  track.setAttribute('aria-label','Energía elemental '+totalStored.toFixed(2)+
+   '/'+totalUnlocked+' unidades; máximo futuro '+TOTAL);
+  track.title='Energía elemental: '+totalStored.toFixed(2)+'/'+totalUnlocked+
+   ' · Capacidad máxima desbloqueable: '+TOTAL;
  }
  function setElements(side,amounts={}){
   const player=sides[side];if(!player)return;
   for(const id of player.levels){
    const value=Number(amounts[id]);
-   player.elementAmounts[id]=Number.isFinite(value)?Math.max(0,value):0;
+   player.elementAmounts[id]=Number.isFinite(value)?
+    Math.min(player.unlocked[id]||0,Math.max(0,value)):0;
   }
   paintElements(side);
  }
@@ -139,36 +153,48 @@ export function createArenaCombatHud(){
  // A single global fragment stream for each player, not one stream per element.
  // Every 4 ticks completes exactly one elemental unit.
  function regenerateFragment(side){
-  const player=sides[side],capacity=TOTAL/player.levels.length;
+  const player=sides[side];
   let chosen=-1;
   for(let n=0;n<player.levels.length;n++){
    const index=(player.nextElement+n)%player.levels.length;
-   if((player.elementAmounts[player.levels[index]]||0)<capacity-1e-8){chosen=index;break;}
+   const id=player.levels[index];
+   if((player.elementAmounts[id]||0)<(player.unlocked[id]||0)-1e-8){
+    chosen=index;break;
+   }
   }
-  if(chosen<0)return false; // All selected elemental reservoirs are full.
-  const id=player.levels[chosen];
-  const current=player.elementAmounts[id]||0;
-  // Values are integral quarters; avoid floating-point drift over long fights.
-  const fragments=Math.round(current*4);
-  const next=Math.min(capacity,(fragments+1)/4);
+  if(chosen<0)return false; // No unlocked, partially empty reservoirs.
+  const id=player.levels[chosen],current=player.elementAmounts[id]||0;
+  const next=Math.min(player.unlocked[id],(Math.round(current*4)+1)/4);
   player.elementAmounts[id]=next;
-  if(Math.round(next*4)%4===0 || next===capacity){
-   player.nextElement=(chosen+1)%player.levels.length;
-  }else player.nextElement=chosen;
+  player.nextElement=(Math.round(next*4)%4===0||
+    next===player.unlocked[id])?(chosen+1)%player.levels.length:chosen;
   paintElements(side);
   return true;
  }
- // A collected orb contributes one full elemental unit (4 fragments),
- // using the same rotating allocation as passive regeneration.
+ // One pickup grants ONE additional complete reservoir. It increases both
+ // obtained capacity and current energy. Passive generation never does.
  function collectOrb(side){
-  let added=0;
-  for(let i=0;i<4;i++)if(regenerateFragment(side))added++;
-  return added;
+  const player=sides[side];if(!player)return 0;
+  const limit=TOTAL/player.levels.length;
+  for(let n=0;n<player.levels.length;n++){
+   const index=(player.unlockCursor+n)%player.levels.length;
+   const id=player.levels[index];
+   if((player.unlocked[id]||0)>=limit)continue;
+   player.unlocked[id]++;
+   player.elementAmounts[id]=Math.min(player.unlocked[id],
+    (player.elementAmounts[id]||0)+1);
+   player.unlockCursor=(index+1)%player.levels.length;
+   paintElements(side);
+   return 1;
+  }
+  return 0; // Maximum 30 reservoirs already obtained.
  }
  function reset(){
   seconds=0;refreshLeft=0;
   for(const side of ['ally','enemy']){
    sides[side].fragmentClock=0;sides[side].nextElement=0;
+   sides[side].unlockCursor=0;
+   for(const id of sides[side].levels)sides[side].unlocked[id]=0;
    setElements(side,{});
   }
  }
