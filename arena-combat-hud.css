@@ -1,5 +1,6 @@
 /* R.O.K. Stage 2 — readable segmented health and elemental HUD. */
 #rokCombatHud{
+ --element-reservoir-height:132px;--element-offset-y:0px;
  position:fixed;top:calc(7px + env(safe-area-inset-top,0px));
  left:50%;transform:translateX(-50%);
  width:min(900px,94vw);z-index:40;display:grid;
@@ -40,11 +41,14 @@
 .rokHudDropIcon{color:#79eefa}
 .rokHudElementBar{min-width:0;flex:1;position:relative;display:flex;flex-direction:column;gap:1px}
 .rokHudElementTrack{
- height:132px;padding:4px;gap:3px;align-items:stretch;
+ /* Prevent shared flex:1 from collapsing the interior cells. */
+ flex:0 0 auto;width:100%;min-height:0;
+ height:var(--element-reservoir-height);padding:4px;gap:3px;align-items:stretch;
  border:1px solid #7e9aa2;border-radius:4px;
  background:linear-gradient(180deg,#152b36,#0b1a24);
  box-shadow:inset 0 1px 0 #bdd8d533,inset 0 -2px 7px #0009
 }
+.rokHudElementRow{transform:translateY(var(--element-offset-y));position:relative}
 /* More room for the 30 elemental cells, extending away from both portraits. */
 .rokHudSide[data-hud-side="ally"] .rokHudElementRow{width:calc(100% + 26px);margin-left:-26px}
 .rokHudSide[data-hud-side="enemy"] .rokHudElementRow{width:calc(100% + 26px);margin-right:-26px}
@@ -95,7 +99,7 @@
  .rokHudName{font-size:8px;line-height:9px}
  .rokHudBars{gap:2px}
  .rokHudLifeCells{height:9px;gap:1px}
- .rokHudElementTrack{height:96px;padding:3px}
+ .rokHudElementTrack{height:var(--element-reservoir-height);padding:3px}
  .rokHudSide[data-hud-side="ally"] .rokHudElementRow{width:calc(100% + 12px);margin-left:-12px}
  .rokHudSide[data-hud-side="enemy"] .rokHudElementRow{width:calc(100% + 12px);margin-right:-12px}
  .rokHudStatIcon{width:10px;flex-basis:10px;height:10px}
