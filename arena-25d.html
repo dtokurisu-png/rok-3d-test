@@ -417,7 +417,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.118</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.119</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -4304,12 +4304,20 @@ function updateDuel(dt){
   for(const c of [...combatants,...casters])updateNameplate(c);
 }
 window.ROKBoot.progress('Descargando modelos de invocaciones…',12);
-new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g=>{
- window.ROKBoot.progress('Preparando modelos, materiales y animaciones…',27);
+void (async()=>{
   try{
-  if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
-  // Farolera is a SUMMON only. Never create a provisional caster from it.
-  window.ROKSummonAssets={farolera:{scene:g.scene,idle:g.animations[0]}};
+  // Optional Farolera is fetched independently and cannot prevent the two
+  // real casters from loading or enabling the arena.
+  const faroleraTask=new GLTFLoader().loadAsync('./assets/models/casters/farolera/chiara_idle.glb')
+   .then(g=>{
+    if(!g?.scene||!g.animations?.length)throw Error('Farolera sin Idle');
+    window.ROKSummonAssets={farolera:{scene:g.scene,idle:g.animations[0]}};
+    return g;
+   }).catch(error=>{
+    console.warn('[R.O.K.] Invocación Farolera opcional:',error);
+    return null;
+   });
+  window.ROKBoot.progress('Cargando los dos casters reales…',27);
   const casterModelTasks=[
    {side:'ally',folder:'lioren',path:'lioren kaster.glb',label:'Lioren'},
    {side:'enemy',folder:'chiara',path:'chiara kaster.glb',label:'Chiara'}
@@ -4350,7 +4358,7 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
    throw Error('No están disponibles los dos casters reales');
   qs('#modelStatus').textContent='Casters reales cargados: Lioren y Chiara';
   window.ROKBoot.progress('Descargando escenario y casters reales…',48);
-  // Core scene resources may finish in parallel, but both real casters are mandatory.
+  // Background and tiles are independent of the caster identity checks.
   await Promise.all([sharedBackgroundReady,arenaTextureReady]);
   window.ROKBoot.progress('Comprobando y preparando el combate…',92);
   attackModeButton.disabled=false;renderAttackMode();
@@ -4417,7 +4425,8 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
        document.head.append(tag);
       });
      }
-     await activateArenaAnimationPack(g.scene);
+     const farolera=await faroleraTask;
+     if(farolera)await activateArenaAnimationPack(farolera.scene);
     });
     let completed=0;
     for(const job of jobs){
@@ -4437,16 +4446,7 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     qs('#sceneStatus').textContent='Error de arranque: '+message;
     matchGate.setCoreError(message);
   }
-},e=>{if(e.total){
-   const percent=Math.round(e.loaded/e.total*100);
-   qs('#sceneStatus').textContent='Cargando modelo '+percent+'%';
-   window.ROKBoot.progress('Cargando Farolera '+percent+' %…',Math.min(25,5+percent*.2));
- }},err=>{
-  qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
-  qs('#phase').textContent='⚠ Error al cargar el modelo de Farolera';
-  matchGate.setCoreError('Farolera: '+String(err?.message||err));
-  console.error(err);
-});
+})();
 
 // Both caster rigs share the same masked locomotion/upper-body system.
 const casterLayers=createCasterLayerSystem(THREE);
