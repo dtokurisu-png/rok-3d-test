@@ -222,8 +222,11 @@ function resetPose(){
   if(q)bone.quaternion.copy(q);
  }
  state.model.updateMatrixWorld(true);
- resetTarget();
- refreshBoneInputs();
+ for(const [index,target] of state.targets){
+  const tip=state.chains[index]?.tip;
+  if(tip)target.position.copy(tip.getWorldPosition(new THREE.Vector3()));
+ }
+ refreshTargetInputs();refreshBoneInputs();
 }
 function refreshTimeline(){
  const max=Math.max(1,Math.round(state.duration*30));
