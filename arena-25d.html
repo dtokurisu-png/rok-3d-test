@@ -203,8 +203,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.67 · Inicio móvil ligero</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.67</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.68 · Probador con carga mínima</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.68</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -335,7 +335,7 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-sightcone-1';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.64';
-import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.67';
+import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.68';
 import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.67';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
@@ -1604,6 +1604,7 @@ function selectCombatTarget(c){
 }
 let loaded=false,playing=false,tm=0,prevTime=performance.now();
 const combatHud=createArenaCombatHud();
+const pendingCasterInstalls=[];
 const matchGate=createArenaMatchGate({
  onStart:configuration=>{
   // This is the ONLY transition from preparation to active combat.
@@ -2373,6 +2374,10 @@ function resetCombatant(c){
 function resetDemoCombat(){
   // A new match invalidates any in-progress manual attack/cooldown.
   casterMovement?.disable();
+  // Switch to downloaded real caster skins at a round boundary only.
+  for(const install of pendingCasterInstalls.splice(0)){
+   try{install();}catch(error){console.warn('[R.O.K.] Caster aplazado:',error);}
+  }
   matchRestartLeft=null;
   clearFloatingWords();
   clearPortalEffects();
@@ -3510,7 +3515,7 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   ]){
     const caster=casters.find(c=>c.side===spec.side);
     if(!caster)continue;
-    const modelTask=new GLTFLoader().loadAsync('./assets/models/casters/'+(spec.side==='ally'?'lioren':'chiara')+'/'+encodeURIComponent(spec.path)).then(async gltf=>{
+    const installCaster=gltf=>{
       const model=cloneSkinned(gltf.scene);
       const bounds=new THREE.Box3().setFromObject(model);
       const h=bounds.getSize(new THREE.Vector3()).y;
@@ -3540,15 +3545,21 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
        if(caster.model===model)casterLayers.register(caster,clips);
       });
       qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' listo';
-    }).catch(error=>{
-     console.error('[R.O.K.] Caster '+spec.label+' no cargado:',error);
-     throw Error('Modelo de '+spec.label+': '+String(error?.message||error));
-    });
+    };
+    const modelTask=new GLTFLoader().loadAsync('./assets/models/casters/'+
+     (spec.side==='ally'?'lioren':'chiara')+'/'+encodeURIComponent(spec.path))
+     .then(gltf=>{
+      if(matchGate.isRunning)pendingCasterInstalls.push(()=>installCaster(gltf));
+      else installCaster(gltf);
+     }).catch(error=>{
+      // Animated provisional casters remain available on weak connections.
+      console.warn('[R.O.K.] Caster '+spec.label+' secundario:',error);
+     });
     casterModelTasks.push(modelTask);
   }
   window.ROKBoot.progress('Descargando escenario y casters reales…',48);
-  await Promise.all([Promise.all(casterModelTasks),
-   sharedBackgroundReady,arenaTextureReady]);
+  // The two real caster GLBs (~12 MB combined) are optional for first play.
+  await Promise.all([sharedBackgroundReady,arenaTextureReady]);
   window.ROKBoot.progress('Comprobando y preparando el combate…',92);
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
@@ -3559,7 +3570,8 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   playing=false;
   matchGate.setCoreReady();
   // The scene catalog no longer competes with core models for bandwidth.
-  setTimeout(initializeOptionalSceneControls,1800);
+  if(!window.matchMedia('(pointer:coarse) and (max-width:950px)').matches)
+   setTimeout(initializeOptionalSceneControls,1800);
   // Load optional animations gradually, never on the critical startup path.
   // They can be cached by the browser for subsequent rounds.
   setTimeout(()=>{
