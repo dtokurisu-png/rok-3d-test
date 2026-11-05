@@ -53,6 +53,22 @@ canvas{display:block;touch-action:none}
 @keyframes rokThreatBlink{from{opacity:.25;transform:translate(-50%,-100%) scale(.84)}to{opacity:1;transform:translate(-50%,-100%) scale(1.15)}}
 @media(prefers-reduced-motion:reduce){.rokCasterThreat{animation:none}}
 #casterAttackTargetLayer{position:fixed;inset:0;z-index:22;pointer-events:none;overflow:hidden}
+/* Off-screen orb compass sits above the bottom toolbar, never steals input. */
+#orbEdgeLayer{position:fixed;inset:0;z-index:24;pointer-events:none;overflow:hidden}
+.rokOrbEdge{position:absolute;display:none;bottom:calc(92px + env(safe-area-inset-bottom,0px));
+ transform:translateX(-50%);width:31px;height:48px;opacity:.66;
+ align-items:center;flex-direction:column;gap:2px;
+ filter:drop-shadow(0 0 5px #00ffe489)}
+.rokOrbEdgeAtom{width:20px;height:20px;border:2px solid #8cfff0;border-radius:50%;
+ background:radial-gradient(circle at 37% 30%,#d0fffaad,#00eecb55 40%,#00ffe411 75%);
+ box-shadow:0 0 7px #00ffe46b,inset 0 0 5px #a3fff68c;position:relative}
+.rokOrbEdgeAtom::before,.rokOrbEdgeAtom::after{content:"";position:absolute;
+ width:25px;height:10px;border:1px solid #76fff0;border-radius:50%;
+ top:3px;left:-4px;transform:rotate(55deg)}
+.rokOrbEdgeAtom::after{transform:rotate(-55deg)}
+.rokOrbEdgeArrow{font:900 20px/1 Roboto,system-ui,sans-serif;color:#8cfff0;
+ text-shadow:0 0 6px #00ffe4;display:block;transform-origin:center}
+@media(min-width:760px){.rokOrbEdge{bottom:calc(67px + env(safe-area-inset-bottom,0px))}}
 .rokAttackReticle{position:absolute;display:none;width:26px;height:26px;
  border:4px solid #7dff8a;border-radius:50%;box-sizing:border-box;
  transform:translate(-50%,-100%);
@@ -234,8 +250,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.87 · Orbes caducan en 10 s</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.87</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.88 · Indicadores de orbes fuera de cámara</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.88</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -273,6 +289,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <div id="nameplateLayer" aria-hidden="true"></div>
 <div id="casterThreatLayer" aria-hidden="true"></div>
 <div id="casterAttackTargetLayer" aria-hidden="true"><span id="casterAttackReticle" class="rokAttackReticle"></span></div>
+<div id="orbEdgeLayer" aria-hidden="true"></div>
 <div id="summonCastLayer" aria-hidden="true"></div>
 <div id="phase">Preparando combate…</div>
 <div id="hint">WASD: mover · Opciones: coordenadas<br>Arriba: rival · Abajo: aliado</div>
@@ -412,7 +429,7 @@ import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-ove
 import {createCasterMobility} from './caster-mobility.js?v=0.9.86';
 import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.68';
 import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.80';
-import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.87';
+import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.88';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.86';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.86';
@@ -1683,6 +1700,56 @@ let loaded=false,playing=false,tm=0,prevTime=performance.now();
 const combatHud=createArenaCombatHud();
 const elementOrbs=createArenaElementOrbs({THREE,root,casters,onCollect:side=>combatHud.collectOrb(side)});
 attachRealElementSources=sources=>{elementOrbs.bindSources(sources);elementOrbs.reset();};
+// Exactly twelve reusable DOM compass markers for the existing orb pool.
+// A marker is visible only when its orb is outside the camera frustum.
+const orbEdgeLayer=qs('#orbEdgeLayer');
+const orbEdgeMarkers=Array.from({length:12},()=>{
+ const marker=document.createElement('span');
+ marker.className='rokOrbEdge';
+ marker.innerHTML='<span class="rokOrbEdgeAtom"></span><span class="rokOrbEdgeArrow">➤</span>';
+ orbEdgeLayer.appendChild(marker);
+ return {node:marker,arrow:marker.lastElementChild};
+});
+const orbEdgePoint=new THREE.Vector3(),orbEdgeCameraPoint=new THREE.Vector3();
+const orbEdgeInverseCamera=new THREE.Quaternion();
+let orbEdgeCount=0;
+function drawOrbEdgeMarker(orb){
+ const holder=orbEdgeMarkers[orbEdgeCount++];
+ if(!holder)return;
+ const {node,arrow}=holder;
+ if(!orb.group.visible){node.style.display='none';return;}
+ orbEdgePoint.copy(orb.group.position).project(camera);
+ const behind=orbEdgePoint.z>1;
+ const inView=!behind&&orbEdgePoint.z>=-1&&
+  Math.abs(orbEdgePoint.x)<=.96&&Math.abs(orbEdgePoint.y)<=.96;
+ if(inView){node.style.display='none';return;}
+ // Camera-local coordinates preserve correct direction even behind the lens.
+ orbEdgeCameraPoint.copy(orb.group.position).sub(camera.position).applyQuaternion(orbEdgeInverseCamera);
+ const perspective=Math.tan(THREE.MathUtils.degToRad(camera.fov)*.5);
+ const divisor=Math.max(.001,Math.abs(orbEdgeCameraPoint.z)*perspective);
+ let dx=orbEdgeCameraPoint.x/(divisor*camera.aspect);
+ let dy=-orbEdgeCameraPoint.y/divisor;
+ if(behind&&Math.abs(dx)+Math.abs(dy)<.05)dy=1;
+ const magnitude=Math.hypot(dx,dy)||1;
+ dx/=magnitude;dy/=magnitude;
+ const width=window.innerWidth;
+ node.style.left=THREE.MathUtils.clamp(width*.5+dx*width*.42,24,width-24)+'px';
+ // The arrow points from screen center toward the actual orb direction.
+ arrow.style.transform='rotate('+Math.atan2(dy,dx)+'rad)';
+ node.style.opacity=String(.66*Math.min(1,Math.max(.1,(10-orb.age)/3)));
+ node.style.display='flex';
+}
+function updateOrbEdgeIndicators(){
+ orbEdgeCount=0;
+ const active=loaded&&playing&&matchGate.isRunning&&!casterReview.active;
+ if(active){
+  orbEdgeInverseCamera.copy(camera.quaternion).invert();
+  elementOrbs.forEachActiveOrb(drawOrbEdgeMarker);
+ }
+ for(let i=orbEdgeCount;i<orbEdgeMarkers.length;i++)
+  orbEdgeMarkers[i].node.style.display='none';
+}
+
 attachRealElementSources(sceneryOverlay.getElementSources());
 const pendingCasterInstalls=[];
 const matchGate=createArenaMatchGate({
@@ -4215,6 +4282,7 @@ function loop(now){
   const allyForVisibility=casters.find(c=>c.side==='ally');
   if(allyForVisibility?.outer)sceneryOverlay.updateOcclusion(camera,allyForVisibility.outer.position,now/1000);
   updateCameraMarker();
+  updateOrbEdgeIndicators();
   if(loaded){
     try{updateSummonGroundHuds();}
     catch(error){
