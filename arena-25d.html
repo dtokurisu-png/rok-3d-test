@@ -499,6 +499,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
   <div class="mobaSettingsActions"><button id="mobaFullscreenButton" type="button" aria-label="Activar pantalla completa">⛶ Pantalla completa</button></div>
   <button id="mobaCloseSettings" type="button" aria-label="Cerrar ajustes y volver al combate">✕ Cerrar</button>
   <p>Combate en pausa. Puedes colocar los controles donde mejor lleguen tus dedos.</p>
+  <p id="mobaAnimationLoadStatus" role="status" style="font-size:11px;color:#b9eee8">Animaciones: preparando recursos…</p>
   <div class="mobaSettingsActions">
    <button id="mobaReposition" type="button">Mover controles</button>
    <button id="mobaResetLayout" type="button">Restablecer</button>
@@ -612,7 +613,7 @@ import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.103';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.105';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
-import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.97';
+import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.111';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 
 const qs=s=>document.querySelector(s);
@@ -4288,8 +4289,11 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     // Wait for real caster GLBs to finish installing before collecting
     // their deferred retargeting jobs; otherwise slow mobile requests
     // leave this list empty. This runs AFTER core-ready, never blocks play.
+    const animationStatus=qs('#mobaAnimationLoadStatus');
+    animationStatus.textContent='Animaciones: descargando modelos de casters…';
     await Promise.allSettled(casterModelTasks);
     const jobs=[...deferredCasterAnimations];
+    animationStatus.textContent='Animaciones: '+jobs.length+' casters listos para preparar; cargando clips…';
     // Summon animations are required on BOTH desktop and mobile.
     // Defer the archive until after core GLBs and caster clips load so
     // the arena becomes interactive before the optional 17 MB request.
@@ -4304,11 +4308,15 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
      }
      await activateArenaAnimationPack(g.scene);
     });
+    let completed=0;
     for(const job of jobs){
-     await new Promise(resolve=>setTimeout(resolve,650));
-     try{await job();}
+     await new Promise(resolve=>setTimeout(resolve,350));
+     try{await job();completed++;}
      catch(error){console.warn('[R.O.K.] Animación opcional:',error);}
+     animationStatus.textContent='Animaciones: '+completed+'/'+jobs.length+' paquetes preparados.';
     }
+    animationStatus.textContent='Animaciones: '+completed+'/'+jobs.length+' paquetes preparados. '+
+     (completed===jobs.length?'Listas para el combate.':'Algunas no pudieron descargarse.');
    })();
   },1000);
   }catch(error){
