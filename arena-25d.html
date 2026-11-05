@@ -323,8 +323,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.99 · Spellbook funcional y carta Farolera</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.99</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.100 · Casteo 21 desde frame 20 y Farolera costo 1</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.100</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -525,11 +525,11 @@ import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-real-fountains-1';
-import {createCasterMobility} from './caster-mobility.js?v=0.9.97';
+import {createCasterMobility} from './caster-mobility.js?v=0.9.100';
 import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.68';
 import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.99';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.88';
-import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.97';
+import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.97';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
@@ -4232,7 +4232,7 @@ qs('#casterCastTestRun').addEventListener('click',()=>{
 // their real game cards exist. Fast-play shortcuts use the same card pathway
 // later, but no shortcut controls are enabled in this version.
 const spellCards=[
- [{id:'farolera',name:'Farolera',element:'water',cost:0,
+ [{id:'farolera',name:'Farolera',element:'water',cost:1,
    portrait:arenaCharacterArt.farolera},null,null,null,null,null,null,null,null],
  Array(9).fill(null),Array(9).fill(null)
 ];
@@ -4310,9 +4310,9 @@ function selectSpellCard(index){
  // consume resources. The definitive resource charge is on selection.
  const ready=!!(caster.model?.userData?.rokCast22Clip&&caster.model?.userData?.rokCast21Clip);
  if(!ready){
-  spellStatus('Preparando animaciones 22 y 21; prueba otra vez cuando estén listas.');
-  // The movement loader fetches these asynchronously on player engagement.
-  casterMovement.startCardCast({cost:card.cost});
+  spellStatus('Preparando animaciones 22 y 21; vuelve a seleccionar la carta cuando estén listas.');
+  // Fetch the clips without casting or spending a resource.
+  casterMovement.prepareCardCast();
   return;
  }
  if(!combatHud.spend(caster.side,card.element,card.cost)){
