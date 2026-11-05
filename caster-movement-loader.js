@@ -8,6 +8,8 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
   attack:{name:'Magic Heal.fbx',id:2},
   death:{name:'Sword And Shield Death.fbx',id:8},
   defense:{path:'assets/animations/casters/shared/Sword And Shield Impact.fbx',id:23},
+  castPrepare:{path:'assets/animations/casters/shared/Standing 2H Magic Area Attack 02 (1).fbx',id:22},
+  castFinish:{path:'assets/animations/casters/shared/Standing 1H Cast Spell 01.fbx',id:21},
   hit:{name:'Standing React Small From Headshot.fbx',id:9},
   backward:{name:'Running Backward.fbx',id:6},
   forward:{name:'Running.fbx',id:7},
@@ -63,7 +65,7 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
    const result={_unavailable:[]};
    // Download/action readiness prioritizes the gestures the user actually
   // needs; rare optional clips can remain absent without stalling the others.
-  const order=['idle','attack','forward','left','right','defense','backward','hit','death'];
+  const order=['idle','attack','castPrepare','castFinish','forward','left','right','defense','backward','hit','death'];
   for(const role of order){
     const def=definitions[role];
     try{
@@ -73,7 +75,7 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
      // A missing FBX must never prevent the user from moving the caster.
      // The model can still translate with Idle until a compatible clip is available.
      result._unavailable.push(String(def.id));
-     if(role==='attack'||role==='death'||role==='defense'||role==='hit'){
+     if(role==='attack'||role==='death'||role==='defense'||role==='hit'||role==='castPrepare'||role==='castFinish'){
       // Never replace a combat action with Idle and pretend the correct clip played.
       result[role]=null;
      }else{
@@ -85,6 +87,8 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
     // Make the two combat actions available immediately; remaining locomotion
     // retarget tasks must not delay attack or death playback.
     if(role==='attack')model.userData.rokAttackClip=result.attack||null;
+    if(role==='castPrepare')model.userData.rokCast22Clip=result.castPrepare||null;
+    if(role==='castFinish')model.userData.rokCast21Clip=result.castFinish||null;
     if(role==='death')model.userData.rokDeathClip=result.death||null;
     if(role==='defense')model.userData.rokDefenseClip=result.defense||null;
     if(role==='hit')model.userData.rokHitClip=result.hit||null;
