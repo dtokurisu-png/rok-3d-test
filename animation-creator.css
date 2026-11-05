@@ -1,0 +1,35 @@
+/* Animation Creator: isolated from the arena and existing visor. */
+:root{color-scheme:dark;--mint:#00ffe4}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#071019;color:#edf9f6;font:13px/1.45 Roboto,system-ui,Arial,sans-serif}
+button,input,select{font:inherit}
+button{color:#eafffd;background:#143d45;border:1px solid #338e8a;border-radius:7px;min-height:32px;padding:7px;cursor:pointer}
+button:hover:not(:disabled){border-color:#00ffe4;background:#20545b}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--mint);outline-offset:1px}
+input,select{color:#fff;background:#0c2630;border:1px solid #356a70;border-radius:5px;padding:6px;min-width:0;width:100%}
+input[type=range]{accent-color:#00ffe4;padding:0}
+.creatorShell{position:fixed;inset:54px 0 0;display:grid;grid-template-columns:minmax(295px,345px) minmax(0,1fr)}
+.creatorPanel{background:#0b202b;border-right:1px solid #327a77;padding:14px;overflow:auto;overscroll-behavior:contain;scrollbar-color:#008b80 #0c222c}
+.creatorPanel h1{font-size:19px;margin:0 0 6px;color:var(--mint)}
+.creatorPanel h2{font-size:14px;color:#dbeaa4;margin:0 0 10px}
+.creatorNote{font-size:11px;color:#b4cdd0;margin:6px 0 9px}
+.creatorSection{background:#122b35;border:1px solid #345b64;border-radius:10px;margin:12px 0;padding:12px}
+.creatorSection>label{display:block;margin:8px 0 4px;color:#d6f4ef;font-weight:650}
+.creatorRow{display:flex;gap:7px;margin-top:9px;align-items:center}
+.creatorRow>button{flex:1}
+.creatorAxes>label{display:flex;flex:1;min-width:0;flex-direction:column;font-weight:700;color:#cfdee1;gap:4px}
+.creatorStatus{font-size:11px;color:#b9eee8;margin:9px 0 0}
+.creatorViewport{position:relative;min-width:0;min-height:0;background:radial-gradient(ellipse at 55% 45%,#142c33,#061019 75%)}
+#creatorCanvas{position:absolute;inset:0}
+#creatorCanvas canvas{width:100%;height:100%;display:block;touch-action:none}
+.creatorBadge{position:absolute;top:10px;right:10px;max-width:240px;border:1px solid #357873;background:#0b1e2bd9;color:#dcf6ef;padding:7px 9px;border-radius:8px;font-size:11px;pointer-events:none}
+.creatorOverlayStatus{position:absolute;bottom:12px;left:12px;right:12px;pointer-events:none;color:#dbeee8;text-shadow:0 2px 5px #000;font-weight:600}
+#creatorKeys{min-height:20px;overflow-wrap:anywhere}
+@media(max-width:700px){
+ .creatorShell{inset:54px 0 0;grid-template-columns:1fr;grid-template-rows:min(43dvh,350px) minmax(0,1fr)}
+ .creatorPanel{border-right:0;border-bottom:1px solid #327a77;padding:9px}
+ .creatorPanel h1{font-size:16px}
+ .creatorSection{padding:9px}
+ .creatorBadge{font-size:10px;top:6px;right:6px}
+}
