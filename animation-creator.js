@@ -19,7 +19,8 @@ const defaults={model:null,loadedPath:'',bones:[],pose:new Map(),chains:[],
  targets:new Map(),currentChain:null,currentBone:null,keys:new Map(),
  playing:false,time:0,duration:4,baseScale:1,modelId:null,
  sourceClip:null,sourceMixer:null,sourceAction:null,sourceId:null,
- modelClips:[],recording:false,handles:[],poles:new Map(),selectedHandle:null,centerHandle:null};
+ modelClips:[],recording:false,handles:[],poles:new Map(),selectedHandle:null,centerHandle:null,
+ bindPose:new Map(),sourceLoadToken:0,sourceAnimatedBones:null,plantedFeet:new Map()};
 const state=defaults;
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x081520);
@@ -130,7 +131,7 @@ function clearTargets(){
  }
  state.targets.clear();state.currentChain=null;
  for(const h of state.handles){scene.remove(h);h.geometry.dispose();h.material.dispose();}
- state.handles=[];state.poles.clear();state.selectedHandle=null;state.centerHandle=null;
+ state.handles=[];state.poles.clear();state.selectedHandle=null;state.centerHandle=null;state.plantedFeet.clear();
 }
 function makeTargets(){
  clearTargets();
@@ -260,7 +261,8 @@ function sampleFrame(frame){
   // Only frames explicitly edited replace that original pose; nothing
   // outside the selected frame is erased or interpolated over.
   for(const bone of state.bones){
-   const rest=state.pose.get(bone.name);
+   if(state.sourceAnimatedBones?.has(bone.name))continue;
+   const rest=state.bindPose.get(bone.name);
    if(rest)bone.quaternion.copy(rest);
   }
   // Scrubbing must work in either direction, even after the last frame.
@@ -391,7 +393,8 @@ async function loadModel(item){
  state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
  clearTargets();
  if(state.model){scene.remove(state.model);state.model=null;}
- state.keys.clear();state.bones=[];state.pose.clear();state.currentBone=null;
+ state.keys.clear();state.bones=[];state.pose.clear();state.bindPose.clear();state.currentBone=null;
+ state.sourceLoadToken++;state.sourceAnimatedBones=null;
  state.sourceClip=null;state.sourceMixer=null;state.sourceAction=null;state.sourceId=null;
  status('Descargando '+item.name+'…');
  const url='./'+item.path.split('/').map(encodeURIComponent).join('/');
@@ -415,7 +418,7 @@ async function loadModel(item){
   const seen=new Set();
   for(const b of state.bones)if(seen.has(b.name))throw Error('El rig tiene nombres de hueso duplicados: '+b.name);
   else seen.add(b.name);
-  for(const bone of state.bones)state.pose.set(bone.name,bone.quaternion.clone());
+  for(const bone of state.bones){state.pose.set(bone.name,bone.quaternion.clone());state.bindPose.set(bone.name,bone.quaternion.clone());}
   const usedTPose=await initializeTPose();
   state.chains=buildChains();
   const boneSelect=$('creatorBone');boneSelect.replaceChildren();
@@ -463,6 +466,7 @@ function populateSources(){
  renderQueue();
 }
 function resetSource(){
+ state.sourceLoadToken++;state.sourceAnimatedBones=null;
  state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
  state.sourceMixer?.stopAllAction();
  state.sourceMixer=null;state.sourceClip=null;state.sourceAction=null;state.sourceId=null;
@@ -474,15 +478,20 @@ function resetSource(){
 }
 async function loadSource(id){
  if(!state.model)throw Error('Primero debes cargar un modelo.');
+ const loadToken=++state.sourceLoadToken,modelAtStart=state.model;
  const source=creatorSources.find(x=>x.id===id);
  if(!source){resetSource();return;}
  state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
  status('Adaptando '+source.name+' al esqueleto…');
  const clip=await loadCreatorClip(source,state.model);
+ if(loadToken!==state.sourceLoadToken||modelAtStart!==state.model)return;
  if(!clip?.tracks?.length||clip.duration<=0)throw Error('Animación vacía o incompatible.');
  const matched=clip.tracks.filter(t=>state.bones.some(b=>t.name===b.name+'.quaternion'||t.name===b.name+'.position'||t.name===b.name+'.scale'));
  if(matched.length<4)throw Error('El clip no tiene pistas compatibles con el esqueleto cargado ('+matched.length+'/'+clip.tracks.length+').');
  state.sourceMixer?.stopAllAction();
+ for(const bone of state.bones){const bind=state.bindPose.get(bone.name);if(bind)bone.quaternion.copy(bind);}
+ state.model.updateMatrixWorld(true);
+ state.sourceAnimatedBones=new Set(matched.map(t=>t.name.slice(0,t.name.lastIndexOf('.'))));
  // The original action plays ONLY inside this editor. No repository changes.
  const mixer=new THREE.AnimationMixer(state.model);
  const action=mixer.clipAction(clip);
@@ -780,8 +789,9 @@ function moveCenter(){
  for(let i=0;i<state.chains.length;i++){
   const c=state.chains[i];if(!/Pierna/.test(c.label))continue;
   const target=state.targets.get(i);if(!target)continue;
-  if(delta.y>0)target.position.y=Math.max(0,target.position.y+delta.y);
-  else target.position.y=Math.max(0,target.position.y);
+  const planted=state.plantedFeet.get(i);
+  if(planted)target.position.copy(planted);
+  target.position.y=Math.max(0,target.position.y);
   solveIK(c);
  }
 }
@@ -800,7 +810,9 @@ function activateHandle(info,obj){
   state.previousCenter=obj.position.clone();
   for(let i=0;i<state.chains.length;i++)if(/Pierna/.test(state.chains[i].label)){
    const c=state.chains[i],t=state.targets.get(i);
-   if(t)t.position.copy(c.tip.getWorldPosition(new THREE.Vector3()));
+   if(t){t.position.copy(c.tip.getWorldPosition(new THREE.Vector3()));
+    t.position.y=Math.max(0,t.position.y);
+    state.plantedFeet.set(i,t.position.clone());}
   }
   viewStatus('Centro de gravedad · pies fijados al bajar.');
  }
