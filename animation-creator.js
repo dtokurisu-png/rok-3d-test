@@ -54,14 +54,27 @@ gizmo.addEventListener('objectChange',()=>{
   viewStatus('IK aplicada · pulsa «Guardar pose clave» para conservarla.');
  }
 });
+// The canvas must be sized in CSS pixels AND in the WebGL drawing buffer.
+// setSize(..., false) left Three.js's inline 500px × 500px canvas style intact,
+// explaining the small square in the top-left of an otherwise full-sized viewport.
+let viewportWidth=0,viewportHeight=0;
 function resize(){
  const box=$('creatorCanvas').getBoundingClientRect();
- if(box.width<1||box.height<1)return;
- renderer.setSize(box.width,box.height,false);
- camera.aspect=box.width/box.height;
+ const width=Math.max(1,Math.floor(box.width));
+ const height=Math.max(1,Math.floor(box.height));
+ if(!box.width||!box.height)return;
+ const dpr=Math.min(window.devicePixelRatio||1,2);
+ if(width===viewportWidth&&height===viewportHeight&&renderer.getPixelRatio()===dpr)return;
+ viewportWidth=width;viewportHeight=height;
+ renderer.setPixelRatio(dpr);
+ renderer.setSize(width,height,true);
+ renderer.setViewport(0,0,width,height);
+ camera.aspect=width/height;
  camera.updateProjectionMatrix();
 }
 new ResizeObserver(resize).observe($('creatorCanvas'));
+window.addEventListener('resize',resize);
+requestAnimationFrame(resize);
 const loader=new GLTFLoader();
 let models=[];
 function cleanName(name){
