@@ -64,11 +64,10 @@ La edición habitual comienza seleccionando un modelo: el creador intenta
 aplicar el clip T-Pose ya presente en GitHub a sus huesos; si el esqueleto
 no es compatible, conserva la pose original del rig. En ningún caso modifica
 el GLB almacenado en el repositorio. Luego se elige **Animación de referencia**, incluyendo los
-números 01–14 del ZIP original, las animaciones publicadas directamente
+números 01–14 del ZIP original (excepto 04 y 05, previamente descartadas), las animaciones publicadas directamente
 (15, 16, 21–23, 34–37, Standing Idle), las composiciones 24–33 ya presentes en el visor y los clips integrados en el GLB.
-Las animaciones descartadas 04, 05 y 17–20 siguen identificadas en la
-biblioteca histórica; seleccionar una de 01–14 no significa que vuelva
-a estar aprobada para combate.
+Las animaciones descartadas 04, 05 y 17–20 no se ofrecen como opciones
+activas del creador; siguen documentadas en el catálogo histórico.
 
 La animación se adapta al esqueleto del personaje, se muestra en la línea
 de tiempo a **30 FPS** y conserva todos sus fotogramas. Se puede recorrer
