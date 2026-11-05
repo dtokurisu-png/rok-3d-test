@@ -264,8 +264,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.94 · Daño territorial cada 2 s y partículas</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.94</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.95 · Chispas territoriales ascendentes</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.95</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -3615,18 +3615,22 @@ function updateCasterThreatIndicators(){
 // Applies symmetrically to both casters, bypassing manual Shift guard.
 // The territory hit is deliberately a visual effect, not a hit animation:
 // locomotion and caster attack/defense tracks remain untouched.
-const territorySparkGeometry=new THREE.TetrahedronGeometry(.09,0);
+// Reuse the Farolera-style soft glow texture, not angular tetrahedrons.
+// Build a fixed pool per caster to avoid allocations on every damage tick.
 const territorySparkParticles=new Map();
 const territoryTintCache=new Map();
 function setupTerritoryParticles(caster){
  if(territorySparkParticles.has(caster))return territorySparkParticles.get(caster);
  const particles=[];
- for(let i=0;i<12;i++){
-  const material=new THREE.MeshBasicMaterial({color:i%3===0?0xff9e72:0xff334f,
-   transparent:true,opacity:0,depthWrite:false,depthTest:true});
-  const mesh=new THREE.Mesh(territorySparkGeometry,material);
+ for(let i=0;i<20;i++){
+  const material=new THREE.SpriteMaterial({map:glowTexture,
+   color:i%4===0?0xffab82:i%3===0?0xff486c:0xff304e,
+   transparent:true,opacity:0,depthWrite:false,depthTest:true,
+   blending:THREE.AdditiveBlending});
+  const mesh=new THREE.Sprite(material);
   mesh.visible=false;mesh.renderOrder=11;root.add(mesh);
-  particles.push({mesh,age:0,lifetime:0,velocity:0,driftX:0,driftZ:0});
+  particles.push({mesh,age:0,lifetime:0,velocity:0,driftX:0,driftZ:0,
+   originX:0,originZ:0,phase:0,size:0});
  }
  territorySparkParticles.set(caster,particles);
  return particles;
@@ -3668,13 +3672,16 @@ function flashTerritoryHit(caster){
  const cx=THREE.MathUtils.clamp(Math.round(caster.outer.position.x),-HALF_W,HALF_W);
  const cz=THREE.MathUtils.clamp(Math.round(caster.outer.position.z-.5)+.5,-HALF_D,HALF_D);
  for(const p of setupTerritoryParticles(caster)){
-  p.age=0;p.lifetime=.7+Math.random()*.5;
-  p.velocity=.85+Math.random()*1.05;
-  p.driftX=(Math.random()-.5)*.20;p.driftZ=(Math.random()-.5)*.20;
-  p.mesh.position.set(cx+(Math.random()-.5)*.78,.14+Math.random()*.12,
-   cz+(Math.random()-.5)*.78);
-  p.mesh.material.opacity=.8;p.mesh.visible=true;
-  p.mesh.scale.setScalar(.65+Math.random()*.6);
+  p.age=0;p.lifetime=1.2+Math.random()*.65;
+  p.velocity=1.65+Math.random()*1.25;
+  p.driftX=(Math.random()-.5)*.36;p.driftZ=(Math.random()-.5)*.36;
+  p.phase=Math.random()*Math.PI*2;
+  p.originX=cx;p.originZ=cz;
+  p.mesh.position.set(cx+(Math.random()-.5)*.68,.12+Math.random()*.16,
+   cz+(Math.random()-.5)*.68);
+  p.size=.18+Math.random()*.22;
+  p.mesh.scale.set(p.size,p.size*(1.2+Math.random()*.8),1);
+  p.mesh.material.opacity=.75;p.mesh.visible=true;
  }
 }
 function updateTerritoryDamageVisuals(dt){
@@ -3702,10 +3709,18 @@ function updateTerritoryDamageVisuals(dt){
    if(!p.mesh.visible)continue;
    p.age+=dt;
    if(p.age>=p.lifetime){p.mesh.visible=false;continue;}
+   // Climb high with irregular drift, but stay inside the caster's tile.
    p.mesh.position.y+=p.velocity*dt;
-   p.mesh.position.x+=p.driftX*dt;p.mesh.position.z+=p.driftZ*dt;
-   p.mesh.material.opacity=Math.max(0,(1-p.age/p.lifetime)*.85);
-   p.mesh.rotation.y+=dt*4;
+   const wobble=Math.sin(p.age*9+p.phase)*.11;
+   p.mesh.position.x=THREE.MathUtils.clamp(
+    p.mesh.position.x+(p.driftX+wobble)*dt,p.originX-.44,p.originX+.44);
+   p.mesh.position.z=THREE.MathUtils.clamp(
+    p.mesh.position.z+(p.driftZ+Math.cos(p.age*7+p.phase)*.11)*dt,
+    p.originZ-.44,p.originZ+.44);
+   const life=1-p.age/p.lifetime;
+   p.mesh.material.opacity=Math.max(0,Math.pow(life,1.5)*.8);
+   p.mesh.scale.set(p.size*(.75+.25*life),
+    p.size*(1.15+life*.75),1);
   }
  }
 }
