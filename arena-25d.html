@@ -216,8 +216,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.80 · Retratos y alerta de peligro</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.80</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.81 · Alerta más cerca de la cabeza</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.81</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -3395,7 +3395,7 @@ function updateCasterThreatIndicators(){
   const enemyCasterCasting=casterMovement?.caster?.side!==caster.side&&
     casterMovement?.threatTarget===caster;
   if(!pursuing&&!incoming&&!enemyCasterCasting){node.style.display='none';continue;}
-  threatPoint.set(0,2.20,0);caster.outer.localToWorld(threatPoint);threatPoint.project(camera);
+  threatPoint.set(0,1.55,0);caster.outer.localToWorld(threatPoint);threatPoint.project(camera);
   if(threatPoint.z<-1||threatPoint.z>1||Math.abs(threatPoint.x)>1||Math.abs(threatPoint.y)>1){
    node.style.display='none';continue;
   }
