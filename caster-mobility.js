@@ -2,7 +2,7 @@
  * All actions share the original caster mixer and keep the rest of combat live.
  */
 export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
- onModeChange,reviveCaster,getAttackTarget,onAttack,layers,bounds={x:7.25,z:14.75}}){
+ onModeChange,reviveCaster,getAttackTarget,onAttack,layers,canControl=()=>true,bounds={x:7.25,z:14.75}}){
  const $=id=>document.getElementById(id);
  const select=$('casterMoveSide'),speed=$('casterMoveSpeed'),speedText=$('casterMoveSpeedText'),
   status=$('casterMoveStatus'),attackButton=$('casterAttackButton'),defenseButton=$('casterDefenseButton');
@@ -35,6 +35,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
    lateral<0?'left':lateral>0?'right':'idle'};
  }
  function engage(){
+  if(!canControl())return false;
   if(enabled&&caster===selected()&&caster?.model)return true;
   const c=selected();
   if(!c){notify('Cargando caster…');return false;}
@@ -157,6 +158,9 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   c.mixer.update(dt);
  }
  function key(event,down){
+  // Pre-match selection and portrait safety lock all gameplay inputs.
+  // Key releases still pass through to avoid stuck movement/defense.
+  if(down&&!canControl())return;
   if(event.code==='Space'){
    if(down&&event.target?.closest?.('textarea,select,[contenteditable="true"],input:not([type="range"])'))return;
    if(down&&!event.repeat)startAttack();
@@ -183,6 +187,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   const release=()=>{held.delete(code);button.dataset.held='false';};
   button.addEventListener('pointerdown',e=>{
    e.preventDefault();
+   if(!canControl())return;
    held.add(code);button.dataset.held='true';
    if(typeof button.setPointerCapture==='function')button.setPointerCapture(e.pointerId);
    engage();
@@ -207,6 +212,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
  notify('WASD · listo');
  return {step,disable:stop,startAttack,setDefense,
   setMobileAxis(x,y){
+   if(!canControl()){mobileAxisX=0;mobileAxisY=0;return;}
    mobileAxisX=THREE.MathUtils.clamp(Number(x)||0,-1,1);
    mobileAxisY=THREE.MathUtils.clamp(Number(y)||0,-1,1);
    if((mobileAxisX||mobileAxisY)&&!enabled)engage();
