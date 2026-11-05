@@ -73,14 +73,15 @@ export function createRivalCasterAI({
   const requiredZ=Math.max(0,point.z-magnet);
   if(requiredZ<=.02)return true; // Collectible at the border.
   const speed=Math.max(.1,c.moveSpeed||3.8);
-  const reach=distance(pos,point);
-  const toPickup=Math.max(0,(reach-magnet)/speed);
+  const toPickup=pos.z>0?
+   Math.hypot(point.x-pos.x,Math.max(0,requiredZ-pos.z))/speed:
+   Math.hypot(point.x-pos.x,requiredZ)/speed;
   const returnSeconds=(requiredZ+cfg.returnMargin)/speed;
-  const exposed=pos.z>0?toPickup+returnSeconds:Math.max(0,requiredZ/speed)+returnSeconds;
+  // No intentional territory tick is acceptable on a planned incursion.
+  // Staying home is preferred unless the full OUT+BACK trip fits the grace.
+  const exposed=toPickup+returnSeconds;
   const graceRemaining=Math.max(0,cfg.territorialGrace-(c.hostileZoneSeconds||0));
-  const excess=Math.max(0,exposed-graceRemaining);
-  const estimatedHits=excess>0?1+Math.floor(excess/2):0;
-  return c.hp-estimatedHits>cfg.minimumSurvivalHp;
+  return c.hp>cfg.minimumSurvivalHp&&exposed<=graceRemaining;
  }
  function step(dt){
   const c=current();
