@@ -2831,11 +2831,12 @@ function resetCombatant(c){
   releaseSummonDuel(c);
   const shield=c.kind==='shield',archer=c.kind==='archer';
   c.maxHp=archer?ATTACK_PROFILES.archer.hp:shield?12:5;
+  if(c.cardId==='farolera')c.maxHp=2;
   c.hp=c.maxHp;
   c.shieldMax=shield?2:0;
   c.shield=c.shieldMax;
   c.range=archer?ATTACK_PROFILES.archer.range:shield?3:5;
-  c.attackDamage=archer?ATTACK_PROFILES.archer.damage:shield?2:1;
+  c.attackDamage=c.cardId==='farolera'?1:archer?ATTACK_PROFILES.archer.damage:shield?2:1;
   c.speed=shield?2.4:2.15;
   c.stage='intro';c.introT=0;
   c.hitLeft=0;c.castT=0;c.castDuration=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
@@ -2850,7 +2851,7 @@ function resetCombatant(c){
   c.baseEndZ=c.endZ;
   c.endX=0;
   c.shieldPulse=0;
-  c.maxMana=c.kind==='mana'?10:0;
+  c.maxMana=c.cardId==='farolera'?0:c.kind==='mana'?10:0;
   c.mana=c.maxMana;c.manaTimer=0;c.dodgeCooldown=0;
   c.outer.position.x=c.startX;
   c.outer.rotation.y=c.side==='ally'?Math.PI:0;
@@ -4585,6 +4586,7 @@ function summonCardFarolera(caster){
   Math.round(caster.outer.position.z+direction+HALF_D)-HALF_D,
   caster.side==='enemy'?-HALF_D:.5,caster.side==='enemy'?-.5:HALF_D);
  const c=createFighter(prototype.scene,prototype.idle,caster.side,'mana');
+ c.cardId='farolera';
  c.startX=x;c.startZ=z;c.endZ=z;
  c.model.userData.baseScale=c.model.scale.x;
  resetCombatant(c);
