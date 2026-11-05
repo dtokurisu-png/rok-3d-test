@@ -195,6 +195,7 @@ function makeTargets(){
  else viewStatus('El modelo no contiene cadenas IK reconocibles; puedes rotar sus huesos manualmente.');
 }
 function selectChain(i){
+ gizmo.showX=true;gizmo.showY=true;gizmo.showZ=true;
  if(!Number.isInteger(i)||!state.chains[i]){gizmo.detach();state.currentChain=null;return;}
  state.currentChain=state.chains[i];
  $('creatorChain').value=String(i);
@@ -879,9 +880,12 @@ function createHandCurl(side){
 }
 function beginHandCurl(side){
  const info=state.handCurl.get(side);if(!info)return;
- // Capture the actual pose at this frame, including any reference animation.
+ // Cache the original open pose rather than treating every partially curled
+ // pose as a fresh baseline (which would accumulate unwanted rotations).
  info.openY=info.marker.position.y+info.amount*.24;
- info.baseline=new Map(info.bones.map(b=>[b.uuid,b.quaternion.clone()]));
+ if(!info.baseline.size){
+  info.baseline=new Map(info.bones.map(b=>[b.uuid,b.quaternion.clone()]));
+ }
 }
 function applyHandCurl(side){
  const info=state.handCurl.get(side);if(!info)return;
@@ -993,7 +997,9 @@ function setControlMode(mode){
   gizmo.attach(mode==='rotate'?info.bone:marker);
  }else if(info.type==='handCurl'){
   // Curl remains a one-axis translation control, never a wrist rotation.
-  gizmo.setMode('translate');gizmo.attach(state.handCurl.get(info.side)?.marker);
+  gizmo.setMode('translate');
+  gizmo.showX=false;gizmo.showY=true;gizmo.showZ=false;
+  gizmo.attach(state.handCurl.get(info.side)?.marker);
  }else if(info.type==='ik' || info.type==='pole'||info.type==='footPole'){
   // Orient the end effector with R, translate its controller with G.
   const chain=state.chains[info.index];
@@ -1024,6 +1030,7 @@ function moveCenter(){
 }
 function activateHandle(info,obj){
  state.selectedHandle=info;
+ gizmo.showX=info.type!=='handCurl';gizmo.showY=true;gizmo.showZ=info.type!=='handCurl';
  if(info.type==='ik'){selectChain(info.index);return;}
  if(info.type==='pole'){
   state.currentChain=state.chains[info.index];
