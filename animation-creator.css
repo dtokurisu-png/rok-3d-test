@@ -130,3 +130,12 @@ input[type=range]{accent-color:#00ffe4;padding:0}
 .creatorViewport{grid-row:2!important}
 .creatorDopeSheet{grid-row:3!important}
 @media(max-width:740px){.creatorShell{grid-template-rows:38px minmax(0,1fr) 132px!important}.creatorHistoryBar{grid-column:1!important;grid-row:1!important}.creatorViewport{grid-row:2!important}.creatorDopeSheet{grid-row:3!important}.creatorPanel{top:48px!important}.creatorTogglePanel{top:48px!important}.creatorHistoryBar button{font-size:11px;padding:4px 8px}}
+
+/* v0.3.8 — master composition track appears before individual bone tracks. */
+.creatorMasterRow{position:sticky;top:0;z-index:5;height:29px!important;border-bottom:2px solid #00ffe4!important;background:#113a42}
+.creatorMasterLabel{font-weight:800!important;color:#00ffe4!important;letter-spacing:.045em;background:#123943;padding-top:6px!important}
+.creatorMasterLane{background-color:#102f39!important;background-image:repeating-linear-gradient(to right,transparent 0,transparent calc(10% - 1px),#23545b calc(10% - 1px),#23545b 10%)!important}
+.creatorMasterCursor{position:absolute;pointer-events:none;top:0;bottom:0;width:2px;background:#00ffe4;box-shadow:0 0 7px #00ffe4;transform:translateX(-1px);z-index:1}
+.creatorMasterKey{width:11px!important;height:11px!important;top:8px!important;z-index:2;background:#00ffe4!important;border-color:#d6fff9!important}
+.creatorMasterKey.source{background:#667f90!important;border-color:#a0b1b9!important;opacity:.7}
+.creatorMasterKey.selected{box-shadow:0 0 0 3px #00ffe466,0 0 9px #00ffe4!important}
