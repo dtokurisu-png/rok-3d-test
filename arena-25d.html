@@ -316,8 +316,9 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  #rokSpellbookCards{
   position:fixed!important;z-index:52!important;right:4px!important;left:auto!important;
   top:calc(env(safe-area-inset-top,0px) + 4px)!important;bottom:auto!important;
-  width:min(43vw,245px)!important;height:min(85vh,355px)!important;
-  max-height:85vh!important;aspect-ratio:1086/1448!important;
+  width:min(40vw,calc(80vh * 1086 / 1448),245px)!important;
+  height:auto!important;aspect-ratio:1086/1448!important;
+  max-height:80vh!important;box-sizing:border-box!important;
   transform:translateY(calc(-100% - 24px))!important;
   visibility:hidden;pointer-events:none!important;
   transition:transform .24s ease,visibility .24s!important
@@ -325,13 +326,16 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  #rokSpellbookCards:not([hidden]){
   transform:translateY(0)!important;visibility:visible;pointer-events:auto!important
  }
- #rokSpellbookExit{
-  top:3%!important;left:auto!important;right:5%!important;width:auto!important;
-  min-width:65px;padding:4px 6px!important;background:#09282c!important;
-  border:1px solid #00ffdf!important;border-radius:7px!important;
-  font-size:10px!important;z-index:9!important
- }
- #rokSpellbookGrid{top:17%!important;height:72%!important}
+
+ #rokSpellbookGrid{top:15%!important;height:62%!important;left:8%!important;right:8%!important;
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-template-rows:repeat(3,minmax(0,1fr))!important}
+ #rokSpellbookGrid .rokSpellSlot{width:100%!important;height:100%!important;min-width:0!important;
+  min-height:0!important;padding:0!important;overflow:hidden!important}
+ #rokSpellbookGrid .rokSpellSlot img{max-width:100%!important;max-height:100%!important;object-fit:cover!important}
+ #rokSpellbookGrid .rokSpellName{font-size:clamp(6px,1.5vw,10px)!important;line-height:1.1!important}
+ #rokSpellbookGrid .rokSpellNumber,#rokSpellbookGrid .rokSpellCost{font-size:clamp(7px,1.4vw,10px)!important;
+  padding:1px 2px!important}
  body.mobaLayoutEditing #rokSpellbook .rokSpellbookPageKey{
   outline:2px dashed #00ffdf;outline-offset:3px;touch-action:none
  }
@@ -394,7 +398,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.110</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.111</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -458,7 +462,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 </section>
 <section id="rokSpellbookCards" aria-label="Cartas del grimorio" hidden>
  <div id="rokSpellbookGrid"></div>
- <button type="button" id="rokSpellbookExit" aria-label="Cerrar página del grimorio">✕ Cerrar cartas</button>
+
 </section>
 <div id="rokSpellbookStatus" role="status" aria-live="polite"></div>
 <section id="casterMobilityPanel" aria-label="Mover caster con WASD">
@@ -482,13 +486,14 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  <button id="mobaAttack" class="mobaAction" type="button" aria-label="Atacar">⚔<span style="display:block;font-size:10px">ATACAR</span></button>
  <button id="mobaDefend" class="mobaAction" type="button" aria-label="Mantener para defender">◆<span style="display:block;font-size:10px">DEFENSA</span></button>
  <button id="mobaSettingsButton" type="button" aria-label="Configurar controles y pausar" title="Ajustes">⚙</button>
- <button id="mobaFullscreenButton" type="button" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
+
  <div id="mobaAdjustIndicator">Arrastra los controles. Pulsa ⚙ para terminar.</div>
  
 </div>
 <div id="mobileMobaSettings" role="dialog" aria-modal="true" aria-label="Ajustes de controles móviles" data-open="false">
  <div class="mobaSettingsCard">
   <h3>⚙ Controles móviles</h3>
+  <div class="mobaSettingsActions"><button id="mobaFullscreenButton" type="button" aria-label="Activar pantalla completa">⛶ Pantalla completa</button></div>
   <button id="mobaCloseSettings" type="button" aria-label="Cerrar ajustes y volver al combate">✕ Cerrar</button>
   <p>Combate en pausa. Puedes colocar los controles donde mejor lleguen tus dedos.</p>
   <div class="mobaSettingsActions">
@@ -4277,6 +4282,10 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   // They can be cached by the browser for subsequent rounds.
   setTimeout(()=>{
    void (async()=>{
+    // Wait for real caster GLBs to finish installing before collecting
+    // their deferred retargeting jobs; otherwise slow mobile requests
+    // leave this list empty. This runs AFTER core-ready, never blocks play.
+    await Promise.allSettled(casterModelTasks);
     const jobs=[...deferredCasterAnimations];
     // Summon animations are required on BOTH desktop and mobile.
     // Defer the archive until after core GLBs and caster clips load so
@@ -4487,7 +4496,7 @@ for(const button of document.querySelectorAll('.rokSpellbookPageKey'))
 function closeSpellbook(){
  spellbook.page=0;renderSpellbook();
 }
-qs('#rokSpellbookExit').addEventListener('click',closeSpellbook);
+
 document.addEventListener('pointerdown',event=>{
  if(spellbook.page&&!event.target.closest('#rokSpellbook,#rokSpellbookCards,#mobileMobaControls,#mobaSettingsButton,#mobaFullscreenButton')){
   closeSpellbook();
