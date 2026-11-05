@@ -49,7 +49,9 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   return true;
  }
  function requestClips(c){
-  if(!c?.model?.userData?.rokCasterAsset||loadingModel===c.model||loadedModel===c.model)return;
+  // The provisional Farolera rig also supports Mixamo animation retargeting.
+  // Do not restrict forward/attack loading to the optional Lioren/Chiara GLBs.
+  if(!c?.model||loadingModel===c.model||loadedModel===c.model)return;
   const model=c.model,ticket=++revision;
   loadingModel=model;
   Promise.resolve().then(()=>prepareClips(c)).then(result=>{
