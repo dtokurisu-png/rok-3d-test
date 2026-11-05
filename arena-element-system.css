@@ -1,0 +1,64 @@
+/* R.O.K. combat HUD and element priority – standalone from tester panels. */
+#rokBattleHud{
+ position:fixed;z-index:36;top:calc(6px + env(safe-area-inset-top,0px));
+ left:50%;transform:translateX(-50%);width:min(760px,80vw);
+ display:grid;grid-template-columns:minmax(0,1fr) 72px minmax(0,1fr);
+ gap:9px;align-items:start;pointer-events:none;color:white;
+ font-family:Roboto,system-ui,sans-serif;filter:drop-shadow(0 2px 4px #000b)
+}
+.rokPlayer{display:flex;align-items:flex-start;gap:6px;min-width:0}
+.rokPlayerBars{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.rokPlayerBars>strong{font-size:10px;letter-spacing:.08em;color:#eaffff}
+.rokEnemy .rokPlayerBars>strong{text-align:right}
+.rokPortrait{display:flex;flex:0 0 31px;width:31px;height:34px;align-items:center;justify-content:center;
+ border:1px solid #67d5c9;border-radius:6px;background:linear-gradient(145deg,#274b53,#071a24);
+ color:#ddfff9;font-size:14px;font-weight:800}
+.rokEnemy .rokPortrait{border-color:#ff8095;background:linear-gradient(145deg,#633b53,#1e1722)}
+.rokHpTrack{height:10px;overflow:hidden;background:#172328;border:1px solid #6e878b;border-radius:3px}
+.rokHpFill{height:100%;width:100%;background:linear-gradient(180deg,#72ff97,#12b765)}
+.rokEnemy .rokHpFill{background:linear-gradient(180deg,#ff9b9a,#d82f50)}
+.rokEnergyTracks{display:flex;flex-direction:column;gap:2px}
+.rokEnergyRow{display:flex;align-items:center;gap:3px;min-width:0}
+.rokElementDot{width:6px;height:6px;flex:0 0 6px;border-radius:50%;box-shadow:0 0 6px currentColor}
+.rokEnergyTrack{flex:1;min-width:0;height:6px;border-radius:3px;border:1px solid #49606b;background:#13232a;overflow:hidden}
+.rokEnergyTrack>div{height:100%;width:0;transition:width .15s linear}
+.rokEnergyRow>small{flex:0 0 34px;color:#f5ffff;font:600 8px/1 Roboto,system-ui}
+.rokEnemy .rokEnergyRow{flex-direction:row-reverse}
+.rokEnemy .rokHpTrack{display:flex;justify-content:flex-end}
+.rokClock{text-align:center;display:flex;flex-direction:column;align-items:center;gap:1px}
+.rokClock>span{color:#b5fff3;font-size:9px;font-weight:800;letter-spacing:.12em}
+.rokClock>strong{font-size:19px;line-height:1.1;font-variant-numeric:tabular-nums}
+.rokClock>small{font-size:9px;color:#e9eaed}
+#rokElementPrep{position:fixed;z-index:95;inset:0;background:#03111be5;color:#f1ffff;
+ display:flex;align-items:center;justify-content:center;padding:12px;font:13px/1.4 Roboto,system-ui,sans-serif}
+#rokElementPrep[hidden]{display:none!important}
+.rokPrepCard{width:min(440px,94vw);max-height:92dvh;overflow:auto;padding:17px;border:1px solid #00ffe4;
+ background:#0b2732;border-radius:14px;box-shadow:0 12px 36px #000d}
+.rokPrepCard h2{font-size:19px;color:#00ffe4;margin:0 0 5px}
+.rokPrepCard p{margin:7px 0 11px;color:#d2e4e7}
+.rokPrepCard select{min-height:36px;color:#fff;background:#123f49;border:1px solid #398a8b;
+ border-radius:7px;padding:5px 8px;font:inherit}
+.rokPrepCard>label{display:block;margin:5px 0}
+#rokElementOrders{display:flex;flex-direction:column;gap:5px;margin:10px 0}
+#rokElementOrders label{display:flex;justify-content:space-between;align-items:center;gap:9px}
+#rokElementOrders select{min-width:48%}
+.rokPrepCard #rokBeginRound{display:block;width:100%;min-height:43px;margin-top:10px;border-radius:8px;
+ border:1px solid #6affeb;background:#027a77;color:#fff;font-size:13px;font-weight:800}
+.rokPrepCard #rokPrepWarning{color:#ffb6b6}
+.rokPrepHelp{font-size:11px}
+@media(pointer:coarse) and (max-width:950px){
+ #rokBattleHud{width:min(620px,74vw);left:50%;top:calc(5px + env(safe-area-inset-top,0px));
+  gap:5px;grid-template-columns:minmax(0,1fr) 57px minmax(0,1fr)}
+ .rokPortrait{flex-basis:22px;width:22px;height:26px;font-size:11px}
+ .rokPlayer{gap:4px}
+ .rokPlayerBars>strong{font-size:8px}
+ .rokClock>span{font-size:7px}
+ .rokClock>strong{font-size:16px}
+ .rokClock>small{font-size:8px}
+ .rokEnergyRow>small{flex-basis:27px;font-size:7px}
+ .rokHpTrack{height:8px}
+ .rokElementPrep{z-index:90}
+}
+@media(pointer:coarse) and (max-width:950px) and (orientation:portrait){
+ #rokBattleHud{display:none}
+}
