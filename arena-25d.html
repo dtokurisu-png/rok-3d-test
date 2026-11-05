@@ -364,6 +364,13 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  #rokCombatHud .rokHudVS{font-size:10px!important;line-height:12px!important}
 }
 @media(prefers-reduced-motion:reduce){#rokSpellbookCards{transition:none!important}}
+/* v0.9.115: edge alerts belong at the actual mobile viewport border.
+   Desktop keeps its bottom toolbar clearance unchanged. */
+@media (pointer:coarse) and (max-width:950px) and (orientation:landscape){
+ .rokOrbEdge,.rokSummonEdge{
+  bottom:calc(2px + env(safe-area-inset-bottom,0px))!important;
+ }
+}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261105-mobile-113"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.80"></head>
@@ -410,7 +417,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.114</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.115</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
