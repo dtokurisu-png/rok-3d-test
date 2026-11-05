@@ -158,9 +158,18 @@ canvas{display:block;touch-action:none}
  border:1px solid #00ffe4;background:#16434c;color:white;font-weight:700}
 #gameLoadingOverlay[data-error="true"] #gameLoadingRetry{display:block}
 body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
+#elementHudTuning{margin:12px 0;padding:12px;border:1px solid #278e93;border-radius:9px;background:#0b2732}
+#elementHudTuning strong{color:#00ffe4;font-size:13px}
+#elementHudTuning label{display:block;margin:10px 0 5px;color:#d9f4f6;font-weight:700}
+#elementHudTuning .elementHudControl{display:flex;align-items:center;gap:8px}
+#elementHudTuning input[type=range]{flex:1;min-width:0;accent-color:#00ffe4}
+#elementHudTuning input[type=number]{width:77px;min-width:0;padding:6px;background:#102d3a;border:1px solid #4c9296;border-radius:5px;color:#fff;font:inherit}
+#elementHudTuning .elementHudActions{display:flex;gap:8px;margin-top:12px}
+#elementHudTuning button{padding:7px 10px;background:#164953;border:1px solid #43a9a5;border-radius:6px;color:#fff;cursor:pointer}
+#elementHudReadout{color:#00ffe4;font-weight:700}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.73"></head>
+<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.74"></head>
 <body data-studio-page="tester" data-rok-boot="loading">
 <div id="gameLoadingOverlay" role="status" aria-live="polite">
  <div id="gameLoadingCard">
@@ -203,8 +212,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.71 · Depósitos elementales 300%</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.71</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.72 · Calibración elemental</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.72</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -224,6 +233,16 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  <p id="cameraTuningReadout" class="cameraNotes">Calculando encuadre…</p>
 </section>
 
+    <section id="elementHudTuning" aria-label="Calibración de la barra elemental">
+      <strong>💧 Ajustar depósitos elementales</strong>
+      <p>Los ajustes afectan ambas barras, en vivo. Los valores quedan guardados en este navegador.</p>
+      <label for="elementHudHeight">Altura de depósitos (píxeles)</label>
+      <div class="elementHudControl"><input id="elementHudHeight" type="range" min="12" max="400" step="1" value="132"><input id="elementHudHeightNumber" type="number" min="12" max="400" step="1" value="132" aria-label="Altura exacta en píxeles"><span>px</span></div>
+      <label for="elementHudOffset">Mover vertical (negativo sube, positivo baja)</label>
+      <div class="elementHudControl"><input id="elementHudOffset" type="range" min="-200" max="350" step="1" value="0"><input id="elementHudOffsetNumber" type="number" min="-200" max="350" step="1" value="0" aria-label="Posición vertical exacta en píxeles"><span>px</span></div>
+      <div class="elementHudActions"><button id="elementHudReset" type="button">Restablecer</button><button id="elementHudCopy" type="button">Copiar valores</button></div>
+      <p id="elementHudReadout" role="status">Altura: 132 px · Posición: 0 px</p>
+    </section>
     <details id="arenaReleaseNotes"><summary>Notas de versión</summary><p><strong>v0.9.47 · 04/11/2026: HUD hacia jugador, mayor grosor, subdivisión de recursos y recuperación de animaciones detenidas. v0.9.46: HUD 3D de invocaciones sobre el suelo con barras laterales de vida, daño, escudo y energía; segmentos y decenas. v0.9.45: transparencia guiada por cono de visión cámara-caster, sin desvanecimiento lateral por proximidad; conservación de materiales. v0.9.44: decoraciones se desvanecen progresivamente por proximidad al caster y reaparecen suavemente. v0.9.43: ocultación temporal de decoraciones cercanas que bloqueen la visión del caster aliado. v0.9.42: giro máximo ±45° de cerca, disminuye suavemente hasta 0° al separarse los casters. v0.9.41: rotación horizontal de cámara limitada a ±45° respecto al lado aliado, sin giros detrás del rival. v0.9.40: cámara continua entre 5 y 13 unidades, inclinación fija 23°, sin saltos; coordenadas A1–AD15 con interruptor. v0.9.39: seguimiento físico continuo y lente fija sin zoom. v0.9.38: cámara reescrita desde cero; inclinación fija 23°, seguimiento de ambos casters y borde inferior. v0.9.37: retirada la barra inferior y encuadre lejano con referencia al borde inferior de la arena. v0.9.36: restaurado el seguimiento automático y guardado de cámara lejana con posición y enfoque completos. v0.9.35: referencia lejana aprobada 12.33 unidades y 23.0°; transición dinámica y protección del encuadre de ambos casters. v0.9.34: calibración libre de cámara con mouse e indicador de distancia e inclinación reales. v0.9.33: cámara más cercana al alejarse los casters, menor inclinación y menos márgenes externos. v0.9.32: elevación e inclinación automáticas según distancia entre casters, menos techo visible. v0.9.31: cámara automática detrás del caster y encuadre de ambos personajes. v0.9.30: seguimiento dinámico de ambos casters y ajustes base 11/11/5 u a 15°. v0.9.29:</strong> controles de cámara integrados en Opciones y simplificación del panel. <strong>v0.9.15:</strong> reacción a daño limitada a cuello y cabeza durante ataques; las invocaciones restauradas conservan sus PV.</p></details>
     <a class="arenaBackLink" href="./index.html">Volver al visor de animaciones</a>
   </div>
@@ -302,6 +321,38 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
   </div>
  </div>
 </section>
+<script>
+/* Live pixel calibration, independent of combat state. */
+(function(){
+ const hud=document.getElementById('rokCombatHud');
+ const defaults={height:132,offset:0},limits={height:[12,400],offset:[-200,350]};
+ const key='rok.arena.elementHudCalibration.v1';
+ let saved={};try{saved=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){}
+ const config={...defaults};
+ const ids={height:[document.getElementById('elementHudHeight'),document.getElementById('elementHudHeightNumber')],
+  offset:[document.getElementById('elementHudOffset'),document.getElementById('elementHudOffsetNumber')]};
+ function setValue(field,value,save=true){
+  const number=Number(value);if(!Number.isFinite(number))return;
+  const [min,max]=limits[field];config[field]=Math.max(min,Math.min(max,Math.round(number)));
+  for(const input of ids[field])input.value=String(config[field]);
+  hud.style.setProperty(field==='height'?'--element-reservoir-height':'--element-offset-y',config[field]+'px');
+  document.getElementById('elementHudReadout').textContent='Altura: '+config.height+' px · Posición: '+config.offset+' px';
+  if(save)try{localStorage.setItem(key,JSON.stringify(config))}catch(_){}
+ }
+ for(const field of ['height','offset']){
+  for(const input of ids[field]){input.addEventListener('input',()=>setValue(field,input.value));input.addEventListener('change',()=>setValue(field,input.value));}
+  setValue(field,saved[field]??defaults[field],false);
+ }
+ document.getElementById('elementHudReset').addEventListener('click',()=>{
+  setValue('height',defaults.height);setValue('offset',defaults.offset);
+ });
+ document.getElementById('elementHudCopy').addEventListener('click',()=>{
+  const message='R.O.K. HUD elemental: altura '+config.height+' px, posición vertical '+config.offset+' px.';
+  if(navigator.clipboard?.writeText)navigator.clipboard.writeText(message).catch(()=>{});
+  document.getElementById('elementHudReadout').textContent=message;
+ });
+})();
+</script>
 <section id="rokMatchGate" aria-label="Preparación del combate">
  <div id="rokMatchSelection" class="rokMatchCard">
   <h2>Preparar combate</h2>
