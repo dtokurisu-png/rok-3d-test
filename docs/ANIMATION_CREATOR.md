@@ -65,7 +65,7 @@ aplicar el clip T-Pose ya presente en GitHub a sus huesos; si el esqueleto
 no es compatible, conserva la pose original del rig. En ningún caso modifica
 el GLB almacenado en el repositorio. Luego se elige **Animación de referencia**, incluyendo los
 números 01–14 del ZIP original, las animaciones publicadas directamente
-(15, 16, 21–23, 34–37, Standing Idle) y los clips integrados en el GLB.
+(15, 16, 21–23, 34–37, Standing Idle), las composiciones 24–33 ya presentes en el visor y los clips integrados en el GLB.
 Las animaciones descartadas 04, 05 y 17–20 siguen identificadas en la
 biblioteca histórica; seleccionar una de 01–14 no significa que vuelva
 a estar aprobada para combate.
