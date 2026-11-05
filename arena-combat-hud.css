@@ -73,3 +73,12 @@
 @media(pointer:coarse) and (max-width:950px) and (orientation:portrait){
  #rokCombatHud{display:none}
 }
+
+/* Each partition displays its own drop; heart matches the summon glyph. */
+.rokHudLifeIcon{font-size:17px;font-weight:900;line-height:1}
+.rokHudSectionLabel{display:flex;align-items:center;justify-content:center}
+.rokHudSectionLabel svg{width:8px;height:8px;fill:currentColor}
+@media(pointer:coarse) and (max-width:950px){
+ .rokHudLifeIcon{font-size:12px}
+ .rokHudSectionLabel svg{width:7px;height:7px}
+}
