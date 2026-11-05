@@ -9,19 +9,70 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
  const MAGNET_RANGE=4.05,MAGNET_SPEED=36,MAGNET_CAPTURE=.7;
  const ORB_LIFETIME=10,ORB_FADE_START=7;
  const orbPool=[];const ORBIT_PARTICLES=4,TRAIL_PER_PARTICLE=4,POINT_COUNT=ORBIT_PARTICLES*(1+TRAIL_PER_PARTICLE);
+ // R.O.K. elemental spectrum: 11 distinct stops. The salmon tone bridges
+ // magenta and white, rather than reducing the effect to a single hue.
+ const rainbowHex=[
+  0xff324d, // red
+  0xff8b2d, // orange
+  0xffdf38, // yellow
+  0xbfff3f, // lime
+  0x42e86f, // green
+  0x00ffe4, // cyan
+  0x277bff, // blue
+  0x8d69ff, // violet
+  0x6229ad, // purple
+  0xf22aa2, // magenta
+  0xffb3a2  // salmon / luminous pink, transitioning into white
+ ];
+ const rainbowColors=rainbowHex.map(hex=>new THREE.Color(hex));
+ const white=new THREE.Color(0xffffff);
+ const spectrumColor=new THREE.Color();
+ function sampleSpectrum(at,out=spectrumColor){
+  const n=rainbowColors.length,phase=((at%1)+1)%1*n;
+  const a=Math.floor(phase),b=(a+1)%n;
+  return out.copy(rainbowColors[a]).lerp(rainbowColors[b],phase-a);
+ }
+ // Angular/radial texture means several distinct colors are visible at
+ // once on the same orb AND in the fountain basin, never a flat tint.
+ // Pure white glints are layered over the palette without washing it out.
+ const canvas=document.createElement('canvas');
+ canvas.width=256;canvas.height=256;
+ const ctx=canvas.getContext('2d');
+ const image=ctx.createImageData(256,256),pixel=image.data;
+ const pixelColor=new THREE.Color();
+ for(let y=0;y<256;y++)for(let x=0;x<256;x++){
+  const dx=(x-127.5)/127.5,dy=(y-127.5)/127.5;
+  const angle=(Math.atan2(dy,dx)/Math.PI/2+1)%1;
+  const radius=Math.min(1,Math.hypot(dx,dy));
+  sampleSpectrum(angle+radius*.26,pixelColor);
+  const glint=.12*Math.pow(Math.max(0,Math.sin(angle*22*Math.PI+radius*8)),14);
+  pixelColor.lerp(white,glint);
+  const index=(y*256+x)*4;
+  pixel[index]=Math.round(255*THREE.MathUtils.linearToSRGB(pixelColor.r));
+  pixel[index+1]=Math.round(255*THREE.MathUtils.linearToSR(pixelColor.g));
+  pixel[index+2]=Math.round(255*THREE.MathUtils.linearToSR(pixelColor.b));
+  pixel[index+3]=255;
+ }
+ ctx.putImageData(image,0,0);
+ const rainbowTexture=new THREE.CanvasTexture(canvas);
+ rainbowTexture.colorSpace=THREE.SRGBColorSpace;
+ rainbowTexture.wrapS=THREE.RepeatWrapping;
+ rainbowTexture.wrapT=THREE.RepeatWrapping;
+ rainbowTexture.center.set(.5,.5);
  const coreGeo=new THREE.IcosahedronGeometry(.23,1);
  const haloGeo=new THREE.SphereGeometry(.37,12,8);
  const pointMaterial=new THREE.PointsMaterial({size:.18,vertexColors:true,sizeAttenuation:true,
   transparent:true,opacity:.95,depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending});
- const coreMaterial=new THREE.MeshBasicMaterial({color:0xc8fff9,transparent:true,depthWrite:false});
- const haloMaterial=new THREE.MeshBasicMaterial({color:0x00ffe4,transparent:true,
+ const coreMaterial=new THREE.MeshBasicMaterial({color:0xffffff,map:rainbowTexture,transparent:true,depthWrite:false});
+ const haloMaterial=new THREE.MeshBasicMaterial({color:0xffffff,map:rainbowTexture,transparent:true,
   opacity:.24,depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending});
  const waterGeo=new THREE.CircleGeometry(1,48);
  const waterRingGeo=new THREE.RingGeometry(.73,.96,48);
  const beamGeo=new THREE.CylinderGeometry(.07,.17,1.5,12,1,true);
  const sparkGeo=new THREE.OctahedronGeometry(.095,0);
- const mat=(color,opacity=1)=>new THREE.MeshBasicMaterial({
-  color,transparent:true,opacity,depthWrite:false,depthTest:true,side:THREE.DoubleSide
+ const mat=(color,opacity=1,rainbow=false)=>new THREE.MeshBasicMaterial({
+  color, ...(rainbow?{map:rainbowTexture}:{}),
+  transparent:true,opacity,depthWrite:false,depthTest:true,side:THREE.DoubleSide
  });
  function disposeVisual(group){
   root.remove(group);
@@ -83,7 +134,12 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
     positions[index+1]=k===0?y:Math.sin(trailAngle)*radius*.78;
     positions[index+2]=k===0?z:Math.sin(trailAngle+.45)*radius*.65*tilt;
     const fade=k===0?blink:Math.max(.06,(1-k/(TRAIL_PER_PARTICLE+1))*.55);
-    colors[index]=.27*fade;colors[index+1]=fade;colors[index+2]=.93*fade;
+    // Each of the four orbiting particles cycles through the full spectrum
+    // at a different phase; the trail follows with a short chromatic delay.
+    const spectral=sampleSpectrum(t*.034+j*.25-k*.012);
+    colors[index]=spectral.r*fade;
+    colors[index+1]=spectral.g*fade;
+    colors[index+2]=spectral.b*fade;
    }
   }
   orb.points.geometry.attributes.position.needsUpdate=true;
@@ -97,6 +153,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
    1-urgency*(.2+.55*(.5+.5*Math.sin(orb.age*(10+urgency*24))));
   const alpha=fade*flicker;
   orb.core.material.opacity=alpha;
+  orb.core.rotation.z+=dt*.31;
   orb.glow.material.opacity=.24*alpha;
   orb.points.material.opacity=.95*alpha;
   orb.glow.scale.setScalar(flash);
@@ -123,26 +180,26 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
    const radius=Math.max(.35,Math.min(1.2,Math.min(size.x,size.z)*.27));
    const visual=new THREE.Group();
    visual.position.set(center.x,basinY,center.z);
-   const water=new THREE.Mesh(waterGeo,mat(0x18dfff,.34));
+   const water=new THREE.Mesh(waterGeo,mat(0xffffff,.34,true));
    water.rotation.x=-Math.PI/2;
    water.scale.setScalar(radius);
    visual.add(water);
-   const ripple1=new THREE.Mesh(waterRingGeo,mat(0x7cfff4,.42));
+   const ripple1=new THREE.Mesh(waterRingGeo,mat(0xffffff,.42,true));
    ripple1.rotation.x=-Math.PI/2;ripple1.position.y=.02;ripple1.scale.setScalar(radius);
    visual.add(ripple1);
-   const ripple2=new THREE.Mesh(waterRingGeo,mat(0xc8fff7,.30));
+   const ripple2=new THREE.Mesh(waterRingGeo,mat(0xffffff,.30,true));
    ripple2.rotation.x=-Math.PI/2;ripple2.position.y=.028;ripple2.scale.setScalar(radius);
    visual.add(ripple2);
-   const beam=new THREE.Mesh(beamGeo,mat(0x45fff0,.0));
+   const beam=new THREE.Mesh(beamGeo,mat(0xffffff,.0,true));
    beam.position.y=.8;beam.scale.set(radius*.65,1,radius*.65);
    visual.add(beam);
-   const halo=new THREE.Mesh(new THREE.TorusGeometry(radius*.8,.06,8,48),mat(0xd9fff8,0));
+   const halo=new THREE.Mesh(new THREE.TorusGeometry(radius*.8,.06,8,48),mat(0xffffff,0,true));
    halo.rotation.x=Math.PI/2;halo.position.y=.3;visual.add(halo);
-   const light=new THREE.PointLight(0x16ffe7,0,Math.max(3,size.y*2));
+   const light=new THREE.PointLight(0xffffff,0,Math.max(3,size.y*2));
    light.position.y=.6;visual.add(light);
    const sparks=[];
    for(let i=0;i<10;i++){
-    const spark=new THREE.Mesh(sparkGeo,mat(i%2?0xb4fff8:0x23ffdf,0));
+    const spark=new THREE.Mesh(sparkGeo,mat(0xffffff,0));
     visual.add(spark);sparks.push(spark);
    }
    root.add(visual);
@@ -180,11 +237,21 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   }
   source.pending=true;source.cast=0;
  }
+ function animateSpectrum(source){
+  const t=source.phase;
+  // A different spectral wave for each moving water ring, spark and light.
+  // This applies even while the fountain is idle; emission only boosts alpha.
+  source.light.color.copy(sampleSpectrum(t*.045+source.player*.2));
+  source.sparks.forEach((spark,i)=>{
+   spark.material.color.copy(sampleSpectrum(t*.09+i/source.sparks.length));
+  });
+ }
  function animateWater(source,dt){
   // Effects follow the real source and disappear when scenery is hidden.
   source.visual.visible=!!(source.instance.parent?.visible&&source.instance.parent?.parent?.visible);
   source.phase+=dt*1.1;
   const t=source.phase;
+  animateSpectrum(source);
   source.water.material.opacity=.27+Math.sin(t*1.5)*.07;
   source.water.rotation.z+=dt*.11;
   source.ripple1.scale.setScalar(source.radius*(.82+.13*(1+Math.sin(t*1.7))));
@@ -223,11 +290,13 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
  // spawn timers never advance during pause or preparation.
  function idle(dt){
   if(!Number.isFinite(dt)||dt<=0)return;
+  rainbowTexture.rotation=(rainbowTexture.rotation+dt*.18)%(Math.PI*2);
   for(const source of sources){
    if(!source.instance.parent)continue;
    source.visual.visible=!!(source.instance.parent.visible&&source.instance.parent.parent?.visible);
    source.phase+=dt*1.1;
    const t=source.phase;
+   animateSpectrum(source);
    source.water.material.opacity=.27+Math.sin(t*1.5)*.07;
    source.water.rotation.z+=dt*.11;
    source.ripple1.scale.setScalar(source.radius*(.82+.13*(1+Math.sin(t*1.7))));
@@ -238,6 +307,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
  }
  function tick(dt){
   if(!Number.isFinite(dt)||dt<=0)return;
+  rainbowTexture.rotation=(rainbowTexture.rotation+dt*.18)%(Math.PI*2);
   for(const source of sources){
    if(!source.instance.parent){continue;}
    source.elapsed+=dt;
@@ -283,6 +353,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   orbPool.length=0;
   coreGeo.dispose();haloGeo.dispose();pointMaterial.dispose();coreMaterial.dispose();haloMaterial.dispose();
   waterGeo.dispose();waterRingGeo.dispose();beamGeo.dispose();sparkGeo.dispose();
+  rainbowTexture.dispose();
  }
  return {bindSources,reset,tick,idle,dispose,
   forEachActiveOrb(callback){for(let i=0;i<orbs.length;i++)callback(orbs[i],i);},
