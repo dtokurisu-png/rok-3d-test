@@ -212,8 +212,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.75 · Fuentes y orbes elementales</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.75</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.76 · Fuentes reales y emisión mágica</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.76</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -384,11 +384,11 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
-import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-sightcone-1';
+import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-real-fountains-1';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.69';
 import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.68';
 import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.75';
-import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.75';
+import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.76';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.69';
@@ -508,7 +508,8 @@ const fill=new THREE.DirectionalLight(0x00ccb8,.65);fill.position.set(4,5,-6);sc
 
 const root=new THREE.Group();scene.add(root);
 // Scenery overlay is visual only: never modifies units, hitboxes, pathfinding or rules.
-const sceneryOverlay=createArenaSceneOverlay({THREE,root,renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;},onArenaVisual:opacity=>{
+let attachRealElementSources=null;
+const sceneryOverlay=createArenaSceneOverlay({THREE,root,onSourcesChange:sources=>attachRealElementSources?.(sources),renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;},onArenaVisual:opacity=>{
  const fraction=THREE.MathUtils.clamp(Number(opacity)/100,0,1);
  if(arenaArt){arenaArt.material.transparent=true;arenaArt.material.opacity=fraction;arenaArt.material.needsUpdate=true;}
  pendingSceneOpacity=fraction;
@@ -1657,6 +1658,8 @@ function selectCombatTarget(c){
 let loaded=false,playing=false,tm=0,prevTime=performance.now();
 const combatHud=createArenaCombatHud();
 const elementOrbs=createArenaElementOrbs({THREE,root,casters,onCollect:side=>combatHud.collectOrb(side)});
+attachRealElementSources=sources=>{elementOrbs.bindSources(sources);elementOrbs.reset();};
+attachRealElementSources(sceneryOverlay.getElementSources());
 const pendingCasterInstalls=[];
 const matchGate=createArenaMatchGate({
  onStart:configuration=>{
@@ -3619,6 +3622,28 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
+  // Load the published Chiara scene for PC and mobile; legacy editor
+  // transfer remains opt-in via ?scene=escenario-1.
+  if(new URLSearchParams(location.search).get('scene')!=='escenario-1'){
+   void (async()=>{
+    try{
+     await sceneryOverlay.init();
+     if(sceneryOverlay.currentName)return;
+     const response=await fetch('./assets/scenes/arena-de-chiara.json',{cache:'no-store'});
+     if(!response.ok)throw Error('HTTP '+response.status);
+     const ok=await sceneryOverlay.loadScene(await response.json());
+     if(ok){
+      sceneryOverlay.show(true);
+      const name=qs('#testerSceneCurrent');
+      if(name)name.textContent=sceneryOverlay.currentName;
+     }
+    }catch(error){
+     console.warn('[R.O.K.] Arena de Chiara no cargada:',error);
+     const sceneMessage=qs('#testerSceneStatus');
+     if(sceneMessage)sceneMessage.textContent='Arena de Chiara: '+String(error.message||error);
+    }
+   })();
+  }
   qs('#modelStatus').textContent='4 Faroleras + '+combatants.filter(c=>c.kind==='archer').length+' Arqueras + 2 casters · Arquera: 3 PV, alcance 9, daño 2 · ataque 3 s / Farolera 2 s';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
   // The preparation interface was shown before downloading models.
