@@ -229,7 +229,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 /* Spellbook v0.9.98. The existing WASD inputs stay in the DOM for the
    keyboard controller; only the old visible PC movement panel is removed. */
 #casterMobilityPanel{display:none!important}
-#rokSpellbook{position:fixed;z-index:27;right:10px;bottom:calc(8px + env(safe-area-inset-bottom,0px));
+#rokSpellbook{position:fixed;z-index:49;right:10px;bottom:calc(8px + env(safe-area-inset-bottom,0px));
  width:clamp(210px,31vw,370px);aspect-ratio:1535/1024;pointer-events:none;
  background-image:url('./assets/ui/grimorio-bosque-encantado.svg');
  background-size:100% 100%;background-position:center;background-repeat:no-repeat;
@@ -246,7 +246,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 #rokSpellbook .rokSpellbookPageKey[aria-pressed="true"]{border-color:#00ffdf;
  box-shadow:0 0 11px #00ffdf,inset 0 0 7px #000}
 #rokSpellbook .rokSpellbookPageKey:focus-visible{outline:3px solid white;outline-offset:3px}
-#rokSpellbookCards{position:fixed;z-index:28;right:10px;bottom:calc(212px + env(safe-area-inset-bottom,0px));
+#rokSpellbookCards{position:fixed;z-index:52;right:10px;bottom:calc(212px + env(safe-area-inset-bottom,0px));
  width:clamp(245px,29vw,345px);padding:10px;border:1px solid #d8b96b;
  border-radius:11px;background:linear-gradient(155deg,#17302ceb,#0a1717f2);
  box-shadow:0 8px 25px #000c;color:white}
@@ -267,7 +267,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  padding:2px 4px;border-radius:4px;font-weight:900}
 .rokSpellSlot .rokSpellCost{position:absolute;top:3px;right:3px;color:#f6e6a1;background:#000b;
  padding:2px 4px;border-radius:4px;font-weight:900}
-#rokSpellbookStatus{position:fixed;z-index:28;right:12px;
+#rokSpellbookStatus{position:fixed;z-index:52;right:12px;
  bottom:calc(7px + env(safe-area-inset-bottom,0px) + min(25vw,220px));
  max-width:min(350px,62vw);pointer-events:none;font:700 11px Roboto,system-ui,sans-serif;
  color:#d5fff5;text-align:right;text-shadow:0 1px 3px #000}
