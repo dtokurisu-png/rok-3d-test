@@ -14,7 +14,7 @@ export function createArenaMatchGate({onStart,onResume,onPause}){
  const mobile=window.matchMedia('(pointer:coarse) and (max-width:950px)');
  const portrait=window.matchMedia('(orientation:portrait)');
  const options=[['water','Agua'],['fire','Fuego'],['wind','Viento']];
- let mode='loading',configuration=['water'];
+ let mode='loading',configuration=['water'],coreReady=false,coreError='';
  let confirmed=null;
  const orientationBlocked=()=>mobile.matches&&portrait.matches;
  function view(){
@@ -22,7 +22,11 @@ export function createArenaMatchGate({onStart,onResume,onPause}){
   selectPanel.hidden=mode!=='selecting';
   readyPanel.hidden=mode!=='armed'&&mode!=='rotation-paused';
   panel.hidden=mode==='loading'||mode==='running';
-  start.textContent=mode==='rotation-paused'?'▶ REANUDAR':'▶ INICIAR';
+  start.textContent=mode==='rotation-paused'?'▶ REANUDAR':coreReady?'▶ INICIAR':'CARGANDO COMBATIENTES…';
+  start.disabled=mode==='armed'&&!coreReady;
+  const note=coreError?'Error de modelos: '+coreError:coreReady?'':'Preparando combatientes sin bloquear esta pantalla…';
+  if(mode==='armed')readyWarning.textContent=note;
+  else if(mode==='selecting')warning.textContent=note;
  }
  function selectInputs(){
   const prior=[...priorities.querySelectorAll('select')].map(el=>el.value);
@@ -55,7 +59,7 @@ export function createArenaMatchGate({onStart,onResume,onPause}){
   mode='armed';view();
  });
  start.addEventListener('click',()=>{
-  if(orientationBlocked()||!(mode==='armed'||mode==='rotation-paused'))return;
+  if(orientationBlocked()||!(mode==='armed'||mode==='rotation-paused')||!coreReady)return;
   const resuming=mode==='rotation-paused';
   start.disabled=true;
   try{
@@ -72,6 +76,12 @@ export function createArenaMatchGate({onStart,onResume,onPause}){
   if(mode!=='loading')return;
   mode='selecting';configuration=['water'];confirmed=null;
   count.value='1';selectInputs();view();
+ }
+ function setCoreReady(){
+  coreReady=true;coreError='';view();
+ }
+ function setCoreError(reason){
+  coreReady=false;coreError=String(reason||'Fallo de carga');view();
  }
  function checkOrientation(){
   if(mode==='running'&&orientationBlocked()){
@@ -91,7 +101,7 @@ export function createArenaMatchGate({onStart,onResume,onPause}){
  });
  view();
  return {
-  resourcesReady,checkOrientation,
+  resourcesReady,setCoreReady,setCoreError,checkOrientation,
   get isRunning(){return mode==='running';},
   get isPrepared(){return mode==='armed';},
   get configuration(){return confirmed?.slice()||null;}
