@@ -19,8 +19,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   0x42e86f, // green
   0x00ffe4, // cyan
   0x277bff, // blue
-  0x8d69ff, // violet
-  0x6229ad, // purple
+  0x6229ad, // purple / violet
   0xf22aa2, // magenta
   0xffb3a2  // salmon / luminous pink, transitioning into white
  ];
@@ -48,9 +47,10 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   const glint=.12*Math.pow(Math.max(0,Math.sin(angle*22*Math.PI+radius*8)),14);
   pixelColor.lerp(white,glint);
   const index=(y*256+x)*4;
-  pixel[index]=Math.round(255*THREE.MathUtils.linearToSRGB(pixelColor.r));
-  pixel[index+1]=Math.round(255*THREE.MathUtils.linearToSR(pixelColor.g));
-  pixel[index+2]=Math.round(255*THREE.MathUtils.linearToSR(pixelColor.b));
+  pixelColor.convertLinearToSRGB();
+  pixel[index]=Math.round(255*pixelColor.r);
+  pixel[index+1]=Math.round(255*pixelColor.g);
+  pixel[index+2]=Math.round(255*pixelColor.b);
   pixel[index+3]=255;
  }
  ctx.putImageData(image,0,0);
