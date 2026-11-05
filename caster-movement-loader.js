@@ -43,6 +43,10 @@ export function createCasterMovementLoader({FBXLoader,adaptClip,getManualControl
    if(!res.ok)throw Error('FBX '+spec.id+': HTTP '+res.status);
    buffer=await res.arrayBuffer();
   }else{
+   // Legacy archived clips must not trigger another 17 MB download on
+   // low-bandwidth phones. Direct forward/attack/strafe clips work without it.
+   if(window.matchMedia?.('(pointer:coarse) and (max-width:950px)').matches)
+    throw Error('Clip de ZIP opcional omitido en móvil: '+spec.id);
    const archive=await zip();
    const item=Object.values(archive.files).find(x=>!x.dir&&x.name.split('/').pop().toLowerCase()===spec.name.toLowerCase());
    if(!item)throw Error('Falta animación '+spec.id+' en el ZIP');
