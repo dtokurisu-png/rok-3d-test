@@ -117,15 +117,29 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   // during wind-up without cancelling the already accepted attack.
   const target=getAttackTarget?.(c)||null;
   if(!target){notify('Sin enemigo al alcance · ataque no iniciado');return false;}
-  committedAttackTarget=target;
   const clip=clips.get('attack')||c.model?.userData?.rokAttackClip;
-  if(clip?.duration>0)layers.upper(c,'attack',clip,clip.duration/ATTACK_PERIOD);
+  if(!clip||clip.duration<=0){
+   // Do not fire a projectile using a missing or substituted attack animation.
+   requestClips(c);
+   notify('Cargando ataque original 02 · inténtalo nuevamente');
+   return false;
+  }
+  // The approved original Magic Heal attack begins at source frame 13,
+  // omitting its slow preparation; finish the remaining motion in 1 second.
+  const frame13=13/30;
+  const startTime=clip.duration>frame13+.05?frame13:0;
+  const attackSpeed=Math.max(.1,(clip.duration-startTime)/ATTACK_PERIOD);
+  if(!layers.upper(c,'attack',clip,attackSpeed,{startTime})){
+   notify('No se pudo activar la animación original 02');
+   return false;
+  }
+  committedAttackTarget=target;
   attackElapsed=0;attackReleased=false;
   // Logical projectile timing works even if the FBX is still loading.
   attackDuration=ATTACK_PERIOD;
   attackCooldown=ATTACK_PERIOD;
   requestClips(c);
-  notify(clip?'Ataque superior 02':'Ataque activo · preparando FBX 02');
+  notify('Ataque original 02 · Magic Heal');
   return true;
  }
  function step(dt){
