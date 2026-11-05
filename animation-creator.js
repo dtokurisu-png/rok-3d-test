@@ -77,7 +77,9 @@ function buildChains(){
   ['Brazo izquierdo',['leftarm','leftupperarm'],['leftforearm','leftlowerarm'],['lefthand','leftwrist']],
   ['Brazo derecho',['rightarm','rightupperarm'],['rightforearm','rightlowerarm'],['righthand','rightwrist']],
   ['Pierna izquierda',['leftupleg','leftthigh'],['leftleg','leftcalf','leftshin'],['leftfoot','leftankle']],
-  ['Pierna derecha',['rightupleg','rightthigh'],['rightleg','rightcalf','rightshin'],['rightfoot','rightankle']]
+  ['Pierna derecha',['rightupleg','rightthigh'],['rightleg','rightcalf','rightshin'],['rightfoot','rightankle']],
+  ['Cadera y torso',['hips','pelvis'],['spine'],['spine1','spine2','chest']],
+  ['Torso y cabeza',['spine1','spine2','upperchest'],['neck'],['head']]
  ];
  return defs.map(([label,upper,lower,tip])=>({
   label,upper:roleBone(upper),lower:roleBone(lower),tip:roleBone(tip)
@@ -130,7 +132,7 @@ function makeTargets(){
   const chain=state.chains[i];
   chain.tip.updateWorldMatrix(true,false);
   const target=new THREE.Mesh(new THREE.SphereGeometry(.085,16,12),
-   new THREE.MeshBasicMaterial({color:i<2?0x00ffe4:0xd1ff4d,
+   new THREE.MeshBasicMaterial({color:i<2?0x00ffe4:i<4?0xd1ff4d:0xffb678,
     depthTest:false,transparent:true,opacity:.94}));
   target.position.copy(chain.tip.getWorldPosition(new THREE.Vector3()));
   target.renderOrder=200;target.userData.rokIKTarget=i;
