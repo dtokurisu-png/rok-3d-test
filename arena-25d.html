@@ -294,6 +294,49 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  #rokSpellbook .rokSpellbookPageKey{font-size:14px}
  #rokSpellbookExit{font-size:10px;top:82%;left:10%;right:10%}
 }
+
+/* v0.9.107 - compact landscape mobile HUD and spellbook drawer */
+@media (pointer:coarse) and (max-width:950px) and (orientation:landscape){
+ #rokSpellbook{
+  width:142px!important;height:44px!important;aspect-ratio:auto!important;
+  background-image:none!important;filter:none!important;
+  display:flex!important;justify-content:space-between;align-items:center;gap:5px;
+  padding:3px!important;border:0!important;pointer-events:auto!important;
+ }
+ #rokSpellbook .rokSpellbookPageKey,
+ #rokSpellbook .rokSpellbookPageKey[data-page]{
+  position:static!important;transform:none!important;left:auto!important;top:auto!important;
+  display:flex;align-items:center;justify-content:center;
+  flex:1;min-width:0;width:auto!important;height:37px;aspect-ratio:auto!important;
+  border-radius:9px!important;font-size:18px!important;
+  background:#102b32ed!important;border:1px solid #00ffdfaa!important;
+  box-shadow:0 3px 8px #000a!important;
+ }
+ #rokSpellbookCards{
+  position:fixed!important;right:0!important;left:auto!important;
+  top:50%!important;bottom:auto!important;transform:translate(110%,-50%)!important;
+  width:min(43vw,245px)!important;height:min(85vh,355px)!important;
+  aspect-ratio:1086/1448!important;max-height:85vh!important;
+  transition:transform .22s ease!important;visibility:hidden;pointer-events:none!important;
+ }
+ #rokSpellbookCards:not([hidden]){
+  transform:translate(0,-50%)!important;visibility:visible;pointer-events:auto!important;
+ }
+ #rokSpellbookExit{font-size:11px!important}
+ body.mobaLayoutEditing #rokSpellbook{outline:2px dashed #00ffdf;touch-action:none}
+ #rokCombatHud{top:calc(env(safe-area-inset-top,0px) + 10px)!important;width:86vw!important;
+  grid-template-columns:minmax(0,1fr) 39px minmax(0,1fr)!important;gap:2px!important;
+  --element-reservoir-height:22px}
+ #rokCombatHud .rokHudPortrait{width:23px!important;height:27px!important;flex-basis:23px!important}
+ #rokCombatHud .rokHudName{font-size:7px!important;line-height:8px!important}
+ #rokCombatHud .rokHudLifeCells{height:7px!important}
+ #rokCombatHud .rokHudElementTrack{height:min(var(--element-reservoir-height),25px)!important;padding:2px!important}
+ #rokCombatHud .rokHudSectionLabels{height:7px!important;line-height:7px!important}
+ #rokCombatHud .rokHudSectionLabel{font-size:6px!important}
+ #rokCombatHud #rokHudClock{font-size:11px!important;line-height:14px!important}
+ #rokCombatHud .rokHudVS{font-size:10px!important;line-height:12px!important}
+}
+@media (prefers-reduced-motion:reduce){#rokSpellbookCards{transition:none!important}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.80"></head>
@@ -340,7 +383,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.106</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.107</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -439,7 +482,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
    <button id="mobaResetLayout" type="button">Restablecer</button>
   </div>
   <p>En modo edición arrastra joystick, ataque y defensa. Confirma con Guardar controles; se conservarán al volver a abrir el juego.</p>
-  <div class="mobaSettingsActions"><button id="mobaSaveLayout" type="button">Guardar controles</button></div>
+  <div class="mobaSettingsActions"><button id="mobaSaveLayout" type="button">Guardar distribución</button><button id="mobaExportLayout" type="button">Exportar JSON</button><button id="mobaImportLayout" type="button">Importar JSON</button></div><input id="mobaLayoutFile" type="file" accept=".json,application/json" hidden>
   <p id="mobaLayoutStatus" role="status"></p>
   <p><strong>Escenario:</strong> Si fue creado en otro dispositivo, importa una vez su archivo JSON y quedará guardado aquí.</p>
   <div class="mobaSettingsActions"><button id="mobaLoadScene" type="button">Cargar escenario JSON</button></div>
@@ -4456,19 +4499,20 @@ function setupMobileMobaControls(){
  const attack=qs('#mobaAttack'),defend=qs('#mobaDefend');
  const settings=qs('#mobaSettingsButton'),dialog=qs('#mobileMobaSettings');
  const editNotice=qs('#mobaAdjustIndicator');
- const elements={joystick:joy,attack,defend};
+ const book=qs('#rokSpellbook');
+ const elements={joystick:joy,attack,defend,spellbook:book};
  // Keep the joystick left and position touch actions beside the book.
- const spellbookReservedWidth=()=>innerWidth<=759?
-  THREE.MathUtils.clamp(innerWidth*.31,172,245):
+ const spellbookReservedWidth=()=>mobileQuery.matches?158:
   THREE.MathUtils.clamp(innerWidth*.31,210,370);
  const defaults={joystick:{left:23,bottom:18},
   attack:{right:spellbookReservedWidth()+22,bottom:24},
-  defend:{right:spellbookReservedWidth()+106,bottom:24}};
+  defend:{right:spellbookReservedWidth()+106,bottom:24},
+  spellbook:{right:8,bottom:8}};
  const defaultPosition=key=>{
   const d=defaults[key];
   // During portrait lock the control layer is hidden (offsetWidth=0).
   // Use known touch-target sizes to preserve the correct landscape layout.
-  const width=key==='joystick'?120:key==='defend'?60:76;
+  const width=key==='joystick'?120:key==='defend'?60:key==='spellbook'?142:76;
   return {left:d.left??Math.max(8,innerWidth-(d.right??8)-width),
     bottom:d.bottom};
  };
@@ -4486,7 +4530,7 @@ function setupMobileMobaControls(){
  const normalizeLayout=()=>Object.fromEntries(Object.entries(elements).map(([key,el])=>{
   const p=offsets[key]||defaultPosition(key);
   const w=Math.max(1,innerWidth-(el.offsetWidth||(key==='joystick'?120:key==='defend'?60:76)));
-  const h=Math.max(1,innerHeight-(el.offsetHeight||(key==='joystick'?120:key==='defend'?60:76)));
+  const h=Math.max(1,innerHeight-(el.offsetHeight||(key==='joystick'?120:key==='defend'?60:key==='spellbook'?44:76)));
   return [key,{x:p.left/w,y:p.bottom/h}];
  }));
  const applyNormalizedLayout=layout=>{
@@ -4494,14 +4538,14 @@ function setupMobileMobaControls(){
    const pos=layout?.[key];
    if(!pos||!Number.isFinite(pos.x)||!Number.isFinite(pos.y))continue;
    const w=Math.max(1,innerWidth-(el.offsetWidth||(key==='joystick'?120:key==='defend'?60:76)));
-   const h=Math.max(1,innerHeight-(el.offsetHeight||(key==='joystick'?120:key==='defend'?60:76)));
+   const h=Math.max(1,innerHeight-(el.offsetHeight||(key==='joystick'?120:key==='defend'?60:key==='spellbook'?44:76)));
    applyPosition(key,{left:pos.x*w,bottom:pos.y*h});
   }
  };
  const clampPosition=(key,left,bottom)=>{
   const el=elements[key];
   const width=el.offsetWidth||(key==='joystick'?120:key==='defend'?60:76);
-  const height=el.offsetHeight||(key==='joystick'?120:key==='defend'?60:76);
+  const height=el.offsetHeight||(key==='joystick'?120:key==='defend'?60:key==='spellbook'?44:76);
   return {left:THREE.MathUtils.clamp(left,5,Math.max(5,innerWidth-width-5)),
    bottom:THREE.MathUtils.clamp(bottom,5,Math.max(5,innerHeight-height-5))};
  };
@@ -4556,7 +4600,7 @@ function setupMobileMobaControls(){
     const rect=elements[key].getBoundingClientRect();
     const overlaps=rect.left<book.right&&rect.right>book.left&&
      rect.top<book.bottom&&rect.bottom>book.top;
-    if(overlaps)applyPosition(key,defaultPosition(key));
+    if(overlaps&&!customizedLayout)applyPosition(key,defaultPosition(key));
    }
   }
  }
@@ -4568,7 +4612,7 @@ function setupMobileMobaControls(){
  };
  function stopEdit(){
   const wasEditing=editing;
-  editing=false;editNotice.dataset.visible='false';
+  editing=false;document.body.classList.remove('mobaLayoutEditing');editNotice.dataset.visible='false';
   releaseInputs();
   if(wasEditing)saveLayout();
  }
@@ -4592,10 +4636,41 @@ function setupMobileMobaControls(){
  });
  qs('#mobaResume').addEventListener('click',resume);
  qs('#mobaReposition').addEventListener('click',()=>{
-  editing=true;dialog.dataset.open='false';editNotice.dataset.visible='true';
+  editing=true;document.body.classList.add('mobaLayoutEditing');dialog.dataset.open='false';editNotice.dataset.visible='true';
  });
  qs('#mobaResetLayout').addEventListener('click',resetLayout);
  qs('#mobaSaveLayout').addEventListener('click',saveLayout);
+ const downloadLayout=()=>{
+  if(portraitQuery.matches){layoutStatus.textContent='Gira el móvil a horizontal para exportar la distribución';return;}
+  saveLayout();
+  const payload={schema:'ROK_MOBILE_HUD_LAYOUT',version:1,mode:'landscape',
+   reference:{width:innerWidth,height:innerHeight},positions:normalizeLayout()};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='rok-arena-hud-movil.json';document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  layoutStatus.textContent='✓ Distribución guardada y JSON exportado';
+ };
+ qs('#mobaExportLayout').addEventListener('click',downloadLayout);
+ const layoutFile=qs('#mobaLayoutFile');
+ qs('#mobaImportLayout').addEventListener('click',()=>layoutFile.click());
+ layoutFile.addEventListener('change',async()=>{
+  const file=layoutFile.files?.[0];layoutFile.value='';if(!file)return;
+  if(file.size>100000){layoutStatus.textContent='JSON demasiado grande';return;}
+  try{
+   const data=JSON.parse(await file.text());
+   if(data.schema!=='ROK_MOBILE_HUD_LAYOUT'||data.version!==1||
+      !data.positions||!Object.keys(elements).every(k=>
+       Number.isFinite(data.positions[k]?.x)&&Number.isFinite(data.positions[k]?.y)&&
+       data.positions[k].x>=0&&data.positions[k].x<=1&&
+       data.positions[k].y>=0&&data.positions[k].y<=1))
+    throw Error('Formato de distribución inválido');
+   customizedLayout=true;pendingLandscapeSaved=data.positions;
+   if(!portraitQuery.matches)applyNormalizedLayout(data.positions);
+   localStorage.setItem('rokMobileMobaLayoutV2',JSON.stringify(data.positions));
+   layoutStatus.textContent='✓ Distribución importada y guardada';
+  }catch(error){layoutStatus.textContent='No se pudo importar: '+error.message;}
+ });
  qs('#mobaLoadScene').addEventListener('click',()=>sceneFile.click());
  sceneFile.addEventListener('change',async()=>{
   const file=sceneFile.files?.[0];sceneFile.value='';
@@ -4637,6 +4712,7 @@ function setupMobileMobaControls(){
    event.preventDefault();el.setPointerCapture?.(event.pointerId);
    if(editing){drag={key,pointer:event.pointerId,...dragStart(key,event)};return;}
    if(opened||portraitPaused)return;
+   if(key==='spellbook')return;
    if(key==='joystick'){
     joyPointer=event.pointerId;joystickMove(event);
    }else if(key==='attack'){
