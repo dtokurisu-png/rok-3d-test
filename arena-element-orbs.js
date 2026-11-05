@@ -7,6 +7,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
  const sources=[],orbs=[];
  const ORB_LIMIT=6,EMIT_DURATION=1.35,FIELD_HALF_WIDTH=6.35;
  const MAGNET_RANGE=4.05,MAGNET_SPEED=36,MAGNET_CAPTURE=.7;
+ const ORB_LIFETIME=10,ORB_FADE_START=7;
  const orbPool=[];const ORBIT_PARTICLES=4,TRAIL_PER_PARTICLE=4,POINT_COUNT=ORBIT_PARTICLES*(1+TRAIL_PER_PARTICLE);
  const coreGeo=new THREE.IcosahedronGeometry(.23,1);
  const haloGeo=new THREE.SphereGeometry(.37,12,8);
@@ -29,7 +30,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   });
  }
  function clearOrbs(){
-  for(const orb of orbs){orb.group.visible=false;orb.target=null;orb.source=null;}
+  for(const orb of orbs){orb.group.visible=false;orb.target=null;orb.source=null;orb.age=0;}
   orbs.length=0;
  }
  function rebuildOrbPool(){
@@ -38,12 +39,13 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   for(const orb of orbPool){
    root.remove(orb.group);
    orb.points.geometry.dispose();
+   orb.core.material.dispose();orb.glow.material.dispose();orb.points.material.dispose();
   }
   orbPool.length=0;
   for(let i=0;i<ORB_LIMIT*2;i++){
    const group=new THREE.Group();group.visible=false;
-   const core=new THREE.Mesh(coreGeo,coreMaterial);group.add(core);
-   const glow=new THREE.Mesh(haloGeo,haloMaterial);group.add(glow);
+   const core=new THREE.Mesh(coreGeo,coreMaterial.clone());group.add(core);
+   const glow=new THREE.Mesh(haloGeo,haloMaterial.clone());group.add(glow);
    const geometry=new THREE.BufferGeometry();
    const positions=new Float32Array(POINT_COUNT*3);
    const colors=new Float32Array(POINT_COUNT*3);
@@ -55,9 +57,9 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
    geometry.setAttribute('color',colorAttribute);
    geometry.setDrawRange(0,POINT_COUNT);
    // Ensure the moving particles cannot be culled by their initial bounds.
-   const points=new THREE.Points(geometry,pointMaterial);
+   const points=new THREE.Points(geometry,pointMaterial.clone());
    points.frustumCulled=false;group.add(points);root.add(group);
-   orbPool.push({group,core,glow,points,phase:0,target:null,source:null});
+   orbPool.push({group,core,glow,points,phase:0,age:0,target:null,source:null});
   }
  }
  function updateAtom(orb,dt){
@@ -87,6 +89,16 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   orb.points.geometry.attributes.position.needsUpdate=true;
   orb.points.geometry.attributes.color.needsUpdate=true;
   const flash=.82+.3*Math.sin(t*3.8);
+  const fade=orb.age<=ORB_FADE_START?1:
+   Math.max(0,(ORB_LIFETIME-orb.age)/(ORB_LIFETIME-ORB_FADE_START));
+  // Faster pulses and lower opacity through the final three seconds.
+  const urgency=1-fade;
+  const flicker=orb.age<=ORB_FADE_START?1:
+   1-urgency*(.2+.55*(.5+.5*Math.sin(orb.age*(10+urgency*24))));
+  const alpha=fade*flicker;
+  orb.core.material.opacity=alpha;
+  orb.glow.material.opacity=.24*alpha;
+  orb.points.material.opacity=.95*alpha;
   orb.glow.scale.setScalar(flash);
   orb.core.scale.setScalar(.9+.14*Math.sin(t*4.4));
  }
@@ -149,7 +161,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   const z=source.visual.position.z<0?-zDistance:zDistance;
   const x=-FIELD_HALF_WIDTH+Math.random()*(FIELD_HALF_WIDTH*2);
   orb.group.position.set(x,.55,z);orb.group.visible=true;
-  orb.phase=Math.random()*Math.PI*2;orb.target=null;orb.source=source;
+  orb.phase=Math.random()*Math.PI*2;orb.target=null;orb.source=source;orb.age=0;
   updateAtom(orb,0);
   orbs.push(orb);source.emitted++;
   return true;
@@ -233,7 +245,14 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
    animateWater(source,dt);
   }
   for(let i=orbs.length-1;i>=0;i--){
-   const orb=orbs[i];orb.phase+=dt*2.1;
+   const orb=orbs[i];
+   orb.age+=dt;
+   // Expiry precedes magnetism and collection, so a dead orb cannot be taken.
+   if(orb.age>=ORB_LIFETIME){
+    orb.group.visible=false;orb.target=null;orb.source=null;orbs.splice(i,1);
+    continue;
+   }
+   orb.phase+=dt*2.1;
    orb.group.position.y=.5+Math.sin(orb.phase)*.13;
    orb.core.rotation.y+=dt*1.3;updateAtom(orb,dt);
    const eligible=casters.filter(c=>c?.outer&&c.hp>0&&c.stage==='active');
@@ -257,7 +276,10 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
  }
  function dispose(){
   clearOrbs();clearSources();
-  for(const orb of orbPool){root.remove(orb.group);orb.points.geometry.dispose();}
+  for(const orb of orbPool){
+   root.remove(orb.group);orb.points.geometry.dispose();
+   orb.core.material.dispose();orb.glow.material.dispose();orb.points.material.dispose();
+  }
   orbPool.length=0;
   coreGeo.dispose();haloGeo.dispose();pointMaterial.dispose();coreMaterial.dispose();haloMaterial.dispose();
   waterGeo.dispose();waterRingGeo.dispose();beamGeo.dispose();sparkGeo.dispose();
