@@ -119,3 +119,14 @@ input[type=range]{accent-color:#00ffe4;padding:0}
 /* v0.3.4: canvas size cannot remain at the renderer's 500px bootstrap dimensions. */
 .creatorViewport #creatorCanvas {position:absolute!important;inset:0!important;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;overflow:hidden!important;}
 .creatorViewport #creatorCanvas>canvas {position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:fill!important;}
+
+/* v0.3.5 — toolbar occupies a slim row without covering the 3D scene */
+.creatorShell{grid-template-rows:39px minmax(0,1fr) 166px!important}
+.creatorHistoryBar{grid-column:1/-1;grid-row:1;display:flex;align-items:center;gap:7px;background:#0d2331;border:1px solid #2a6570;border-radius:9px;padding:3px 9px;min-width:0}
+.creatorHistoryBar button{min-height:27px;padding:4px 12px;font-size:12px;white-space:nowrap;font-weight:700}
+.creatorHistoryBar button:disabled{opacity:.36}
+.creatorHistoryBar span{font-size:11px;color:#a6cdd0;padding-left:5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.creatorPanel{grid-row:2/4!important}
+.creatorViewport{grid-row:2!important}
+.creatorDopeSheet{grid-row:3!important}
+@media(max-width:740px){.creatorShell{grid-template-rows:38px minmax(0,1fr) 132px!important}.creatorHistoryBar{grid-column:1!important;grid-row:1!important}.creatorViewport{grid-row:2!important}.creatorDopeSheet{grid-row:3!important}.creatorPanel{top:48px!important}.creatorTogglePanel{top:48px!important}.creatorHistoryBar button{font-size:11px;padding:4px 8px}}
