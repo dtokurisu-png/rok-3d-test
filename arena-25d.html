@@ -321,7 +321,12 @@ qs('#expand').addEventListener('click',e=>e.stopPropagation());
 qs('#expand').addEventListener('click',expand);
 
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,window.innerWidth<700?1.5:2));
+// Landscape phones often report >700 CSS px, previously forcing 2x pixel ratio.
+// Keep their GPU workload bounded independently of screen orientation.
+const arenaPixelRatio=()=>Math.min(window.devicePixelRatio||1,
+ window.matchMedia('(pointer:coarse) and (max-width:950px)').matches?1.25:
+ window.innerWidth<700?1.5:2);
+renderer.setPixelRatio(arenaPixelRatio());
 renderer.setSize(innerWidth,innerHeight);
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
@@ -3991,7 +3996,7 @@ function loop(now){
   fpsTime+=dt;fpsCount++;if(fpsTime>=1){qs('#fps').textContent='FPS: '+Math.round(fpsCount/fpsTime);fpsTime=0;fpsCount=0;}
 }
 requestAnimationFrame(loop);
-window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();reframeCamera();renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,innerWidth<700?1.5:2));renderer.setSize(innerWidth,innerHeight);});
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();reframeCamera();renderer.setPixelRatio(arenaPixelRatio());renderer.setSize(innerWidth,innerHeight);});
 </script>
 </body>
 </html>
