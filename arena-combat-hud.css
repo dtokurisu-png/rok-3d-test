@@ -1,20 +1,17 @@
-/* R.O.K. Stage 2 — fight-game arrangement, minimal GPU cost. */
+/* R.O.K. Stage 2 — readable segmented health and elemental HUD. */
 #rokCombatHud{
  position:fixed;top:calc(7px + env(safe-area-inset-top,0px));
  left:50%;transform:translateX(-50%);
- width:min(850px,93vw);z-index:40;display:grid;
+ width:min(900px,94vw);z-index:40;display:grid;
  grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);
  gap:0;align-items:start;pointer-events:none;
  color:#fff;font-family:Roboto,system-ui,sans-serif;
  text-shadow:0 2px 4px #000d;filter:drop-shadow(0 2px 3px #0008)
 }
-.rokHudSide{min-width:0;display:flex;align-items:flex-start;gap:5px}
-.rokHudSide[data-hud-side="ally"]{flex-direction:row}
-.rokHudSide[data-hud-side="enemy"]{flex-direction:row}
+.rokHudSide{display:flex;align-items:flex-start;gap:5px;min-width:0}
 .rokHudPortrait{
- flex:0 0 43px;width:43px;height:43px;
+ width:43px;height:43px;flex:0 0 43px;border:1px solid #74f9e6;border-radius:5px;
  background:radial-gradient(circle at 50% 35%,#3b8586,#12343b 75%);
- border:1px solid #74f9e6;border-radius:5px;
  display:flex;align-items:center;justify-content:center;
  box-shadow:inset 0 0 12px #00ffe448
 }
@@ -27,41 +24,49 @@
 .rokHudBars{flex:1;min-width:0;padding-top:2px;display:flex;flex-direction:column;gap:3px}
 .rokHudName{color:#eafffb;font-size:10px;font-weight:800;letter-spacing:.09em;line-height:11px}
 .rokHudSide[data-hud-side="enemy"] .rokHudName{text-align:right;color:#ffe5ec}
-.rokHudHpTrack{height:12px;border:1px solid #5c8588;border-radius:3px;background:#11242a;
- display:flex;overflow:hidden}
-.rokHudHpFill{height:100%;width:100%;transition:width .15s linear;
- background:linear-gradient(180deg,#84ff96,#1abb69);box-shadow:inset 0 -2px 3px #0004}
-.rokHudSide[data-hud-side="ally"] .rokHudHpTrack{justify-content:flex-end}
-.rokHudSide[data-hud-side="enemy"] .rokHudHpTrack{justify-content:flex-start}
-.rokHudSide[data-hud-side="enemy"] .rokHudHpFill{
- background:linear-gradient(180deg,#ff98a9,#db365c)}
-.rokHudElementRows{display:flex;flex-direction:column;gap:2px}
-.rokHudElementRow{display:flex;align-items:center;gap:3px}
-.rokHudSide[data-hud-side="enemy"] .rokHudElementRow{flex-direction:row-reverse}
-.rokHudElementDot{width:6px;height:6px;flex:0 0 6px;border-radius:50%;box-shadow:0 0 5px #c9fffa}
-.rokHudEnergyTrack{flex:1;min-width:0;height:7px;border-radius:3px;background:#132a31;
- border:1px solid #587b83;display:flex;overflow:hidden}
-.rokHudSide[data-hud-side="ally"] .rokHudEnergyTrack{justify-content:flex-end}
-.rokHudSide[data-hud-side="enemy"] .rokHudEnergyTrack{justify-content:flex-start}
-.rokHudEnergyFill{height:100%;width:0%;transition:width .18s linear}
+.rokHudHpTrack,.rokHudElementRow{display:flex;align-items:center;gap:4px;min-width:0}
+.rokHudLifeCells,.rokHudElementTrack{flex:1;min-width:0;display:flex;gap:1px;height:12px;
+ border:1px solid #66878c;border-radius:3px;background:#152832;padding:1px;overflow:hidden}
+.rokHudLifeCell{flex:1;min-width:0;background:#1d3137;border-radius:1px;border:1px solid #3a5157}
+.rokHudSide[data-hud-side="ally"] .rokHudLifeCell[data-filled="true"]{
+ background:linear-gradient(#8affaa,#17b974);border-color:#85d99b}
+.rokHudSide[data-hud-side="enemy"] .rokHudLifeCell[data-filled="true"]{
+ background:linear-gradient(#ffb0b9,#e34066);border-color:#f18ba4}
+.rokHudStatIcon{flex:0 0 14px;width:14px;height:14px;display:flex;
+ align-items:center;justify-content:center;filter:drop-shadow(0 0 3px #000)}
+.rokHudStatIcon svg{width:13px;height:13px;stroke-width:1.2;stroke:currentColor;fill:currentColor}
+.rokHudLifeIcon{color:#59ff95}
+.rokHudSide[data-hud-side="enemy"] .rokHudLifeIcon{color:#ff6f8e}
+.rokHudDropIcon{color:#79eefa}
+.rokHudElementBar{min-width:0;flex:1;position:relative;display:flex;flex-direction:column;gap:1px}
+.rokHudElementTrack{height:10px;padding:1px;gap:2px}
+.rokHudElementSegment{min-width:0;flex:1;display:flex;gap:1px;overflow:hidden}
+.rokHudElementSegment+.rokHudElementSegment{border-left:2px solid #bbccd1;padding-left:2px}
+.rokHudElementCell{min-width:0;flex:1;border-radius:1px;background:#1b323a;
+ border:1px solid color-mix(in srgb,var(--element-color),#263b49 67%)}
+.rokHudElementCell[data-filled="true"]{background:var(--element-color)}
+.rokHudSectionLabels{display:flex;gap:2px;height:9px;line-height:9px}
+.rokHudSectionLabel{min-width:0;flex:1;text-align:center;font-size:8px;
+ filter:drop-shadow(0 0 2px currentColor)}
+.rokHudSide[data-hud-side="ally"] .rokHudElementSegment{flex-direction:row-reverse}
 .rokHudCenter{display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
 #rokHudClock{font-size:18px;font-weight:900;line-height:22px;letter-spacing:.02em;
  font-variant-numeric:tabular-nums;color:#fff}
-.rokHudVS{font-size:15px;font-weight:1000;font-style:italic;letter-spacing:.05em;
+.rokHudVS{font-size:15px;font-weight:900;font-style:italic;letter-spacing:.05em;
  line-height:18px;color:#f3e49c;text-shadow:0 1px 4px #000,0 0 8px #c4a44c66}
 @media(pointer:coarse) and (max-width:950px){
- #rokCombatHud{
-  top:calc(21px + env(safe-area-inset-top,0px));
-  width:97vw;grid-template-columns:minmax(0,1fr) 53px minmax(0,1fr)
- }
+ #rokCombatHud{top:calc(21px + env(safe-area-inset-top,0px));width:97vw;
+  grid-template-columns:minmax(0,1fr) 53px minmax(0,1fr)}
  .rokHudSide{gap:3px}
  .rokHudPortrait{width:29px;height:33px;flex-basis:29px}
  .rokHudName{font-size:8px;line-height:9px}
  .rokHudBars{gap:2px}
- .rokHudHpTrack{height:9px}
- .rokHudElementRow{gap:2px}
- .rokHudElementDot{width:5px;height:5px;flex-basis:5px}
- .rokHudEnergyTrack{height:5px}
+ .rokHudLifeCells{height:9px;gap:1px}
+ .rokHudElementTrack{height:8px}
+ .rokHudStatIcon{width:10px;flex-basis:10px;height:10px}
+ .rokHudStatIcon svg{width:10px;height:10px}
+ .rokHudSectionLabels{height:8px;line-height:8px}
+ .rokHudSectionLabel{font-size:7px}
  #rokHudClock{font-size:14px;line-height:18px}
  .rokHudVS{font-size:13px;line-height:15px}
 }
