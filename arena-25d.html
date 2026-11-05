@@ -357,7 +357,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 @media(prefers-reduced-motion:reduce){#rokSpellbookCards{transition:none!important}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261105-mobile-111"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.80"></head>
+<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261105-mobile-112"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.80"></head>
 <body data-studio-page="tester" data-rok-boot="loading">
 <div id="gameLoadingOverlay" role="status" aria-live="polite">
  <div id="gameLoadingCard">
@@ -401,7 +401,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.111</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.112</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -613,7 +613,7 @@ import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.103';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.105';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
-import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.111';
+import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 
 const qs=s=>document.querySelector(s);
@@ -4197,6 +4197,7 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   // Mientras descargan, permanece el caster provisional; no bloquean la arena.
   const casterModelTasks=[];
   const deferredCasterAnimations=[];
+  let casterAnimationsBackgroundStarted=false;
   for(const spec of [
     {side:'ally',path:'lioren kaster.glb',label:'Lioren'},
     {side:'enemy',path:'chiara kaster.glb',label:'Chiara'}
@@ -4228,10 +4229,16 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
       caster.mixer.clipAction(caster.idleClip).reset().play();
       // Idle from the real GLB is already usable. Defer all costly FBX
       // retargeting until the user reaches the preparation screen.
-      deferredCasterAnimations.push(async()=>{
+      const loadInstalledCaster=async()=>{
        const clips=await movementLoader.load(caster);
        if(caster.model===model)casterLayers.register(caster,clips);
-      });
+      };
+      // When a GLB was postponed until the next match, the original
+      // background-job snapshot has already run. Prepare clips now too.
+      if(casterAnimationsBackgroundStarted){
+       void loadInstalledCaster().catch(error=>console.warn(
+        '[R.O.K.] Clips de caster instalados después del combate:',error));
+      }else deferredCasterAnimations.push(loadInstalledCaster);
       qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' listo';
     };
     const modelTask=new GLTFLoader().loadAsync('./assets/models/casters/'+
@@ -4292,6 +4299,7 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     const animationStatus=qs('#mobaAnimationLoadStatus');
     animationStatus.textContent='Animaciones: descargando modelos de casters…';
     await Promise.allSettled(casterModelTasks);
+    casterAnimationsBackgroundStarted=true;
     const jobs=[...deferredCasterAnimations];
     animationStatus.textContent='Animaciones: '+jobs.length+' casters listos para preparar; cargando clips…';
     // Summon animations are required on BOTH desktop and mobile.
