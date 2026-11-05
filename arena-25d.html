@@ -4331,10 +4331,10 @@ void (async()=>{
    const height=bounds.getSize(new THREE.Vector3()).y;
    if(!Number.isFinite(height)||height<=.001)
     throw Error('Modelo de '+spec.label+' sin geometría o altura válida');
+   // Many real caster GLBs are static rigs: animations live in separate
+   // FBX packs. An empty resting clip is safe until those finish loading.
    const idle=gltf.animations?.find(clip=>/idle|standing/i.test(clip.name))||
-    gltf.animations?.[0];
-   if(!idle||!idle.tracks?.length)
-    throw Error('El GLB de '+spec.label+' no contiene una animación utilizable');
+    gltf.animations?.[0]||new THREE.AnimationClip('Reposo_'+spec.label,1,[]);
    return {spec,gltf,idle,bounds};
   });
   // The match MUST NOT become ready while either caster is missing.
