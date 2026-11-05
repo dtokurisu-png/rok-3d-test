@@ -19,6 +19,30 @@ export const newSources=[
  {id:36,name:'36 · Male Dynamic Pose',path:SHARED+'Male Dynamic Pose.fbx'},
  {id:37,name:'37 · T-Pose',path:SHARED+'T-Pose.fbx'}
 ];
+export const originalSources=[
+ 'Stable Sword Outward Slash.fbx','Magic Heal.fbx','Frisbee Throw.fbx',
+ 'Running Backward Arc (1).fbx','Running Backward Arc.fbx',
+ 'Running Backward.fbx','Running.fbx','Sword And Shield Death.fbx',
+ 'Standing React Small From Headshot.fbx','Standing Aim Recoil.fbx',
+ 'Idle.fbx','Walk W_ Briefcase.fbx','Standing.fbx',
+ 'Standing 2H Magic Area Attack 01.fbx'
+].map((name,index)=>({
+ id:index+1,name:String(index+1).padStart(2,'0')+' · '+name.replace(/\\.fbx$/,''),
+ file:name,kind:'archive'
+}));
+let archivePromise=null;
+async function loadOriginalArchive(){
+ if(!archivePromise)archivePromise=(async()=>{
+  if(!window.JSZip)throw Error('JSZip no está disponible; recarga el creador.');
+  const response=await fetch('./assets/animations/casters/farolera/ROK_PUBLICAR_ANIMACIONES.zip');
+  if(!response.ok)throw Error('No se pudo descargar el paquete original.');
+  const outer=await window.JSZip.loadAsync(await response.arrayBuffer());
+  const nested=Object.values(outer.files).find(item=>!item.dir&&
+   item.name.split('/').pop()==='Farolera_Mixamo_14_animaciones.zip');
+  return nested?window.JSZip.loadAsync(await nested.async('arraybuffer')):outer;
+ })().catch(error=>{archivePromise=null;throw error;});
+ return archivePromise;
+}
 const FBX=new FBXLoader();
 const norm=name=>String(name||'').toLowerCase().replace(/^mixamorig[:_]?/,'').replace(/[^a-z0-9]/g,'');
 function rigSkeleton(root){
@@ -31,8 +55,17 @@ export async function loadCreatorClip(source,model){
   if(!source.clip?.tracks?.length)throw Error('Esta animación GLB no contiene pistas.');
   return source.clip.clone();
  }
- const url='./'+source.path.split('/').map(encodeURIComponent).join('/');
- const fbx=await FBX.loadAsync(url);
+ let fbx;
+ if(source.kind==='archive'){
+  const archive=await loadOriginalArchive();
+  const item=Object.values(archive.files).find(file=>!file.dir&&
+   file.name.split('/').pop().toLowerCase()===source.file.toLowerCase());
+  if(!item)throw Error('No se encontró '+source.file+' dentro del ZIP original.');
+  fbx=FBX.parse(await item.async('arraybuffer'),'');
+ }else{
+  const url='./'+source.path.split('/').map(encodeURIComponent).join('/');
+  fbx=await FBX.loadAsync(url);
+ }
  const original=fbx.animations?.[0];
  if(!original?.tracks?.length)throw Error('El FBX no tiene animación: '+source.name);
  const working=cloneSkinned(model);
