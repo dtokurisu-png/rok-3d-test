@@ -236,7 +236,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  filter:drop-shadow(0 6px 12px #000a)}
 #rokSpellbook .rokSpellbookPageKey{position:absolute;top:31%;width:16%;aspect-ratio:1;transform:translate(-50%,-50%);
  border:2px solid #d4ac5d;border-radius:50%;
- background:radial-gradient(circle at 40% 35%,#20312b,#050a09 73%);
+ background:radial-gradient(circle at 40% 35%,rgba(32,49,43,.65),rgba(5,10,9,.65) 73%);
  box-shadow:inset 0 0 10px #000,0 0 7px #e6c662aa;
  font:900 clamp(13px,2vw,21px)/1 Roboto,system-ui,sans-serif;color:#fff;
  text-shadow:0 1px 3px #000;pointer-events:auto;cursor:pointer}
@@ -259,11 +259,13 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  background-position:center;background-repeat:no-repeat;background-size:100% 100%;
  filter:drop-shadow(0 0 4px #b28c3666)}
 #rokSpellbookCards[hidden]{display:none!important}
-#rokSpellbookCards .rokSpellbookCardsHeader{position:absolute;z-index:5;
- top:5%;left:10%;right:10%;display:flex;align-items:center;justify-content:space-between;
- color:#f8e4a4;font:700 12px Roboto,system-ui,sans-serif;text-shadow:0 1px 4px #000}
-#rokSpellbookCards .rokSpellbookCardsHeader button{border:1px solid #bdac76;
- color:white;background:#1c2725e9;border-radius:6px;cursor:pointer;padding:3px 6px}
+/* Bottom decorative band of the golden frame holds the exit hint. */
+#rokSpellbookExit{position:absolute;z-index:5;left:17%;right:17%;top:82%;
+ display:block;border:0;background:none;padding:4px 3px;
+ font:700 clamp(10px,1vw,13px)/1.4 Roboto,system-ui,sans-serif;
+ color:#f6dea0;text-shadow:0 2px 4px #000,0 0 6px #1b2d15;
+ text-align:center;cursor:pointer}
+#rokSpellbookExit:focus-visible{outline:2px solid #00ffdf;border-radius:5px}
 #rokSpellbookGrid{position:absolute;z-index:2;left:8%;right:8%;top:15%;height:62%;
  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
  grid-template-rows:repeat(3,minmax(0,1fr));gap:1.7% 2%}
@@ -281,16 +283,16 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  padding:2px 5px;border-radius:50%;font-weight:900}
 .rokSpellSlot .rokSpellCost{position:absolute;top:3px;right:3px;color:#f6e6a1;background:#000b;
  padding:2px 4px;border-radius:4px;font-weight:900}
-#rokSpellbookStatus{position:fixed;z-index:52;right:12px;
- bottom:calc(7px + env(safe-area-inset-bottom,0px) + min(25vw,220px));
- max-width:min(350px,62vw);pointer-events:none;font:700 11px Roboto,system-ui,sans-serif;
- color:#d5fff5;text-align:right;text-shadow:0 1px 3px #000}
+/* Keep casting feedback for screen readers, without visible HUD text. */
+#rokSpellbookStatus{position:absolute!important;width:1px!important;height:1px!important;
+ padding:0!important;margin:-1px!important;overflow:hidden!important;
+ clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 @media(max-width:759px){
  #rokSpellbook{width:clamp(172px,31vw,245px);right:3px;bottom:2px}
  #rokSpellbookCards{right:5px;bottom:calc(110px + env(safe-area-inset-bottom,0px));
  width:min(40vw,56vh,280px);max-height:73vh}
  #rokSpellbook .rokSpellbookPageKey{font-size:14px}
- #rokSpellbookStatus{bottom:calc(108px + env(safe-area-inset-bottom,0px));max-width:35vw}
+ #rokSpellbookExit{font-size:10px;top:82%;left:10%;right:10%}
 }
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
@@ -337,8 +339,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.103 · Regeneración elemental cada 2 s</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.103</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.104 · Spellbook sin títulos y cierre con 0</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.104</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -401,9 +403,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  <button type="button" class="rokSpellbookPageKey" data-page="3" aria-label="Abrir página 3" aria-pressed="false">3</button>
 </section>
 <section id="rokSpellbookCards" aria-label="Cartas del grimorio" hidden>
- <div class="rokSpellbookCardsHeader"><span id="rokSpellbookPageTitle">Página 1</span>
-  <button type="button" id="rokSpellbookClose" aria-label="Cerrar página de cartas">✕</button></div>
  <div id="rokSpellbookGrid"></div>
+ <button type="button" id="rokSpellbookExit" aria-label="Cerrar página del grimorio">Presiona 0 para salir</button>
 </section>
 <div id="rokSpellbookStatus" role="status" aria-live="polite"></div>
 <section id="casterMobilityPanel" aria-label="Mover caster con WASD">
@@ -4257,7 +4258,7 @@ const spellbookStatus=qs('#rokSpellbookStatus');
 function spellStatus(message){spellbookStatus.textContent=message;}
 function renderSpellbook(){
  spellbookPanel.hidden=spellbook.page===0;
- qs('#rokSpellbookPageTitle').textContent='Página '+spellbook.page+' · 9 cartas';
+ spellbookPanel.setAttribute('aria-label','Página '+spellbook.page+' del grimorio, nueve cartas');
  for(const button of document.querySelectorAll('.rokSpellbookPageKey'))
   button.setAttribute('aria-pressed',String(Number(button.dataset.page)===spellbook.page));
  spellbookGrid.replaceChildren();
@@ -4350,12 +4351,17 @@ function selectSpellCard(index){
 }
 for(const button of document.querySelectorAll('.rokSpellbookPageKey'))
  button.addEventListener('click',()=>openSpellbook(Number(button.dataset.page)));
-qs('#rokSpellbookClose').addEventListener('click',()=>{
+function closeSpellbook(){
  spellbook.page=0;renderSpellbook();
-});
+}
+qs('#rokSpellbookExit').addEventListener('click',closeSpellbook);
 document.addEventListener('keydown',event=>{
  if(event.repeat||event.altKey||event.ctrlKey||event.metaKey)return;
  if(event.target?.closest?.('input,textarea,select,[contenteditable="true"]'))return;
+ if(event.code==='Digit0'||event.code==='Numpad0'){
+  if(spellbook.page){closeSpellbook();event.preventDefault();}
+  return;
+ }
  const match=/^(?:Digit|Numpad)([1-9])$/.exec(event.code);
  if(!match)return;
  const digit=Number(match[1]);
