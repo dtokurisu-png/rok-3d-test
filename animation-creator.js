@@ -20,7 +20,7 @@ const defaults={model:null,loadedPath:'',bones:[],pose:new Map(),chains:[],
  playing:false,time:0,duration:4,baseScale:1,modelId:null,
  sourceClip:null,sourceMixer:null,sourceAction:null,sourceId:null,
  modelClips:[],recording:false,handles:[],poles:new Map(),selectedHandle:null,centerHandle:null,
- bindPose:new Map(),sourceLoadToken:0,sourceAnimatedBones:null,plantedFeet:new Map(),orientationTargets:new Map()};
+ bindPose:new Map(),sourceLoadToken:0,sourceAnimatedBones:null,plantedFeet:new Map(),orientationTargets:new Map(),handCurl:new Map()};
 const state=defaults;
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x081520);
@@ -51,6 +51,7 @@ gizmo.addEventListener('objectChange',()=>{
    const chain=state.chains[state.selectedHandle.index];
    state.orientationTargets.set(state.selectedHandle.index,chain.tip.getWorldQuaternion(new THREE.Quaternion()));
   }
+  else if(state.selectedHandle?.type==='handCurl'&&gizmo.getMode()==='translate')applyHandCurl(state.selectedHandle.side);
   else if(state.selectedHandle?.type==='center'&&gizmo.getMode()==='translate')moveCenter();
   else if(state.selectedHandle?.type==='ik'&&gizmo.getMode()==='translate')solveIK(state.currentChain);
   else if(state.selectedHandle?.type==='ik'&&gizmo.getMode()==='rotate')state.orientationTargets.set(state.selectedHandle.index,state.currentChain.tip.getWorldQuaternion(new THREE.Quaternion()));
@@ -172,7 +173,7 @@ function clearTargets(){
  }
  state.targets.clear();state.currentChain=null;
  for(const h of state.handles){scene.remove(h);h.geometry.dispose();h.material.dispose();}
- state.handles=[];state.poles.clear();state.selectedHandle=null;state.centerHandle=null;state.plantedFeet.clear();state.orientationTargets.clear();
+ state.handles=[];state.poles.clear();state.selectedHandle=null;state.centerHandle=null;state.plantedFeet.clear();state.orientationTargets.clear();state.handCurl.clear();
 }
 function makeTargets(){
  clearTargets();
@@ -857,6 +858,48 @@ function handle(radius,color,data){
   new THREE.MeshBasicMaterial({color,depthTest:false,transparent:true,opacity:.9}));
  h.userData.control=data;h.renderOrder=250;state.handles.push(h);scene.add(h);return h;
 }
+// One curl controller per hand, with no separate finger manipulation points.
+function fingerBones(side){
+ return state.bones.filter(b=>{
+  const n=cleanName(b.name);
+  return n.startsWith(side)&&/(thumb|index|middle|ring|pinky|little)/.test(n)
+    &&!/(metacarpal|nub|end$|tip$)/.test(n);
+ });
+}
+function createHandCurl(side){
+ const wrist=roleBone([side+'hand',side+'wrist']);
+ const bones=fingerBones(side);
+ if(!wrist||!bones.length)return;
+ const marker=handle(.065,0xffbe73,{type:'handCurl',side});
+ const pos=wrist.getWorldPosition(new THREE.Vector3());
+ const forward=rigForwardVector();
+ marker.position.copy(pos).addScaledVector(forward,.25).add(new THREE.Vector3(0,.12,0));
+ state.handCurl.set(side,{marker,wrist,bones,openY:marker.position.y,amount:0,
+  baseline:new Map(),lastOpenY:marker.position.y});
+}
+function beginHandCurl(side){
+ const info=state.handCurl.get(side);if(!info)return;
+ // Capture the actual pose at this frame, including any reference animation.
+ info.openY=info.marker.position.y+info.amount*.24;
+ info.baseline=new Map(info.bones.map(b=>[b.uuid,b.quaternion.clone()]));
+}
+function applyHandCurl(side){
+ const info=state.handCurl.get(side);if(!info)return;
+ const amount=THREE.MathUtils.clamp((info.openY-info.marker.position.y)/.24,0,1);
+ info.amount=amount;
+ const minY=info.openY-.24;info.marker.position.y=THREE.MathUtils.clamp(info.marker.position.y,minY,info.openY);
+ for(const bone of info.bones){
+  const reference=info.baseline.get(bone.uuid);if(!reference)continue;
+  const n=cleanName(bone.name);
+  // Moderate spread of rotations over the phalanges, avoiding wrist motion.
+  const isThumb=n.includes('thumb');
+  const strength=isThumb?.62:1;
+  const q=new THREE.Quaternion().setFromAxisAngle(
+   new THREE.Vector3(0,0,1),amount*strength*.95);
+  bone.quaternion.copy(reference).multiply(q).normalize();
+ }
+ state.model.updateMatrixWorld(true);
+}
 function createDirectHandles(){
  // One shared controller for pelvis/center of gravity, and a separate torso rotation controller.
  const hips=roleBone(['hips','pelvis']);
@@ -887,6 +930,7 @@ function createDirectHandles(){
    footControl.position.copy(toePos).addScaledVector(forward,.24);
   }
  });
+ createHandCurl('left');createHandCurl('right');
  syncHandles();
 }
 function rigForwardVector(){
@@ -947,6 +991,9 @@ function setControlMode(mode){
   const marker=state.handles.find(h=>h.userData.control===info);
   if(mode==='translate'&&marker)state.previousTorso=marker.position.clone();
   gizmo.attach(mode==='rotate'?info.bone:marker);
+ }else if(info.type==='handCurl'){
+  // Curl remains a one-axis translation control, never a wrist rotation.
+  gizmo.setMode('translate');gizmo.attach(state.handCurl.get(info.side)?.marker);
  }else if(info.type==='ik' || info.type==='pole'||info.type==='footPole'){
   // Orient the end effector with R, translate its controller with G.
   const chain=state.chains[info.index];
@@ -996,6 +1043,10 @@ function activateHandle(info,obj){
   gizmo.setMode('translate');gizmo.attach(obj);
   state.previousTorso=obj.position.clone();
   viewStatus('Torso independiente: G mover · R rotar.');
+ }else if(info.type==='handCurl'){
+  gizmo.setMode('translate');gizmo.attach(obj);
+  beginHandCurl(info.side);
+  viewStatus('Cerrar mano: bajar = cerrar todos los dedos; subir = abrir.');
  }else if(info.type==='footPole'){
   gizmo.setMode('translate');gizmo.attach(obj);
   state.previousFootPole=obj.position.clone();
