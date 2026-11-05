@@ -3,8 +3,10 @@
 import * as THREE from 'three';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {clone as cloneSkinned,retargetClip} from 'three/addons/utils/SkeletonUtils.js';
+import {COMPOSITE_PRESETS,COMPOSITE_MOTION_IDS,buildCasterCompositeClip} from './viewer-caster-composites.js';
 
 const SHARED='assets/animations/casters/shared/';
+export const compositeSources=COMPOSITE_PRESETS.map(p=>({id:p.index,name:p.name,kind:'composite',preset:p}));
 export const numberedSources=[
  {id:15,name:'15 · Desplazamiento lateral izquierdo',path:SHARED+'Right Strafe.fbx'},
  {id:16,name:'16 · Desplazamiento lateral derecho',path:SHARED+'Right Strafe (1).fbx'},
@@ -51,6 +53,16 @@ function rigSkeleton(root){
  return skeleton;
 }
 export async function loadCreatorClip(source,model){
+ if(source.kind==='composite'){
+  const preset=source.preset;
+  const getById=id=>originalSources.find(item=>item.id===id)||
+   numberedSources.find(item=>item.id===id);
+  const motionId=preset.motion==='idle'?'idle':COMPOSITE_MOTION_IDS[preset.motion];
+  const movement=await loadCreatorClip(getById(motionId),model);
+  const action=await loadCreatorClip(getById(preset.source),model);
+  const idle=motionId==='idle'?movement:await loadCreatorClip(getById('idle'),model);
+  return buildCasterCompositeClip(THREE,{preset,motionClip:movement,actionClip:action,idleClip:idle,fps:30});
+ }
  if(source.kind==='glb'){
   if(!source.clip?.tracks?.length)throw Error('Esta animación GLB no contiene pistas.');
   return source.clip.clone();
