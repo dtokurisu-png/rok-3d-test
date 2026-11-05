@@ -428,7 +428,15 @@ const sceneryOverlay=createArenaSceneOverlay({THREE,root,renderStatus:message=>{
  if(arenaArt){arenaArt.material.transparent=true;arenaArt.material.opacity=fraction;arenaArt.material.needsUpdate=true;}
  pendingSceneOpacity=fraction;
 }});
-const initialSceneLoading=mountArenaSceneControls(sceneryOverlay).ready;
+// The scene editor/catalog and any locally saved decoration are optional.
+// Do not initialize hundreds of decorative GLBs concurrently with combatants.
+let sceneControlsInitialized=false;
+function initializeOptionalSceneControls(){
+ if(sceneControlsInitialized)return;
+ sceneControlsInitialized=true;
+ const handle=mountArenaSceneControls(sceneryOverlay);
+ void handle.ready.catch(error=>console.warn('[R.O.K.] Catálogo de escenarios:',error));
+}
 // Arena ampliada de prueba: 15 columnas X (0–14), 30 filas Z (0–29).
 // Mitad rival: filas 0–14; mitad aliada: filas 15–29.
 const W=15,D=30;
@@ -3493,12 +3501,8 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     casterModelTasks.push(modelTask);
   }
   window.ROKBoot.progress('Descargando escenario y casters reales…',48);
-  const readiness=await Promise.all([Promise.all(casterModelTasks),
-   initialSceneLoading,sharedBackgroundReady,arenaTextureReady]);
-  // Scenery is optional in this tester: absence of a published layout
-  // should NEVER make the base combat scene fail.
-  if(readiness[1]?.fallback)
-   console.warn('[R.O.K.] Escenario decorativo opcional:',readiness[1].reason);
+  await Promise.all([Promise.all(casterModelTasks),
+   sharedBackgroundReady,arenaTextureReady]);
   window.ROKBoot.progress('Comprobando y preparando el combate…',92);
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
@@ -3509,6 +3513,8 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
   playing=false;
   matchGate.resourcesReady();
   window.ROKBoot.ready();
+  // The scene catalog no longer competes with core models for bandwidth.
+  setTimeout(initializeOptionalSceneControls,1800);
   // Load optional animations gradually, never on the critical startup path.
   // They can be cached by the browser for subsequent rounds.
   setTimeout(()=>{
