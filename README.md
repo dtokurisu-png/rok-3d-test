@@ -82,7 +82,7 @@ El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 
 Pruebas en `tests/asset-integrity.test.mjs` y workflow `.github/workflows/asset-integrity.yml`: existencia de las 25 rutas, SHA Git, exclusión de binarios en la raíz y referencias del visor y la arena. La prueba está configurada para ejecutarse en GitHub Actions; no se ha confirmado aún una ejecución exitosa.
 
 
-## Creador de Animaciones — Primera versión IK (05/11/2026)
+## Creador de Animaciones — Edición de clips existentes v0.2 (05/11/2026)
 
 La pestaña [Creador de animaciones](./animation-creator.html) abre un editor
 3D independiente con carga de modelos GLB de la biblioteca, objetivos IK
@@ -92,3 +92,12 @@ Permite guardar/abrir un proyecto JSON o exportar el personaje como GLB
 animado. **No sobrescribe los GLB/FBX originales, ni publica automáticamente
 la animación en el catálogo o en GitHub.** La exportación y reproducción
 visual todavía requieren pruebas en navegador. [Uso, formato y límites](./docs/ANIMATION_CREATOR.md).
+
+
+El Creador v0.2 también puede cargar y adaptar una animación numerada ya
+existente (FBX/GLB y composiciones 24–33), editar su pose fotograma a
+fotograma con IK sin eliminar el movimiento base, y añadir la revisión a
+una cola local identificada por color: **morado** para nuevas animaciones,
+**ámbar** para reemplazos de versiones editadas. El borrador puede abrirse
+desde el creador. Reemplazar una entrada local **no sobreescribe** el FBX
+original de GitHub; se requiere una publicación posterior verificada.
