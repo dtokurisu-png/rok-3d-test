@@ -27,7 +27,7 @@ export function createCasterLayerSystem(THREE){
   if(st)return st;
   st={model:c.model,clips:{idle:c.idleClip},cache:new WeakMap(),movement:null,
    lowerAction:null,upperAction:null,overlay:null,overlayKind:null,refreshBase:false,
-   overlayClip:null,hitAction:null};
+   overlayClip:null,hitAction:null,castLower:null,castLowerSpeed:1,castLowerProgress:0};
   states.set(c.model,st);return st;
  }
  function prepared(st,source,kind){
@@ -62,17 +62,41 @@ export function createCasterLayerSystem(THREE){
  }
  function movement(c,kind){
   const st=state(c);
-  if(st.movement===kind&&!st.refreshBase)return;
+  if(st.movement===kind&&!st.refreshBase&&!st.castLower)return;
   const source=st.clips[kind]||st.clips.idle||c.idleClip;
   if(!source)return;
   if(st.movement===null){
    c.mixer.stopAllAction();
   }
-  const lowerClip=prepared(st,source,'lower');
+  const lowerClip=st.castLower&&kind==='idle'?prepared(st,st.castLower,'lower'):
+   prepared(st,source,'lower');
   const upperClip=prepared(st,source,'upper');
-  if(lowerClip)st.lowerAction=switchAction(c,st.lowerAction,lowerClip);
+  if(lowerClip){
+   const desired=st.castLower&&kind==='idle'?st.castLowerSpeed:1;
+   if(st.lowerAction?._clip===lowerClip){
+    st.lowerAction.setEffectiveTimeScale(desired);
+   }else st.lowerAction=switchAction(c,st.lowerAction,lowerClip,false,desired);
+   if(st.castLower&&kind==='idle'&&st.lowerAction)
+    st.lowerAction.time=Math.min(lowerClip.duration-.00001,
+     Math.max(0,st.castLowerProgress)*lowerClip.duration);
+  }
   if(!st.overlayKind&&upperClip)st.upperAction=switchAction(c,st.upperAction,upperClip);
   st.movement=kind;st.refreshBase=false;
+ }
+ // On stationary casts the full preparatory pose plays, including hips/legs;
+ // as soon as WASD moves, the lower layer yields to locomotion.
+ function setCastLower(c,clip,speed=1,progress=0){
+  const st=state(c);
+  st.castLower=clip;st.castLowerSpeed=speed;st.castLowerProgress=progress;
+  st.refreshBase=true;
+ }
+ function syncCastLower(c,progress){
+  const st=state(c);
+  if(st.castLower)st.castLowerProgress=Math.max(0,Math.min(1,progress));
+ }
+ function clearCastLower(c){
+  const st=state(c);st.castLower=null;st.castLowerProgress=0;
+  st.refreshBase=true;
  }
  function upper(c,kind,source,speed=1,{startTime=0}={}){
   const st=state(c);
@@ -186,7 +210,7 @@ export function createCasterLayerSystem(THREE){
   if(!st)return;
   cancelHit(c);
   st.lowerAction=null;st.upperAction=null;st.overlay=null;st.overlayKind=null;
-  st.movement=null;st.refreshBase=false;
+  st.movement=null;st.refreshBase=false;st.castLower=null;st.castLowerProgress=0;
  }
- return {register,movement,upper,endUpper,shield,hit,cancelHit,reset};
+ return {register,movement,upper,endUpper,setCastLower,syncCastLower,clearCastLower,shield,hit,cancelHit,reset};
 }
