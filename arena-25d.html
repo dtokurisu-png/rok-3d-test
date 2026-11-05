@@ -305,7 +305,7 @@ import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-sightcone-1';
-import {createCasterMobility} from './caster-mobility.js?v=20261104-moba-1';
+import {createCasterMobility} from './caster-mobility.js?v=0.9.64';
 import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.64';
 import {createCasterLayerSystem} from './caster-animation-layers.js';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
@@ -3540,6 +3540,7 @@ casterMovement=createCasterMobility({
  THREE,getCaster:side=>casters.find(c=>c.side===side),
  prepareClips:movementLoader.load,
  layers:casterLayers,
+ canControl:()=>loaded&&playing&&matchGate.isRunning,
  bounds:{x:MAX_X,z:MAX_Z},
  reviveCaster:c=>{if(c&&c.stage!=='active')resetCaster(c);},
  getAttackTarget:casterAttackTarget,
