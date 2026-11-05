@@ -20,7 +20,7 @@ const defaults={model:null,loadedPath:'',bones:[],pose:new Map(),chains:[],
  playing:false,time:0,duration:4,baseScale:1,modelId:null,
  sourceClip:null,sourceMixer:null,sourceAction:null,sourceId:null,
  modelClips:[],recording:false,handles:[],poles:new Map(),selectedHandle:null,centerHandle:null,
- bindPose:new Map(),sourceLoadToken:0,sourceAnimatedBones:null,plantedFeet:new Map(),orientationTargets:new Map(),handCurl:new Map()};
+ bindPose:new Map(),sourceLoadToken:0,sourceAnimatedBones:null,plantedFeet:new Map(),orientationTargets:new Map(),handCurl:new Map(),clonedPose:false,cloneOrigin:null};
 const state=defaults;
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x081520);
@@ -269,7 +269,7 @@ const editHistory={items:[],cursor:-1,limit:75,restoring:false,dragging:false};
 function captureEdit(){
  if(!state.model)return null;
  return {
-  frame:Math.round(state.time*30),duration:state.duration,
+  frame:Math.round(state.time*30),duration:state.duration,clonedPose:state.clonedPose,cloneOrigin:state.cloneOrigin,
   pose:state.bones.map(b=>[b.name,b.position.toArray(),b.quaternion.toArray(),b.scale.toArray()]),
   keys:[...state.keys.entries()].map(([frame,pose])=>[frame,structuredClone(pose)]),
   targets:[...state.targets.entries()].map(([i,m])=>[i,m.position.toArray()]),
@@ -307,6 +307,7 @@ function restoreEdit(entry){
  try{
   state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
   state.duration=entry.duration;$('creatorDuration').value=String(entry.duration);
+   state.clonedPose=!!entry.clonedPose;state.cloneOrigin=entry.cloneOrigin||null;
   const bones=new Map(state.bones.map(b=>[b.name,b]));
   for(const [name,pos,q,scale] of entry.pose){
    const bone=bones.get(name);if(!bone)continue;
@@ -346,7 +347,7 @@ gizmo.addEventListener('dragging-changed',e=>{
 function saveCompleteFrame(frame=Math.round(state.time*30)){
  if(!state.model)return;
  state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
- state.keys.set(frame,snapshot());
+ state.keys.set(frame,state.clonedPose?snapshotFullPose():snapshot());
  activeTimelineKey={bone:null,frame,original:false,wholeFrame:true};
  refreshTimeline();checkpointEdit();
  status('Fotograma '+frame+' guardado · composición completa.');
@@ -358,7 +359,7 @@ function stepAnimationFrame(direction){
  if(next===current)return;
  // Preserve the pose that the user just sculpted, including edits to other
  // joints. The destination frame is intentionally replaced, not re-sampled.
- const pose=snapshot();
+ const pose=state.clonedPose?snapshotFullPose():snapshot();
  state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
  state.keys.set(current,structuredClone(pose));
  state.keys.set(next,structuredClone(pose));
@@ -369,15 +370,50 @@ function stepAnimationFrame(direction){
  checkpointEdit();
  status('Fotograma '+next+' · pose anterior copiada y guardada. Modifica y avanza.');
 }
+function updateCloneButton(){
+ const button=$('creatorClonePose');if(!button)return;
+ button.disabled=!state.model||!state.sourceClip||!activeTimelineKey?.wholeFrame;
+ button.title=button.disabled?'Selecciona un fotograma de COMPOSICIÓN de una animación cargada':
+  'Crear secuencia nueva a partir del fotograma '+activeTimelineKey.frame;
+}
+function cloneSelectedPose(){
+ if(!state.model||!state.sourceClip||!activeTimelineKey?.wholeFrame){
+  status('Selecciona un fotograma de COMPOSICIÓN de la animación de referencia.',true);return;
+ }
+ const originFrame=activeTimelineKey.frame;
+ const sourceName=$('creatorSource').selectedOptions[0]?.textContent||'Animación';
+ state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
+ setFrame(originFrame);
+ const firstPose=snapshotFullPose();
+ state.sourceLoadToken++;
+ state.sourceMixer?.stopAllAction();
+ state.sourceMixer=null;state.sourceAction=null;state.sourceClip=null;state.sourceId=null;
+ state.sourceAnimatedBones=null;
+ state.clonedPose=true;state.cloneOrigin={source:sourceName,frame:originFrame,fps:30};
+ state.keys.clear();state.keys.set(0,structuredClone(firstPose));
+ state.duration=4;$('creatorDuration').value='4';state.time=0;
+ $('creatorSource').value='';$('creatorSaveMode').value='new';
+ $('creatorName').value='Desde '+sourceName+' · F'+originFrame;
+ applyPose(firstPose);
+ for(const [i,target] of state.targets){
+  target.position.copy(state.chains[i].tip.getWorldPosition(new THREE.Vector3()));
+  state.orientationTargets.set(i,state.chains[i].tip.getWorldQuaternion(new THREE.Quaternion()));
+ }
+ activeTimelineKey={bone:null,frame:0,original:false,wholeFrame:true};
+ gizmo.detach();refreshTimeline();refreshTargetInputs();resetEditHistory();updateCloneButton();
+ viewStatus('Nueva animación desde '+sourceName+' · F'+originFrame+' · G: guardar · →: avanzar.');
+ status('✓ Postura clonada: nueva animación desde F0; referencia original intacta.');
+}
+$('creatorClonePose').addEventListener('click',cloneSelectedPose);
 function selectCompleteFrame(frame){
  state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
  setFrame(frame);
  activeTimelineKey={bone:null,frame,original:!state.keys.has(frame),wholeFrame:true};
- queueTrackUpdate();
+ updateCloneButton();queueTrackUpdate();
 }
 function recordEditedFrame(){
  if(!state.model||state.playing||state.recording)return;
- state.keys.set(Math.round(state.time*30),snapshot());
+ state.keys.set(Math.round(state.time*30),state.clonedPose?snapshotFullPose():snapshot());
  refreshTimeline();checkpointEdit();
 }
 function snapshot(){
@@ -385,11 +421,22 @@ function snapshot(){
  for(const bone of state.bones)pose[bone.name]=bone.quaternion.toArray();
  return pose;
 }
+function snapshotFullPose(){
+ const pose=snapshot();pose.__positions={};pose.__scales={};
+ for(const bone of state.bones){
+  pose.__positions[bone.name]=bone.position.toArray();
+  pose.__scales[bone.name]=bone.scale.toArray();
+ }
+ return pose;
+}
 function applyPose(pose){
  for(const bone of state.bones){
   const q=pose[bone.name];
   if(Array.isArray(q)&&q.length===4&&q.every(Number.isFinite))
    bone.quaternion.fromArray(q).normalize();
+  const p=pose.__positions?.[bone.name],scale=pose.__scales?.[bone.name];
+  if(Array.isArray(p)&&p.length===3&&p.every(Number.isFinite))bone.position.fromArray(p);
+  if(Array.isArray(scale)&&scale.length===3&&scale.every(Number.isFinite))bone.scale.fromArray(scale);
  }
  state.model?.updateMatrixWorld(true);syncHandles();refreshBoneInputs();
 }
@@ -452,6 +499,10 @@ function sampleFrame(frame){
   const a=new THREE.Quaternion().fromArray(qa||qb);
   const b=new THREE.Quaternion().fromArray(qb||qa);
   bone.quaternion.copy(a.slerp(b,t));
+  const p1=left.__positions?.[bone.name],p2=right.__positions?.[bone.name];
+  if(p1||p2)bone.position.fromArray(p1||p2).lerp(new THREE.Vector3().fromArray(p2||p1),t);
+  const s1=left.__scales?.[bone.name],s2=right.__scales?.[bone.name];
+  if(s1||s2)bone.scale.fromArray(s1||s2).lerp(new THREE.Vector3().fromArray(s2||s1),t);
  }
  state.model.updateMatrixWorld(true);syncHandles();refreshBoneInputs();
 }
@@ -478,7 +529,8 @@ function download(data,filename,type){
 function safeFilename(name){return String(name||'animacion').trim().replace(/[^a-z0-9áéíóúüñ_-]+/gi,'_').slice(0,64)||'animacion';}
 function serialize(){
  return {schemaVersion:2,kind:'ROK_AnimationCreator',modelId:state.modelId,
-  sourceId:state.sourceId,
+  sourceId:state.clonedPose?null:state.sourceId,
+  clonedPose:state.clonedPose,cloneOrigin:state.cloneOrigin,
   modelPath:state.loadedPath,name:$('creatorName').value,
   fps:30,duration:state.duration,
   keyframes:[...state.keys.entries()].sort((a,b)=>a[0]-b[0])
@@ -526,6 +578,13 @@ function createClip(){
     values.push(...q);
    }
    tracks.push(new THREE.QuaternionKeyframeTrack(bone.name+'.quaternion',times,values));
+   for(const [property,key] of [['position','__positions'],['scale','__scales']]){
+    if(!frames.some(frame=>state.keys.get(frame)[key]?.[bone.name]))continue;
+    const values=[],fallback=state.keys.get(frames[0])[key]?.[bone.name]||
+     (property==='position'?bone.position.toArray():bone.scale.toArray());
+    for(const frame of frames)values.push(...(state.keys.get(frame)[key]?.[bone.name]||fallback));
+    tracks.push(new THREE.VectorKeyframeTrack(bone.name+'.'+property,times,values));
+   }
   }
  }
  const clip=new THREE.AnimationClip($('creatorName').value||'ROK Animation',-1,tracks);
@@ -557,6 +616,7 @@ async function loadModel(item){
  clearTargets();
  if(state.model){scene.remove(state.model);state.model=null;}
  state.keys.clear();state.bones=[];state.pose.clear();state.bindPose.clear();state.currentBone=null;
+ state.clonedPose=false;state.cloneOrigin=null;activeTimelineKey=null;
  state.sourceLoadToken++;state.sourceAnimatedBones=null;
  state.sourceClip=null;state.sourceMixer=null;state.sourceAction=null;state.sourceId=null;
  status('Descargando '+item.name+'…');
@@ -634,6 +694,7 @@ function resetSource(){
  state.sourceMixer?.stopAllAction();
  state.sourceMixer=null;state.sourceClip=null;state.sourceAction=null;state.sourceId=null;
  state.keys.clear();state.duration=4;$('creatorDuration').value='4';
+ state.clonedPose=false;state.cloneOrigin=null;activeTimelineKey=null;updateCloneButton();
  if(state.model)resetPose();
  setFrame(0,false);refreshTimeline();resetEditHistory();
  $('creatorSource').value='';
@@ -663,7 +724,8 @@ async function loadSource(id){
  action.play();mixer.setTime(0);
  state.sourceClip=clip;state.sourceMixer=mixer;state.sourceAction=action;
  state.sourceId=id;state.duration=Math.ceil(clip.duration*30)/30;
- state.keys.clear();
+ state.clonedPose=false;state.cloneOrigin=null;activeTimelineKey=null;
+ state.keys.clear();updateCloneButton();
  $('creatorDuration').value=String(state.duration);
  setFrame(0);refreshTimeline();
  $('creatorName').value=source.name.replace(/^\\d+\\s*·\\s*/,'').replace(/^GLB · /,'')+' · editada';
@@ -703,7 +765,7 @@ async function applyProject(data){
  const item=models.find(m=>m.id===data.modelId&&m.path===data.modelPath);
  if(!item)throw Error('Modelo del proyecto no disponible.');
  if(!state.model||state.modelId!==item.id)await loadModel(item);
- const sourceId=data.sourceId||null;
+ const sourceId=data.clonedPose?null:(data.sourceId||null);
  if(sourceId){
   $('creatorSource').value=sourceId;await loadSource(sourceId);
  }else resetSource();
@@ -721,8 +783,17 @@ async function applyProject(data){
    if(Array.isArray(q)&&q.length===4&&q.every(Number.isFinite))
     pose[bone.name]=q;
   }
+  for(const field of ['__positions','__scales']){
+   const positions=record.pose[field];if(!positions||typeof positions!=='object')continue;
+   pose[field]={};
+   for(const bone of state.bones){
+    const v=positions[bone.name];
+    if(Array.isArray(v)&&v.length===3&&v.every(Number.isFinite))pose[field][bone.name]=v;
+   }
+  }
   state.keys.set(frame,pose);
  }
+ state.clonedPose=!!data.clonedPose;state.cloneOrigin=data.cloneOrigin||null;
  setFrame(0);renderQueue();resetEditHistory();
  status('Proyecto recuperado · '+state.keys.size+' fotogramas modificados.');
 }
