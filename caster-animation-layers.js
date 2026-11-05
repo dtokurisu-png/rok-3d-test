@@ -98,16 +98,28 @@ export function createCasterLayerSystem(THREE){
   const st=state(c);st.castLower=null;st.castLowerProgress=0;
   st.refreshBase=true;
  }
- function upper(c,kind,source,speed=1,{startTime=0}={}){
+ function upper(c,kind,source,speed=1,{startTime=0,transition=false}={}){
   const st=state(c);
   movement(c,st.movement||'idle');
   const clip=prepared(st,source, 'upper');
   if(!clip)return false;
-  if(st.overlay){st.overlay.fadeOut(.09);st.overlay=null;}
+  // Transition directly from 22 to 21 without briefly restoring Idle.
+  // Both clips own the same upper-body bones; crossfade their action weights.
+  const previous=st.overlay;
+  const blend=transition&&previous?0.18:.09;
+  if(previous)previous.fadeOut(blend);
   // Upper movement fades while upper attack/defense takes the same bones.
-  if(st.upperAction)st.upperAction.fadeOut(.09);
-  st.overlay=switchAction(c,null,clip,true,speed);
-  if(startTime>0&&st.overlay)st.overlay.time=Math.max(0,Math.min(clip.duration-.0001,startTime));
+  if(st.upperAction)st.upperAction.fadeOut(blend);
+  const next=c.mixer.clipAction(clip).reset();
+  next.enabled=true;
+  next.setEffectiveWeight(1);
+  next.setEffectiveTimeScale(speed);
+  next.setLoop(THREE.LoopOnce,1);
+  next.clampWhenFinished=true;
+  next.time=Math.max(0,Math.min(clip.duration-.0001,startTime));
+  next.play();
+  if(previous&&transition)next.fadeIn(blend);
+  st.overlay=next;
   st.overlayKind=kind;st.overlayClip=clip;
   return true;
  }
