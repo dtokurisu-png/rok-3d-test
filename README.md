@@ -1,6 +1,6 @@
 # R.O.K. 3D — Tester y organización de recursos
 
-R.O.K. 3D Studio reúne cuatro pestañas: [Tester Arena 2.5D](./arena-25d.html), [Gestor de animaciones](./index.html), [Creador de assets](./asset-editor.html) y [Creador de escenarios](./scene-editor.html). El visor y la arena conservan sus motores originales.
+R.O.K. 3D Studio reúne cinco pestañas: [Tester Arena 2.5D](./arena-25d.html), [Gestor de animaciones](./index.html), [Creador de animaciones](./animation-creator.html), [Creador de assets](./asset-editor.html) y [Creador de escenarios](./scene-editor.html). El visor y la arena conservan sus motores originales.
 
 ## Estructura de recursos efectiva
 ```text
@@ -80,3 +80,15 @@ El catálogo mantiene los números 01–23, con los índices 04, 05, 17, 18, 19 
 
 ## Verificación automática
 Pruebas en `tests/asset-integrity.test.mjs` y workflow `.github/workflows/asset-integrity.yml`: existencia de las 25 rutas, SHA Git, exclusión de binarios en la raíz y referencias del visor y la arena. La prueba está configurada para ejecutarse en GitHub Actions; no se ha confirmado aún una ejecución exitosa.
+
+
+## Creador de Animaciones — Primera versión IK (05/11/2026)
+
+La pestaña [Creador de animaciones](./animation-creator.html) abre un editor
+3D independiente con carga de modelos GLB de la biblioteca, objetivos IK
+arrastrables para brazos y piernas, rotaciones XYZ de todos los huesos del
+rig, línea de tiempo con poses clave interpoladas a 30 FPS y reproducción.
+Permite guardar/abrir un proyecto JSON o exportar el personaje como GLB
+animado. **No sobrescribe los GLB/FBX originales, ni publica automáticamente
+la animación en el catálogo o en GitHub.** La exportación y reproducción
+visual todavía requieren pruebas en navegador. [Uso, formato y límites](./docs/ANIMATION_CREATOR.md).
