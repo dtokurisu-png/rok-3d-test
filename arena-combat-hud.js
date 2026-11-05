@@ -124,6 +124,25 @@ export function createArenaCombatHud(){
   }
   paintElements(side);
  }
+ // Spend is atomic and happens when a card is SELECTED, before casting.
+ // Cards with zero cost always pass; failed selections spend nothing.
+ function spend(side,element,cost){
+  const player=sides[side];
+  const amount=Math.max(0,Math.floor(Number(cost)||0));
+  if(!player||!player.levels.includes(element))return false;
+  if(amount===0)return true;
+  const available=player.elementAmounts[element]||0;
+  if(available+1e-8<amount)return false;
+  player.elementAmounts[element]=Math.max(0,available-amount);
+  paintElements(side);
+  return true;
+ }
+ function refund(side,element,cost){
+  const player=sides[side];if(!player||!player.levels.includes(element))return;
+  player.elementAmounts[element]=Math.min(player.unlocked[element]||0,
+   (player.elementAmounts[element]||0)+Math.max(0,Number(cost)||0));
+  paintElements(side);
+ }
  function buildLife(side,max){
   const player=sides[side];
   const rounded=Math.max(1,Math.ceil(max));
@@ -223,5 +242,5 @@ export function createArenaCombatHud(){
  }
  configure('ally',['water']);configure('enemy',['water']);
  draw([]);
- return {configure,draw,reset,advance,setElements,collectOrb};
+ return {configure,draw,reset,advance,setElements,collectOrb,spend,refund};
 }
