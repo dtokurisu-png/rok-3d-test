@@ -343,6 +343,38 @@ gizmo.addEventListener('dragging-changed',e=>{
  else if(editHistory.dragging){editHistory.dragging=false;checkpointEdit();}
 });
 
+function saveCompleteFrame(frame=Math.round(state.time*30)){
+ if(!state.model)return;
+ state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
+ state.keys.set(frame,snapshot());
+ activeTimelineKey={bone:null,frame,original:false,wholeFrame:true};
+ refreshTimeline();checkpointEdit();
+ status('Fotograma '+frame+' guardado · composición completa.');
+}
+function stepAnimationFrame(direction){
+ if(!state.model)return;
+ const current=Math.round(state.time*30);
+ const next=THREE.MathUtils.clamp(current+direction,0,Math.round(state.duration*30));
+ if(next===current)return;
+ // Preserve the pose that the user just sculpted, including edits to other
+ // joints. The destination frame is intentionally replaced, not re-sampled.
+ const pose=snapshot();
+ state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
+ state.keys.set(current,structuredClone(pose));
+ state.keys.set(next,structuredClone(pose));
+ state.time=next/30;
+ activeTimelineKey={bone:null,frame:next,original:false,wholeFrame:true};
+ state.model.updateMatrixWorld(true);
+ syncHandles();refreshTargetInputs();refreshBoneInputs();refreshTimeline();
+ checkpointEdit();
+ status('Fotograma '+next+' · pose anterior copiada y guardada. Modifica y avanza.');
+}
+function selectCompleteFrame(frame){
+ state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
+ setFrame(frame);
+ activeTimelineKey={bone:null,frame,original:!state.keys.has(frame),wholeFrame:true};
+ queueTrackUpdate();
+}
 function recordEditedFrame(){
  if(!state.model||state.playing||state.recording)return;
  state.keys.set(Math.round(state.time*30),snapshot());
@@ -795,9 +827,7 @@ $('creatorTime').addEventListener('input',e=>{
 });
 $('creatorKey').addEventListener('click',()=>{
  if(!state.model){status('Carga un modelo antes de crear poses.',true);return;}
- state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
- state.keys.set(Math.round(state.time*30),snapshot());
- refreshTimeline();checkpointEdit();status('Pose clave guardada en fotograma '+Math.round(state.time*30));
+ saveCompleteFrame();
 });
 $('creatorDeleteKey').addEventListener('click',()=>{
  state.keys.delete(Math.round(state.time*30));refreshTimeline();checkpointEdit();
@@ -1077,6 +1107,39 @@ function updateTracks(){
  if(!state.model)return;
  const max=Math.max(1,Math.round(state.duration*30));
  $('creatorTrackInfo').textContent='Fotograma '+Math.round(state.time*30)+' / '+max;
+ // Master track selects and edits the entire pose, not an individual bone.
+ const masterRow=document.createElement('div');
+ masterRow.className='creatorTrackRow creatorMasterRow';
+ const masterLabel=document.createElement('div');
+ masterLabel.className='creatorTrackLabel creatorMasterLabel';
+ masterLabel.textContent='◆ COMPOSICIÓN';
+ masterLabel.title='Seleccionar todos los huesos del fotograma';
+ const masterLane=document.createElement('div');
+ masterLane.className='creatorTrackLane creatorMasterLane';
+ const selectedFrame=Math.round(state.time*30);
+ const cursor=document.createElement('span');cursor.className='creatorMasterCursor';
+ cursor.style.left=(100*selectedFrame/max)+'%';masterLane.appendChild(cursor);
+ masterLane.onclick=e=>{
+  const rect=masterLane.getBoundingClientRect();
+  selectCompleteFrame(Math.round(THREE.MathUtils.clamp((e.clientX-rect.left)/rect.width,0,1)*max));
+ };
+ // Show the reference's frames in subdued markers, full-pose edits in mint.
+ const masterFrames=new Set([...state.keys.keys()]);
+ if(state.sourceClip){
+  for(let frame=0;frame<=max;frame+=Math.max(1,Math.ceil(max/80)))masterFrames.add(frame);
+ }
+ for(const frame of [...masterFrames].sort((a,b)=>a-b)){
+  const edited=state.keys.has(frame);
+  const diamond=document.createElement('button');
+  diamond.type='button';
+  diamond.className='creatorTrackKey creatorMasterKey'+(edited?'':' source')+
+   (activeTimelineKey?.wholeFrame&&activeTimelineKey.frame===frame?' selected':'');
+  diamond.style.left=(100*Math.min(1,frame/max))+'%';
+  diamond.title='Composición completa · fotograma '+frame+(edited?' · editado':' · referencia');
+  diamond.onclick=e=>{e.stopPropagation();selectCompleteFrame(frame);};
+  masterLane.appendChild(diamond);
+ }
+ masterRow.append(masterLabel,masterLane);host.append(masterRow);
  for(const {bone,label} of sortedBones()){
   const row=document.createElement('div');row.className='creatorTrackRow';
   const title=document.createElement('div');title.className='creatorTrackLabel'+(state.currentBone===bone?' active':'');
@@ -1110,11 +1173,12 @@ function queueTrackUpdate(){
  requestAnimationFrame(()=>{tracksPending=false;updateTracks();});
 }
 $('creatorTrackDelete').onclick=()=>{
- if(!activeTimelineKey||activeTimelineKey.original){status('Selecciona un rombo editado para eliminar su clave.',true);return;}
- const {bone,frame}=activeTimelineKey,pose=state.keys.get(frame);if(!pose)return;
- delete pose[bone];if(!Object.keys(pose).length)state.keys.delete(frame);
+ if(!activeTimelineKey||activeTimelineKey.original){status('Selecciona una clave editada para eliminarla.',true);return;}
+ const {bone,frame,wholeFrame}=activeTimelineKey,pose=state.keys.get(frame);if(!pose)return;
+ if(wholeFrame)state.keys.delete(frame);
+ else {delete pose[bone];if(!Object.keys(pose).length)state.keys.delete(frame);}
  activeTimelineKey=null;setFrame(frame);queueTrackUpdate();
- checkpointEdit();status('Clave eliminada de '+bone+' en fotograma '+frame);
+ checkpointEdit();status((wholeFrame?'Fotograma completo':'Clave de '+bone)+' eliminado en '+frame);
 };
 $('creatorTogglePanel').onclick=()=>{
  const shell=document.querySelector('.creatorShell');
@@ -1132,9 +1196,18 @@ renderer.domElement.addEventListener('pointerup',e=>{
  if(hit&&Number.isInteger(hit.object.userData.rokIKTarget))activateHandle({type:'ik',index:hit.object.userData.rokIKTarget},hit.object);
 });
 document.addEventListener('keydown',e=>{
- if(!state.selectedHandle||e.altKey||e.ctrlKey||e.metaKey||/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName||''))return;
+ if(!state.model||e.altKey||e.ctrlKey||e.metaKey||/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName||''))return;
  const key=e.key.toLowerCase();
- if(key==='r'||key==='g'){e.preventDefault();setControlMode(key==='r'?'rotate':'translate');}
+ if(key==='arrowright'||key==='arrowleft'){
+  e.preventDefault();stepAnimationFrame(key==='arrowright'?1:-1);return;
+ }
+ if(key==='g'&&!e.shiftKey){e.preventDefault();saveCompleteFrame();return;}
+ if(key==='r'&&state.selectedHandle){
+  e.preventDefault();setControlMode('rotate');return;
+ }
+ if(key==='g'&&e.shiftKey&&state.selectedHandle){
+  e.preventDefault();setControlMode('translate');
+ }
 });
 let last=0;
 function render(now){
