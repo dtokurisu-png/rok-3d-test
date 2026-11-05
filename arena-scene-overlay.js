@@ -46,7 +46,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
  };
  const normalize=(data)=>{
   if(data?.kind!=='rok3d.scene'||data.schemaVersion!==1||data.arena?.columns!==ARENA_COLUMNS||data.arena?.rows!==ARENA_ROWS||!Array.isArray(data.objects)||data.objects.length>250)throw Error('Escenario JSON incompatible');
-  const ids=new Set();
+  const ids=new Set(),sourcePlayers=new Set();
   const entries=data.objects.map((raw,i)=>{
    if(!raw||typeof raw!=='object'||typeof raw.modelId!=='string')throw Error('Objeto inválido #'+(i+1));
    const m=catalog.get(raw.modelId);
@@ -54,7 +54,13 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
    if(!Array.isArray(raw.effects)||raw.effects.length>40)throw Error('Efectos incorrectos en '+raw.modelId);
    if(raw.id&&ids.has(raw.id))throw Error('ID de objeto duplicado');
    ids.add(raw.id||'item-'+i);
-   return {name:String(raw.name||m.name).slice(0,70),modelId:m.id,model:m,
+   const player=raw.elementSourcePlayer==null?null:Number(raw.elementSourcePlayer);
+   if(player!==null){
+    if(player!==1&&player!==2)throw Error('Identificador de fuente inválido');
+    if(sourcePlayers.has(player))throw Error('Fuente duplicada para Jugador '+player);
+    sourcePlayers.add(player);
+   }
+   return {name:String(raw.name||m.name).slice(0,70),elementSourcePlayer:player,modelId:m.id,model:m,
     x:finite(raw.x,-10000,10000),y:finite(raw.y,-100,100),z:finite(raw.z,-10000,10000),
     rotation:finite(raw.rotation,-3600,3600),scale:finite(raw.scale,.05,20,1),
     scaleX:finite(raw.scaleX,.05,20,finite(raw.scale,.05,20,1)),
@@ -218,6 +224,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
     });
     nextRoot.add(instance);
     nextObjects.push({animated,instance,bounds:bounds.clone(),meshBounds,
+     elementSourcePlayer:item.elementSourcePlayer,
      opacity:1,targetOpacity:1,fadingModelMaterials,effectMaterials,effectLights});
    }
    if(token!==generation){clearGroup(nextRoot,nextObjects);return false;}
@@ -249,6 +256,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
   objects.length=0;sceneName='';background.show(false);floor.setVisible(false);onArenaVisual?.(100);say('Escenario original · sin decoraciones');
  }
  function show(value){visible=!!value;scenery.visible=visible;background.group.visible=visible&&background.config.enabled&&!!sceneName;floor.group.visible=visible&&floor.config.enabled&&!!sceneName;}
+ function getElementSources(){return objects.filter(o=>o.elementSourcePlayer===1||o.elementSourcePlayer===2).map(o=>({player:o.elementSourcePlayer,instance:o.instance,bounds:o.bounds.clone()}));}
  // Distance between one real decoration mesh's world bounding box
  // and a sample of the finite camera-to-head segment. Ternary minimization
  // works for this convex distance function and avoids per-frame allocations.
@@ -340,7 +348,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual})
    if(fx.kind==='particles'&&fx.animated)fx.animated.rotation.y=time*.12;
   }
  }
- return {init,loadScene,clear,show,update,updateOcclusion,get currentName(){return sceneName;},get count(){return objects.length;}};
+ return {init,loadScene,clear,show,update,updateOcclusion,getElementSources,get currentName(){return sceneName;},get count(){return objects.length;}};
 }
 
 /* The controls use no credentials and never write to the repository. */
