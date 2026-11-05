@@ -52,6 +52,19 @@ canvas{display:block;touch-action:none}
 .rokCasterThreat{position:absolute;display:none;transform:translate(-50%,-100%);font:900 27px/1 Roboto,system-ui,sans-serif;color:#ffe780;text-shadow:0 0 4px #000,0 0 8px #ff651c,0 0 13px #ff3823;animation:rokThreatBlink .65s ease-in-out infinite alternate;will-change:opacity,transform}
 @keyframes rokThreatBlink{from{opacity:.25;transform:translate(-50%,-100%) scale(.84)}to{opacity:1;transform:translate(-50%,-100%) scale(1.15)}}
 @media(prefers-reduced-motion:reduce){.rokCasterThreat{animation:none}}
+#casterAttackTargetLayer{position:fixed;inset:0;z-index:22;pointer-events:none;overflow:hidden}
+.rokAttackReticle{position:absolute;display:none;width:23px;height:23px;
+ border:2px solid #ffdf66;border-radius:50%;box-sizing:border-box;
+ transform:translate(-50%,-100%);filter:drop-shadow(0 0 4px #efb93c);
+ box-shadow:inset 0 0 4px #f8db6b77,0 0 8px #f5c13777;
+ animation:rokAttackReticleBlink .66s ease-in-out infinite alternate}
+.rokAttackReticle::before,.rokAttackReticle::after{content:"";position:absolute;
+ top:50%;left:50%;background:#ffe488;transform:translate(-50%,-50%);
+ box-shadow:0 0 5px #ffc64e}
+.rokAttackReticle::before{width:2px;height:29px}
+.rokAttackReticle::after{width:29px;height:2px}
+@keyframes rokAttackReticleBlink{from{opacity:.38}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.rokAttackReticle{animation:none}}
 /* Mini HUD proporcional: 40% de largo y grosor; centro anclado al personaje. */
 .unitTag{position:absolute;width:104px;transform:translate(-50%,-100%) scale(.8);transform-origin:50% 100%;
   display:flex;flex-direction:column;gap:2px;text-align:center;pointer-events:none;
@@ -216,8 +229,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.82 · Alerta justo sobre la cabeza</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.82</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.83 · Diana sobre objetivo atacable</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.83</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -254,6 +267,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <div id="legacyArenaDiagnostics" hidden aria-hidden="true"><button id="testerSceneImport"></button><input id="testerSceneFile" type="file"><button id="testerSceneReset"></button><select id="testerScenePublished"></select><button id="testerSceneApply"></button><input id="testerSceneVisible" type="checkbox" checked><select id="reviewCaster"><option value="ally">Aliado</option><option value="enemy">Rival</option></select><input id="reviewSpeed" type="range" min="0.25" max="2" value="1"><output id="reviewSpeedLabel"></output><div id="reviewAnimationList"></div><button id="reviewStop"></button><button id="reviewCopy"></button><button id="reviewExport"></button><p id="reviewStatus"></p><p id="animationStatus"></p><p id="modelStatus"></p><p id="textureStatus"></p><p id="sceneStatus"></p><p id="fps"></p><input id="arenaSpriteWidth" type="range" min="100" max="220" value="100"><input id="arenaSpriteLength" type="range" min="100" max="220" value="100"><output id="arenaSpriteWidthValue"></output><output id="arenaSpriteLengthValue"></output><button id="saveArenaBackground"></button><p id="backgroundSaveStatus"></p></div>
 <div id="nameplateLayer" aria-hidden="true"></div>
 <div id="casterThreatLayer" aria-hidden="true"></div>
+<div id="casterAttackTargetLayer" aria-hidden="true"><span id="casterAttackReticle" class="rokAttackReticle"></span></div>
 <div id="summonCastLayer" aria-hidden="true"></div>
 <div id="phase">Preparando combate…</div>
 <div id="hint">WASD: mover · Opciones: coordenadas<br>Arriba: rival · Abajo: aliado</div>
@@ -3372,6 +3386,35 @@ function updateMagic(dt){
     }
   }
 }
+// Reticle follows the SAME selected enemy summon as the existing yellow
+// ground marker. It does not select targets, extend range, or change damage.
+const attackReticle=qs('#casterAttackReticle');
+const attackReticlePoint=new THREE.Vector3();
+function updateCasterAttackReticle(){
+ const active=loaded&&playing&&matchGate.isRunning&&!casterReview.active;
+ if(!active){attackReticle.style.display='none';return;}
+ const selected=casters.find(c=>c.side===qs('#casterMoveSide').value);
+ if(!selected||selected.stage!=='active'){attackReticle.style.display='none';return;}
+ const enemies=combatants.filter(e=>e.side!==selected.side&&canDamageTarget(e));
+ const target=casterRangeIndicator.choose(selected,enemies,canDamageTarget).target;
+ if(!target||!target.outer||!target.model?.visible){
+  attackReticle.style.display='none';return;
+ }
+ // Approximate the head level of a summon; sprites/HTML HUD are independent
+ // from the actual yellow ground ring and never interfere with pointer input.
+ const height=1.90;
+ attackReticlePoint.set(0,height,0);
+ target.outer.localToWorld(attackReticlePoint);
+ attackReticlePoint.project(camera);
+ if(attackReticlePoint.z<-1||attackReticlePoint.z>1||
+    Math.abs(attackReticlePoint.x)>1||Math.abs(attackReticlePoint.y)>1){
+  attackReticle.style.display='none';return;
+ }
+ const rect=renderer.domElement.getBoundingClientRect();
+ attackReticle.style.left=(rect.left+(attackReticlePoint.x*.5+.5)*rect.width)+'px';
+ attackReticle.style.top=(rect.top+(-attackReticlePoint.y*.5+.5)*rect.height)+'px';
+ attackReticle.style.display='block';
+}
 // Threat marker: an actual rival summon pursuing/casting at a caster,
 // or a rival caster's committed projectile against that caster.
 const casterThreatLayer=qs('#casterThreatLayer');
@@ -4159,6 +4202,7 @@ function loop(now){
     for(const c of combatants){updateNameplate(c);updateSummonCountdown(c);}
     for(const c of casters)updateNameplate(c);
     updateCasterThreatIndicators();
+    updateCasterAttackReticle();
   }
   sceneryOverlay.update(now/1000);
   updateCameraTracking(dt);
