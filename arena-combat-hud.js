@@ -233,8 +233,10 @@ export function createArenaCombatHud(){
   for(const side of ['ally','enemy']){
    const player=sides[side];
    player.fragmentClock+=dt;
-   while(player.fragmentClock>=1){
-    player.fragmentClock-=1;
+   // One quarter-element fragment every 2 seconds:
+   // 4 fragments restore 1 complete elemental unit in 8 seconds.
+   while(player.fragmentClock>=2){
+    player.fragmentClock-=2;
     regenerateFragment(side);
    }
   }
