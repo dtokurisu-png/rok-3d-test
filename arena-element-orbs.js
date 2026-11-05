@@ -6,9 +6,15 @@
 export function createArenaElementOrbs({THREE,root,casters,onCollect}){
  const sources=[],orbs=[];
  const ORB_LIMIT=6,EMIT_DURATION=1.35,FIELD_HALF_WIDTH=6.35;
+ const MAGNET_RANGE=4.05,MAGNET_SPEED=36,MAGNET_CAPTURE=.7;
+ const orbPool=[];const ORBIT_PARTICLES=4,TRAIL_PER_PARTICLE=4,POINT_COUNT=ORBIT_PARTICLES*(1+TRAIL_PER_PARTICLE);
  const coreGeo=new THREE.IcosahedronGeometry(.23,1);
- const haloGeo=new THREE.SphereGeometry(.32,12,8);
- const ringGeo=new THREE.TorusGeometry(.48,.042,7,36);
+ const haloGeo=new THREE.SphereGeometry(.37,12,8);
+ const pointMaterial=new THREE.PointsMaterial({size:.18,vertexColors:true,sizeAttenuation:true,
+  transparent:true,opacity:.95,depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending});
+ const coreMaterial=new THREE.MeshBasicMaterial({color:0xc8fff9});
+ const haloMaterial=new THREE.MeshBasicMaterial({color:0x00ffe4,transparent:true,
+  opacity:.24,depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending});
  const waterGeo=new THREE.CircleGeometry(1,48);
  const waterRingGeo=new THREE.RingGeometry(.73,.96,48);
  const beamGeo=new THREE.CylinderGeometry(.07,.17,1.5,12,1,true);
@@ -23,15 +29,75 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   });
  }
  function clearOrbs(){
-  for(const orb of orbs)disposeVisual(orb.group);
+  for(const orb of orbs){orb.group.visible=false;orb.target=null;orb.source=null;}
   orbs.length=0;
  }
+ function rebuildOrbPool(){
+  // Pre-create complete orbiting-atom visuals when a scene loads, not when
+  // the source emits. No geometry/material/shader/light allocation at spawn.
+  for(const orb of orbPool){
+   root.remove(orb.group);
+   orb.points.geometry.dispose();
+  }
+  orbPool.length=0;
+  for(let i=0;i<ORB_LIMIT*2;i++){
+   const group=new THREE.Group();group.visible=false;
+   const core=new THREE.Mesh(coreGeo,coreMaterial);group.add(core);
+   const glow=new THREE.Mesh(haloGeo,haloMaterial);group.add(glow);
+   const geometry=new THREE.BufferGeometry();
+   const positions=new Float32Array(POINT_COUNT*3);
+   const colors=new Float32Array(POINT_COUNT*3);
+   const positionAttribute=new THREE.BufferAttribute(positions,3);
+   positionAttribute.setUsage(THREE.DynamicDrawUsage);
+   const colorAttribute=new THREE.BufferAttribute(colors,3);
+   colorAttribute.setUsage(THREE.DynamicDrawUsage);
+   geometry.setAttribute('position',positionAttribute);
+   geometry.setAttribute('color',colorAttribute);
+   geometry.setDrawRange(0,POINT_COUNT);
+   // Ensure the moving particles cannot be culled by their initial bounds.
+   const points=new THREE.Points(geometry,pointMaterial);
+   points.frustumCulled=false;group.add(points);root.add(group);
+   orbPool.push({group,core,glow,points,phase:0,trailHistory:[],target:null,source:null});
+  }
+ }
+ function updateAtom(orb,dt){
+  orb.phase+=dt*4.6;
+  const t=orb.phase,positions=orb.points.geometry.attributes.position.array;
+  const colors=orb.points.geometry.attributes.color.array;
+  const radius=.41;
+  for(let j=0;j<ORBIT_PARTICLES;j++){
+   const a=t+j*Math.PI/2;
+   // Four satellites in alternating inclined orbits around one nucleus.
+   const tilt=j%2===0?1:-1;
+   const x=Math.cos(a)*radius;
+   const y=Math.sin(a)*radius*.78;
+   const z=Math.sin(a+.45)*radius*.65*tilt;
+   const base=j*(1+TRAIL_PER_PARTICLE);
+   const trace=orb.trailHistory[j];
+   trace.unshift([x,y,z]);if(trace.length>TRAIL_PER_PARTICLE)trace.pop();
+   const blink=.7+.3*Math.sin(t*3+j*1.6);
+   for(let k=0;k<=TRAIL_PER_PARTICLE;k++){
+    const index=(base+k)*3;
+    const pos=k===0?[x,y,z]:trace[Math.min(k-1,trace.length-1)];
+    positions[index]=pos[0];positions[index+1]=pos[1];positions[index+2]=pos[2];
+    const fade=k===0?blink:Math.max(.06,(1-k/(TRAIL_PER_PARTICLE+1))*.5);
+    colors[index]=.27*fade;colors[index+1]=fade;colors[index+2]=.93*fade;
+   }
+  }
+  orb.points.geometry.attributes.position.needsUpdate=true;
+  orb.points.geometry.attributes.color.needsUpdate=true;
+  const flash=.82+.3*Math.sin(t*3.8);
+  orb.glow.scale.setScalar(flash);
+  orb.core.scale.setScalar(.9+.14*Math.sin(t*4.4));
+ }
+
  function clearSources(){
   for(const source of sources)disposeVisual(source.visual);
   sources.length=0;
  }
  function bindSources(real){
   clearOrbs();clearSources();
+  rebuildOrbPool();
   const seen=new Set();
   for(const item of real||[]){
    if((item.player!==1&&item.player!==2)||!item.instance||!item.bounds||seen.has(item.player))continue;
@@ -75,19 +141,19 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   return sources.length;
  }
  function spawn(source){
-  // Each owner generates on its own side; the pickup itself is neutral.
+  // The entire visual is reused from the scene-load pool: this cannot
+  // trigger a mesh/geometry/material/PointLight allocation mid-battle.
+  const orb=orbPool.find(item=>!item.group.visible);
+  if(!orb)return false;
   const zDistance=4.1+Math.random()*9.7;
-  // Use the actual fountain's territory, not a guessed player orientation.
   const z=source.visual.position.z<0?-zDistance:zDistance;
   const x=-FIELD_HALF_WIDTH+Math.random()*(FIELD_HALF_WIDTH*2);
-  const group=new THREE.Group();group.position.set(x,.5,z);
-  const core=new THREE.Mesh(coreGeo,mat(0xa5fff4,.98));group.add(core);
-  const glow=new THREE.Mesh(haloGeo,mat(0x00ffe4,.16));group.add(glow);
-  const ring=new THREE.Mesh(ringGeo,mat(0x64ffe5,.54));group.add(ring);
-  const light=new THREE.PointLight(0x00ffe4,.48,2.2);group.add(light);
-  root.add(group);
-  orbs.push({group,core,ring,phase:Math.random()*Math.PI*2,target:null,source});
-  source.emitted++;
+  orb.group.position.set(x,.55,z);orb.group.visible=true;
+  orb.phase=Math.random()*Math.PI*2;orb.target=null;orb.source=source;
+  orb.trailHistory=Array.from({length:ORBIT_PARTICLES},()=>[]);
+  updateAtom(orb,0);
+  orbs.push(orb);source.emitted++;
+  return true;
  }
  function reset(){
   clearOrbs();
@@ -170,26 +236,32 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   for(let i=orbs.length-1;i>=0;i--){
    const orb=orbs[i];orb.phase+=dt*2.1;
    orb.group.position.y=.5+Math.sin(orb.phase)*.13;
-   orb.core.rotation.y+=dt*1.3;orb.ring.rotation.y+=dt*.75;
+   orb.core.rotation.y+=dt*1.3;updateAtom(orb,dt);
    const eligible=casters.filter(c=>c?.outer&&c.hp>0&&c.stage==='active');
    let nearest=null,dist=Infinity;
    for(const c of eligible){
     const d=Math.hypot(c.outer.position.x-orb.group.position.x,c.outer.position.z-orb.group.position.z);
     if(d<dist){dist=d;nearest=c;}
    }
-   if(nearest&&dist<=2.05)orb.target=nearest;
+   if(nearest&&dist<=MAGNET_RANGE)orb.target=nearest;
    if(orb.target&&!eligible.includes(orb.target))orb.target=null;
    if(orb.target){
     const pos=orb.target.outer.position,dx=pos.x-orb.group.position.x,dz=pos.z-orb.group.position.z;
-    const d=Math.hypot(dx,dz),step=Math.min(d,dt*4.2);
+    const d=Math.hypot(dx,dz),step=Math.min(d,dt*MAGNET_SPEED);
     if(d>0.00001){orb.group.position.x+=dx/d*step;orb.group.position.z+=dz/d*step;}
-    if(d<=.38||step>=d){
+    if(d<=MAGNET_CAPTURE||step>=d){
      onCollect?.(orb.target.side);
-     disposeVisual(orb.group);orbs.splice(i,1);
+     orb.group.visible=false;orb.target=null;orb.source=null;orbs.splice(i,1);
     }
    }
   }
  }
- function dispose(){clearOrbs();clearSources();coreGeo.dispose();haloGeo.dispose();ringGeo.dispose();waterGeo.dispose();waterRingGeo.dispose();beamGeo.dispose();sparkGeo.dispose();}
+ function dispose(){
+  clearOrbs();clearSources();
+  for(const orb of orbPool){root.remove(orb.group);orb.points.geometry.dispose();}
+  orbPool.length=0;
+  coreGeo.dispose();haloGeo.dispose();pointMaterial.dispose();coreMaterial.dispose();haloMaterial.dispose();
+  waterGeo.dispose();waterRingGeo.dispose();beamGeo.dispose();sparkGeo.dispose();
+ }
  return {bindSources,reset,tick,idle,dispose,get sourceCount(){return sources.length;}};
 }
