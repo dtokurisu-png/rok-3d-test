@@ -57,7 +57,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
    // Ensure the moving particles cannot be culled by their initial bounds.
    const points=new THREE.Points(geometry,pointMaterial);
    points.frustumCulled=false;group.add(points);root.add(group);
-   orbPool.push({group,core,glow,points,phase:0,trailHistory:[],target:null,source:null});
+   orbPool.push({group,core,glow,points,phase:0,target:null,source:null});
   }
  }
  function updateAtom(orb,dt){
@@ -73,14 +73,14 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
    const y=Math.sin(a)*radius*.78;
    const z=Math.sin(a+.45)*radius*.65*tilt;
    const base=j*(1+TRAIL_PER_PARTICLE);
-   const trace=orb.trailHistory[j];
-   trace.unshift([x,y,z]);if(trace.length>TRAIL_PER_PARTICLE)trace.pop();
    const blink=.7+.3*Math.sin(t*3+j*1.6);
    for(let k=0;k<=TRAIL_PER_PARTICLE;k++){
     const index=(base+k)*3;
-    const pos=k===0?[x,y,z]:trace[Math.min(k-1,trace.length-1)];
-    positions[index]=pos[0];positions[index+1]=pos[1];positions[index+2]=pos[2];
-    const fade=k===0?blink:Math.max(.06,(1-k/(TRAIL_PER_PARTICLE+1))*.5);
+    const trailAngle=a-k*.19;
+    positions[index]=k===0?x:Math.cos(trailAngle)*radius;
+    positions[index+1]=k===0?y:Math.sin(trailAngle)*radius*.78;
+    positions[index+2]=k===0?z:Math.sin(trailAngle+.45)*radius*.65*tilt;
+    const fade=k===0?blink:Math.max(.06,(1-k/(TRAIL_PER_PARTICLE+1))*.55);
     colors[index]=.27*fade;colors[index+1]=fade;colors[index+2]=.93*fade;
    }
   }
@@ -150,7 +150,6 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   const x=-FIELD_HALF_WIDTH+Math.random()*(FIELD_HALF_WIDTH*2);
   orb.group.position.set(x,.55,z);orb.group.visible=true;
   orb.phase=Math.random()*Math.PI*2;orb.target=null;orb.source=source;
-  orb.trailHistory=Array.from({length:ORBIT_PARTICLES},()=>[]);
   updateAtom(orb,0);
   orbs.push(orb);source.emitted++;
   return true;
