@@ -245,6 +245,7 @@ function refreshTimeline(){
  $('creatorTime').value=String(Math.round(state.time*30));
  $('creatorFrameNumber').textContent=String(Math.round(state.time*30));
  $('creatorLastFrame').textContent=String(max);
+ queueTrackUpdate();
  const frames=[...state.keys.keys()].sort((a,b)=>a-b);
  $('creatorKeys').textContent=frames.length?
   frames.length+' poses clave · fotogramas: '+frames.join(', '):
@@ -696,6 +697,73 @@ $('creatorExportGlb').addEventListener('click',async()=>{
   status('✓ GLB animado descargado. Modelos originales sin cambios.');
  }catch(error){status('No se pudo exportar GLB: '+error.message,true);}
  finally{button.disabled=false;}
+});
+
+/* v0.3: visible per-bone keyframe tracks and direct interactive IK targets */
+const pickRay=new THREE.Raycaster(),pickVec=new THREE.Vector2();
+let activeTimelineKey=null,tracksPending=false;
+function updateTracks(){
+ const host=$('creatorTracks');host.replaceChildren();
+ if(!state.model)return;
+ const max=Math.max(1,Math.round(state.duration*30));
+ $('creatorTrackInfo').textContent='Fotograma '+Math.round(state.time*30)+' / '+max;
+ for(const {bone,label} of sortedBones()){
+  const row=document.createElement('div');row.className='creatorTrackRow';
+  const title=document.createElement('div');title.className='creatorTrackLabel'+(state.currentBone===bone?' active':'');
+  title.textContent=label;
+  title.onclick=()=>{selectBone(bone.uuid);queueTrackUpdate();};
+  const lane=document.createElement('div');lane.className='creatorTrackLane';
+  lane.onclick=e=>{const r=lane.getBoundingClientRect();setFrame(Math.round(THREE.MathUtils.clamp((e.clientX-r.left)/r.width,0,1)*max));};
+  const changed=new Set([...state.keys.entries()].filter(([,p])=>p[bone.name]).map(([f])=>f));
+  const source=new Set();
+  for(const tr of state.sourceClip?.tracks||[]){
+   if(!tr.name.includes(bone.name+'.'))continue;
+   const step=Math.max(1,Math.ceil(tr.times.length/100));
+   for(let j=0;j<tr.times.length;j+=step)source.add(Math.round(tr.times[j]*30));
+  }
+  for(const frame of [...new Set([...source,...changed])].sort((a,b)=>a-b)){
+   const original=!changed.has(frame);
+   const k=document.createElement('button');k.type='button';
+   k.className='creatorTrackKey'+(original?' source':'')+
+    (activeTimelineKey?.bone===bone.name&&activeTimelineKey.frame===frame?' selected':'');
+   k.style.left=(100*Math.min(1,frame/max))+'%';
+   k.title=bone.name+' · fotograma '+frame;
+   k.onclick=e=>{e.stopPropagation();activeTimelineKey={bone:bone.name,frame,original};
+    setFrame(frame);selectBone(bone.uuid);queueTrackUpdate();};
+   lane.appendChild(k);
+  }
+  row.append(title,lane);host.append(row);
+ }
+}
+function queueTrackUpdate(){
+ if(tracksPending)return;tracksPending=true;
+ requestAnimationFrame(()=>{tracksPending=false;updateTracks();});
+}
+$('creatorTrackDelete').onclick=()=>{
+ if(!activeTimelineKey||activeTimelineKey.original){status('Selecciona un rombo editado para eliminar su clave.',true);return;}
+ const {bone,frame}=activeTimelineKey,pose=state.keys.get(frame);if(!pose)return;
+ delete pose[bone];if(!Object.keys(pose).length)state.keys.delete(frame);
+ activeTimelineKey=null;setFrame(frame);queueTrackUpdate();
+ status('Clave eliminada de '+bone+' en fotograma '+frame);
+};
+$('creatorTogglePanel').onclick=()=>{
+ const shell=document.querySelector('.creatorShell');
+ const closed=shell.classList.toggle('panelHidden');
+ $('creatorTogglePanel').textContent=closed?'☰ Herramientas':'✕ Ocultar panel';resize();
+};
+let pointerDown=null;
+renderer.domElement.addEventListener('pointerdown',e=>{pointerDown=[e.clientX,e.clientY]});
+renderer.domElement.addEventListener('pointerup',e=>{
+ if(!pointerDown||Math.hypot(e.clientX-pointerDown[0],e.clientY-pointerDown[1])>5){pointerDown=null;return;}
+ pointerDown=null;const r=renderer.domElement.getBoundingClientRect();
+ pickVec.set(2*(e.clientX-r.left)/r.width-1,1-2*(e.clientY-r.top)/r.height);
+ pickRay.setFromCamera(pickVec,camera);
+ const hit=pickRay.intersectObjects([...state.targets.values()],false)[0];
+ if(hit&&Number.isInteger(hit.object.userData.rokIKTarget))selectChain(hit.object.userData.rokIKTarget);
+});
+document.addEventListener('keydown',e=>{
+ if(e.key.toLowerCase()!=='r'||!state.currentBone||/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName||''))return;
+ e.preventDefault();gizmo.setMode('rotate');gizmo.attach(state.currentBone);
 });
 let last=0;
 function render(now){
