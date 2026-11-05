@@ -1,6 +1,11 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-03",
+  "updatedAt": "2026-11-04",
   "description": "Published R.O.K. scene JSON files available in the Arena tester. Add entries only after committing validated scene JSON under assets/scenes/.",
-  "scenes": []
+  "scenes": [
+    {
+      "name": "Arena de Chiara",
+      "path": "assets/scenes/arena-de-chiara.json"
+    }
+  ]
 }
