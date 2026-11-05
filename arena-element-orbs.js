@@ -77,7 +77,8 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
  function spawn(source){
   // Each owner generates on its own side; the pickup itself is neutral.
   const zDistance=4.1+Math.random()*9.7;
-  const z=source.player===1?zDistance:-zDistance;
+  // Use the actual fountain's territory, not a guessed player orientation.
+  const z=source.visual.position.z<0?-zDistance:zDistance;
   const x=-FIELD_HALF_WIDTH+Math.random()*(FIELD_HALF_WIDTH*2);
   const group=new THREE.Group();group.position.set(x,.5,z);
   const core=new THREE.Mesh(coreGeo,mat(0xa5fff4,.98));group.add(core);
@@ -103,6 +104,8 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   source.pending=true;source.cast=0;
  }
  function animateWater(source,dt){
+  // Effects follow the real source and disappear when scenery is hidden.
+  source.visual.visible=!!source.instance.parent?.visible;
   source.phase+=dt*1.1;
   const t=source.phase;
   source.water.material.opacity=.27+Math.sin(t*1.5)*.07;
