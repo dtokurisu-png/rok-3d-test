@@ -417,7 +417,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.117</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.118</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -4307,76 +4307,49 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
  window.ROKBoot.progress('Preparando modelos, materiales y animaciones…',27);
   try{
   if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
-  // Preserve the Farolera model/idle animation and createFighter() for card casting.
-  // No automatic summons are created when a match loads or restarts.
-  const faroleraSummonPrototype={scene:g.scene,idle:g.animations[0]};
-  for(const side of ['ally','enemy'])createCaster(g.scene,g.animations[0],side);
-  window.ROKSummonAssets={farolera:faroleraSummonPrototype};
-  for(const c of combatants)c.model.userData.baseScale=c.model.scale.x;
-  for(const c of combatants){makeNameplate(c);makeSummonCountdown(c);resetCombatant(c);}
-  for(const c of casters){makeNameplate(c);resetCaster(c);}
-  // Kasters reales cargados de forma independiente: se conservan posiciones,
-  // vida, etiquetas, combate y animaciones del resto de invocaciones.
-  // Mientras descargan, permanece el caster provisional; no bloquean la arena.
-  const casterModelTasks=[];
+  // Farolera is a SUMMON only. Never create a provisional caster from it.
+  window.ROKSummonAssets={farolera:{scene:g.scene,idle:g.animations[0]}};
+  const casterModelTasks=[
+   {side:'ally',folder:'lioren',path:'lioren kaster.glb',label:'Lioren'},
+   {side:'enemy',folder:'chiara',path:'chiara kaster.glb',label:'Chiara'}
+  ].map(async spec=>{
+   const url='./assets/models/casters/'+spec.folder+'/'+encodeURIComponent(spec.path);
+   let gltf;
+   try{gltf=await new GLTFLoader().loadAsync(url);}
+   catch(error){throw Error('No se pudo cargar '+spec.label+' ('+String(error?.message||error)+')');}
+   if(!gltf?.scene)throw Error('El GLB de '+spec.label+' no contiene un modelo válido');
+   const bounds=new THREE.Box3().setFromObject(gltf.scene);
+   const height=bounds.getSize(new THREE.Vector3()).y;
+   if(!Number.isFinite(height)||height<=.001)
+    throw Error('Modelo de '+spec.label+' sin geometría o altura válida');
+   const idle=gltf.animations?.find(clip=>/idle|standing/i.test(clip.name))||
+    gltf.animations?.[0];
+   if(!idle||!idle.tracks?.length)
+    throw Error('El GLB de '+spec.label+' no contiene una animación utilizable');
+   return {spec,gltf,idle,bounds};
+  });
+  // The match MUST NOT become ready while either caster is missing.
+  // Promise.all rejects explicitly; no Farolera fallback and no silent errors.
+  const realCasters=await Promise.all(casterModelTasks);
   const deferredCasterAnimations=[];
-  let casterAnimationsBackgroundStarted=false;
-  for(const spec of [
-    {side:'ally',path:'lioren kaster.glb',label:'Lioren'},
-    {side:'enemy',path:'chiara kaster.glb',label:'Chiara'}
-  ]){
-    const caster=casters.find(c=>c.side===spec.side);
-    if(!caster)continue;
-    const installCaster=gltf=>{
-      const model=cloneSkinned(gltf.scene);
-      const bounds=new THREE.Box3().setFromObject(model);
-      const h=bounds.getSize(new THREE.Vector3()).y;
-      if(!Number.isFinite(h)||h<=.001)throw Error('Modelo sin altura válida');
-      const scale=1.65/h;
-      model.scale.setScalar(scale);
-      model.userData.baseScale=scale;
-      model.userData.rokCasterAsset=spec.label;
-      model.userData.baseY=-bounds.min.y*scale;
-      model.position.y=model.userData.baseY;
-      model.traverse(o=>{if(o.isMesh)o.frustumCulled=false;});
-      // A provisional rig may have been guarding while the GLB loaded.
-      // Release it and hide its shield before replacing the model.
-      if(casterMovement?.caster===caster)casterMovement.disable();
-      casterLayers.shield(caster,false);
-      caster.outer.remove(caster.model);
-      caster.mixer.stopAllAction();
-      caster.model=model;caster.outer.add(model);
-      caster.mixer=new THREE.AnimationMixer(model);
-      caster.idleClip=gltf.animations.find(clip=>/idle|standing/i.test(clip.name))||
-        gltf.animations[0]||new THREE.AnimationClip('Reposo',1,[]);
-      caster.mixer.clipAction(caster.idleClip).reset().play();
-      // Idle from the real GLB is already usable. Defer all costly FBX
-      // retargeting until the user reaches the preparation screen.
-      const loadInstalledCaster=async()=>{
-       const clips=await movementLoader.load(caster);
-       if(caster.model===model)casterLayers.register(caster,clips);
-      };
-      // When a GLB was postponed until the next match, the original
-      // background-job snapshot has already run. Prepare clips now too.
-      if(casterAnimationsBackgroundStarted){
-       void loadInstalledCaster().catch(error=>console.warn(
-        '[R.O.K.] Clips de caster instalados después del combate:',error));
-      }else deferredCasterAnimations.push(loadInstalledCaster);
-      qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' listo';
-    };
-    const modelTask=new GLTFLoader().loadAsync('./assets/models/casters/'+
-     (spec.side==='ally'?'lioren':'chiara')+'/'+encodeURIComponent(spec.path))
-     .then(gltf=>{
-      if(matchGate.isRunning)pendingCasterInstalls.push(()=>installCaster(gltf));
-      else installCaster(gltf);
-     }).catch(error=>{
-      // Animated provisional casters remain available on weak connections.
-      console.warn('[R.O.K.] Caster '+spec.label+' secundario:',error);
-     });
-    casterModelTasks.push(modelTask);
+  for(const {spec,gltf,idle,bounds} of realCasters){
+   const caster=createCaster(gltf.scene,idle,spec.side);
+   caster.model.userData.rokCasterAsset=spec.label;
+   caster.model.userData.baseY=-bounds.min.y*caster.model.scale.x;
+   caster.model.position.y=caster.model.userData.baseY;
+   makeNameplate(caster);
+   resetCaster(caster);
+   deferredCasterAnimations.push(async()=>{
+    const model=caster.model;
+    const clips=await movementLoader.load(caster);
+    if(caster.model===model)casterLayers.register(caster,clips);
+   });
   }
+  if(casters.length!==2||casters.some(c=>!c.model?.userData?.rokCasterAsset))
+   throw Error('No están disponibles los dos casters reales');
+  qs('#modelStatus').textContent='Casters reales cargados: Lioren y Chiara';
   window.ROKBoot.progress('Descargando escenario y casters reales…',48);
-  // The two real caster GLBs (~12 MB combined) are optional for first play.
+  // Core scene resources may finish in parallel, but both real casters are mandatory.
   await Promise.all([sharedBackgroundReady,arenaTextureReady]);
   window.ROKBoot.progress('Comprobando y preparando el combate…',92);
   attackModeButton.disabled=false;renderAttackMode();
@@ -4404,7 +4377,7 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     }
    })();
   }
-  qs('#modelStatus').textContent='2 casters · Farolera cargada para el futuro casteo de cartas';
+  qs('#modelStatus').textContent='Lioren y Chiara listos · Farolera solo como invocación';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
   // The preparation interface was shown before downloading models.
   playing=false;
@@ -4421,8 +4394,6 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     // leave this list empty. This runs AFTER core-ready, never blocks play.
     const animationStatus=qs('#mobaAnimationLoadStatus');
     animationStatus.textContent='Animaciones: descargando modelos de casters…';
-    await Promise.allSettled(casterModelTasks);
-    casterAnimationsBackgroundStarted=true;
     const jobs=[...deferredCasterAnimations];
     animationStatus.textContent='Animaciones: '+jobs.length+' casters listos para preparar; cargando clips…';
     // Summon animations are required on BOTH desktop and mobile.
