@@ -299,7 +299,8 @@ function download(data,filename,type){
 }
 function safeFilename(name){return String(name||'animacion').trim().replace(/[^a-z0-9áéíóúüñ_-]+/gi,'_').slice(0,64)||'animacion';}
 function serialize(){
- return {schemaVersion:1,kind:'ROK_AnimationCreator',modelId:state.modelId,
+ return {schemaVersion:2,kind:'ROK_AnimationCreator',modelId:state.modelId,
+  sourceId:state.sourceId,
   modelPath:state.loadedPath,name:$('creatorName').value,
   fps:30,duration:state.duration,
   keyframes:[...state.keys.entries()].sort((a,b)=>a[0]-b[0])
@@ -407,6 +408,147 @@ function frameModel(){
  orbit.target.copy(center);camera.position.copy(center).add(new THREE.Vector3(extent*.9,extent*.6,extent*1.9));
  camera.near=Math.max(.001,extent/1000);camera.far=extent*100;camera.updateProjectionMatrix();orbit.update();
 }
+const QUEUE_KEY='ROK_ANIMATION_CREATOR_QUEUE_V1';
+let creatorSources=[];
+function populateSources(){
+ creatorSources=[
+  ...state.modelClips.filter(clip=>clip?.tracks?.length).map((clip,i)=>({
+   id:'glb:'+i,name:'GLB · '+(clip.name||'Animación '+(i+1)),
+   kind:'glb',clip
+  })),
+  ...numberedSources.map(item=>({...item,id:'fbx:'+item.id,kind:'fbx'})),
+  ...newSources.map(item=>({...item,id:'fbx:'+item.id,kind:'fbx'}))
+ ];
+ const select=$('creatorSource');
+ select.replaceChildren(new Option('Pose inicial / T-pose',''));
+ for(const item of creatorSources)select.append(new Option(item.name,item.id));
+ select.value='';state.sourceId=null;
+ renderQueue();
+}
+function resetSource(){
+ state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
+ state.sourceMixer?.stopAllAction();
+ state.sourceMixer=null;state.sourceClip=null;state.sourceAction=null;state.sourceId=null;
+ state.keys.clear();state.duration=4;$('creatorDuration').value='4';
+ if(state.model)resetPose();
+ setFrame(0,false);refreshTimeline();
+ $('creatorSource').value='';
+ status('Pose inicial preparada; también puedes cargar T-Pose.fbx o una animación existente.');
+}
+async function loadSource(id){
+ if(!state.model)throw Error('Primero debes cargar un modelo.');
+ const source=creatorSources.find(x=>x.id===id);
+ if(!source){resetSource();return;}
+ state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
+ status('Adaptando '+source.name+' al esqueleto…');
+ const clip=await loadCreatorClip(source,state.model);
+ if(!clip?.tracks?.length||clip.duration<=0)throw Error('Animación vacía o incompatible.');
+ state.sourceMixer?.stopAllAction();
+ // The original action plays ONLY inside this editor. No repository changes.
+ const mixer=new THREE.AnimationMixer(state.model);
+ const action=mixer.clipAction(clip);
+ action.setLoop(THREE.LoopOnce,1);
+ action.clampWhenFinished=true;
+ action.play();mixer.setTime(0);
+ state.sourceClip=clip;state.sourceMixer=mixer;state.sourceAction=action;
+ state.sourceId=id;state.duration=Math.ceil(clip.duration*30)/30;
+ state.keys.clear();
+ $('creatorDuration').value=String(state.duration);
+ setFrame(0);refreshTimeline();
+ $('creatorName').value=source.name.replace(/^\\d+\\s*·\\s*/,'').replace(/^GLB · /,'')+' · editada';
+ status('✓ '+source.name+' · '+(Math.round(state.duration*30)+1)+
+  ' fotogramas disponibles. El movimiento original se conserva.');
+}
+function readQueue(){
+ try{
+  const data=JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');
+  return Array.isArray(data)?data.filter(x=>x?.kind==='ROK_AnimationCreator'):[];}
+ catch{return [];}
+}
+function renderQueue(){
+ const parent=$('creatorQueue');parent.replaceChildren();
+ const queue=readQueue().filter(x=>x.modelId===state.modelId);
+ if(!queue.length){
+  const empty=document.createElement('p');
+  empty.className='creatorNote';empty.textContent='Todavía no hay animaciones editadas en este navegador.';
+  parent.append(empty);return;
+ }
+ for(const item of queue){
+  const row=document.createElement('div');
+  row.className='creatorQueueItem '+(item.mode==='replace'?'creatorReplacement':'creatorOriginal');
+  const title=document.createElement('span');
+  title.textContent=(item.mode==='replace'?'↻ ':'✦ ')+item.name;
+  const badge=document.createElement('small');
+  badge.textContent=item.mode==='replace'?'Versión reemplazada':'Nueva';
+  const button=document.createElement('button');
+  button.textContent='Abrir';button.type='button';
+  button.addEventListener('click',()=>applyProject(item));
+  row.append(title,badge,button);parent.append(row);
+ }
+}
+async function applyProject(data){
+ const item=models.find(m=>m.id===data.modelId&&m.path===data.modelPath);
+ if(!item)throw Error('Modelo del proyecto no disponible.');
+ if(!state.model||state.modelId!==item.id)await loadModel(item);
+ const sourceId=data.sourceId||null;
+ if(sourceId){
+  $('creatorSource').value=sourceId;await loadSource(sourceId);
+ }else resetSource();
+ state.duration=THREE.MathUtils.clamp(Number(data.duration)||4,.5,120);
+ $('creatorDuration').value=String(state.duration);
+ $('creatorName').value=String(data.name||'Mi animación R.O.K.').slice(0,90);
+ state.keys.clear();
+ for(const record of data.keyframes||[]){
+  const frame=Number(record.frame);
+  if(!Number.isInteger(frame)||frame<0||frame>Math.round(state.duration*30)||
+    !record.pose||typeof record.pose!=='object')continue;
+  const pose={};
+  for(const bone of state.bones){
+   const q=record.pose[bone.name];
+   if(Array.isArray(q)&&q.length===4&&q.every(Number.isFinite))
+    pose[bone.name]=q;
+  }
+  state.keys.set(frame,pose);
+ }
+ setFrame(0);renderQueue();
+ status('Proyecto recuperado · '+state.keys.size+' fotogramas modificados.');
+}
+$('creatorLoadSource').addEventListener('click',async()=>{
+ const button=$('creatorLoadSource');button.disabled=true;
+ try{await loadSource($('creatorSource').value);}
+ catch(error){status('No se pudo cargar: '+error.message,true);}
+ finally{button.disabled=false;}
+});
+$('creatorNoSource').addEventListener('click',resetSource);
+$('creatorCommit').addEventListener('click',()=>{
+ if(!state.model){status('Primero carga un personaje.',true);return;}
+ const mode=$('creatorSaveMode').value;
+ if(mode==='replace'&&!state.sourceId){
+  status('Selecciona una animación existente para crear su versión reemplazada.',true);return;
+ }
+ let name=$('creatorName').value.trim();
+ if(mode==='new'){
+  const entered=window.prompt('Nombre de la nueva animación:',name||'Nueva animación R.O.K.');
+  if(entered===null)return;
+  name=entered.trim();
+  if(!name){status('Debes escribir el nombre de la nueva animación.',true);return;}
+ }else{
+  const confirmed=window.confirm('¿Reemplazar la versión EDITADA de esta animación en tu cola local? El archivo original de GitHub se conservará.');
+  if(!confirmed)return;
+ }
+ $('creatorName').value=name;
+ const entry={...serialize(),name,mode,kind:'ROK_AnimationCreator',
+  entryId:mode==='replace'?'override:'+state.modelId+':'+state.sourceId:
+   'new:'+state.modelId+':'+Date.now()};
+ const queue=readQueue().filter(x=>x.entryId!==entry.entryId);
+ queue.push(entry);
+ try{localStorage.setItem(QUEUE_KEY,JSON.stringify(queue));}
+ catch(error){status('No se pudo guardar cola: '+error.message,true);return;}
+ renderQueue();
+ status(mode==='new'?'✓ Animación nueva añadida a la cola.':
+  '✓ Versión editada reemplazada en la cola local, sin tocar GitHub.');
+});
+
 async function fillModels(){
  try{
   const response=await fetch('./assets/manifests/model-library.json',{cache:'no-cache'});
@@ -497,27 +639,11 @@ $('creatorImportFile').addEventListener('change',async e=>{
  try{
   if(file.size>5000000)throw Error('Proyecto mayor de 5 MB.');
   const data=JSON.parse(await file.text());
-  if(data.schemaVersion!==1||data.kind!=='ROK_AnimationCreator'||
-    !Array.isArray(data.keyframes)||data.keyframes.length>3600)throw Error('Proyecto JSON incompatible.');
-  const item=models.find(m=>m.id===data.modelId&&m.path===data.modelPath);
-  if(!item)throw Error('No se encontró el modelo del proyecto en la biblioteca.');
-  if(!state.model||state.modelId!==item.id)await loadModel(item);
-  state.duration=THREE.MathUtils.clamp(Number(data.duration)||4,.5,120);
-  $('creatorDuration').value=String(state.duration);
-  $('creatorName').value=String(data.name||'Mi animación R.O.K.').slice(0,90);
-  state.keys.clear();
-  for(const item of data.keyframes){
-   const frame=Number(item.frame);
-   if(!Number.isInteger(frame)||frame<0||frame>Math.round(state.duration*30)||
-      !item.pose||typeof item.pose!=='object')continue;
-   const pose={};
-   for(const b of state.bones){
-    const q=item.pose[b.name];
-    if(Array.isArray(q)&&q.length===4&&q.every(Number.isFinite))pose[b.name]=q;
-   }
-   state.keys.set(frame,pose);
-  }
-  setFrame(0);status('Proyecto abierto: '+state.keys.size+' poses clave.');
+  if(![1,2].includes(data.schemaVersion)||data.kind!=='ROK_AnimationCreator'||
+    !Array.isArray(data.keyframes)||data.keyframes.length>3600)
+   throw Error('Proyecto JSON incompatible.');
+  await applyProject(data);
+  status('Proyecto abierto: '+state.keys.size+' fotogramas editados.');
  }catch(error){status('No se pudo importar: '+error.message,true);}
 });
 $('creatorExportGlb').addEventListener('click',async()=>{
