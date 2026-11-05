@@ -7,7 +7,7 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {TransformControls} from 'three/addons/controls/TransformControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {GLTFExporter} from 'three/addons/exporters/GLTFExporter.js';
-import {numberedSources,newSources,loadCreatorClip} from './animation-creator-sources.js';
+import {numberedSources,newSources,originalSources,loadCreatorClip} from './animation-creator-sources.js';
 
 const $=id=>document.getElementById(id);
 const status=(msg,error=false)=>{
@@ -288,7 +288,16 @@ function sampleFrame(frame){
 }
 function setFrame(frame,sample=true){
  state.time=THREE.MathUtils.clamp(frame/30,0,state.duration);
- if(sample)sampleFrame(Math.round(state.time*30));
+ if(sample){
+  sampleFrame(Math.round(state.time*30));
+  // Anchor IK targets to the limb positions of the CURRENT frame.
+  // Otherwise a handle left at the previous frame will drag unexpectedly.
+  if(!state.playing)for(const [index,target] of state.targets){
+   const tip=state.chains[index]?.tip;
+   if(tip)target.position.copy(tip.getWorldPosition(new THREE.Vector3()));
+  }
+  refreshTargetInputs();
+ }
  refreshTimeline();
 }
 function download(data,filename,type){
@@ -416,6 +425,7 @@ function populateSources(){
    id:'glb:'+i,name:'GLB · '+(clip.name||'Animación '+(i+1)),
    kind:'glb',clip
   })),
+  ...originalSources.map(item=>({...item,id:'archive:'+item.id})),
   ...numberedSources.map(item=>({...item,id:'fbx:'+item.id,kind:'fbx'})),
   ...newSources.map(item=>({...item,id:'fbx:'+item.id,kind:'fbx'}))
  ];
