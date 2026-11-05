@@ -2872,10 +2872,64 @@ function resetCombatant(c){
   c.mixer.stopAllAction();c.animId=null;c.animAction=null;
   setAnim(c,'idle',{force:true,fade:0});
 }
+// Every card summon creates multiple independent world-space FX nodes.
+// Remove them together with the unit, including their own materials; shared
+// textures/geometries remain owned by the arena.
+function disposeCardSummon(c){
+ const unmount=node=>{
+  if(!node)return;
+  node.parent?.remove(node);
+  node.traverse?.(child=>{
+   const mats=child.material?Array.isArray(child.material)?child.material:[child.material]:[];
+   for(const mat of mats)mat?.dispose?.();
+  });
+ };
+ releaseSummonDuel(c);
+ clearEmbeddedArrows(c);
+ stopHitOverlay(c);
+ c.mixer?.stopAllAction();
+ c.mixer?.uncacheRoot?.(c.model);
+ resetDeathFx(c);
+ resetRestorationFx(c);
+ clearSummonFx(c);
+ root.remove(c.outer);
+ unmount(c.fx?.g);
+ unmount(c.restorationFx?.glow);
+ for(const part of c.restorationFx?.particles||[])unmount(part.sprite);
+ unmount(c.deathFx?.glow);
+ for(const part of c.deathFx?.particles||[])unmount(part.sprite);
+ removeSummonNexus(c);
+ nameplates.get(c)?.remove();nameplates.delete(c);
+ c.summonBar?.remove();c.summonBar=null;
+ const ground=summonGroundHuds.get(c);
+ if(ground){root.remove(ground.group);summonGroundHuds.delete(c);}
+ const indicator=summonEdgeMarkers.get(c);
+ indicator?.node.remove();summonEdgeMarkers.delete(c);
+ // Do not destroy cached/shared source geometries or textures.
+ c.model?.traverse(node=>{
+  if(!node.isMesh)return;
+  for(const mat of (Array.isArray(node.material)?node.material:[node.material]))
+   mat?.dispose?.();
+ });
+}
+function verifyCleanMatchBoundary(){
+ const residue={
+  cardSummons:cardSummons.size,
+  orphanNexuses:[...summonNexuses.keys()].filter(c=>!combatants.includes(c)).length,
+  missiles:missiles.length,
+  impacts:magicImpacts.length,
+  portals:portalEffects.length,
+  floatingWords:floatingWords.length
+ };
+ const leaked=Object.values(residue).some(value=>value>0);
+ if(leaked)console.warn('[R.O.K.] Comprobación de limpieza tras reinicio:',residue);
+ return !leaked;
+}
 function resetDemoCombat(){
   // A new match invalidates any in-progress manual attack/cooldown.
   casterMovement?.disable();
   rivalAI?.reset();
+  rivalAction.attackUntil=0;rivalAction.castingUntil=0;
   // Switch to downloaded real caster skins at a round boundary only.
   for(const install of pendingCasterInstalls.splice(0)){
    try{install();}catch(error){console.warn('[R.O.K.] Caster aplazado:',error);}
@@ -2883,33 +2937,51 @@ function resetDemoCombat(){
   matchRestartLeft=null;
   clearFloatingWords();
   clearPortalEffects();
-  for(const p of missiles){root.remove(p.group);}
+  for(const p of missiles){
+   if(p.arrow)disposeArrowProjectile(p.group);
+   else{
+    p.group?.parent?.remove(p.group);
+    p.group?.traverse(node=>{
+     if(node.material){
+      for(const mat of (Array.isArray(node.material)?node.material:[node.material]))
+       mat.dispose?.();
+     }
+    });
+   }
+  }
   missiles.length=0;
-  for(const p of magicImpacts){root.remove(p.group);}
+  for(const p of magicImpacts){
+   root.remove(p.group);
+   p.group?.traverse(node=>{
+    if(node.material){
+     for(const mat of (Array.isArray(node.material)?node.material:[node.material]))
+      mat.dispose?.();
+    }
+   });
+  }
   magicImpacts.length=0;
   // Card-generated units are NOT initial units: discard on match reset.
   for(const c of cardSummons){
    const index=combatants.indexOf(c);
    if(index>=0)combatants.splice(index,1);
-   releaseSummonDuel(c);
-   clearEmbeddedArrows(c);
-   c.mixer?.stopAllAction();root.remove(c.outer);
-   removeSummonNexus(c);
-   const plate=nameplates.get(c);
-   plate?.remove();nameplates.delete(c);
-   c.summonBar?.remove();
-   const ground=summonGroundHuds.get(c);
-   if(ground){root.remove(ground.group);summonGroundHuds.delete(c);}
-   const indicator=summonEdgeMarkers.get(c);
-   indicator?.node.remove();summonEdgeMarkers.delete(c);
+   disposeCardSummon(c);
   }
   cardSummons.clear();
   combatants.forEach(resetCombatant);
   casters.forEach(resetCaster);
+  // Crossfades and cast overlays must not survive into the next match.
+  for(const caster of casters){
+   casterLayers.reset(caster);
+   caster.mixer.timeScale=1;
+   caster.mixer.stopAllAction();
+   caster.mixer.clipAction(caster.idleClip).reset().setEffectiveWeight(1).play();
+  }
   combatHud.reset();
   elementOrbs.reset();
   combatHud.draw(casters);
   qs('#phase').textContent='✦ Casters listos · sin invocaciones iniciales';
+  // Second pass after all teardown/reset operations, not just before them.
+  verifyCleanMatchBoundary();
 }
 // Coordenadas físicas y casillas siempre derivadas de W y D.
 // En 15×30, los centros son x = col - 7 y z = row - 14.5.
