@@ -197,7 +197,9 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
    window.ROKBoot.fail(event.message);
  });
  window.addEventListener('unhandledrejection',event=>{
-  if(!done&&event.reason)window.ROKBoot.fail(event.reason.message||String(event.reason));
+  // Optional FX, scene catalog and animation assets may fail harmlessly.
+  // The required model loader has its own explicit fatal error handler.
+  if(!done)console.warn('[R.O.K.] Recurso secundario pendiente o fallido:',event.reason);
  });
 })();
 </script>
@@ -3437,10 +3439,12 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
       caster.idleClip=gltf.animations.find(clip=>/idle|standing/i.test(clip.name))||
         gltf.animations[0]||new THREE.AnimationClip('Reposo',1,[]);
       caster.mixer.clipAction(caster.idleClip).reset().play();
-      // Wait for the real caster's required FBX controller before gameplay.
-      const clips=await movementLoader.load(caster);
-      casterLayers.register(caster,clips);
-      qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' cargado · animaciones preparadas';
+      // The GLB Idle is gameplay-ready already. Retargeting nine additional
+      // FBX files takes substantial CPU on phones: never block arena startup.
+      void movementLoader.load(caster).then(clips=>{
+       if(caster.model===model)casterLayers.register(caster,clips);
+      }).catch(error=>console.warn('[R.O.K.] FBX opcionales de '+spec.label,error));
+      qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' listo (FBX adicionales en segundo plano)';
     }).catch(error=>{
      console.error('[R.O.K.] Caster '+spec.label+' no cargado:',error);
      throw Error('Modelo de '+spec.label+': '+String(error?.message||error));
@@ -3448,10 +3452,16 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     casterModelTasks.push(modelTask);
   }
   window.ROKBoot.progress('Descargando escenario y casters reales…',48);
+  // Optional Mixamo ZIP retargeting runs independently. Do not download
+  // and parse multiple animation archives before revealing the arena.
+  void activateArenaAnimationPack(g.scene).catch(error=>
+   console.warn('[R.O.K.] Animaciones secundarias disponibles parcialmente',error));
   const readiness=await Promise.all([Promise.all(casterModelTasks),
-   activateArenaAnimationPack(g.scene),initialSceneLoading,
-   sharedBackgroundReady,arenaTextureReady]);
-  if(readiness[2]?.fallback)throw Error('Escenario: '+readiness[2].reason);
+   initialSceneLoading,sharedBackgroundReady,arenaTextureReady]);
+  if(readiness[1]?.fallback){
+   // Unavailable scene-editor library must not make the basic arena unplayable.
+   console.warn('[R.O.K.] Escenario personalizado no disponible:',readiness[1].reason);
+  }
   window.ROKBoot.progress('Comprobando y preparando el combate…',92);
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
