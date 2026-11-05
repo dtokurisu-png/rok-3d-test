@@ -323,8 +323,8 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  });
 })();
 </script>
-<div id="versionProof" aria-label="Versión de la arena">v0.9.98 · Spellbook de tres páginas</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.98</div>
+<div id="versionProof" aria-label="Versión de la arena">v0.9.99 · Spellbook funcional y carta Farolera</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.99</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -527,7 +527,7 @@ import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
 import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-real-fountains-1';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.97';
 import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.68';
-import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.80';
+import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.99';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.88';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.97';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
@@ -560,6 +560,7 @@ const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,350);
 // Physical distance is bounded; no discrete pose search, snap fallback,
 // camera-object collision raycast, dolly collision or animated field of view.
 const casters=[],combatants=[];
+const cardSummons=new Set();
 const CAMERA_PITCH=THREE.MathUtils.degToRad(23);
 const CAMERA_FOV=53;
 const CAMERA_MIN_DISTANCE=5;
@@ -2699,6 +2700,22 @@ function resetDemoCombat(){
   missiles.length=0;
   for(const p of magicImpacts){root.remove(p.group);}
   magicImpacts.length=0;
+  // Card-generated units are NOT initial units: discard on match reset.
+  for(const c of cardSummons){
+   const index=combatants.indexOf(c);
+   if(index>=0)combatants.splice(index,1);
+   releaseSummonDuel(c);
+   clearEmbeddedArrows(c);
+   c.mixer?.stopAllAction();root.remove(c.outer);
+   const plate=nameplates.get(c);
+   plate?.remove();nameplates.delete(c);
+   c.summonBar?.remove();
+   const ground=summonGroundHuds.get(c);
+   if(ground){root.remove(ground.group);summonGroundHuds.delete(c);}
+   const indicator=summonEdgeMarkers.get(c);
+   indicator?.node.remove();summonEdgeMarkers.delete(c);
+  }
+  cardSummons.clear();
   combatants.forEach(resetCombatant);
   casters.forEach(resetCaster);
   combatHud.reset();
@@ -4211,6 +4228,128 @@ qs('#casterCastTestRun').addEventListener('click',()=>{
  if(started)status.textContent='Preparación: animación 22 (fotogramas 0–48), costo '+cost+'.';
  else status.textContent='Casteo no iniciado: revisa que los clips 22 y 21 estén cargados, que el caster esté activo y que no haya otra acción en curso.';
 });
+// Spellbook: each page has 9 slots. Unfilled slots remain disabled until
+// their real game cards exist. Fast-play shortcuts use the same card pathway
+// later, but no shortcut controls are enabled in this version.
+const spellCards=[
+ [{id:'farolera',name:'Farolera',element:'water',cost:0,
+   portrait:arenaCharacterArt.farolera},null,null,null,null,null,null,null,null],
+ Array(9).fill(null),Array(9).fill(null)
+];
+const spellbook={page:0,rapid:new Map()};
+const spellbookPanel=qs('#rokSpellbookCards');
+const spellbookGrid=qs('#rokSpellbookGrid');
+const spellbookStatus=qs('#rokSpellbookStatus');
+function spellStatus(message){spellbookStatus.textContent=message;}
+function renderSpellbook(){
+ spellbookPanel.hidden=spellbook.page===0;
+ qs('#rokSpellbookPageTitle').textContent='Página '+spellbook.page+' · 9 cartas';
+ for(const button of document.querySelectorAll('.rokSpellbookPageKey'))
+  button.setAttribute('aria-pressed',String(Number(button.dataset.page)===spellbook.page));
+ spellbookGrid.replaceChildren();
+ if(spellbook.page===0)return;
+ const cards=spellCards[spellbook.page-1];
+ for(let i=0;i<9;i++){
+  const card=cards[i],button=document.createElement('button');
+  button.type='button';button.className='rokSpellSlot';
+  button.disabled=!card;
+  button.setAttribute('aria-label',card?'Casilla '+(i+1)+': '+card.name+
+   ', costo '+card.cost:'Casilla '+(i+1)+': vacía');
+  const number=document.createElement('span');
+  number.className='rokSpellNumber';number.textContent=String(i+1);
+  button.append(number);
+  if(card){
+   const img=document.createElement('img');img.src=card.portrait;img.alt='';
+   button.append(img);
+   const name=document.createElement('span');name.className='rokSpellName';
+   name.textContent=card.name;button.append(name);
+   const cost=document.createElement('span');cost.className='rokSpellCost';
+   cost.textContent='✦ '+card.cost;button.append(cost);
+   button.addEventListener('click',()=>selectSpellCard(i));
+  }else{
+   const empty=document.createElement('span');empty.textContent='Vacío';
+   button.append(empty);
+  }
+  spellbookGrid.append(button);
+ }
+}
+function openSpellbook(page){
+ if(!loaded||!playing||!matchGate.isRunning){
+  spellStatus('Inicia un combate para abrir el grimorio.');return;
+ }
+ spellbook.page=spellbook.page===page?0:page;
+ renderSpellbook();
+}
+function summonCardFarolera(caster){
+ const prototype=window.ROKSummonAssets?.farolera;
+ if(!prototype?.scene||!prototype.idle){spellStatus('Modelo de Farolera todavía no disponible.');return;}
+ // A temporary spawn position for the first playable card. Final
+ // placement rules and per-card exceptions arrive in phase 6.
+ const direction=caster.side==='ally'?-1:1;
+ const x=THREE.MathUtils.clamp(Math.round(caster.outer.position.x),-HALF_W,HALF_W);
+ const z=THREE.MathUtils.clamp(
+  Math.round(caster.outer.position.z+direction+HALF_D)-HALF_D,-HALF_D,HALF_D);
+ const c=createFighter(prototype.scene,prototype.idle,caster.side,'mana');
+ c.startX=x;c.startZ=z;c.endZ=z;
+ c.model.userData.baseScale=c.model.scale.x;
+ resetCombatant(c);
+ makeNameplate(c);makeSummonCountdown(c);
+ cardSummons.add(c);
+ spellStatus('✦ Farolera invocada · casilla frontal');
+}
+function selectSpellCard(index){
+ if(!spellbook.page||index<0||index>=9)return;
+ const card=spellCards[spellbook.page-1][index];
+ if(!card)return;
+ if(!loaded||!playing||!matchGate.isRunning){
+  spellStatus('Primero debes iniciar el combate.');return;
+ }
+ const caster=casters.find(c=>c.side===qs('#casterMoveSide').value);
+ if(!caster||caster.stage!=='active'){spellStatus('Caster no disponible.');return;}
+ // Validate cast readiness BEFORE paying, so a failed attempt does not
+ // consume resources. The definitive resource charge is on selection.
+ const ready=!!(caster.model?.userData?.rokCast22Clip&&caster.model?.userData?.rokCast21Clip);
+ if(!ready){
+  spellStatus('Preparando animaciones 22 y 21; prueba otra vez cuando estén listas.');
+  // The movement loader fetches these asynchronously on player engagement.
+  casterMovement.startCardCast({cost:card.cost});
+  return;
+ }
+ if(!combatHud.spend(caster.side,card.element,card.cost)){
+  spellStatus('Recursos insuficientes para '+card.name);return;
+ }
+ const started=casterMovement.startCardCast({
+  cost:card.cost,
+  onRelease:activeCaster=>{
+   if(card.id==='farolera')summonCardFarolera(activeCaster);
+  }
+ });
+ if(!started){
+  combatHud.refund(caster.side,card.element,card.cost);
+  spellStatus('No se pudo iniciar el casteo; recurso devuelto.');return;
+ }
+ spellbook.page=0;renderSpellbook();
+ spellStatus('Casteando '+card.name+' · '+(card.cost<=1?.5:Math.min(2.5,card.cost*.5)).toFixed(1)+' s');
+}
+for(const button of document.querySelectorAll('.rokSpellbookPageKey'))
+ button.addEventListener('click',()=>openSpellbook(Number(button.dataset.page)));
+qs('#rokSpellbookClose').addEventListener('click',()=>{
+ spellbook.page=0;renderSpellbook();
+});
+document.addEventListener('keydown',event=>{
+ if(event.repeat||event.altKey||event.ctrlKey||event.metaKey)return;
+ if(event.target?.closest?.('input,textarea,select,[contenteditable="true"]'))return;
+ const match=/^(?:Digit|Numpad)([1-9])$/.exec(event.code);
+ if(!match)return;
+ const digit=Number(match[1]);
+ if(digit<=3){
+  if(spellbook.page===digit)selectSpellCard(digit-1);
+  else openSpellbook(digit);
+ }else if(spellbook.page)selectSpellCard(digit-1);
+ if(loaded&&playing&&matchGate.isRunning)event.preventDefault();
+});
+renderSpellbook();
+
 /* Control táctil MOBA: no duplica ni reemplaza la lógica de combate.
    Los botones llaman a las mismas acciones que WASD/Espacio/Shift. */
 function setupMobileMobaControls(){
