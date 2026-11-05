@@ -60,9 +60,10 @@ No confundir esta herramienta con el inspector del catálogo del visor.
 
 ## Adaptación a animaciones existentes (v0.2 · 05/11/2026)
 
-La edición habitual comienza seleccionando un modelo, que aparece en su
-pose de rig original (en los modelos sin T-pose nativa puede no ser una T
-perfecta). Luego se elige **Animación de referencia**, incluyendo los
+La edición habitual comienza seleccionando un modelo: el creador intenta
+aplicar el clip T-Pose ya presente en GitHub a sus huesos; si el esqueleto
+no es compatible, conserva la pose original del rig. En ningún caso modifica
+el GLB almacenado en el repositorio. Luego se elige **Animación de referencia**, incluyendo los
 números 01–14 del ZIP original, las animaciones publicadas directamente
 (15, 16, 21–23, 34–37, Standing Idle) y los clips integrados en el GLB.
 Las animaciones descartadas 04, 05 y 17–20 siguen identificadas en la
