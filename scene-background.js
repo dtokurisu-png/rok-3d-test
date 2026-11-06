@@ -1,3 +1,4 @@
+import {reduceTextureImage} from './arena-asset-budget.js?v=2';
 /* R.O.K. 3D — non-colliding environmental enclosure.
  * A proportional Gothic room whose vaulted ceiling, walls and surrounding
  * ground are independent of the 15x30 arena and all gameplay objects.
@@ -59,7 +60,7 @@ export function normalizeSceneBackground(raw={}){
  return {enabled:raw.enabled!==false,type:'gothic-vault',width,
   length:width*2,height,archRise,texture,textureOffsetX,textureOffsetY};
 }
-export function createSceneBackground(THREE,{onStatus}={}){
+export function createSceneBackground(THREE,{onStatus,textureLimit=0}={}){
  const group=new THREE.Group();group.name='ROK_Gothic_Background_VisualOnly';
  const loader=new THREE.TextureLoader();
  let current=normalizeSceneBackground(),material=null,texture=null;
@@ -187,6 +188,7 @@ export function createSceneBackground(THREE,{onStatus}={}){
      });
      if(!loaded)continue;
      if(ticket!==generation){loaded.dispose();return;}
+     if(textureLimit)reduceTextureImage(loaded,textureLimit);
      loaded.colorSpace=THREE.SRGBColorSpace;
      loaded.wrapS=THREE.RepeatWrapping;loaded.wrapT=THREE.RepeatWrapping;
      texture=loaded;setTextureOffset(current.textureOffsetX,current.textureOffsetY);

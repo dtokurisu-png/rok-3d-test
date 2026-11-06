@@ -16,14 +16,17 @@ export function createArenaCombatHud(){
   portrait.replaceChildren(img);
   portrait.setAttribute('aria-label','Retrato de '+label);
  }
+ // Canonical Dominion palette and cost icons from R.O.K. Lite.
+ const iconRoot='https://raw.githubusercontent.com/dtokurisu-png/rok-lirte-html/main/assets/cost-icons/';
  const palette={
-  water:{label:'Agua',color:'#00ffe4'},
-  fire:{label:'Fuego',color:'#ff884d'},
-  wind:{label:'Viento',color:'#8cda91'}
+  water:{label:'Agua',color:'#00FFE4',secondary:'#00FF8A',icon:iconRoot+'cost-water.png'},
+  earth:{label:'Tierra',color:'#CCFF00',secondary:'#67400D',icon:iconRoot+'cost-earth.png'},
+  fire:{label:'Fuego',color:'#FF0000',secondary:'#FF0000'},
+  wind:{label:'Viento',color:'#57B569',secondary:'#FFFFFF'}
  };
  const sides={
-  ally:{root:el.querySelector('[data-hud-side="ally"]'),levels:['water'],hpMax:0,elementAmounts:{},unlocked:{},fragmentClock:0,nextElement:0,unlockCursor:0},
-  enemy:{root:el.querySelector('[data-hud-side="enemy"]'),levels:['water'],hpMax:0,elementAmounts:{},unlocked:{},fragmentClock:0,nextElement:0,unlockCursor:0}
+  ally:{root:el.querySelector('[data-hud-side="ally"]'),levels:['earth'],hpMax:0,elementAmounts:{},unlocked:{},fragmentClock:0,regenBonus:0,nextElement:0,unlockCursor:0},
+  enemy:{root:el.querySelector('[data-hud-side="enemy"]'),levels:['water'],hpMax:0,elementAmounts:{},unlocked:{},fragmentClock:0,regenBonus:0,nextElement:0,unlockCursor:0}
  };
  const TOTAL=30;
  let seconds=0,refreshLeft=0;
@@ -43,10 +46,15 @@ export function createArenaCombatHud(){
   const player=sides[side];
   if(!player)return;
   const ids=[...new Set((Array.isArray(selected)?selected:['water']).filter(id=>Object.hasOwn(palette,id)))].slice(0,3);
-  player.levels=ids.length?ids:['water'];
+  player.levels=ids.length?ids:[side==='ally'?'earth':'water'];
+  const primary=palette[player.levels[0]];
+  player.root.dataset.dominion=player.levels[0];
+  player.root.style.setProperty('--dominion-primary',primary.color);
+  player.root.style.setProperty('--dominion-secondary',primary.secondary);
+  player.root.style.setProperty('--dominion-icon',primary.icon?'url("'+primary.icon+'")':'none');
   player.elementAmounts=Object.fromEntries(player.levels.map(id=>[id,0]));
   player.unlocked=Object.fromEntries(player.levels.map(id=>[id,0]));
-  player.fragmentClock=0;player.nextElement=0;player.unlockCursor=0;
+  player.fragmentClock=0;player.regenBonus=0;player.nextElement=0;player.unlockCursor=0;
   const row=player.root.querySelector('.rokHudElementRows');
   row.replaceChildren();
   row.classList.add('rokHudElementRow');
@@ -62,6 +70,7 @@ export function createArenaCombatHud(){
   for(const id of displayOrder){
    const segment=make('div','rokHudElementSegment');
    segment.style.setProperty('--element-color',palette[id].color);
+   segment.style.setProperty('--element-secondary',palette[id].secondary);
    segment.style.setProperty('--slot-count',String(capacity));
    segment.title=palette[id].label+': 0/0 depósitos obtenidos (límite '+capacity+')';
    for(let i=0;i<capacity;i++){
@@ -74,12 +83,23 @@ export function createArenaCombatHud(){
    }
    track.append(segment);
    const label=make('span','rokHudSectionLabel');label.style.color=palette[id].color;
-   label.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 2C9 7 4.5 12 4.5 16.1A7.5 7.5 0 0 0 19.5 16C19.5 12 15 7 12 2Z"/></svg>';
+   if(palette[id].icon){
+    const image=make('img','rokHudElementImage');
+    image.src=palette[id].icon;image.alt='';image.decoding='async';
+    label.append(image);
+   }else label.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 2C9 7 4.5 12 4.5 16.1A7.5 7.5 0 0 0 19.5 16C19.5 12 15 7 12 2Z"/></svg>';
    label.title=palette[id].label+' ('+capacity+')';labels.append(label);
   }
   const entry=make('div','rokHudElementBar');
   entry.append(labels,track);
-  if(left){row.append(entry,icon('drop'));}else{row.append(icon('drop'),entry);}
+  const badge=icon('drop');
+  if(primary.icon){
+   badge.replaceChildren();
+   const image=make('img','rokHudElementImage');
+   image.src=primary.icon;image.alt='';image.decoding='async';
+   badge.append(image);
+  }
+  if(left){row.append(entry,badge);}else{row.append(badge,entry);}
   paintElements(side);
   }
  // Each elemental unit is one vertical reservoir; fractions (e.g. 2.35)
@@ -113,7 +133,8 @@ export function createArenaCombatHud(){
   track.setAttribute('aria-label','Energía elemental '+totalStored.toFixed(2)+
    '/'+totalUnlocked+' unidades; máximo futuro '+TOTAL);
   track.title='Energía elemental: '+totalStored.toFixed(2)+'/'+totalUnlocked+
-   ' · Capacidad máxima desbloqueable: '+TOTAL;
+   ' · Capacidad máxima desbloqueable: '+TOTAL+
+   ' · Velocidad de recuperación: x'+(1+(player.regenBonus||0));
  }
  function setElements(side,amounts={}){
   const player=sides[side];if(!player)return;
@@ -218,10 +239,17 @@ export function createArenaCombatHud(){
   }
   return 0; // Maximum 30 reservoirs already obtained.
  }
+ function addRegenSpeed(side,amount=1){
+  const player=sides[side];if(!player)return 0;
+  const increase=Math.max(0,Math.floor(Number(amount)||0));
+  player.regenBonus=(player.regenBonus||0)+increase;
+  paintElements(side);
+  return player.regenBonus;
+ }
  function reset(){
   seconds=0;refreshLeft=0;
   for(const side of ['ally','enemy']){
-   sides[side].fragmentClock=0;sides[side].nextElement=0;
+   sides[side].fragmentClock=0;sides[side].regenBonus=0;sides[side].nextElement=0;
    sides[side].unlockCursor=0;
    for(const id of sides[side].levels)sides[side].unlocked[id]=0;
    setElements(side,{});
@@ -237,12 +265,18 @@ export function createArenaCombatHud(){
    // 4 fragments restore 1 complete elemental unit in 8 seconds.
    while(player.fragmentClock>=2){
     player.fragmentClock-=2;
-    regenerateFragment(side);
+    for(let n=0;n<1+(player.regenBonus||0);n++)regenerateFragment(side);
    }
   }
   if(refreshLeft<=0){refreshLeft=.12;draw(casters);}
  }
- configure('ally',['water']);configure('enemy',['water']);
+ configure('ally',['earth']);configure('enemy',['water']);
  draw([]);
- return {configure,draw,reset,advance,setElements,collectOrb,spend,refund};
+ function getResources(side,element=side==='ally'?'earth':'water'){
+  const player=sides[side];
+  if(!player||!player.levels.includes(element))return {available:0,unlocked:0};
+  return {available:Number(player.elementAmounts[element]||0),
+   unlocked:Number(player.unlocked[element]||0)};
+ }
+ return {configure,draw,reset,advance,setElements,collectOrb,addRegenSpeed,spend,refund,getResources};
 }

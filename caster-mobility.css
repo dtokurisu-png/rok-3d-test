@@ -124,3 +124,83 @@
   white-space:nowrap!important;pointer-events:none!important;
  }
 }
+
+/* Arena v0.9.108: distinct fullscreen button and unobstructed settings exit */
+@media(pointer:coarse) and (max-width:950px){
+ #mobaFullscreenButton{
+  position:fixed;right:calc(59px + env(safe-area-inset-right,0px));
+  top:calc(6px + env(safe-area-inset-top,0px));z-index:48;
+  width:41px;height:41px;border:1px solid #6ec5cb;border-radius:10px;
+  background:#091d29ed;color:#fff;font-size:21px;
+ }
+ .mobaSettingsCard{position:relative;max-height:75dvh;padding:12px;width:min(460px,90vw)}
+ #mobaCloseSettings{float:right;min-height:30px;padding:4px 9px;
+  border:1px solid #00ffe4;background:#17424c;color:#fff;border-radius:7px}
+ .mobaSettingsActions{flex-wrap:wrap}
+ .mobaSettingsActions button{min-width:105px}
+ #mobaSpellbookSize{width:100%;accent-color:#00ffdf}
+}
+
+@media(pointer:coarse) and (max-width:950px){
+ #mobaResizePanel:not([hidden]){
+  display:flex;align-items:center;gap:7px;position:fixed;z-index:55;
+  right:calc(8px + env(safe-area-inset-right,0px));
+  top:calc(55px + env(safe-area-inset-top,0px));
+  width:min(235px,50vw);padding:7px;border-radius:8px;
+  border:1px solid #00ffdf;background:#081c27ef;color:#fff;
+  font:600 10px Roboto,system-ui,sans-serif;pointer-events:auto;
+ }
+ #mobaResizePanel label{white-space:nowrap}
+ #mobaLiveSpellbookSize{width:100%;min-width:35px;accent-color:#00ffdf}
+ #mobaLiveSpellbookValue{min-width:30px;text-align:right}
+}
+
+/* v0.9.111: quieter mobile actions and single settings entry away from HUD. */
+@media(pointer:coarse) and (max-width:950px){
+ #mobaSettingsButton{
+  top:auto!important;bottom:calc(61px + env(safe-area-inset-bottom,0px))!important;
+  right:calc(8px + env(safe-area-inset-right,0px))!important;
+  width:31px!important;height:31px!important;font-size:16px!important;
+  border-radius:8px!important;background:rgba(9,29,41,.42)!important;
+  border-color:rgba(0,255,228,.45)!important;opacity:.65!important;
+ }
+ #mobaSettingsButton:active,#mobaSettingsButton:focus-visible{opacity:1!important}
+ #mobaFullscreenButton{
+  position:static!important;display:block!important;
+  width:100%!important;height:34px!important;min-height:34px!important;
+  font-size:12px!important;z-index:auto!important;
+  background:#17424c!important;border:1px solid #56aead!important;
+  border-radius:7px!important;color:#fff!important
+ }
+ #mobaAttack,#mobaDefend{opacity:.4!important}
+ #mobaAttack:active,#mobaDefend:active,#mobaDefend[data-held="true"]{opacity:.85!important}
+}
+
+/* v0.9.113 — small, selective HUD layout inspector on the left. */
+@media(pointer:coarse) and (max-width:950px) and (orientation:landscape){
+ #mobaControlEditor:not([hidden]){
+  position:fixed;display:flex;flex-direction:column;gap:3px;pointer-events:auto;
+  z-index:60;left:calc(7px + env(safe-area-inset-left,0px));
+  top:calc(44px + env(safe-area-inset-top,0px));
+  width:clamp(138px,21vw,178px);max-height:calc(100dvh - 58px);
+  overflow-y:auto;padding:7px;border:1px solid #58bfb3a8;
+  border-radius:9px;background:rgba(7,25,33,.82);color:#edfffc;
+  box-shadow:0 4px 15px #0008;font:600 10px/1.2 Roboto,system-ui,sans-serif;
+  -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
+ }
+ #mobaControlEditor strong{text-align:center;color:#00ffdf;font-size:11px}
+ #mobaControlEditor label{display:flex;justify-content:space-between;align-items:center;margin-top:3px}
+ #mobaEditSelect{
+  width:100%;background:#173a44;border:1px solid #56a8a4;border-radius:5px;
+  color:#fff;padding:4px;font-size:11px
+ }
+ #mobaControlEditor input[type=range]{width:100%;min-height:20px;margin:0;accent-color:#00ffdf}
+ #mobaFinishEditing{
+  min-height:29px;padding:4px 5px;border:1px solid #00ffdf;border-radius:6px;
+  color:#eafffc;background:#15544e;font-weight:800;font-size:10px;touch-action:manipulation;
+ }
+ body.mobaLayoutEditing [data-layout-selected="true"]{
+  outline:2px dashed #ffffff!important;outline-offset:4px!important;
+ }
+ body.mobaLayoutEditing #mobaSettingsButton{pointer-events:auto!important}
+}

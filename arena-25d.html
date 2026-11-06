@@ -283,6 +283,24 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  padding:2px 5px;border-radius:50%;font-weight:900}
 .rokSpellSlot .rokSpellCost{position:absolute;top:3px;right:3px;color:#f6e6a1;background:#000b;
  padding:2px 4px;border-radius:4px;font-weight:900}
+/* Earth invocation cards: forest artwork beneath the canonical Earth card skin.
+   Art lives in assets/cards/earth/; keep the placeholder until uploaded. */
+.rokSpellSlot.rokEarthCardArt{
+ background:linear-gradient(155deg,#395f2b,#0b2010 70%);
+ border:1px solid #67400D;
+}
+.rokSpellSlot.rokEarthCardArt::after{
+ content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
+ background:url('https://raw.githubusercontent.com/dtokurisu-png/rok-lirte-html/main/assets/card-skin-earth.png')
+  center / 100% 100% no-repeat;
+}
+.rokSpellSlot.rokEarthCardArt .rokSpellNumber,
+.rokSpellSlot.rokEarthCardArt .rokSpellCost,
+.rokSpellSlot.rokEarthCardArt .rokSpellName{z-index:3}
+.rokSpellSlot.rokEarthCardArt .rokSpellName{
+ background:linear-gradient(0deg,#071508f2,#071508b8);
+ text-shadow:0 1px 3px #000;
+}
 /* Keep casting feedback for screen readers, without visible HUD text. */
 #rokSpellbookStatus{position:absolute!important;width:1px!important;height:1px!important;
  padding:0!important;margin:-1px!important;overflow:hidden!important;
@@ -294,9 +312,86 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  #rokSpellbook .rokSpellbookPageKey{font-size:14px}
  #rokSpellbookExit{font-size:10px;top:82%;left:10%;right:10%}
 }
+
+/* v0.9.109: separate spellbook page buttons and top-down panel */
+@media(pointer:coarse) and (max-width:950px) and (orientation:landscape){
+ #rokSpellbook{
+  display:block!important;position:fixed!important;inset:0!important;
+  left:0!important;right:0!important;top:0!important;bottom:0!important;
+  width:100vw!important;height:100dvh!important;aspect-ratio:auto!important;
+  z-index:49!important;pointer-events:none!important;
+  background:none!important;background-image:none!important;filter:none!important;
+ }
+ #rokSpellbook .rokSpellbookPageKey,#rokSpellbook .rokSpellbookPageKey[data-page]{
+  position:fixed!important;z-index:49!important;transform:none!important;
+  left:0;right:auto!important;top:auto!important;bottom:0;
+  width:43px!important;height:43px!important;aspect-ratio:auto!important;
+  display:flex!important;align-items:center;justify-content:center;
+  border:2px solid #d4ac5d!important;border-radius:50%!important;
+  background:radial-gradient(circle at 40% 35%,rgba(32,49,43,.85),rgba(5,10,9,.94) 73%)!important;
+  box-shadow:inset 0 0 10px #000,0 0 7px #e6c662aa!important;
+  font:900 18px/1 Roboto,system-ui,sans-serif!important;color:#fff!important;
+  pointer-events:auto!important;touch-action:none
+ }
+ #rokSpellbook .rokSpellbookPageKey[aria-pressed="true"]{
+  border-color:#00ffdf!important;box-shadow:0 0 11px #00ffdf,inset 0 0 7px #000!important
+ }
+ #rokSpellbook .rokSpellbookPageKey[data-page]{opacity:.4!important}
+ #rokSpellbook .rokSpellbookPageKey[data-page][aria-pressed="true"],
+ #rokSpellbook .rokSpellbookPageKey[data-page]:active{opacity:.9!important}
+ #rokSpellbookCards[hidden]{display:block!important}
+ #rokSpellbookCards{
+  position:fixed!important;z-index:52!important;right:4px!important;left:auto!important;
+  top:calc(env(safe-area-inset-top,0px) + 4px)!important;bottom:auto!important;
+  width:min(40vw,calc(80vh * 1086 / 1448),245px)!important;
+  height:auto!important;aspect-ratio:1086/1448!important;
+  max-height:80vh!important;box-sizing:border-box!important;
+  transform:translateY(calc(-100% - 24px))!important;
+  visibility:hidden;pointer-events:none!important;
+  transition:transform .24s ease,visibility .24s!important
+ }
+ #rokSpellbookCards:not([hidden]){
+  transform:translateY(0)!important;visibility:visible;pointer-events:auto!important;
+  touch-action:none!important
+ }
+
+ #rokSpellbookGrid{top:15%!important;height:62%!important;left:8%!important;right:8%!important;
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-template-rows:repeat(3,minmax(0,1fr))!important}
+ #rokSpellbookGrid .rokSpellSlot{width:100%!important;height:100%!important;min-width:0!important;
+  min-height:0!important;padding:0!important;overflow:hidden!important;touch-action:none!important;
+  -webkit-user-select:none!important;user-select:none!important}
+ #rokSpellbookGrid .rokSpellNumber{display:none!important}
+ #rokSpellbookGrid .rokSpellSlot img{max-width:100%!important;max-height:100%!important;object-fit:cover!important}
+ #rokSpellbookGrid .rokSpellName{font-size:clamp(6px,1.5vw,10px)!important;line-height:1.1!important}
+ #rokSpellbookGrid .rokSpellNumber,#rokSpellbookGrid .rokSpellCost{font-size:clamp(7px,1.4vw,10px)!important;
+  padding:1px 2px!important}
+ body.mobaLayoutEditing #rokSpellbook .rokSpellbookPageKey{
+  outline:2px dashed #00ffdf;outline-offset:3px;touch-action:none
+ }
+ #rokCombatHud{top:calc(env(safe-area-inset-top,0px) + 10px)!important;width:86vw!important;
+  grid-template-columns:minmax(0,1fr) 39px minmax(0,1fr)!important;gap:2px!important;
+  --element-reservoir-height:22px}
+ #rokCombatHud .rokHudPortrait{width:23px!important;height:27px!important;flex-basis:23px!important}
+ #rokCombatHud .rokHudName{font-size:7px!important;line-height:8px!important}
+ #rokCombatHud .rokHudLifeCells{height:7px!important}
+ #rokCombatHud .rokHudElementTrack{height:min(var(--element-reservoir-height),25px)!important;padding:2px!important}
+ #rokCombatHud .rokHudSectionLabels{height:7px!important;line-height:7px!important}
+ #rokCombatHud .rokHudSectionLabel{font-size:6px!important}
+ #rokCombatHud #rokHudClock{font-size:11px!important;line-height:14px!important}
+ #rokCombatHud .rokHudVS{font-size:10px!important;line-height:12px!important}
+}
+@media(prefers-reduced-motion:reduce){#rokSpellbookCards{transition:none!important}}
+/* v0.9.115: edge alerts belong at the actual mobile viewport border.
+   Desktop keeps its bottom toolbar clearance unchanged. */
+@media (pointer:coarse) and (max-width:950px) and (orientation:landscape){
+ .rokOrbEdge,.rokSummonEdge{
+  bottom:calc(2px + env(safe-area-inset-bottom,0px))!important;
+ }
+}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261104-moba-2"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=0.9.80"></head>
+<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261105-mobile-113"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=20261105-dom-earth-water-1"></head>
 <body data-studio-page="tester" data-rok-boot="loading">
 <div id="gameLoadingOverlay" role="status" aria-live="polite">
  <div id="gameLoadingCard">
@@ -332,6 +427,12 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
   if(!done&&event.message&&/script|module|import|webgl|three|syntaxerror/i.test(String(event.message)))
    window.ROKBoot.fail(event.message);
  });
+ // Save downloaded models/textures locally for subsequent visits.
+ // Does not modify or clear controls in localStorage.
+ if('serviceWorker' in navigator&&location.protocol==='https:'){
+  navigator.serviceWorker.register('./arena-cache-sw.js',{scope:'./'})
+   .catch(error=>console.warn('[R.O.K.] Caché no disponible:',error));
+ }
  window.addEventListener('unhandledrejection',event=>{
   // Loading failures from noncritical modules are surfaced in the console;
   // fatal core-model errors are handled explicitly by their loader callbacks.
@@ -340,7 +441,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.106</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.124</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -404,7 +505,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 </section>
 <section id="rokSpellbookCards" aria-label="Cartas del grimorio" hidden>
  <div id="rokSpellbookGrid"></div>
- <button type="button" id="rokSpellbookExit" aria-label="Cerrar página del grimorio">Presiona 0 para salir</button>
+
 </section>
 <div id="rokSpellbookStatus" role="status" aria-live="polite"></div>
 <section id="casterMobilityPanel" aria-label="Mover caster con WASD">
@@ -428,18 +529,39 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  <button id="mobaAttack" class="mobaAction" type="button" aria-label="Atacar">⚔<span style="display:block;font-size:10px">ATACAR</span></button>
  <button id="mobaDefend" class="mobaAction" type="button" aria-label="Mantener para defender">◆<span style="display:block;font-size:10px">DEFENSA</span></button>
  <button id="mobaSettingsButton" type="button" aria-label="Configurar controles y pausar" title="Ajustes">⚙</button>
- <div id="mobaAdjustIndicator">Arrastra joystick, ataque y defensa. Pulsa ⚙ para terminar.</div>
+
+ <div id="mobaAdjustIndicator">Selecciona un control para editarlo y arrástralo.</div>
+ <div id="mobaControlEditor" hidden>
+  <strong>Editar controles</strong>
+  <label for="mobaEditSelect">Control</label>
+  <select id="mobaEditSelect">
+   <option value="joystick">Joystick</option><option value="attack">Atacar</option>
+   <option value="defend">Defensa</option><option value="spellbook1">Grimorio 1</option>
+   <option value="spellbook2">Grimorio 2</option><option value="spellbook3">Grimorio 3</option>
+   <option value="settings">Configuración ⚙</option>
+  </select>
+  <label for="mobaEditSize">Tamaño <output id="mobaEditSizeValue">100%</output></label>
+  <input id="mobaEditSize" type="range" min="55" max="160" step="5" value="100">
+  <label for="mobaEditOpacity">Opacidad <output id="mobaEditOpacityValue">40%</output></label>
+  <input id="mobaEditOpacity" type="range" min="10" max="100" step="5" value="40">
+  <button id="mobaFinishEditing" type="button">✓ Guardar y terminar</button>
+ </div>
+ 
 </div>
 <div id="mobileMobaSettings" role="dialog" aria-modal="true" aria-label="Ajustes de controles móviles" data-open="false">
  <div class="mobaSettingsCard">
   <h3>⚙ Controles móviles</h3>
+  <div class="mobaSettingsActions"><button id="mobaFullscreenButton" type="button" aria-label="Activar pantalla completa">⛶ Pantalla completa</button></div>
+  <button id="mobaCloseSettings" type="button" aria-label="Cerrar ajustes y volver al combate">✕ Cerrar</button>
   <p>Combate en pausa. Puedes colocar los controles donde mejor lleguen tus dedos.</p>
+  <p id="mobaAnimationLoadStatus" role="status" style="font-size:11px;color:#b9eee8">Animaciones: preparando recursos…</p>
   <div class="mobaSettingsActions">
    <button id="mobaReposition" type="button">Mover controles</button>
    <button id="mobaResetLayout" type="button">Restablecer</button>
   </div>
-  <p>En modo edición arrastra joystick, ataque y defensa. Confirma con Guardar controles; se conservarán al volver a abrir el juego.</p>
-  <div class="mobaSettingsActions"><button id="mobaSaveLayout" type="button">Guardar controles</button></div>
+  <p>En modo edición arrastra 1, 2 y 3 por separado, además del joystick, ataque y defensa.</p>
+  
+  <div class="mobaSettingsActions"><button id="mobaSaveLayout" type="button">Guardar distribución</button><button id="mobaExportLayout" type="button">Exportar JSON</button><button id="mobaImportLayout" type="button">Importar JSON</button></div><input id="mobaLayoutFile" type="file" accept=".json,application/json" hidden>
   <p id="mobaLayoutStatus" role="status"></p>
   <p><strong>Escenario:</strong> Si fue creado en otro dispositivo, importa una vez su archivo JSON y quedará guardado aquí.</p>
   <div class="mobaSettingsActions"><button id="mobaLoadScene" type="button">Cargar escenario JSON</button></div>
@@ -539,17 +661,26 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
-import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-real-fountains-1';
+import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261105-mobile-sharp-1';
+import {reduceModelTextureBudget} from './arena-asset-budget.js?v=2';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.100';
-import {createArenaMatchGate} from './arena-match-gate.js?v=0.9.68';
-import {createArenaCombatHud} from './arena-combat-hud.js?v=0.9.103';
+import {createArenaMatchGate} from './arena-match-gate.js?v=20261105-dom-earth-water-1';
+import {createArenaCombatHud} from './arena-combat-hud.js?v=20261106-semillera-crystals-1';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.105';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
-import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.97';
+import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
+import {createRivalCasterAI} from './caster-rival-ai.js?v=20261105-strategy-1';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 
 const qs=s=>document.querySelector(s);
+const mobileCombatMode=window.matchMedia('(pointer:coarse)').matches||
+ /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+// Full decorative studio scenery is opt-in on desktop; combat works with
+// background, floor and the two elemental fountains alone.
+const quickCombatScene=mobileCombatMode||
+ new URLSearchParams(location.search).get('fullScene')!=='1';
+// Preserve lightweight geometry loading on phones while rendering sharper pixels.
 const hud=qs('#top'), head=qs('#head');
 const expand=()=>{hud.classList.toggle('open');const open=hud.classList.contains('open');qs('#expand').textContent=open?'Cerrar ▴':'Opciones ▾';head.setAttribute('aria-expanded',String(open));};
 head.addEventListener('click',expand);head.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();expand();}});
@@ -560,7 +691,7 @@ const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-per
 // Landscape phones often report >700 CSS px, previously forcing 2x pixel ratio.
 // Keep their GPU workload bounded independently of screen orientation.
 const arenaPixelRatio=()=>Math.min(window.devicePixelRatio||1,
- window.matchMedia('(pointer:coarse) and (max-width:950px)').matches?1.25:
+ mobileCombatMode?Math.min(1.75,window.devicePixelRatio||1):
  window.innerWidth<700?1.5:2);
 renderer.setPixelRatio(arenaPixelRatio());
 renderer.setSize(innerWidth,innerHeight);
@@ -576,6 +707,10 @@ const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,350);
 // camera-object collision raycast, dolly collision or animated field of view.
 const casters=[],combatants=[];
 const cardSummons=new Set();
+const MAX_ACTIVE_SUMMONS_PER_SIDE=6;
+const occupiedSummonSlots=side=>combatants.filter(c=>c.side===side&&c.role==='summon'&&
+ c.hp>0&&!['dead','vanishing','dying'].includes(c.stage)).length;
+const hasSummonRoom=side=>occupiedSummonSlots(side)<MAX_ACTIVE_SUMMONS_PER_SIDE;
 const CAMERA_PITCH=THREE.MathUtils.degToRad(23);
 const CAMERA_FOV=53;
 const CAMERA_MIN_DISTANCE=5;
@@ -666,7 +801,7 @@ const fill=new THREE.DirectionalLight(0x00ccb8,.65);fill.position.set(4,5,-6);sc
 const root=new THREE.Group();scene.add(root);
 // Scenery overlay is visual only: never modifies units, hitboxes, pathfinding or rules.
 let attachRealElementSources=null;
-const sceneryOverlay=createArenaSceneOverlay({THREE,root,onSourcesChange:sources=>attachRealElementSources?.(sources),renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;},onArenaVisual:opacity=>{
+const sceneryOverlay=createArenaSceneOverlay({THREE,root,lightweightTextures:quickCombatScene,onSourcesChange:sources=>attachRealElementSources?.(sources),renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;},onArenaVisual:opacity=>{
  const fraction=THREE.MathUtils.clamp(Number(opacity)/100,0,1);
  if(arenaArt){arenaArt.material.transparent=true;arenaArt.material.opacity=fraction;arenaArt.material.needsUpdate=true;}
  pendingSceneOpacity=fraction;
@@ -749,7 +884,7 @@ function cssDimension(css,name){
 }
 async function loadSharedArenaBackground(){
   try{
-    const response=await fetch('./'+bgCssPath+'?v='+Date.now(),{cache:'no-store'});
+    const response=await fetch('./'+bgCssPath,{cache:'default'});
     if(!response.ok)throw Error('HTTP '+response.status);
     const css=await response.text();
     setArenaSpriteAxis('width',cssDimension(css,'width'));
@@ -864,9 +999,46 @@ const ATTACK_PROFILES={shield:{period:2,clip:2},mana:{period:2,clip:2},
 const ARROW_FLIGHT_SPEED=28.5; // 3 x 9,5 casillas/s; NO modifica la cadencia de ataque.
 const ARCHER_ARM_PROFILE={rightarm:{x:-18,y:58,z:-14},leftarm:{x:20,y:-10,z:5}};
 let archerRigReference=null;
+// Clip adaptations are cached by card and animation ID. They use Farolera's
+// approved motion vocabulary but retarget onto the individual GLB skeleton.
+const sharedSummonClipCache=new Map();
 function getCombatClip(c,id){
-  return id==='idle'?c.idleClip:
-    (c.kind==='archer'?archerCombatAnimations:combatAnimations).get(id);
+ if(id==='idle'){
+  if(c.cardId&&c.cardId!=='farolera'&&!c.idleClip?.tracks?.length){
+   const source=window.ROKSummonAssets?.farolera;
+   const key=c.cardId+':idle';
+   if(source?.scene&&source?.idle){
+    if(!sharedSummonClipCache.has(key)){
+     try{sharedSummonClipCache.set(key,
+      adaptAnimationFBX(source.scene,source.idle,c.model,'ROK_Shared_'+key));}
+     catch(error){
+      console.warn('[R.O.K.] Idle compartido pendiente:',key,error);
+      sharedSummonClipCache.set(key,null);
+     }
+    }
+    return sharedSummonClipCache.get(key)||c.idleClip;
+   }
+  }
+  return c.idleClip;
+ }
+ if(c.cardId&&c.cardId!=='farolera'){
+  const sourceClip=combatAnimations.get(id);
+  const sourceModel=window.ROKSummonAssets?.farolera?.scene;
+  if(!sourceClip||!sourceModel)return null;
+  const key=c.cardId+':'+id;
+  if(sharedSummonClipCache.has(key))return sharedSummonClipCache.get(key);
+  try{
+   const adapted=adaptAnimationFBX(sourceModel,sourceClip,c.model,'ROK_Shared_'+key);
+   sharedSummonClipCache.set(key,adapted);
+   return adapted;
+  }catch(error){
+   // Do not apply raw Farolera tracks to an incompatible rig.
+   if(!sharedSummonClipCache.has(key))console.warn('[R.O.K.] Retarget pendiente:',key,error);
+   sharedSummonClipCache.set(key,null);
+   return null;
+  }
+ }
+ return (c.kind==='archer'?archerCombatAnimations:combatAnimations).get(id);
 }
 
 // Textura procedural circular para partículas. Se comparte entre ambos personajes
@@ -2003,7 +2175,7 @@ const matchGate=createArenaMatchGate({
   if(!loaded)throw Error('Los modelos todavía no están listos');
   casterMovement?.disable();
   resetDemoCombat();
-  combatHud.configure('ally',configuration);
+  combatHud.configure('ally',['earth']);
   combatHud.configure('enemy',['water']);
   combatHud.reset();
   elementOrbs.reset();
@@ -2023,7 +2195,7 @@ const matchGate=createArenaMatchGate({
 });
 // Show element selection without waiting for any GLB, FBX or ZIP.
 matchGate.resourcesReady();
-window.ROKBoot.ready();
+// Keep dark overlay until essential real assets are ready.
 const CASTER_RESTART_DELAY=1.8; // Mostrar victoria/derrota antes de reiniciar.
 let matchRestartLeft=null;
 const DURATION=10.25;
@@ -2721,6 +2893,7 @@ function finishNewSummon(c,winner=false){
 
 function resetCombatant(c){
   c.currentThreatTarget=null;
+  c.armorPhysical=0;c.armorMagical=0;c.equippedBody=null;
   clearEmbeddedArrows(c);
   c.pendingRestore=false;
   c.restorationHp=null;
@@ -2728,12 +2901,15 @@ function resetCombatant(c){
   releaseSummonDuel(c);
   const shield=c.kind==='shield',archer=c.kind==='archer';
   c.maxHp=archer?ATTACK_PROFILES.archer.hp:shield?12:5;
+  if(chiaraSummonDefinitions[c.cardId])c.maxHp=chiaraSummonDefinitions[c.cardId].hp;
+  if(c.cardId==='semillera')c.maxHp=1;
   c.hp=c.maxHp;
   c.shieldMax=shield?2:0;
   c.shield=c.shieldMax;
   c.range=archer?ATTACK_PROFILES.archer.range:shield?3:5;
-  c.attackDamage=archer?ATTACK_PROFILES.archer.damage:shield?2:1;
+  c.attackDamage=c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1));
   c.speed=shield?2.4:2.15;
+  if(c.cardId==='semillera')c.crystalClock=0;
   c.stage='intro';c.introT=0;
   c.hitLeft=0;c.castT=0;c.castDuration=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
   c.restoringT=0;c.stunLeft=0;c.postRestoreStun=0;
@@ -2747,7 +2923,7 @@ function resetCombatant(c){
   c.baseEndZ=c.endZ;
   c.endX=0;
   c.shieldPulse=0;
-  c.maxMana=c.kind==='mana'?10:0;
+  c.maxMana=c.cardId==='farolera'?0:c.kind==='mana'?10:0;
   c.mana=c.maxMana;c.manaTimer=0;c.dodgeCooldown=0;
   c.outer.position.x=c.startX;
   c.outer.rotation.y=c.side==='ally'?Math.PI:0;
@@ -2769,9 +2945,127 @@ function resetCombatant(c){
   c.mixer.stopAllAction();c.animId=null;c.animAction=null;
   setAnim(c,'idle',{force:true,fade:0});
 }
+// Every card summon creates multiple independent world-space FX nodes.
+// Remove them together with the unit, including their own materials; shared
+// textures/geometries remain owned by the arena.
+function disposeCardSummon(c){
+ const unmount=node=>{
+  if(!node)return;
+  node.parent?.remove(node);
+  node.traverse?.(child=>{
+   const mats=child.material?Array.isArray(child.material)?child.material:[child.material]:[];
+   for(const mat of mats)mat?.dispose?.();
+  });
+ };
+ releaseSummonDuel(c);
+ clearEmbeddedArrows(c);
+ stopHitOverlay(c);
+ c.mixer?.stopAllAction();
+ c.mixer?.uncacheRoot?.(c.model);
+ resetDeathFx(c);
+ resetRestorationFx(c);
+ clearSummonFx(c);
+ root.remove(c.outer);
+ // Summon creation allocates some private FX geometries; the little
+ // spark sphere geometry is shared with all summons and must be retained.
+ c.fx?.g?.traverse?.(node=>{
+  if(node.geometry&&node.geometry!==sphereGeo)node.geometry.dispose?.();
+ });
+ unmount(c.fx?.g);
+ unmount(c.restorationFx?.glow);
+ for(const part of c.restorationFx?.particles||[])unmount(part.sprite);
+ unmount(c.deathFx?.glow);
+ for(const part of c.deathFx?.particles||[])unmount(part.sprite);
+ removeSummonNexus(c);
+ nameplates.get(c)?.remove();nameplates.delete(c);
+ c.summonBar?.remove();c.summonBar=null;
+ const ground=summonGroundHuds.get(c);
+ if(ground){
+  ground.group.traverse(node=>{
+   if(node.material)
+    for(const mat of (Array.isArray(node.material)?node.material:[node.material]))
+     mat.dispose?.();
+  });
+  root.remove(ground.group);summonGroundHuds.delete(c);
+ }
+ c.stunHalo?.group?.traverse(node=>node.material?.dispose?.());
+ if(c.shieldShell){c.shieldShell.geometry?.dispose?.();c.shieldShell.material?.dispose?.();}
+ const indicator=summonEdgeMarkers.get(c);
+ indicator?.node.remove();summonEdgeMarkers.delete(c);
+ // Do not destroy cached/shared source geometries or textures.
+ c.model?.traverse(node=>{
+  if(!node.isMesh)return;
+  for(const mat of (Array.isArray(node.material)?node.material:[node.material]))
+   mat?.dispose?.();
+ });
+}
+function verifyCleanMatchBoundary(){
+ const residue={
+  cardSummons:cardSummons.size,
+  orphanNexuses:[...summonNexuses.keys()].filter(c=>!combatants.includes(c)).length,
+  missiles:missiles.length,
+  impacts:magicImpacts.length,
+  portals:portalEffects.length,
+  floatingWords:floatingWords.length
+ };
+ const leaked=Object.values(residue).some(value=>value>0);
+ if(leaked)console.warn('[R.O.K.] Comprobación de limpieza tras reinicio:',residue);
+ return !leaked;
+}
+// Semillera: one small single-orb crystal every five active seconds.
+// Collected by the allied caster; each pickup grants +1 regeneration speed
+// for the current match, never unlocks additional elemental reservoirs.
+const semilleraCrystals=[];
+const semilleraCrystalGeometry=new THREE.OctahedronGeometry(.14,0);
+function clearSemilleraCrystals(){
+ for(const crystal of semilleraCrystals){
+  root.remove(crystal.group);
+  crystal.group.traverse(node=>{
+   if(node.material?.dispose)node.material.dispose();
+  });
+ }
+ semilleraCrystals.length=0;
+}
+function emitSemilleraCrystal(source){
+ // Dispose old uncollected crystals at 30 seconds: no unbounded GPU objects.
+ const group=new THREE.Group();
+ group.position.set(
+  THREE.MathUtils.clamp(source.outer.position.x+(.5-Math.random())*.8,-MAX_X,MAX_X),
+  .34,
+  THREE.MathUtils.clamp(source.outer.position.z-3.1,-MAX_Z,MAX_Z));
+ const gem=new THREE.Mesh(semilleraCrystalGeometry,new THREE.MeshBasicMaterial({
+  color:0xCCFF00,transparent:true,opacity:.96,depthWrite:false
+ }));
+ const orbit=new THREE.Mesh(new THREE.TorusGeometry(.21,.014,5,20),new THREE.MeshBasicMaterial({
+  color:0x67400D,transparent:true,opacity:.78,depthWrite:false
+ }));
+ orbit.rotation.x=Math.PI/3;
+ group.add(gem,orbit);root.add(group);
+ semilleraCrystals.push({group,gem,orbit,age:0});
+}
+function updateSemilleraCrystals(dt){
+ const caster=casters.find(c=>c.side==='ally'&&c.stage==='active');
+ for(let i=semilleraCrystals.length-1;i>=0;i--){
+  const crystal=semilleraCrystals[i];
+  crystal.age+=dt;
+  crystal.gem.rotation.y+=dt*1.7;
+  crystal.orbit.rotation.z+=dt*.8;
+  crystal.group.position.y=.34+Math.sin(crystal.age*3)*.05;
+  const at=caster?.outer?.position;
+  const collected=at&&Math.hypot(at.x-crystal.group.position.x,at.z-crystal.group.position.z)<=1.4;
+  if(collected)combatHud.addRegenSpeed('ally',1);
+  if(collected||crystal.age>=30){
+   root.remove(crystal.group);
+   crystal.group.traverse(node=>node.material?.dispose?.());
+   semilleraCrystals.splice(i,1);
+  }
+ }
+}
 function resetDemoCombat(){
   // A new match invalidates any in-progress manual attack/cooldown.
   casterMovement?.disable();
+  rivalAI?.reset();
+  rivalAction.attackUntil=0;rivalAction.castingUntil=0;rivalAction.reserved=null;
   // Switch to downloaded real caster skins at a round boundary only.
   for(const install of pendingCasterInstalls.splice(0)){
    try{install();}catch(error){console.warn('[R.O.K.] Caster aplazado:',error);}
@@ -2779,33 +3073,54 @@ function resetDemoCombat(){
   matchRestartLeft=null;
   clearFloatingWords();
   clearPortalEffects();
-  for(const p of missiles){root.remove(p.group);}
+  for(const p of missiles){
+   if(p.arrow)disposeArrowProjectile(p.group);
+   else{
+    p.group?.parent?.remove(p.group);
+    p.group?.traverse(node=>{
+     if(node.material){
+      for(const mat of (Array.isArray(node.material)?node.material:[node.material]))
+       mat.dispose?.();
+     }
+    });
+   }
+  }
   missiles.length=0;
-  for(const p of magicImpacts){root.remove(p.group);}
+  for(const p of magicImpacts){
+   root.remove(p.group);
+   p.group?.traverse(node=>{
+    if(node.material){
+     for(const mat of (Array.isArray(node.material)?node.material:[node.material]))
+      mat.dispose?.();
+    }
+   });
+  }
   magicImpacts.length=0;
+  // Card equipment is a per-match consumable; the next match starts fresh.
+  resetOakArmor();
+  clearSemilleraCrystals();
   // Card-generated units are NOT initial units: discard on match reset.
   for(const c of cardSummons){
    const index=combatants.indexOf(c);
    if(index>=0)combatants.splice(index,1);
-   releaseSummonDuel(c);
-   clearEmbeddedArrows(c);
-   c.mixer?.stopAllAction();root.remove(c.outer);
-   removeSummonNexus(c);
-   const plate=nameplates.get(c);
-   plate?.remove();nameplates.delete(c);
-   c.summonBar?.remove();
-   const ground=summonGroundHuds.get(c);
-   if(ground){root.remove(ground.group);summonGroundHuds.delete(c);}
-   const indicator=summonEdgeMarkers.get(c);
-   indicator?.node.remove();summonEdgeMarkers.delete(c);
+   disposeCardSummon(c);
   }
   cardSummons.clear();
   combatants.forEach(resetCombatant);
   casters.forEach(resetCaster);
+  // Crossfades and cast overlays must not survive into the next match.
+  for(const caster of casters){
+   casterLayers.reset(caster);
+   caster.mixer.timeScale=1;
+   caster.mixer.stopAllAction();
+   caster.mixer.clipAction(caster.idleClip).reset().setEffectiveWeight(1).play();
+  }
   combatHud.reset();
   elementOrbs.reset();
   combatHud.draw(casters);
   qs('#phase').textContent='✦ Casters listos · sin invocaciones iniciales';
+  // Second pass after all teardown/reset operations, not just before them.
+  verifyCleanMatchBoundary();
 }
 // Coordenadas físicas y casillas siempre derivadas de W y D.
 // En 15×30, los centros son x = col - 7 y z = row - 14.5.
@@ -2910,6 +3225,7 @@ function beginDeath(c){
   if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
   c.pendingRestore=false;
   c.restorationHp=null;
+  onOakArmorHolderDeath(c);
   stopHitOverlay(c);
   releaseSummonDuel(c);
   c.stage='dying';c.deathT=0;c.castTarget=null;c.castFired=true;
@@ -3416,10 +3732,15 @@ function damage(target,value,source,{committed=false,environment=false}={}){
     }
     return true;
   }
-  const absorbed=Math.min(target.shield,value);
+  // Armor is permanent flat damage reduction; it is NOT a shield.
+  // The existing shield still absorbs only the damage that passes armor.
+  const magic=source?.kind==='mana'||source?.role==='caster';
+  const armor=environment?0:magic?(target.armorMagical||0):(target.armorPhysical||0);
+  const effective=Math.max(0,value-armor);
+  const absorbed=Math.min(target.shield,effective);
   target.shield-=absorbed;
   if(absorbed>0)target.shieldPulse=.8;
-  target.hp=Math.max(0,target.hp-(value-absorbed));
+  target.hp=Math.max(0,target.hp-(effective-absorbed));
   if(target.pendV){
     target.pendV.y+=(target.side==='ally'?-1:1)*2;
     target.pendV.x+=.6;
@@ -4009,6 +4330,10 @@ function updateDuel(dt){
       updateHit(c,dt);
     }
     if(c.stage==='active'){
+      if(c.cardId==='semillera'){
+       c.crystalClock=(c.crystalClock||0)+dt;
+       while(c.crystalClock>=5){c.crystalClock-=5;emitSemilleraCrystal(c);}
+      }
       c.cooldown=Math.max(0,c.cooldown-dt);
       c.specialCooldown=Math.max(0,c.specialCooldown-dt);
     }
@@ -4035,6 +4360,10 @@ function updateDuel(dt){
     if(c.stage!=='active')continue;
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
+    if(!target&&c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
+      c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
+      setAnim(c,12,{fade:.16});continue;
+    }
     if(!target){setAnim(c,'idle',{fade:.15});continue;}
     // La Farolera aturdida sigue siendo un objetivo legal, incluso si el
     // enemigo está en su ciclo de reacción al golpe.
@@ -4042,7 +4371,15 @@ function updateDuel(dt){
     const dx=target.outer.position.x-c.outer.position.x;
     const dz=target.outer.position.z-c.outer.position.z;
     const distance=Math.hypot(dx,dz);
+    // Campeo: Semillera retreats to the far edge of her own half instead
+    // of following enemies. She can attack once an enemy enters her range.
+    if(c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
+      c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
+      setAnim(c,12,{fade:.16});
+      continue;
+    }
     if(distance>c.range+.005){
+      if(c.cardId==='semillera'){setAnim(c,'idle',{fade:.15});continue;}
       const step=Math.min(c.speed*dt,distance-c.range);
       c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/distance*step,-MAX_X,MAX_X);
       c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-MAX_Z,MAX_Z);
@@ -4054,6 +4391,7 @@ function updateDuel(dt){
       setAnim(c,'idle',{fade:.15});
     }
   }
+  updateSemilleraCrystals(dt);
   updateMagic(dt);
   // El orden del bucle ya no determina quién sobrevive: esperar hasta
   // concluir TODOS los proyectiles de este fotograma.
@@ -4113,132 +4451,168 @@ function updateDuel(dt){
   for(const c of [...combatants,...casters])updateNameplate(c);
 }
 window.ROKBoot.progress('Descargando modelos de invocaciones…',12);
-new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g=>{
- window.ROKBoot.progress('Preparando modelos, materiales y animaciones…',27);
+void (async()=>{
   try{
-  if(!g.animations.length)throw new Error('El archivo GLB no contiene la animación Idle');
-  // Preserve the Farolera model/idle animation and createFighter() for card casting.
-  // No automatic summons are created when a match loads or restarts.
-  const faroleraSummonPrototype={scene:g.scene,idle:g.animations[0]};
-  for(const side of ['ally','enemy'])createCaster(g.scene,g.animations[0],side);
-  window.ROKSummonAssets={farolera:faroleraSummonPrototype};
-  for(const c of combatants)c.model.userData.baseScale=c.model.scale.x;
-  for(const c of combatants){makeNameplate(c);makeSummonCountdown(c);resetCombatant(c);}
-  for(const c of casters){makeNameplate(c);resetCaster(c);}
-  // Kasters reales cargados de forma independiente: se conservan posiciones,
-  // vida, etiquetas, combate y animaciones del resto de invocaciones.
-  // Mientras descargan, permanece el caster provisional; no bloquean la arena.
-  const casterModelTasks=[];
+  window.ROKBoot.progress('Cargando los dos casters reales…',27);
+  const casterModelTasks=[
+   {side:'ally',folder:'lioren',path:'lioren kaster.glb',label:'Lioren'},
+   {side:'enemy',folder:'chiara',path:'chiara kaster.glb',label:'Chiara'}
+  ].map(async spec=>{
+   const url='./assets/models/casters/'+spec.folder+'/'+encodeURIComponent(spec.path);
+   let gltf;
+   try{gltf=await new GLTFLoader().loadAsync(url);}
+   catch(error){throw Error('No se pudo cargar '+spec.label+' ('+String(error?.message||error)+')');}
+   if(!gltf?.scene)throw Error('El GLB de '+spec.label+' no contiene un modelo válido');
+   if(mobileCombatMode)reduceModelTextureBudget(gltf.scene,{maxSize:1536});
+   const bounds=new THREE.Box3().setFromObject(gltf.scene);
+   const height=bounds.getSize(new THREE.Vector3()).y;
+   if(!Number.isFinite(height)||height<=.001)
+    throw Error('Modelo de '+spec.label+' sin geometría o altura válida');
+   // Many real caster GLBs are static rigs: animations live in separate
+   // FBX packs. An empty resting clip is safe until those finish loading.
+   const idle=gltf.animations?.find(clip=>/idle|standing/i.test(clip.name))||
+    gltf.animations?.[0]||new THREE.AnimationClip('Reposo_'+spec.label,1,[]);
+   return {spec,gltf,idle,bounds};
+  });
+  // The match MUST NOT become ready while either caster is missing.
+  // Promise.all rejects explicitly; no Farolera fallback and no silent errors.
+  const realCasters=await Promise.all(casterModelTasks);
+  // Optional Farolera is fetched independently and cannot prevent the two
+  // real casters from loading or enabling the arena.
+  const faroleraTask=new GLTFLoader().loadAsync('./assets/models/casters/farolera/chiara_idle.glb')
+   .then(g=>{
+    if(!g?.scene||!g.animations?.length)throw Error('Farolera sin Idle');
+    if(mobileCombatMode)reduceModelTextureBudget(g.scene,{maxSize:1024});
+    window.ROKSummonAssets={farolera:{scene:g.scene,idle:g.animations[0]}};
+    return g;
+   }).catch(error=>{
+    console.warn('[R.O.K.] Invocación Farolera opcional:',error);
+    return null;
+   });
+
+  for(const id of ['telepate','controladora'])
+   void ensureChiaraSummonModel(id).catch(()=>{});
   const deferredCasterAnimations=[];
-  for(const spec of [
-    {side:'ally',path:'lioren kaster.glb',label:'Lioren'},
-    {side:'enemy',path:'chiara kaster.glb',label:'Chiara'}
-  ]){
-    const caster=casters.find(c=>c.side===spec.side);
-    if(!caster)continue;
-    const installCaster=gltf=>{
-      const model=cloneSkinned(gltf.scene);
-      const bounds=new THREE.Box3().setFromObject(model);
-      const h=bounds.getSize(new THREE.Vector3()).y;
-      if(!Number.isFinite(h)||h<=.001)throw Error('Modelo sin altura válida');
-      const scale=1.65/h;
-      model.scale.setScalar(scale);
-      model.userData.baseScale=scale;
-      model.userData.rokCasterAsset=spec.label;
-      model.userData.baseY=-bounds.min.y*scale;
-      model.position.y=model.userData.baseY;
-      model.traverse(o=>{if(o.isMesh)o.frustumCulled=false;});
-      // A provisional rig may have been guarding while the GLB loaded.
-      // Release it and hide its shield before replacing the model.
-      if(casterMovement?.caster===caster)casterMovement.disable();
-      casterLayers.shield(caster,false);
-      caster.outer.remove(caster.model);
-      caster.mixer.stopAllAction();
-      caster.model=model;caster.outer.add(model);
-      caster.mixer=new THREE.AnimationMixer(model);
-      caster.idleClip=gltf.animations.find(clip=>/idle|standing/i.test(clip.name))||
-        gltf.animations[0]||new THREE.AnimationClip('Reposo',1,[]);
-      caster.mixer.clipAction(caster.idleClip).reset().play();
-      // Idle from the real GLB is already usable. Defer all costly FBX
-      // retargeting until the user reaches the preparation screen.
-      deferredCasterAnimations.push(async()=>{
-       const clips=await movementLoader.load(caster);
-       if(caster.model===model)casterLayers.register(caster,clips);
-      });
-      qs('#modelStatus').textContent='Kasters reales: Lioren / Chiara · '+spec.label+' listo';
-    };
-    const modelTask=new GLTFLoader().loadAsync('./assets/models/casters/'+
-     (spec.side==='ally'?'lioren':'chiara')+'/'+encodeURIComponent(spec.path))
-     .then(gltf=>{
-      if(matchGate.isRunning)pendingCasterInstalls.push(()=>installCaster(gltf));
-      else installCaster(gltf);
-     }).catch(error=>{
-      // Animated provisional casters remain available on weak connections.
-      console.warn('[R.O.K.] Caster '+spec.label+' secundario:',error);
-     });
-    casterModelTasks.push(modelTask);
+  for(const {spec,gltf,idle,bounds} of realCasters){
+   const caster=createCaster(gltf.scene,idle,spec.side);
+   caster.model.userData.rokCasterAsset=spec.label;
+   caster.model.userData.baseY=-bounds.min.y*caster.model.scale.x;
+   caster.model.position.y=caster.model.userData.baseY;
+   makeNameplate(caster);
+   resetCaster(caster);
+   deferredCasterAnimations.push(async()=>{
+    const model=caster.model;
+    const clips=await movementLoader.load(caster);
+    if(caster.model===model)casterLayers.register(caster,clips);
+   });
   }
+  if(casters.length!==2||casters.some(c=>!c.model?.userData?.rokCasterAsset))
+   throw Error('No están disponibles los dos casters reales');
+  qs('#modelStatus').textContent='Casters reales cargados: Lioren y Chiara';
   window.ROKBoot.progress('Descargando escenario y casters reales…',48);
-  // The two real caster GLBs (~12 MB combined) are optional for first play.
+  // Background and tiles are independent of the caster identity checks.
   await Promise.all([sharedBackgroundReady,arenaTextureReady]);
   window.ROKBoot.progress('Comprobando y preparando el combate…',92);
   attackModeButton.disabled=false;renderAttackMode();
   hits.visible=false;
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
-  // Load the published Chiara scene for PC and mobile; legacy editor
-  // transfer remains opt-in via ?scene=escenario-1.
+  // The playable arena depends on the published scenery: its two real
+  // elemental fountains are required to create and emit collectible orbs.
+  // Do not unlock combat while the scene is still loading.
   if(new URLSearchParams(location.search).get('scene')!=='escenario-1'){
-   void (async()=>{
-    try{
-     await sceneryOverlay.init();
-     if(sceneryOverlay.currentName)return;
-     const response=await fetch('./assets/scenes/arena-de-chiara.json',{cache:'no-store'});
+   try{
+    window.ROKBoot.progress('Cargando templo y fuentes elementales…',94);
+    await sceneryOverlay.init();
+    if(!sceneryOverlay.currentName){
+     const response=await fetch('./assets/scenes/arena-de-chiara.json',{cache:'default'});
      if(!response.ok)throw Error('HTTP '+response.status);
-     const ok=await sceneryOverlay.loadScene(await response.json());
-     if(ok){
-      sceneryOverlay.show(true);
-      const name=qs('#testerSceneCurrent');
-      if(name)name.textContent=sceneryOverlay.currentName;
-     }
-    }catch(error){
-     console.warn('[R.O.K.] Arena de Chiara no cargada:',error);
-     const sceneMessage=qs('#testerSceneStatus');
-     if(sceneMessage)sceneMessage.textContent='Arena de Chiara: '+String(error.message||error);
+     const ok=await sceneryOverlay.loadScene(await response.json(),{essentialOnly:quickCombatScene});
+     if(!ok)throw Error('No se pudo instalar el escenario publicado');
     }
-   })();
+    sceneryOverlay.show(true);
+    // Also refresh bindings for already loaded/local scenes.
+    const realSources=sceneryOverlay.getElementSources();
+    if(realSources.length<2)throw Error('Faltan las dos fuentes elementales del escenario');
+    attachRealElementSources(realSources);
+    const name=qs('#testerSceneCurrent');
+    if(name)name.textContent=sceneryOverlay.currentName;
+    qs('#testerSceneStatus').textContent=quickCombatScene?
+     'Escenario ligero y dos fuentes elementales listos':
+     'Escenario completo y fuentes elementales listos';
+   }catch(error){
+    console.error('[R.O.K.] No se puede iniciar el combate sin escenario:',error);
+    const message='Error al preparar escenario y fuentes: '+String(error.message||error);
+    qs('#testerSceneStatus').textContent=message;
+    qs('#sceneStatus').textContent=message;
+    window.ROKBoot.fail(message);
+    return;
+   }
   }
-  qs('#modelStatus').textContent='2 casters · Farolera cargada para el futuro casteo de cartas';
+  window.ROKBoot.progress('Preparando cartas de costo 1…',96);
+  // Only cost-one models are essential for the first test. Do not hang
+  // indefinitely on missing optional models.
+  await Promise.race([
+   Promise.allSettled([faroleraTask,ensureLiorenSummonModel('semillera')]),
+   new Promise(resolve=>setTimeout(resolve,12000))
+  ]);
+  qs('#modelStatus').textContent='Lioren y Chiara listos · Farolera solo como invocación';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
   // The preparation interface was shown before downloading models.
   playing=false;
   matchGate.setCoreReady();
+  window.ROKBoot.ready();
+  // First cost-one Earth card, then heavier cards while the game runs.
+  setTimeout(()=>{
+   void ensureLiorenSummonModel('semillera').catch(error=>
+    console.warn('[R.O.K.] Semillera:',error));
+  },150);
+  setTimeout(()=>{
+   void (async()=>{
+    for(const id of ['kariona','astarium']){
+     try{await ensureLiorenSummonModel(id);}
+     catch(error){console.warn('[R.O.K.] Carta adicional '+id+':',error);}
+     await new Promise(resolve=>setTimeout(resolve,700));
+    }
+   })();
+  },mobileCombatMode?12000:5000);
   // The scene catalog no longer competes with core models for bandwidth.
-  if(!window.matchMedia('(pointer:coarse) and (max-width:950px)').matches)
+  if(!mobileCombatMode)
    setTimeout(initializeOptionalSceneControls,1800);
   // Load optional animations gradually, never on the critical startup path.
   // They can be cached by the browser for subsequent rounds.
   setTimeout(()=>{
    void (async()=>{
+    // Wait for real caster GLBs to finish installing before collecting
+    // their deferred retargeting jobs; otherwise slow mobile requests
+    // leave this list empty. This runs AFTER core-ready, never blocks play.
+    const animationStatus=qs('#mobaAnimationLoadStatus');
+    animationStatus.textContent='Animaciones: descargando modelos de casters…';
     const jobs=[...deferredCasterAnimations];
-    // Optional 17 MB ZIP is excluded entirely on mobile. Desktop may
-    // fetch it after core models, with JSZip loaded asynchronously.
-    if(!window.matchMedia('(pointer:coarse) and (max-width:950px)').matches)
-     jobs.push(async()=>{
-      if(!window.JSZip){
-       await new Promise((resolve,reject)=>{
-        const tag=document.createElement('script');
-        tag.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
-        tag.onload=resolve;tag.onerror=()=>reject(Error('JSZip no disponible'));
-        document.head.append(tag);
-       });
-      }
-      await activateArenaAnimationPack(g.scene);
-     });
+    animationStatus.textContent='Animaciones: '+jobs.length+' casters listos para preparar; cargando clips…';
+    // Summon animations are required on BOTH desktop and mobile.
+    // Defer the archive until after core GLBs and caster clips load so
+    // the arena becomes interactive before the optional 17 MB request.
+    jobs.push(async()=>{
+     if(!window.JSZip){
+      await new Promise((resolve,reject)=>{
+       const tag=document.createElement('script');
+       tag.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+       tag.onload=resolve;tag.onerror=()=>reject(Error('JSZip no disponible'));
+       document.head.append(tag);
+      });
+     }
+     const farolera=await faroleraTask;
+     if(farolera)await activateArenaAnimationPack(farolera.scene);
+    });
+    let completed=0;
     for(const job of jobs){
-     await new Promise(resolve=>setTimeout(resolve,650));
-     try{await job();}
+     await new Promise(resolve=>setTimeout(resolve,350));
+     try{await job();completed++;}
      catch(error){console.warn('[R.O.K.] Animación opcional:',error);}
+     animationStatus.textContent='Animaciones: '+completed+'/'+jobs.length+' paquetes preparados.';
     }
+    animationStatus.textContent='Animaciones: '+completed+'/'+jobs.length+' paquetes preparados. '+
+     (completed===jobs.length?'Listas para el combate.':'Algunas no pudieron descargarse.');
    })();
   },1000);
   }catch(error){
@@ -4247,17 +4621,9 @@ new GLTFLoader().load('./assets/models/casters/farolera/chiara_idle.glb',async g
     qs('#phase').textContent='⚠ No se pudo iniciar el combate: '+message;
     qs('#sceneStatus').textContent='Error de arranque: '+message;
     matchGate.setCoreError(message);
+    window.ROKBoot.fail(message);
   }
-},e=>{if(e.total){
-   const percent=Math.round(e.loaded/e.total*100);
-   qs('#sceneStatus').textContent='Cargando modelo '+percent+'%';
-   window.ROKBoot.progress('Cargando Farolera '+percent+' %…',Math.min(25,5+percent*.2));
- }},err=>{
-  qs('#sceneStatus').textContent='Error al cargar Farolera: '+(err?.message||err);
-  qs('#phase').textContent='⚠ Error al cargar el modelo de Farolera';
-  matchGate.setCoreError('Farolera: '+String(err?.message||err));
-  console.error(err);
-});
+})();
 
 // Both caster rigs share the same masked locomotion/upper-body system.
 const casterLayers=createCasterLayerSystem(THREE);
@@ -4273,6 +4639,7 @@ function casterAttackTarget(c){
 }
 // Mode for manually controlling the real Chiara/Lioren models.
 let casterMovement=null;
+let rivalAI=null;
 const movementLoader=createCasterMovementLoader({
  FBXLoader,adaptClip:adaptAnimationFBX,getManualController:()=>casterMovement,
  onClipReady:(caster,role,clip)=>casterLayers.register(caster,{[role]:clip})
@@ -4317,10 +4684,147 @@ qs('#casterCastTestRun').addEventListener('click',()=>{
 // later, but no shortcut controls are enabled in this version.
 const spellCards=[
  [{id:'farolera',name:'Farolera',element:'water',cost:1,
-   portrait:arenaCharacterArt.farolera},null,null,null,null,null,null,null,null],
+   portrait:arenaCharacterArt.farolera},
+  {id:'telepate',name:'Telépate de Agua',element:'water',cost:3},
+  {id:'controladora',name:'Controladora de Agua',element:'water',cost:6},
+  null,null,null,null,null,null],
  Array(9).fill(null),Array(9).fill(null)
 ];
-const spellbook={page:0,rapid:new Map()};
+// Three Earth invocations assigned to Lioren only. Spells, traits and
+// special locomotion will be implemented in the next phase.
+const liorenSpellCards=[
+ [{id:'semillera',name:'Dríada Semillera',element:'earth',cost:1,
+  portrait:'./assets/cards/earth/semillera-bosque.webp'},
+  {id:'kariona',name:'Kariona',element:'earth',cost:2,
+  portrait:'./assets/cards/earth/kariona-bosque.webp'},
+  {id:'astarium',name:'Amor de Astarium',element:'earth',cost:3,
+  portrait:'./assets/cards/earth/astarium-bosque.webp'},
+  {id:'ancient-oak-armor',name:'Armadura de Roble Antiguo',type:'equipment',
+   element:'earth',cost:0,recraftCost:2,slot:'body',
+   portrait:'./assets/ui/armadura-roble-antiguo.webp'},
+  null,null,null,null,null],
+ Array(9).fill(null),Array(9).fill(null)
+];
+const spellDeckForSide=side=>side==='enemy'?spellCards:liorenSpellCards;
+const chiaraSummonDefinitions={
+ farolera:{cost:1,hp:2,attack:1},
+ telepate:{cost:3,hp:3,attack:2,file:'telepate agua 1.glb'},
+ controladora:{cost:6,hp:5,attack:2,file:'CONTROLADORA agua 1.glb'}
+};
+const chiaraSummonModels=new Map(),chiaraSummonLoading=new Map();
+function ensureChiaraSummonModel(id){
+ if(chiaraSummonModels.has(id))return Promise.resolve(chiaraSummonModels.get(id));
+ if(chiaraSummonLoading.has(id))return chiaraSummonLoading.get(id);
+ const file=chiaraSummonDefinitions[id]?.file;
+ if(!file)return Promise.reject(Error('Unidad desconocida: '+id));
+ const job=new GLTFLoader().loadAsync('./'+encodeURIComponent(file)).then(gltf=>{
+  if(!gltf?.scene||new THREE.Box3().setFromObject(gltf.scene).isEmpty())
+   throw Error('GLB vacío: '+file);
+  if(mobileCombatMode)reduceModelTextureBudget(gltf.scene,{maxSize:1024});
+  const idle=gltf.animations?.find(a=>/idle|standing/i.test(a.name))||
+   gltf.animations?.[0]||new THREE.AnimationClip('Reposo_'+id,1,[]);
+  const model={scene:gltf.scene,idle};
+  chiaraSummonModels.set(id,model);chiaraSummonLoading.delete(id);
+  return model;
+ }).catch(error=>{chiaraSummonLoading.delete(id);console.warn('[R.O.K.] Unidad de Chiara:',id,error);throw error;});
+ chiaraSummonLoading.set(id,job);return job;
+}
+// The same GLBs used in the viewer; they remain optional for loading the
+// arena itself, never substituted by Farolera.
+const liorenSummonFiles={
+ semillera:'DRIADA SEMILLERA.glb',
+ kariona:'kariona invocacion.glb',
+ astarium:'AMOR DE ASTARIUM.glb'
+};
+const liorenSummonModels=new Map();
+const liorenSummonLoading=new Map();
+function ensureLiorenSummonModel(id){
+ if(liorenSummonModels.has(id))return Promise.resolve(liorenSummonModels.get(id));
+ if(liorenSummonLoading.has(id))return liorenSummonLoading.get(id);
+ const filename=liorenSummonFiles[id];
+ if(!filename)return Promise.reject(Error('Invocación desconocida: '+id));
+ const task=new GLTFLoader().loadAsync('./'+encodeURIComponent(filename)).then(gltf=>{
+  if(!gltf?.scene)throw Error('Modelo GLB vacío: '+filename);
+  const box=new THREE.Box3().setFromObject(gltf.scene);
+  if(box.isEmpty())throw Error('Modelo sin geometría: '+filename);
+  if(mobileCombatMode)reduceModelTextureBudget(gltf.scene,{maxSize:1024});
+  const idle=gltf.animations?.find(a=>/idle|standing/i.test(a.name))||
+   gltf.animations?.[0]||new THREE.AnimationClip('Reposo_'+id,1,[]);
+  const entry={scene:gltf.scene,idle};
+  liorenSummonModels.set(id,entry);
+  liorenSummonLoading.delete(id);
+  return entry;
+ }).catch(error=>{
+  liorenSummonLoading.delete(id);
+  console.warn('[R.O.K.] Invocación Tierra '+id+':',error);
+  throw error;
+ });
+ liorenSummonLoading.set(id,task);
+ return task;
+}
+const spellbook={page:0,rapid:new Map(),targetingEquipment:false};
+const oakArmor={state:'ready',holder:null};
+const DRYAD_CARDS=new Set(['semillera','kariona','astarium']);
+const availableDryadTargets=()=>[...cardSummons].filter(c=>
+ c.side==='ally'&&DRYAD_CARDS.has(c.cardId)&&c.hp>0&&c.stage==='active');
+function resetOakArmor(){
+ if(oakArmor.holder){
+  oakArmor.holder.armorPhysical=0;
+  oakArmor.holder.armorMagical=0;
+  oakArmor.holder.speed=oakArmor.holder.oakOriginalSpeed??oakArmor.holder.speed;
+  oakArmor.holder.equippedBody=null;
+ }
+ oakArmor.holder=null;oakArmor.state='ready';spellbook.targetingEquipment=false;
+}
+function onOakArmorHolderDeath(c){
+ if(oakArmor.holder!==c)return;
+ c.armorPhysical=0;c.armorMagical=0;
+ c.speed=c.oakOriginalSpeed??c.speed;c.equippedBody=null;
+ oakArmor.holder=null;oakArmor.state='broken';
+ if(spellbook.page&&qs('#casterMoveSide').value==='ally')
+  renderSpellbook();
+ spellStatus('Armadura de Roble Antiguo dañada. Recrafteo: 2 Tierra.');
+}
+function equipOakArmor(c){
+ if(oakArmor.state!=='ready'||!availableDryadTargets().includes(c))return false;
+ // The body slot is exclusive. Future equipment types will use other slots.
+ if(c.equippedBody)return false;
+ c.oakOriginalSpeed=c.speed;
+ c.armorPhysical=(c.armorPhysical||0)+2;
+ c.armorMagical=(c.armorMagical||0)+1;
+ c.speed=Math.max(0,c.speed-c.oakOriginalSpeed/3);
+ c.equippedBody='ancient-oak-armor';
+ oakArmor.holder=c;oakArmor.state='equipped';
+ spellbook.targetingEquipment=false;spellbook.page=0;renderSpellbook();
+ spellStatus('Armadura de Roble Antiguo equipada: +2 física, +1 mágica, -1 velocidad.');
+ return true;
+}
+function renderOakArmorTargets(){
+ spellbookGrid.replaceChildren();
+ const back=document.createElement('button');
+ back.type='button';back.className='rokSpellSlot';
+ back.textContent='← Volver';back.onclick=()=>{
+  spellbook.targetingEquipment=false;renderSpellbook();
+ };
+ spellbookGrid.append(back);
+ const dryads=availableDryadTargets();
+ if(!dryads.length){
+  const note=document.createElement('p');
+  note.textContent='Invoca una dríada y espera que termine de aparecer para equiparla.';
+  spellbookGrid.append(note);
+ }
+ for(const [i,c] of dryads.entries()){
+  const button=document.createElement('button');
+  button.type='button';button.className='rokSpellSlot';
+  if(card&&['semillera','kariona','astarium'].includes(card.id))
+   button.classList.add('rokEarthCardArt');
+  button.textContent=(i+1)+'. '+(liorenSpellCards[0].find(card=>card?.id===c.cardId)?.name||c.cardId)+
+   ' · '+c.hp+'/'+c.maxHp+' PV';
+  button.disabled=!!c.equippedBody;
+  button.onclick=()=>equipOakArmor(c);
+  spellbookGrid.append(button);
+ }
+}
 const spellbookPanel=qs('#rokSpellbookCards');
 const spellbookGrid=qs('#rokSpellbookGrid');
 const spellbookStatus=qs('#rokSpellbookStatus');
@@ -4332,27 +4836,62 @@ function renderSpellbook(){
   button.setAttribute('aria-pressed',String(Number(button.dataset.page)===spellbook.page));
  spellbookGrid.replaceChildren();
  if(spellbook.page===0)return;
- const cards=spellCards[spellbook.page-1];
+ if(spellbook.targetingEquipment){renderOakArmorTargets();return;}
+ const cards=spellDeckForSide(qs('#casterMoveSide').value)[spellbook.page-1];
  // Numpad order (visual top to bottom): 7 8 9 / 4 5 6 / 1 2 3.
  // Keep the underlying card indices (1..9) unchanged for keyboard selection.
  for(const slotNumber of [7,8,9,4,5,6,1,2,3]){
   const i=slotNumber-1;
   const card=cards[i],button=document.createElement('button');
   button.type='button';button.className='rokSpellSlot';
-  button.disabled=!card;
+  const oak=card?.id==='ancient-oak-armor';
+  button.disabled=!card||(oak&&oakArmor.state==='equipped');
+  const cardCost=oak&&oakArmor.state==='broken'?card.recraftCost:card?.cost;
   button.setAttribute('aria-label',card?'Casilla '+(i+1)+': '+card.name+
-   ', costo '+card.cost:'Casilla '+(i+1)+': vacía');
+   ', costo '+cardCost+(oak?' · '+oakArmor.state:''):'Casilla '+(i+1)+': vacía');
   const number=document.createElement('span');
   number.className='rokSpellNumber';number.textContent=String(i+1);
   button.append(number);
   if(card){
-   const img=document.createElement('img');img.src=card.portrait;img.alt='';
-   button.append(img);
+   if(card.portrait){
+    const img=document.createElement('img');img.src=card.portrait;img.alt='';
+    if(button.classList.contains('rokEarthCardArt')){
+     img.addEventListener('error',()=>{
+      img.remove();
+      const symbol=document.createElement('span');
+      symbol.className='rokSpellPortraitPlaceholder';
+      symbol.textContent=card.id==='semillera'?'✿':card.id==='kariona'?'◆':'✧';
+      symbol.style.cssText='font-size:22px;color:#CCFF00;text-shadow:0 0 8px #67400D';
+      button.append(symbol);
+     },{once:true});
+    }
+    button.append(img);
+   }else{
+    const symbol=document.createElement('span');
+    symbol.className='rokSpellPortraitPlaceholder';
+    symbol.textContent=card.id==='semillera'?'✿':card.id==='kariona'?'◆':'✧';
+    symbol.style.cssText='font-size:22px;color:#CCFF00;text-shadow:0 0 8px #67400D';
+    button.append(symbol);
+   }
    const name=document.createElement('span');name.className='rokSpellName';
    name.textContent=card.name;button.append(name);
    const cost=document.createElement('span');cost.className='rokSpellCost';
-   cost.textContent='✦ '+card.cost;button.append(cost);
-   button.addEventListener('click',()=>selectSpellCard(i));
+   cost.textContent=oak?(oakArmor.state==='broken'?'Recraftear · 2 Tierra':
+    oakArmor.state==='equipped'?'Equipada':'Gratis · Equipar'):'✦ '+card.cost;
+   button.append(cost);
+   // Secondary touch must work even with a separate joystick touch held.
+   // Pointerdown is handled immediately instead of depending on a synthesized click.
+   let lastTouch=0;
+   button.addEventListener('pointerdown',event=>{
+    if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;
+    event.preventDefault();event.stopPropagation();
+    lastTouch=Date.now();
+    selectSpellCard(i);
+   });
+   button.addEventListener('click',()=>{
+    if(Date.now()-lastTouch<650)return;
+    selectSpellCard(i);
+   });
   }else{
    const empty=document.createElement('span');empty.textContent='Vacío';
    button.append(empty);
@@ -4360,23 +4899,35 @@ function renderSpellbook(){
   spellbookGrid.append(button);
  }
 }
+qs('#casterMoveSide').addEventListener('change',()=>{
+ if(spellbook.page)renderSpellbook();
+});
 function openSpellbook(page){
  if(!loaded||!playing||!matchGate.isRunning){
   spellStatus('Inicia un combate para abrir el grimorio.');return;
  }
  spellbook.page=spellbook.page===page?0:page;
+ spellbook.targetingEquipment=false;
  renderSpellbook();
 }
 function summonCardFarolera(caster){
  const prototype=window.ROKSummonAssets?.farolera;
- if(!prototype?.scene||!prototype.idle){spellStatus('Modelo de Farolera todavía no disponible.');return;}
+ if(!prototype?.scene||!prototype.idle){spellStatus('Modelo de Farolera todavía no disponible.');return false;}
+ if(!hasSummonRoom(caster.side)){spellStatus('Límite de 6 invocaciones activas por jugador.');return false;}
+ // Both sides may summon only on their OWN territory (boundary at z=0).
+ if((caster.side==='enemy'&&caster.outer.position.z>=0)||
+    (caster.side==='ally'&&caster.outer.position.z<=0)){
+  spellStatus('No se puede invocar en el campo rival.');return false;
+ }
  // A temporary spawn position for the first playable card. Final
  // placement rules and per-card exceptions arrive in phase 6.
  const direction=caster.side==='ally'?-1:1;
  const x=THREE.MathUtils.clamp(Math.round(caster.outer.position.x),-HALF_W,HALF_W);
  const z=THREE.MathUtils.clamp(
-  Math.round(caster.outer.position.z+direction+HALF_D)-HALF_D,-HALF_D,HALF_D);
+  Math.round(caster.outer.position.z+direction+HALF_D)-HALF_D,
+  caster.side==='enemy'?-HALF_D:.5,caster.side==='enemy'?-.5:HALF_D);
  const c=createFighter(prototype.scene,prototype.idle,caster.side,'mana');
+ c.cardId='farolera';
  c.startX=x;c.startZ=z;c.endZ=z;
  c.model.userData.baseScale=c.model.scale.x;
  resetCombatant(c);
@@ -4389,16 +4940,85 @@ function summonCardFarolera(caster){
  c.stage='summonCasting';c.summonCastLeft=0;
  beginSummonEmergence(c);
  spellStatus('✦ Farolera invocada · nexo de restauración activo');
+ return true;
+}
+function summonChiaraCard(caster,card){
+ if(card.id==='farolera')return summonCardFarolera(caster);
+ const prototype=chiaraSummonModels.get(card.id);
+ if(!prototype||caster.side!=='enemy'||caster.outer.position.z>=0||!hasSummonRoom('enemy'))return false;
+ const x=THREE.MathUtils.clamp(Math.round(caster.outer.position.x),-HALF_W,HALF_W);
+ const z=THREE.MathUtils.clamp(Math.round(caster.outer.position.z+1),-HALF_D,-.5);
+ const unit=createFighter(prototype.scene,prototype.idle,'enemy','mana');
+ unit.cardId=card.id;unit.startX=x;unit.startZ=z;unit.endZ=z;
+ unit.model.userData.baseScale=unit.model.scale.x;
+ resetCombatant(unit);
+ makeNameplate(unit);makeSummonCountdown(unit);
+ cardSummons.add(unit);
+ unit.stage='summonCasting';unit.summonCastLeft=0;
+ beginSummonEmergence(unit);
+ return true;
+}
+function summonLiorenCard(caster,card){
+ const prototype=liorenSummonModels.get(card.id);
+ if(!prototype){spellStatus('Modelo de '+card.name+' todavía cargando.');return false;}
+ if(!hasSummonRoom(caster.side)||caster.side!=='ally'||caster.outer.position.z<=0){
+  spellStatus('Solo puedes invocar desde tu propio territorio con espacio libre.');return false;
+ }
+ const x=THREE.MathUtils.clamp(Math.round(caster.outer.position.x),-HALF_W,HALF_W);
+ const z=THREE.MathUtils.clamp(
+  Math.round(caster.outer.position.z-1+HALF_D)-HALF_D,.5,HALF_D);
+ const c=createFighter(prototype.scene,prototype.idle,caster.side,'mana');
+ c.cardId=card.id;
+ c.startX=x;c.startZ=z;c.endZ=z;
+ c.model.userData.baseScale=c.model.scale.x;
+ resetCombatant(c);
+ makeNameplate(c);makeSummonCountdown(c);
+ // Generic summon appearance; unique abilities/portraits come later.
+ cardSummons.add(c);
+ c.stage='summonCasting';c.summonCastLeft=0;
+ beginSummonEmergence(c);
+ spellStatus('✦ '+card.name+' invocada');
+ return true;
 }
 function selectSpellCard(index){
  if(!spellbook.page||index<0||index>=9)return;
- const card=spellCards[spellbook.page-1][index];
+ const card=spellDeckForSide(qs('#casterMoveSide').value)[spellbook.page-1][index];
  if(!card)return;
  if(!loaded||!playing||!matchGate.isRunning){
   spellStatus('Primero debes iniciar el combate.');return;
  }
  const caster=casters.find(c=>c.side===qs('#casterMoveSide').value);
  if(!caster||caster.stage!=='active'){spellStatus('Caster no disponible.');return;}
+ if(card.id==='ancient-oak-armor'){
+  if(caster.side!=='ally')return;
+  if(oakArmor.state==='equipped'){
+   spellStatus('Armadura equipada; vuelve al grimorio cuando la portadora muera.');return;
+  }
+  if(oakArmor.state==='broken'){
+   if(!combatHud.spend('ally','earth',2)){
+    spellStatus('Necesitas 2 de Tierra para recraftear la armadura.');return;
+   }
+   oakArmor.state='ready';renderSpellbook();
+   spellStatus('Armadura recrafteada. Selecciónala de nuevo para equiparla.');
+   return;
+  }
+  spellbook.targetingEquipment=true;renderSpellbook();
+  spellStatus('Selecciona la dríada que recibirá Armadura de Roble Antiguo.');
+  return;
+ }
+ if(!hasSummonRoom(caster.side)||
+    (caster.side==='enemy'?caster.outer.position.z>=0:caster.outer.position.z<=0)){
+  spellStatus('Necesitas espacio para invocar y estar en tu propio campo.');return;
+ }
+ // Models are prepared independently of the arena's boot. An unavailable
+ // Earth GLB does not charge elements and does not summon a substitute.
+ if(caster.side==='ally'&&!liorenSummonModels.has(card.id)){
+  spellStatus('Cargando modelo 3D de '+card.name+'; vuelve a pulsar cuando esté listo.');
+  void ensureLiorenSummonModel(card.id).then(()=>{
+   spellStatus('Modelo de '+card.name+' listo para castear.');
+  }).catch(e=>spellStatus('No se pudo cargar '+card.name+': '+e.message));
+  return;
+ }
  // Validate cast readiness BEFORE paying, so a failed attempt does not
  // consume resources. The definitive resource charge is on selection.
  const ready=!!(caster.model?.userData?.rokCast22Clip&&caster.model?.userData?.rokCast21Clip);
@@ -4414,7 +5034,9 @@ function selectSpellCard(index){
  const started=casterMovement.startCardCast({
   cost:card.cost,
   onRelease:activeCaster=>{
-   if(card.id==='farolera')summonCardFarolera(activeCaster);
+   const okay=card.id==='farolera'?summonCardFarolera(activeCaster):
+    summonLiorenCard(activeCaster,card);
+   if(!okay)combatHud.refund(caster.side,card.element,card.cost);
   }
  });
  if(!started){
@@ -4424,12 +5046,31 @@ function selectSpellCard(index){
  spellbook.page=0;renderSpellbook();
  spellStatus('Casteando '+card.name+' · '+(card.cost<=1?.5:Math.min(2.5,card.cost*.5)).toFixed(1)+' s');
 }
-for(const button of document.querySelectorAll('.rokSpellbookPageKey'))
- button.addEventListener('click',()=>openSpellbook(Number(button.dataset.page)));
+for(const button of document.querySelectorAll('.rokSpellbookPageKey')){
+ let lastTouch=0;
+ button.addEventListener('pointerdown',event=>{
+  if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;
+  // An independent finger opens the page while joystick keeps its pointer.
+  // Prevent synthetic click from toggling the same page closed again.
+  if(document.body.classList.contains('mobaLayoutEditing'))return;
+  event.preventDefault();event.stopPropagation();
+  lastTouch=Date.now();
+  openSpellbook(Number(button.dataset.page));
+ });
+ button.addEventListener('click',()=>{
+  if(Date.now()-lastTouch<650)return;
+  openSpellbook(Number(button.dataset.page));
+ });
+}
 function closeSpellbook(){
  spellbook.page=0;renderSpellbook();
 }
-qs('#rokSpellbookExit').addEventListener('click',closeSpellbook);
+
+document.addEventListener('pointerdown',event=>{
+ if(spellbook.page&&!event.target.closest('#rokSpellbook,#rokSpellbookCards,#mobileMobaControls,#mobaSettingsButton,#mobaFullscreenButton')){
+  closeSpellbook();
+ }
+},true);
 document.addEventListener('keydown',event=>{
  if(event.repeat||event.altKey||event.ctrlKey||event.metaKey)return;
  if(event.target?.closest?.('input,textarea,select,[contenteditable="true"]'))return;
@@ -4449,6 +5090,107 @@ document.addEventListener('keydown',event=>{
 });
 renderSpellbook();
 
+// Rival autonomy is isolated from the manual controller. The only currently
+// distributable card is the real Farolera; future decks will be assigned here.
+const rivalAction={attackUntil:0,castingUntil:0,reserved:null};
+function chiaraCastPlan(caster,amount){
+ const live=[...cardSummons].filter(u=>u.side==='enemy'&&u.hp>0&&
+  !['dead','dying','vanishing'].includes(u.stage));
+ const count=id=>live.filter(u=>u.cardId===id).length;
+ const f=count('farolera'),t=count('telepate'),boss=count('controladora');
+ let id=null;
+ if(boss){if(t<1)id='telepate';else if(f<1)id='farolera';}
+ else if(t<1)id='telepate';
+ else if(f<2)id='farolera';
+ else if(t<2)id='telepate';
+ else id='controladora';
+ const def=chiaraSummonDefinitions[id];
+ if(!def||amount<def.cost)return null;
+ const model=id==='farolera'?window.ROKSummonAssets?.farolera:chiaraSummonModels.get(id);
+ return model?.scene?{id,cost:def.cost,element:'water'}:null;
+}
+rivalAI=createRivalCasterAI({
+ getCaster:()=>casters.find(c=>c.side==='enemy'&&c.stage==='active'&&
+  !(casterMovement?.enabled&&casterMovement.caster===c)),
+ getOrbs:()=>{
+  const available=[];
+  elementOrbs.forEachActiveOrb((orb,index)=>{
+   if(orb.group?.visible&&!orb.target)
+    available.push({id:index,position:orb.group.position});
+  });
+  return available;
+ },
+ getEnemies:()=>[...combatants,...casters].filter(c=>c.side==='ally'&&canDamageTarget(c))
+  .map(c=>({position:c.outer.position,target:c})),
+ getThreats:c=>missiles.filter(m=>m.target===c&&m.attacker?.side!==c.side)
+  .map(m=>({position:m.group.position})),
+ getResourceState:c=>combatHud.getResources(c.side,'water'),
+ getCastPlan:chiaraCastPlan,
+ bounds:{x:MAX_X,z:MAX_Z},
+ settings:{idealPressureZ:-.85,attackRange:3,pickupRadius:3.65,
+  territorialGrace:2.65,minimumSurvivalHp:2},
+ move:(c,x,z)=>{c.outer.position.x=x;c.outer.position.z=z;},
+ face:(c,p)=>{
+  const dx=p.x-c.outer.position.x,dz=p.z-c.outer.position.z;
+  if(Math.hypot(dx,dz)>.01)c.outer.rotation.y=Math.atan2(dx,dz);
+ },
+ animate:(c,kind)=>{
+  // Keep the already-loaded caster's original locomotion layers.
+  if(performance.now()<rivalAction.castingUntil)return;
+  casterLayers.movement(c,kind);
+ },
+ guard:active=>{
+  const c=casters.find(c=>c.side==='enemy');
+  if(!c||c.stage!=='active')return;
+  c.manualDefending=active;
+  casterLayers.shield(c,active);
+  if(active){
+   const clip=c.model?.userData?.rokDefenseClip;
+   if(clip)casterLayers.upper(c,'defense',clip,1.8);
+  }else casterLayers.endUpper(c,'defense');
+ },
+ canCast:(c,card)=>c.stage==='active'&&c.outer.position.z<0&&
+  hasSummonRoom(c.side)&&!!card&&
+  !!(card.id==='farolera'?window.ROKSummonAssets?.farolera?.scene:chiaraSummonModels.get(card.id)?.scene),
+ cast:(c,{defensive,duration,card})=>{
+  if(!card||rivalAction.reserved||c.outer.position.z>=0||!hasSummonRoom(c.side)||
+    !combatHud.spend(c.side,card.element,card.cost))return false;
+  rivalAction.reserved=card;
+  casterLayers.shield(c,false);c.manualDefending=false;
+  casterLayers.endUpper(c,'defense');
+  const clip=c.model?.userData?.rokCast22Clip;
+  if(clip){
+   const prep=THREE.AnimationUtils.subclip(clip,'ROK_Rival_Cast22_0_48',0,48,30);
+   if(prep.tracks.length)casterLayers.upper(c,'card-cast',prep,
+    Math.max(.1,prep.duration/Math.max(.1,duration)));
+  }
+  rivalAction.castingUntil=performance.now()+duration*1000;
+  return true;
+ },
+ onCastResolve:(c,{card})=>{
+  const charged=rivalAction.reserved;
+  rivalAction.reserved=null;
+  if(!charged)return;
+  if(c.stage!=='active'||!summonChiaraCard(c,charged))
+   combatHud.refund(c.side,charged.element,charged.cost);
+  const finish=c.model?.userData?.rokCast21Clip;
+  if(finish&&finish.duration>20/30){
+   casterLayers.upper(c,'card-finish',finish,1,{startTime:20/30,transition:true});
+  }else casterLayers.endUpper(c,'card-cast');
+  rivalAction.castingUntil=performance.now()+250;
+ },
+ attack:(c,target)=>{
+  if(!target||!canDamageTarget(target))return false;
+  const clip=c.model?.userData?.rokAttackClip;
+  if(!clip)return false;
+  casterLayers.upper(c,'attack',clip,1);
+  c.kind='caster';c.attackDamage=1;
+  launchSpell(c,target,{manualCasterShot:true});
+  rivalAction.attackUntil=performance.now()+clip.duration*1000;
+  return true;
+ }
+});
+
 /* Control táctil MOBA: no duplica ni reemplaza la lógica de combate.
    Los botones llaman a las mismas acciones que WASD/Espacio/Shift. */
 function setupMobileMobaControls(){
@@ -4456,24 +5198,28 @@ function setupMobileMobaControls(){
  const attack=qs('#mobaAttack'),defend=qs('#mobaDefend');
  const settings=qs('#mobaSettingsButton'),dialog=qs('#mobileMobaSettings');
  const editNotice=qs('#mobaAdjustIndicator');
- const elements={joystick:joy,attack,defend};
+ const book=qs('#rokSpellbook');
+ const pageButtons=[...book.querySelectorAll('.rokSpellbookPageKey')];
+ const elements={joystick:joy,attack,defend,spellbook1:pageButtons[0],spellbook2:pageButtons[1],spellbook3:pageButtons[2],settings};
+ // Initialize media queries before evaluating default positions.
+ const mobileQuery=window.matchMedia('(pointer:coarse) and (max-width:950px)');
+ const portraitQuery=window.matchMedia('(orientation:portrait)');
  // Keep the joystick left and position touch actions beside the book.
- const spellbookReservedWidth=()=>innerWidth<=759?
-  THREE.MathUtils.clamp(innerWidth*.31,172,245):
+ const spellbookReservedWidth=()=>mobileQuery.matches?148:
   THREE.MathUtils.clamp(innerWidth*.31,210,370);
  const defaults={joystick:{left:23,bottom:18},
   attack:{right:spellbookReservedWidth()+22,bottom:24},
-  defend:{right:spellbookReservedWidth()+106,bottom:24}};
+  defend:{right:spellbookReservedWidth()+106,bottom:24},
+  spellbook1:{right:107,bottom:8},spellbook2:{right:57,bottom:8},spellbook3:{right:7,bottom:8},
+  settings:{right:8,bottom:61}};
  const defaultPosition=key=>{
   const d=defaults[key];
   // During portrait lock the control layer is hidden (offsetWidth=0).
   // Use known touch-target sizes to preserve the correct landscape layout.
-  const width=key==='joystick'?120:key==='defend'?60:76;
+  const width=key==='joystick'?120:key==='defend'?60:key.startsWith('spellbook')?43:key==='settings'?31:76;
   return {left:d.left??Math.max(8,innerWidth-(d.right??8)-width),
     bottom:d.bottom};
  };
- const mobileQuery=window.matchMedia('(pointer:coarse) and (max-width:950px)');
- const portraitQuery=window.matchMedia('(orientation:portrait)');
  let editing=false,opened=false,restorePlaying=true,portraitPaused=false;
  let customizedLayout=false;
  let joyPointer=null,defensePointer=null;
@@ -4483,31 +5229,90 @@ function setupMobileMobaControls(){
  const layoutStatus=qs('#mobaLayoutStatus');
  const sceneStatus=qs('#mobaSceneStatus');
  const sceneFile=qs('#mobaSceneFile');
+ const editPanel=qs('#mobaControlEditor'),editSelect=qs('#mobaEditSelect');
+ const sizeInput=qs('#mobaEditSize'),opacityInput=qs('#mobaEditOpacity');
+ const sizeValue=qs('#mobaEditSizeValue'),opacityValue=qs('#mobaEditOpacityValue');
+ const styleDefaults={joystick:{size:100,opacity:100},attack:{size:100,opacity:40},
+  defend:{size:100,opacity:40},spellbook1:{size:100,opacity:40},
+  spellbook2:{size:100,opacity:40},spellbook3:{size:100,opacity:40},
+  settings:{size:100,opacity:65}};
+ const styles=Object.fromEntries(Object.entries(styleDefaults).map(([k,v])=>[k,{...v}]));
+ const baseSize=key=>key==='joystick'?120:key==='defend'?60:
+  key.startsWith('spellbook')?43:key==='settings'?31:76;
+ const scaledSize=key=>baseSize(key)*styles[key].size/100;
+ let selectedControl='joystick';
+ const applyControlStyle=key=>{
+  if(!mobileQuery.matches)return;
+  const el=elements[key],size=scaledSize(key);
+  el.style.setProperty('width',size+'px','important');
+  el.style.setProperty('height',size+'px','important');
+  el.style.setProperty('opacity',String(styles[key].opacity/100),'important');
+ };
+ const refreshStyleInputs=()=>{
+  editSelect.value=selectedControl;
+  sizeInput.value=String(styles[selectedControl].size);
+  opacityInput.value=String(styles[selectedControl].opacity);
+  sizeValue.textContent=styles[selectedControl].size+'%';
+  opacityValue.textContent=styles[selectedControl].opacity+'%';
+  for(const [key,el] of Object.entries(elements))el.dataset.layoutSelected=String(key===selectedControl&&editing);
+ };
+ const selectControl=key=>{if(!elements[key])return;selectedControl=key;refreshStyleInputs();};
+ const changeControlStyle=(property,value)=>{
+  const key=selectedControl;
+  styles[key][property]=THREE.MathUtils.clamp(Number(value)||100,
+   property==='size'?55:10,property==='size'?160:100);
+  applyControlStyle(key);
+  const prior=offsets[key]||defaultPosition(key);
+  applyPosition(key,prior);
+  refreshStyleInputs();saveLayout();
+ };
+ editSelect.addEventListener('change',event=>selectControl(event.target.value));
+ sizeInput.addEventListener('input',event=>changeControlStyle('size',event.target.value));
+ opacityInput.addEventListener('input',event=>changeControlStyle('opacity',event.target.value));
  const normalizeLayout=()=>Object.fromEntries(Object.entries(elements).map(([key,el])=>{
   const p=offsets[key]||defaultPosition(key);
-  const w=Math.max(1,innerWidth-(el.offsetWidth||(key==='joystick'?120:key==='defend'?60:76)));
-  const h=Math.max(1,innerHeight-(el.offsetHeight||(key==='joystick'?120:key==='defend'?60:76)));
+  const w=Math.max(1,innerWidth-scaledSize(key));
+  const h=Math.max(1,innerHeight-scaledSize(key));
   return [key,{x:p.left/w,y:p.bottom/h}];
  }));
+ const migrateLegacyLayout=layout=>{
+  if(!layout||typeof layout!=='object')return {};
+  const result={...layout};
+  if(result.spellbook&&!result.spellbook1){
+   const old=result.spellbook,step=49/Math.max(1,innerWidth-43);
+   if(Number.isFinite(old.x)&&Number.isFinite(old.y))
+    for(let n=1;n<=3;n++)result['spellbook'+n]={
+     x:THREE.MathUtils.clamp(old.x+step*(n-1),0,1),y:old.y};
+  }
+  if(!result.settings){
+   const p=defaultPosition('settings');
+   result.settings={x:p.left/Math.max(1,innerWidth-scaledSize('settings')),
+    y:p.bottom/Math.max(1,innerHeight-scaledSize('settings'))};
+  }
+  return result;
+ };
  const applyNormalizedLayout=layout=>{
   for(const [key,el] of Object.entries(elements)){
    const pos=layout?.[key];
    if(!pos||!Number.isFinite(pos.x)||!Number.isFinite(pos.y))continue;
-   const w=Math.max(1,innerWidth-(el.offsetWidth||(key==='joystick'?120:key==='defend'?60:76)));
-   const h=Math.max(1,innerHeight-(el.offsetHeight||(key==='joystick'?120:key==='defend'?60:76)));
+   const w=Math.max(1,innerWidth-scaledSize(key));
+   const h=Math.max(1,innerHeight-scaledSize(key));
    applyPosition(key,{left:pos.x*w,bottom:pos.y*h});
   }
  };
  const clampPosition=(key,left,bottom)=>{
   const el=elements[key];
-  const width=el.offsetWidth||(key==='joystick'?120:key==='defend'?60:76);
-  const height=el.offsetHeight||(key==='joystick'?120:key==='defend'?60:76);
+  const width=scaledSize(key);
+  const height=scaledSize(key);
   return {left:THREE.MathUtils.clamp(left,5,Math.max(5,innerWidth-width-5)),
    bottom:THREE.MathUtils.clamp(bottom,5,Math.max(5,innerHeight-height-5))};
  };
  const applyPosition=(key,pos)=>{
   const el=elements[key],p=clampPosition(key,pos.left,pos.bottom);
-  offsets[key]=p;el.style.left=p.left+'px';el.style.bottom=p.bottom+'px';el.style.right='auto';
+  offsets[key]=p;el.style.setProperty('left',p.left+'px','important');
+  el.style.setProperty('bottom',p.bottom+'px','important');
+  el.style.setProperty('right','auto','important');
+  el.style.setProperty('top','auto','important');
  };
  const saveLayout=()=>{
   // Never overwrite saved LANDSCAPE coordinates when the device is portrait.
@@ -4516,13 +5321,19 @@ function setupMobileMobaControls(){
   customizedLayout=true;pendingLandscapeSaved=layout;
   try{
    localStorage.setItem('rokMobileMobaLayoutV2',JSON.stringify(layout));
+   localStorage.setItem('rokMobileMobaStylesV1',JSON.stringify(styles));
    layoutStatus.textContent='✓ Controles guardados en este dispositivo';
   }catch(error){layoutStatus.textContent='No se pudo guardar: '+error.message;}
  };
  function resetLayout(){
   customizedLayout=false;pendingLandscapeSaved=null;
-  for(const key of Object.keys(elements))applyPosition(key,defaultPosition(key));
+  for(const key of Object.keys(elements)){
+   styles[key]={...styleDefaults[key]};applyControlStyle(key);
+   applyPosition(key,defaultPosition(key));
+  }
+  refreshStyleInputs();
   try{
+   localStorage.removeItem('rokMobileMobaStylesV1');
    localStorage.removeItem('rokMobileMobaLayoutV2');
    localStorage.removeItem('rokMobileMobaLayoutV1');
   }catch{}
@@ -4531,7 +5342,15 @@ function setupMobileMobaControls(){
  function loadLayout(){
   let saved=null;
   try{
-   saved=JSON.parse(localStorage.getItem('rokMobileMobaLayoutV2')||'null');
+   const savedStyles=JSON.parse(localStorage.getItem('rokMobileMobaStylesV1')||'null');
+   for(const key of Object.keys(elements)){
+    const data=savedStyles?.[key];
+    if(data){
+     if(Number.isFinite(data.size))styles[key].size=THREE.MathUtils.clamp(data.size,55,160);
+     if(Number.isFinite(data.opacity))styles[key].opacity=THREE.MathUtils.clamp(data.opacity,10,100);
+    }
+   }
+   saved=migrateLegacyLayout(JSON.parse(localStorage.getItem('rokMobileMobaLayoutV2')||'null'));
    if(!saved){
     const legacy=JSON.parse(localStorage.getItem('rokMobileMobaLayoutV1')||'null');
     if(legacy&&Object.keys(elements).every(key=>
@@ -4547,8 +5366,12 @@ function setupMobileMobaControls(){
   customizedLayout=!!saved&&Object.keys(elements).every(key=>
     Number.isFinite(saved[key]?.x)&&Number.isFinite(saved[key]?.y));
   pendingLandscapeSaved=customizedLayout?saved:null;
-  for(const key of Object.keys(elements))applyPosition(key,defaultPosition(key));
-  if(customizedLayout&&!portraitQuery.matches)applyNormalizedLayout(pendingLandscapeSaved);
+  for(const key of Object.keys(elements))applyControlStyle(key);
+  refreshStyleInputs();
+  if(mobileQuery.matches){
+   for(const key of Object.keys(elements))applyPosition(key,defaultPosition(key));
+   if(customizedLayout&&!portraitQuery.matches)applyNormalizedLayout(pendingLandscapeSaved);
+  }
   // Preserve custom layouts unless an action button overlaps the book.
   if(mobileQuery.matches&&!portraitQuery.matches){
    const book=qs('#rokSpellbook')?.getBoundingClientRect();
@@ -4556,7 +5379,7 @@ function setupMobileMobaControls(){
     const rect=elements[key].getBoundingClientRect();
     const overlaps=rect.left<book.right&&rect.right>book.left&&
      rect.top<book.bottom&&rect.bottom>book.top;
-    if(overlaps)applyPosition(key,defaultPosition(key));
+    if(overlaps&&!customizedLayout)applyPosition(key,defaultPosition(key));
    }
   }
  }
@@ -4568,7 +5391,8 @@ function setupMobileMobaControls(){
  };
  function stopEdit(){
   const wasEditing=editing;
-  editing=false;editNotice.dataset.visible='false';
+  editing=false;document.body.classList.remove('mobaLayoutEditing');editNotice.dataset.visible='false';
+  editPanel.hidden=true;refreshStyleInputs();
   releaseInputs();
   if(wasEditing)saveLayout();
  }
@@ -4588,14 +5412,90 @@ function setupMobileMobaControls(){
  }
  settings.addEventListener('click',e=>{
   e.preventDefault();
-  if(editing)openSettings();else if(opened)resume();else openSettings();
+  if(editing)return;
+  if(opened)resume();else openSettings();
  });
  qs('#mobaResume').addEventListener('click',resume);
+ qs('#mobaCloseSettings').addEventListener('click',resume);
+ const fsButton=qs('#mobaFullscreenButton');
+ async function toggleFullscreen(){
+  try{
+   if(document.fullscreenElement){
+    await document.exitFullscreen();
+   }else if(document.documentElement.requestFullscreen){
+    await document.documentElement.requestFullscreen({navigationUI:'hide'});
+   }else if(document.documentElement.webkitRequestFullscreen){
+    document.documentElement.webkitRequestFullscreen();
+   }else{
+    layoutStatus.textContent='Tu navegador no permite pantalla completa desde esta página. Prueba añadir R.O.K. a la pantalla de inicio.';
+   }
+  }catch(error){
+   layoutStatus.textContent='El navegador impidió pantalla completa: '+String(error.message||error);
+  }
+ }
+ fsButton.addEventListener('click',toggleFullscreen);
+ document.addEventListener('fullscreenchange',()=>{
+  fsButton.textContent=document.fullscreenElement?'⛶ Salir':'⛶';
+  fsButton.setAttribute('aria-label',document.fullscreenElement?'Salir de pantalla completa':'Pantalla completa');
+ });
  qs('#mobaReposition').addEventListener('click',()=>{
-  editing=true;dialog.dataset.open='false';editNotice.dataset.visible='true';
+  editing=true;document.body.classList.add('mobaLayoutEditing');dialog.dataset.open='false';
+  editNotice.dataset.visible='true';editPanel.hidden=false;
+  selectControl(selectedControl);
+ });
+ qs('#mobaFinishEditing').addEventListener('click',()=>{
+  stopEdit();opened=false;dialog.dataset.open='false';
+  if(mobileQuery.matches&&!portraitQuery.matches){
+   playing=restorePlaying;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';
+  }
  });
  qs('#mobaResetLayout').addEventListener('click',resetLayout);
  qs('#mobaSaveLayout').addEventListener('click',saveLayout);
+ const downloadLayout=()=>{
+  if(portraitQuery.matches){layoutStatus.textContent='Gira el móvil a horizontal para exportar la distribución';return;}
+  saveLayout();
+  const payload={schema:'ROK_MOBILE_HUD_LAYOUT',version:1,mode:'landscape',
+   reference:{width:innerWidth,height:innerHeight},positions:normalizeLayout(),
+   controls:Object.fromEntries(Object.entries(styles).map(([k,v])=>[k,{...v}]))};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='rok-arena-hud-movil.json';document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  layoutStatus.textContent='✓ Distribución guardada y JSON exportado';
+ };
+ qs('#mobaExportLayout').addEventListener('click',downloadLayout);
+ const layoutFile=qs('#mobaLayoutFile');
+ qs('#mobaImportLayout').addEventListener('click',()=>layoutFile.click());
+ layoutFile.addEventListener('change',async()=>{
+  const file=layoutFile.files?.[0];layoutFile.value='';if(!file)return;
+  if(file.size>100000){layoutStatus.textContent='JSON demasiado grande';return;}
+  try{
+   const data=JSON.parse(await file.text());
+   if(data.schema!=='ROK_MOBILE_HUD_LAYOUT'||data.version!==1||!data.positions)
+    throw Error('Formato de distribución inválido');
+   const positions=migrateLegacyLayout(data.positions);
+   if(!Object.keys(elements).every(k=>
+      Number.isFinite(positions[k]?.x)&&Number.isFinite(positions[k]?.y)&&
+      positions[k].x>=0&&positions[k].x<=1&&
+      positions[k].y>=0&&positions[k].y<=1))
+    throw Error('Coordenadas inválidas');
+   if(data.controls){
+    for(const key of Object.keys(elements)){
+     const spec=data.controls[key];
+     if(!spec)continue;
+     if(Number.isFinite(spec.size))styles[key].size=THREE.MathUtils.clamp(spec.size,55,160);
+     if(Number.isFinite(spec.opacity))styles[key].opacity=THREE.MathUtils.clamp(spec.opacity,10,100);
+     applyControlStyle(key);
+    }
+    localStorage.setItem('rokMobileMobaStylesV1',JSON.stringify(styles));
+   }
+   customizedLayout=true;pendingLandscapeSaved=positions;
+   if(!portraitQuery.matches)applyNormalizedLayout(positions);
+   refreshStyleInputs();
+   localStorage.setItem('rokMobileMobaLayoutV2',JSON.stringify(positions));
+   layoutStatus.textContent='✓ Distribución importada y guardada';
+  }catch(error){layoutStatus.textContent='No se pudo importar: '+error.message;}
+ });
  qs('#mobaLoadScene').addEventListener('click',()=>sceneFile.click());
  sceneFile.addEventListener('change',async()=>{
   const file=sceneFile.files?.[0];sceneFile.value='';
@@ -4632,10 +5532,15 @@ function setupMobileMobaControls(){
  }
  let drag=null;
  for(const [key,el] of Object.entries(elements)){
+  if(key.startsWith('spellbook')||key==='settings')el.addEventListener('click',event=>{
+   if(editing){event.preventDefault();event.stopImmediatePropagation();}
+  },true);
   el.addEventListener('pointerdown',event=>{
    if(!mobileQuery.matches)return;
+   // Allow native button clicks without interfering with the active joystick pointer.
+   if((key.startsWith('spellbook')||key==='settings')&&!editing)return;
    event.preventDefault();el.setPointerCapture?.(event.pointerId);
-   if(editing){drag={key,pointer:event.pointerId,...dragStart(key,event)};return;}
+   if(editing){selectControl(key);drag={key,pointer:event.pointerId,...dragStart(key,event)};return;}
    if(opened||portraitPaused)return;
    if(key==='joystick'){
     joyPointer=event.pointerId;joystickMove(event);
@@ -4805,7 +5710,7 @@ qs('#reviewExport').onclick=()=>{
   setTimeout(()=>URL.revokeObjectURL(url),2000);
   reviewMessage('Decisiones exportadas. Envíame el JSON; aún no se ha borrado ningún clip.');
 };
-fetch('./assets/manifests/caster-animations.json',{cache:'no-store'}).then(response=>{
+if(!mobileCombatMode)fetch('./assets/manifests/caster-animations.json',{cache:'default'}).then(response=>{
   if(!response.ok)throw Error('Manifest no disponible');
   return response.json();
 }).then(manifest=>{casterReview.items=(manifest.animations||[]).filter(animation=>animation.status!=='rejected');renderCasterAnimationReview();
@@ -4831,6 +5736,7 @@ function loop(now){
    updateDuel(dt);
    combatHud.advance(dt,casters);
    elementOrbs.tick(dt);
+   rivalAI?.step(dt);
   }else if(loaded){
    elementOrbs.idle(dt);
   }

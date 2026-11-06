@@ -115,3 +115,41 @@ input[type=range]{accent-color:#00ffe4;padding:0}
  .creatorShell.panelHidden .creatorPanel{transform:translateX(calc(-100% - 25px))!important;opacity:0!important;pointer-events:none!important}
  .creatorTogglePanel{display:block!important;position:absolute!important;z-index:22!important;left:auto!important;right:12px!important;top:12px!important}
 }
+
+/* v0.3.4: canvas size cannot remain at the renderer's 500px bootstrap dimensions. */
+.creatorViewport #creatorCanvas {position:absolute!important;inset:0!important;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;overflow:hidden!important;}
+.creatorViewport #creatorCanvas>canvas {position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:fill!important;}
+
+/* v0.3.5 — toolbar occupies a slim row without covering the 3D scene */
+.creatorShell{grid-template-rows:39px minmax(0,1fr) 166px!important}
+.creatorHistoryBar{grid-column:1/-1;grid-row:1;display:flex;align-items:center;gap:7px;background:#0d2331;border:1px solid #2a6570;border-radius:9px;padding:3px 9px;min-width:0}
+.creatorHistoryBar button{min-height:27px;padding:4px 12px;font-size:12px;white-space:nowrap;font-weight:700}
+.creatorHistoryBar button:disabled{opacity:.36}
+.creatorHistoryBar span{font-size:11px;color:#a6cdd0;padding-left:5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.creatorPanel{grid-row:2/4!important}
+.creatorViewport{grid-row:2!important}
+.creatorDopeSheet{grid-row:3!important}
+@media(max-width:740px){.creatorShell{grid-template-rows:38px minmax(0,1fr) 132px!important}.creatorHistoryBar{grid-column:1!important;grid-row:1!important}.creatorViewport{grid-row:2!important}.creatorDopeSheet{grid-row:3!important}.creatorPanel{top:48px!important}.creatorTogglePanel{top:48px!important}.creatorHistoryBar button{font-size:11px;padding:4px 8px}}
+
+/* v0.3.8 — master composition track appears before individual bone tracks. */
+.creatorMasterRow{position:sticky;top:0;z-index:5;height:29px!important;border-bottom:2px solid #00ffe4!important;background:#113a42}
+.creatorMasterLabel{font-weight:800!important;color:#00ffe4!important;letter-spacing:.045em;background:#123943;padding-top:6px!important}
+.creatorMasterLane{background-color:#102f39!important;background-image:repeating-linear-gradient(to right,transparent 0,transparent calc(10% - 1px),#23545b calc(10% - 1px),#23545b 10%)!important}
+.creatorMasterCursor{position:absolute;pointer-events:none;top:0;bottom:0;width:2px;background:#00ffe4;box-shadow:0 0 7px #00ffe4;transform:translateX(-1px);z-index:1}
+.creatorMasterKey{width:11px!important;height:11px!important;top:8px!important;z-index:2;background:#00ffe4!important;border-color:#d6fff9!important}
+.creatorMasterKey.source{background:#667f90!important;border-color:#a0b1b9!important;opacity:.7}
+.creatorMasterKey.selected{box-shadow:0 0 0 3px #00ffe466,0 0 9px #00ffe4!important}
+
+/* v0.3.9: always-visible world axis reference in the viewport corner. */
+.creatorAxisLegend{position:absolute;z-index:3;top:10px;left:10px;display:flex;flex-direction:column;gap:2px;max-width:175px;padding:7px 10px;border:1px solid #346876;background:#091923db;border-radius:8px;font:11px/1.5 Roboto,system-ui,Arial,sans-serif;color:#d2e8ed;pointer-events:none}
+.creatorAxisLegend strong{font-size:11px;color:#f6fafc;margin-bottom:2px}
+.creatorAxisLegend b{display:inline-block;min-width:15px;font-weight:900;font-size:12px;margin-right:5px}
+.creatorAxisX{color:#ff6666}.creatorAxisY{color:#59e48d}.creatorAxisZ{color:#75aaff}
+@media(max-width:740px){.creatorAxisLegend{left:7px;top:7px;max-width:145px;font-size:10px;padding:5px 7px}}
+
+/* v0.3.10: source-frame cloning on the master composition track. */
+#creatorClonePose{min-height:27px;padding:4px 9px;font-size:11px;font-weight:800;border-color:#00a99a;background:#124b46;color:#d6fff7;white-space:nowrap}
+#creatorClonePose:not(:disabled):hover{background:#167168;border-color:#00ffe4}
+#creatorClonePose:disabled{opacity:.38;cursor:default}
+.creatorDopeHeader{flex-wrap:wrap}
+@media(max-width:740px){#creatorClonePose{font-size:10px;padding:3px 6px}}

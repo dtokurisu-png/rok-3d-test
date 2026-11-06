@@ -1,18 +1,19 @@
 /* R.O.K. 3D Studio · tester visual scenario overlay (stage 5).
    Strictly decorative: never touches the arena's combatants, colliders or tiles. */
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {createSceneBackground,normalizeSceneBackground} from './scene-background.js';
-import {createSceneFloor,normalizeSceneFloor} from './scene-floor.js';
+import {reduceModelTextureBudget} from './arena-asset-budget.js?v=2';
+import {createSceneBackground,normalizeSceneBackground} from './scene-background.js?v=2';
+import {createSceneFloor,normalizeSceneFloor} from './scene-floor.js?v=2';
 import {ARENA_COLUMNS,ARENA_ROWS,SCENERY_BOUNDS,assertPlacement} from './scene-placement-rules.js';
 
-export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual,onSourcesChange}){
+export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual,onSourcesChange,lightweightTextures=false}){
  const catalog=new Map(), cache=new Map();
  const loader=new GLTFLoader();
  const scenery=new THREE.Group();scenery.name='ROK_scenery_visual_only';root.add(scenery);
- const background=createSceneBackground(THREE,{onStatus:renderStatus});
+ const background=createSceneBackground(THREE,{onStatus:renderStatus,textureLimit:lightweightTextures?1536:0});
  // Keep this independent of the prop swap: a failed scene must not replace it.
  root.add(background.group);background.show(false);
- const floor=createSceneFloor(THREE,{onStatus:renderStatus});root.add(floor.group);
+ const floor=createSceneFloor(THREE,{onStatus:renderStatus,textureLimit:lightweightTextures?1536:0});root.add(floor.group);
  floor.setVisible(false);
  const effects=new Set(['glow','light','particles','fog','pulse']);
  const objects=[];
@@ -84,6 +85,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual,o
   if(!cache.has(model.id)){
    const promise=loader.loadAsync(url(model.path)).then(gltf=>{
     const group=gltf.scene;
+    if(lightweightTextures)reduceModelTextureBudget(group,{maxSize:1024});
     const bound=new THREE.Box3().setFromObject(group);
     if(bound.isEmpty())throw Error('Modelo sin geometría: '+model.name);
     const size=bound.getSize(new THREE.Vector3());
@@ -144,8 +146,12 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual,o
   }
   group.clear();
  }
- async function loadScene(data){
+ async function loadScene(data,{essentialOnly=false}={}){
   const normalized=normalize(data);
+  // Play mode needs only functional fountain models. Leave floor/background
+  // settings intact and skip every unrelated decorative GLB.
+  if(essentialOnly)normalized.entries=normalized.entries.filter(entry=>
+   entry.elementSourcePlayer===1||entry.elementSourcePlayer===2);
   const token=++generation;
   // Build completely offscreen first. A bad GLB must not destroy the current scenery.
   const nextRoot=new THREE.Group(),nextObjects=[];

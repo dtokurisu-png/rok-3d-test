@@ -20,7 +20,7 @@ const defaults={model:null,loadedPath:'',bones:[],pose:new Map(),chains:[],
  playing:false,time:0,duration:4,baseScale:1,modelId:null,
  sourceClip:null,sourceMixer:null,sourceAction:null,sourceId:null,
  modelClips:[],recording:false,handles:[],poles:new Map(),selectedHandle:null,centerHandle:null,
- bindPose:new Map(),sourceLoadToken:0,sourceAnimatedBones:null,plantedFeet:new Map()};
+ bindPose:new Map(),sourceLoadToken:0,sourceAnimatedBones:null,plantedFeet:new Map(),orientationTargets:new Map(),handCurl:new Map(),clonedPose:false,cloneOrigin:null};
 const state=defaults;
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x081520);
@@ -29,7 +29,7 @@ camera.position.set(3.3,2.3,5.4);
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
 renderer.outputColorSpace=THREE.SRGBColorSpace;
-renderer.setSize(500,500);
+renderer.setSize(1,1);
 $('creatorCanvas').appendChild(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xcaffed,0x344a65,2.1));
 const keyLight=new THREE.DirectionalLight(0xffffff,2.3);
@@ -47,8 +47,38 @@ gizmo.addEventListener('dragging-changed',e=>orbit.enabled=!e.value);
 gizmo.addEventListener('objectChange',()=>{
  if(!state.playing){
   if(state.selectedHandle?.type==='pole')solveIK(state.chains[state.selectedHandle.index]);
-  else if(state.selectedHandle?.type==='center')moveCenter();
-  else if(state.selectedHandle?.type==='ik')solveIK(state.currentChain);
+  else if(state.selectedHandle?.type==='footPole'){
+   const chain=state.chains[state.selectedHandle.index];
+   state.orientationTargets.set(state.selectedHandle.index,chain.tip.getWorldQuaternion(new THREE.Quaternion()));
+  }
+  else if(state.selectedHandle?.type==='handCurl'&&gizmo.getMode()==='translate')applyHandCurl(state.selectedHandle.side);
+  else if(state.selectedHandle?.type==='center'&&gizmo.getMode()==='translate')moveCenter();
+  else if(state.selectedHandle?.type==='ik'&&gizmo.getMode()==='translate')solveIK(state.currentChain);
+  else if(state.selectedHandle?.type==='ik'&&gizmo.getMode()==='rotate')state.orientationTargets.set(state.selectedHandle.index,state.currentChain.tip.getWorldQuaternion(new THREE.Quaternion()));
+  if(state.selectedHandle?.type==='footPole'&&gizmo.getMode()==='translate'){
+   // The toe-side handle translates the foot IK target without accumulating rotations.
+   const i=state.selectedHandle.index;
+   const marker=state.handles.find(h=>h.userData.control===state.selectedHandle);
+   const target=state.targets.get(i);
+   if(marker&&target&&state.previousFootPole){
+    const delta=marker.position.clone().sub(state.previousFootPole);
+    state.previousFootPole.copy(marker.position);
+    target.position.add(delta);
+    state.plantedFeet.delete(i);
+    solveIK(state.chains[i]);
+   }
+  }
+  if(state.selectedHandle?.type==='torso'&&gizmo.getMode()==='translate'){
+   const marker=state.handles.find(h=>h.userData.control===state.selectedHandle);
+   if(marker&&state.previousTorso){
+    const delta=marker.position.clone().sub(state.previousTorso);
+    state.previousTorso.copy(marker.position);
+    const p=state.selectedHandle.bone.parent;
+    state.selectedHandle.bone.position.add(delta.applyQuaternion(p.getWorldQuaternion(new THREE.Quaternion()).invert())
+     .divide(p.getWorldScale(new THREE.Vector3())));
+    state.model.updateMatrixWorld(true);
+   }
+  }
   recordEditedFrame();
   refreshTargetInputs();
   viewStatus('IK aplicada · pulsa «Guardar pose clave» para conservarla.');
@@ -98,7 +128,6 @@ function buildChains(){
   ['Brazo derecho',['rightarm','rightupperarm'],['rightforearm','rightlowerarm'],['righthand','rightwrist']],
   ['Pierna izquierda',['leftupleg','leftthigh'],['leftleg','leftcalf','leftshin'],['leftfoot','leftankle']],
   ['Pierna derecha',['rightupleg','rightthigh'],['rightleg','rightcalf','rightshin'],['rightfoot','rightankle']],
-  ['Cadera y torso',['hips','pelvis'],['spine'],['spine1','spine2','chest']],
   ['Torso y cabeza',['spine1','spine2','upperchest'],['neck'],['head']]
  ];
  return defs.map(([label,upper,lower,tip])=>({
@@ -144,7 +173,7 @@ function clearTargets(){
  }
  state.targets.clear();state.currentChain=null;
  for(const h of state.handles){scene.remove(h);h.geometry.dispose();h.material.dispose();}
- state.handles=[];state.poles.clear();state.selectedHandle=null;state.centerHandle=null;state.plantedFeet.clear();
+ state.handles=[];state.poles.clear();state.selectedHandle=null;state.centerHandle=null;state.plantedFeet.clear();state.orientationTargets.clear();state.handCurl.clear();
 }
 function makeTargets(){
  clearTargets();
@@ -166,6 +195,7 @@ function makeTargets(){
  else viewStatus('El modelo no contiene cadenas IK reconocibles; puedes rotar sus huesos manualmente.');
 }
 function selectChain(i){
+ gizmo.showX=true;gizmo.showY=true;gizmo.showZ=true;
  if(!Number.isInteger(i)||!state.chains[i]){gizmo.detach();state.currentChain=null;return;}
  state.currentChain=state.chains[i];
  $('creatorChain').value=String(i);
@@ -185,6 +215,7 @@ function solveIK(chain){
  const idx=state.chains.indexOf(chain),target=state.targets.get(idx);
  if(!target)return;
  state.model.updateMatrixWorld(true);
+ const lockedWorldOrientation=state.orientationTargets.get(idx)?.clone() || chain.tip.getWorldQuaternion(new THREE.Quaternion());
  // Cyclic coordinate descent, applying each correction in parent-local space.
  // The target is in WORLD coordinates and therefore does not drift during posing.
  for(let pass=0;pass<18;pass++){
@@ -206,7 +237,14 @@ function solveIK(chain){
    joint.updateWorldMatrix(false,true);
   }
  }
- applyPole(chain);refreshBoneInputs();
+ applyPole(chain);
+ // Keep the end effector's world orientation independent of limb bending.
+ if(lockedWorldOrientation){
+  const parentQ=chain.tip.parent.getWorldQuaternion(new THREE.Quaternion());
+  chain.tip.quaternion.copy(parentQ.invert().multiply(lockedWorldOrientation));
+  chain.tip.updateWorldMatrix(false,true);
+ }
+ refreshBoneInputs();
 }
 function resetTarget(){
  if(!state.currentChain)return;
@@ -225,14 +263,170 @@ function selectBone(uuid){
  state.currentBone=bone||null;
  if(bone){$('creatorBone').value=bone.uuid;refreshBoneInputs();}
 }
+
+/* v0.3.5: reversible editing history. One entry per completed drag, not per mouse movement. */
+const editHistory={items:[],cursor:-1,limit:75,restoring:false,dragging:false};
+function captureEdit(){
+ if(!state.model)return null;
+ return {
+  frame:Math.round(state.time*30),duration:state.duration,clonedPose:state.clonedPose,cloneOrigin:state.cloneOrigin,
+  pose:state.bones.map(b=>[b.name,b.position.toArray(),b.quaternion.toArray(),b.scale.toArray()]),
+  keys:[...state.keys.entries()].map(([frame,pose])=>[frame,structuredClone(pose)]),
+  targets:[...state.targets.entries()].map(([i,m])=>[i,m.position.toArray()]),
+  handles:state.handles.map(m=>[m.userData.control.type,
+    m.userData.control.index??null,m.position.toArray()]),
+  planted:[...state.plantedFeet.entries()].map(([i,v])=>[i,v.toArray()])
+ };
+}
+function updateHistoryButtons(){
+ $('creatorUndo').disabled=editHistory.cursor<=0;
+ $('creatorRedo').disabled=editHistory.cursor<0||editHistory.cursor>=editHistory.items.length-1;
+ $('creatorHistoryStatus').textContent=editHistory.cursor<=0?'Sin cambios':
+  'Cambio '+editHistory.cursor+' de '+(editHistory.items.length-1);
+}
+function resetEditHistory(){
+ editHistory.items=[];editHistory.cursor=-1;editHistory.dragging=false;
+ const initial=captureEdit();
+ if(initial){editHistory.items=[initial];editHistory.cursor=0;}
+ updateHistoryButtons();
+}
+function checkpointEdit(){
+ if(editHistory.restoring||editHistory.dragging||!state.model)return;
+ const current=captureEdit();if(!current)return;
+ const prior=editHistory.items[editHistory.cursor];
+ if(prior&&JSON.stringify(prior)===JSON.stringify(current))return;
+ editHistory.items.splice(editHistory.cursor+1);
+ editHistory.items.push(current);
+ if(editHistory.items.length>editHistory.limit)editHistory.items.shift();
+ editHistory.cursor=editHistory.items.length-1;
+ updateHistoryButtons();
+}
+function restoreEdit(entry){
+ if(!entry||!state.model)return;
+ editHistory.restoring=true;
+ try{
+  state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
+  state.duration=entry.duration;$('creatorDuration').value=String(entry.duration);
+   state.clonedPose=!!entry.clonedPose;state.cloneOrigin=entry.cloneOrigin||null;
+  const bones=new Map(state.bones.map(b=>[b.name,b]));
+  for(const [name,pos,q,scale] of entry.pose){
+   const bone=bones.get(name);if(!bone)continue;
+   bone.position.fromArray(pos);bone.quaternion.fromArray(q);bone.scale.fromArray(scale);
+  }
+  state.keys=new Map(entry.keys.map(([f,p])=>[f,structuredClone(p)]));
+  for(const [i,pos] of entry.targets){state.targets.get(i)?.position.fromArray(pos);}
+  for(const [i,pos] of entry.planted){state.plantedFeet.set(i,new THREE.Vector3().fromArray(pos));}
+  if(!entry.planted.length)state.plantedFeet.clear();
+  for(let i=0;i<Math.min(state.handles.length,entry.handles.length);i++)
+   state.handles[i].position.fromArray(entry.handles[i][2]);
+  state.time=entry.frame/30;
+  state.model.updateMatrixWorld(true);syncHandles();refreshTargetInputs();refreshBoneInputs();refreshTimeline();
+ }finally{editHistory.restoring=false;}
+}
+function undoEdit(){
+ if(editHistory.cursor<=0)return;
+ restoreEdit(editHistory.items[--editHistory.cursor]);updateHistoryButtons();
+}
+function redoEdit(){
+ if(editHistory.cursor>=editHistory.items.length-1)return;
+ restoreEdit(editHistory.items[++editHistory.cursor]);updateHistoryButtons();
+}
+$('creatorUndo').addEventListener('click',undoEdit);
+$('creatorRedo').addEventListener('click',redoEdit);
+document.addEventListener('keydown',e=>{
+ if(!(e.ctrlKey||e.metaKey)||e.altKey||!['z','y'].includes(e.key.toLowerCase()))return;
+ if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||''))return;
+ e.preventDefault();
+ if(e.key.toLowerCase()==='y'||e.shiftKey)redoEdit();else undoEdit();
+});
+gizmo.addEventListener('dragging-changed',e=>{
+ if(e.value)editHistory.dragging=true;
+ else if(editHistory.dragging){editHistory.dragging=false;checkpointEdit();}
+});
+
+function saveCompleteFrame(frame=Math.round(state.time*30)){
+ if(!state.model)return;
+ state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
+ state.keys.set(frame,state.clonedPose?snapshotFullPose():snapshot());
+ activeTimelineKey={bone:null,frame,original:false,wholeFrame:true};
+ refreshTimeline();checkpointEdit();
+ status('Fotograma '+frame+' guardado · composición completa.');
+}
+function stepAnimationFrame(direction){
+ if(!state.model)return;
+ const current=Math.round(state.time*30);
+ const next=THREE.MathUtils.clamp(current+direction,0,Math.round(state.duration*30));
+ if(next===current)return;
+ // Preserve the pose that the user just sculpted, including edits to other
+ // joints. The destination frame is intentionally replaced, not re-sampled.
+ const pose=state.clonedPose?snapshotFullPose():snapshot();
+ state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
+ state.keys.set(current,structuredClone(pose));
+ state.keys.set(next,structuredClone(pose));
+ state.time=next/30;
+ activeTimelineKey={bone:null,frame:next,original:false,wholeFrame:true};
+ state.model.updateMatrixWorld(true);
+ syncHandles();refreshTargetInputs();refreshBoneInputs();refreshTimeline();
+ checkpointEdit();
+ status('Fotograma '+next+' · pose anterior copiada y guardada. Modifica y avanza.');
+}
+function updateCloneButton(){
+ const button=$('creatorClonePose');if(!button)return;
+ button.disabled=!state.model||!state.sourceClip||!activeTimelineKey?.wholeFrame;
+ button.title=button.disabled?'Selecciona un fotograma de COMPOSICIÓN de una animación cargada':
+  'Crear secuencia nueva a partir del fotograma '+activeTimelineKey.frame;
+}
+function cloneSelectedPose(){
+ if(!state.model||!state.sourceClip||!activeTimelineKey?.wholeFrame){
+  status('Selecciona un fotograma de COMPOSICIÓN de la animación de referencia.',true);return;
+ }
+ const originFrame=activeTimelineKey.frame;
+ const sourceName=$('creatorSource').selectedOptions[0]?.textContent||'Animación';
+ state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
+ setFrame(originFrame);
+ const firstPose=snapshotFullPose();
+ state.sourceLoadToken++;
+ state.sourceMixer?.stopAllAction();
+ state.sourceMixer=null;state.sourceAction=null;state.sourceClip=null;state.sourceId=null;
+ state.sourceAnimatedBones=null;
+ state.clonedPose=true;state.cloneOrigin={source:sourceName,frame:originFrame,fps:30};
+ state.keys.clear();state.keys.set(0,structuredClone(firstPose));
+ state.duration=4;$('creatorDuration').value='4';state.time=0;
+ $('creatorSource').value='';$('creatorSaveMode').value='new';
+ $('creatorName').value='Desde '+sourceName+' · F'+originFrame;
+ applyPose(firstPose);
+ for(const [i,target] of state.targets){
+  target.position.copy(state.chains[i].tip.getWorldPosition(new THREE.Vector3()));
+  state.orientationTargets.set(i,state.chains[i].tip.getWorldQuaternion(new THREE.Quaternion()));
+ }
+ activeTimelineKey={bone:null,frame:0,original:false,wholeFrame:true};
+ gizmo.detach();refreshTimeline();refreshTargetInputs();resetEditHistory();updateCloneButton();
+ viewStatus('Nueva animación desde '+sourceName+' · F'+originFrame+' · G: guardar · →: avanzar.');
+ status('✓ Postura clonada: nueva animación desde F0; referencia original intacta.');
+}
+$('creatorClonePose').addEventListener('click',cloneSelectedPose);
+function selectCompleteFrame(frame){
+ state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
+ setFrame(frame);
+ activeTimelineKey={bone:null,frame,original:!state.keys.has(frame),wholeFrame:true};
+ updateCloneButton();queueTrackUpdate();
+}
 function recordEditedFrame(){
  if(!state.model||state.playing||state.recording)return;
- state.keys.set(Math.round(state.time*30),snapshot());
- refreshTimeline();
+ state.keys.set(Math.round(state.time*30),state.clonedPose?snapshotFullPose():snapshot());
+ refreshTimeline();checkpointEdit();
 }
 function snapshot(){
  const pose={};
  for(const bone of state.bones)pose[bone.name]=bone.quaternion.toArray();
+ return pose;
+}
+function snapshotFullPose(){
+ const pose=snapshot();pose.__positions={};pose.__scales={};
+ for(const bone of state.bones){
+  pose.__positions[bone.name]=bone.position.toArray();
+  pose.__scales[bone.name]=bone.scale.toArray();
+ }
  return pose;
 }
 function applyPose(pose){
@@ -240,6 +434,9 @@ function applyPose(pose){
   const q=pose[bone.name];
   if(Array.isArray(q)&&q.length===4&&q.every(Number.isFinite))
    bone.quaternion.fromArray(q).normalize();
+  const p=pose.__positions?.[bone.name],scale=pose.__scales?.[bone.name];
+  if(Array.isArray(p)&&p.length===3&&p.every(Number.isFinite))bone.position.fromArray(p);
+  if(Array.isArray(scale)&&scale.length===3&&scale.every(Number.isFinite))bone.scale.fromArray(scale);
  }
  state.model?.updateMatrixWorld(true);syncHandles();refreshBoneInputs();
 }
@@ -254,7 +451,7 @@ function resetPose(){
   const tip=state.chains[index]?.tip;
   if(tip)target.position.copy(tip.getWorldPosition(new THREE.Vector3()));
  }
- refreshTargetInputs();refreshBoneInputs();
+ refreshTargetInputs();refreshBoneInputs();checkpointEdit();
 }
 function refreshTimeline(){
  const max=Math.max(1,Math.round(state.duration*30));
@@ -302,6 +499,10 @@ function sampleFrame(frame){
   const a=new THREE.Quaternion().fromArray(qa||qb);
   const b=new THREE.Quaternion().fromArray(qb||qa);
   bone.quaternion.copy(a.slerp(b,t));
+  const p1=left.__positions?.[bone.name],p2=right.__positions?.[bone.name];
+  if(p1||p2)bone.position.fromArray(p1||p2).lerp(new THREE.Vector3().fromArray(p2||p1),t);
+  const s1=left.__scales?.[bone.name],s2=right.__scales?.[bone.name];
+  if(s1||s2)bone.scale.fromArray(s1||s2).lerp(new THREE.Vector3().fromArray(s2||s1),t);
  }
  state.model.updateMatrixWorld(true);syncHandles();refreshBoneInputs();
 }
@@ -328,7 +529,8 @@ function download(data,filename,type){
 function safeFilename(name){return String(name||'animacion').trim().replace(/[^a-z0-9áéíóúüñ_-]+/gi,'_').slice(0,64)||'animacion';}
 function serialize(){
  return {schemaVersion:2,kind:'ROK_AnimationCreator',modelId:state.modelId,
-  sourceId:state.sourceId,
+  sourceId:state.clonedPose?null:state.sourceId,
+  clonedPose:state.clonedPose,cloneOrigin:state.cloneOrigin,
   modelPath:state.loadedPath,name:$('creatorName').value,
   fps:30,duration:state.duration,
   keyframes:[...state.keys.entries()].sort((a,b)=>a[0]-b[0])
@@ -376,6 +578,13 @@ function createClip(){
     values.push(...q);
    }
    tracks.push(new THREE.QuaternionKeyframeTrack(bone.name+'.quaternion',times,values));
+   for(const [property,key] of [['position','__positions'],['scale','__scales']]){
+    if(!frames.some(frame=>state.keys.get(frame)[key]?.[bone.name]))continue;
+    const values=[],fallback=state.keys.get(frames[0])[key]?.[bone.name]||
+     (property==='position'?bone.position.toArray():bone.scale.toArray());
+    for(const frame of frames)values.push(...(state.keys.get(frame)[key]?.[bone.name]||fallback));
+    tracks.push(new THREE.VectorKeyframeTrack(bone.name+'.'+property,times,values));
+   }
   }
  }
  const clip=new THREE.AnimationClip($('creatorName').value||'ROK Animation',-1,tracks);
@@ -407,6 +616,7 @@ async function loadModel(item){
  clearTargets();
  if(state.model){scene.remove(state.model);state.model=null;}
  state.keys.clear();state.bones=[];state.pose.clear();state.bindPose.clear();state.currentBone=null;
+ state.clonedPose=false;state.cloneOrigin=null;activeTimelineKey=null;
  state.sourceLoadToken++;state.sourceAnimatedBones=null;
  state.sourceClip=null;state.sourceMixer=null;state.sourceAction=null;state.sourceId=null;
  status('Descargando '+item.name+'…');
@@ -440,7 +650,7 @@ async function loadModel(item){
   if(available.length)selectBone(available[0].bone.uuid);
   makeTargets();frameModel();
   populateSources();
-  state.time=0;state.duration=4;$('creatorDuration').value='4';refreshTimeline();
+  state.time=0;state.duration=4;$('creatorDuration').value='4';refreshTimeline();resetEditHistory();
   status('✓ '+item.name+' · '+state.bones.length+' huesos · '+state.chains.length+
    ' cadenas IK · '+(usedTPose?'T-Pose':'pose de rig')+
    '. Puedes cargar una animación existente.');
@@ -484,8 +694,9 @@ function resetSource(){
  state.sourceMixer?.stopAllAction();
  state.sourceMixer=null;state.sourceClip=null;state.sourceAction=null;state.sourceId=null;
  state.keys.clear();state.duration=4;$('creatorDuration').value='4';
+ state.clonedPose=false;state.cloneOrigin=null;activeTimelineKey=null;updateCloneButton();
  if(state.model)resetPose();
- setFrame(0,false);refreshTimeline();
+ setFrame(0,false);refreshTimeline();resetEditHistory();
  $('creatorSource').value='';
  status('Pose inicial preparada; también puedes cargar T-Pose.fbx o una animación existente.');
 }
@@ -513,12 +724,14 @@ async function loadSource(id){
  action.play();mixer.setTime(0);
  state.sourceClip=clip;state.sourceMixer=mixer;state.sourceAction=action;
  state.sourceId=id;state.duration=Math.ceil(clip.duration*30)/30;
- state.keys.clear();
+ state.clonedPose=false;state.cloneOrigin=null;activeTimelineKey=null;
+ state.keys.clear();updateCloneButton();
  $('creatorDuration').value=String(state.duration);
  setFrame(0);refreshTimeline();
  $('creatorName').value=source.name.replace(/^\\d+\\s*·\\s*/,'').replace(/^GLB · /,'')+' · editada';
  status('✓ '+source.name+' · '+matched.length+' pistas vinculadas · '+(Math.round(state.duration*30)+1)+
   ' fotogramas. Reproduciendo referencia.');
+ resetEditHistory();
  state.playing=true;$('creatorPlay').textContent='Ⅱ Pausar';gizmo.detach();
 }
 function readQueue(){
@@ -552,7 +765,7 @@ async function applyProject(data){
  const item=models.find(m=>m.id===data.modelId&&m.path===data.modelPath);
  if(!item)throw Error('Modelo del proyecto no disponible.');
  if(!state.model||state.modelId!==item.id)await loadModel(item);
- const sourceId=data.sourceId||null;
+ const sourceId=data.clonedPose?null:(data.sourceId||null);
  if(sourceId){
   $('creatorSource').value=sourceId;await loadSource(sourceId);
  }else resetSource();
@@ -570,9 +783,18 @@ async function applyProject(data){
    if(Array.isArray(q)&&q.length===4&&q.every(Number.isFinite))
     pose[bone.name]=q;
   }
+  for(const field of ['__positions','__scales']){
+   const positions=record.pose[field];if(!positions||typeof positions!=='object')continue;
+   pose[field]={};
+   for(const bone of state.bones){
+    const v=positions[bone.name];
+    if(Array.isArray(v)&&v.length===3&&v.every(Number.isFinite))pose[field][bone.name]=v;
+   }
+  }
   state.keys.set(frame,pose);
  }
- setFrame(0);renderQueue();
+ state.clonedPose=!!data.clonedPose;state.cloneOrigin=data.cloneOrigin||null;
+ setFrame(0);renderQueue();resetEditHistory();
  status('Proyecto recuperado · '+state.keys.size+' fotogramas modificados.');
 }
 $('creatorLoadSource').addEventListener('click',async()=>{
@@ -668,7 +890,7 @@ $('creatorResetBone').addEventListener('click',()=>{
 $('creatorResetPose').addEventListener('click',resetPose);
 $('creatorDuration').addEventListener('change',e=>{
  const duration=THREE.MathUtils.clamp(Number(e.target.value)||4,.5,120);
- state.duration=duration;e.target.value=String(duration);setFrame(Math.round(state.time*30),false);
+ state.duration=duration;e.target.value=String(duration);setFrame(Math.round(state.time*30),false);checkpointEdit();
 });
 $('creatorTime').addEventListener('input',e=>{
  state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
@@ -676,12 +898,10 @@ $('creatorTime').addEventListener('input',e=>{
 });
 $('creatorKey').addEventListener('click',()=>{
  if(!state.model){status('Carga un modelo antes de crear poses.',true);return;}
- state.playing=false;$('creatorPlay').textContent='▶ Reproducir';
- state.keys.set(Math.round(state.time*30),snapshot());
- refreshTimeline();status('Pose clave guardada en fotograma '+Math.round(state.time*30));
+ saveCompleteFrame();
 });
 $('creatorDeleteKey').addEventListener('click',()=>{
- state.keys.delete(Math.round(state.time*30));refreshTimeline();
+ state.keys.delete(Math.round(state.time*30));refreshTimeline();checkpointEdit();
 });
 $('creatorPlay').addEventListener('click',()=>{
  if(!state.model||(!state.keys.size&&!state.sourceClip)){status('Carga una animación o guarda poses clave antes de reproducir.',true);return;}
@@ -740,35 +960,131 @@ function handle(radius,color,data){
   new THREE.MeshBasicMaterial({color,depthTest:false,transparent:true,opacity:.9}));
  h.userData.control=data;h.renderOrder=250;state.handles.push(h);scene.add(h);return h;
 }
-function createDirectHandles(){
- for(const bone of state.bones){
+// One curl controller per hand, with no separate finger manipulation points.
+// Determine the bending plane from each phalanx's actual rig direction.
+// Global Y is vertical in Three.js; the finger curl should point toward -Y,
+// rather than applying the same local Z rotation to unrelated bone axes.
+function fingerBones(side){
+ return state.bones.filter(b=>{
+  const n=cleanName(b.name);
+  return n.startsWith(side)&&/(thumb|index|middle|ring|pinky|little)/.test(n)
+    &&!/(metacarpal|nub|end$|tip$)/.test(n);
+ });
+}
+function fingerCurlAxis(bone){
+ bone.updateWorldMatrix(true,false);
+ const child=bone.children.find(c=>c.isBone&&c.position.lengthSq()>1e-9);
+ const along=child?child.position.clone().normalize():null;
+ if(!along)return null;
+ const inverseWorld=bone.getWorldQuaternion(new THREE.Quaternion()).invert();
+ const down=new THREE.Vector3(0,-1,0).applyQuaternion(inverseWorld);
+ let axis=new THREE.Vector3().crossVectors(along,down);
+ if(axis.lengthSq()<1e-6){
+  // Rare joint aligned vertically; fall back to the horizontal palm direction.
+  const towardPalm=new THREE.Vector3(0,0,-1).applyQuaternion(inverseWorld);
+  axis.crossVectors(along,towardPalm);
+ }
+ return axis.lengthSq()>1e-9?axis.normalize():null;
+}
+function createHandCurl(side){
+ const wrist=roleBone([side+'hand',side+'wrist']);
+ const bones=fingerBones(side);
+ if(!wrist||!bones.length)return;
+ const marker=handle(.065,0xffbe73,{type:'handCurl',side});
+ const pos=wrist.getWorldPosition(new THREE.Vector3());
+ const forward=rigForwardVector();
+ marker.position.copy(pos).addScaledVector(forward,.25).add(new THREE.Vector3(0,.12,0));
+ const axisByBone=new Map();
+ for(const bone of bones){
+  const axis=fingerCurlAxis(bone);
+  if(axis)axisByBone.set(bone.uuid,axis);
+ }
+ state.handCurl.set(side,{
+  marker,wrist,bones: bones.filter(b=>axisByBone.has(b.uuid)),
+  axisByBone,openY:marker.position.y,amount:0,baseline:new Map()
+ });
+}
+function beginHandCurl(side){
+ const info=state.handCurl.get(side);if(!info)return;
+ info.openY=info.marker.position.y+info.amount*.24;
+ // Reconstruct the open base pose before each new drag. The former curl
+ // is removed mathematically, so the hand doesn't accumulate extra twist.
+ info.baseline.clear();
+ for(const bone of info.bones){
+  const axis=info.axisByBone.get(bone.uuid);
   const n=cleanName(bone.name);
-  if(/finger|toe|twist|helper/.test(n))continue;
-  if(!/hips|pelvis|spine|chest|head|neck|arm|forearm|hand|wrist|upleg|thigh|calf|shin|foot/.test(n))continue;
-  handle(.055,/hand|wrist/.test(n)?0xff9bd4:0x85b2ff,{type:'bone',bone});
+  const strength=n.includes('thumb')?.58:1;
+  const previous=new THREE.Quaternion().setFromAxisAngle(axis,info.amount*strength*.95);
+  info.baseline.set(bone.uuid,bone.quaternion.clone().multiply(previous.invert()));
  }
- // Pole controls orient the plane of elbow and knee bending.
- for(let i=0;i<state.chains.length;i++){
-  const c=state.chains[i];if(!/Brazo|Pierna/.test(c.label))continue;
-  const elbow=c.lower.getWorldPosition(new THREE.Vector3());
-  const root=c.upper.getWorldPosition(new THREE.Vector3());
-  const tip=c.tip.getWorldPosition(new THREE.Vector3());
-  const direction=elbow.clone().sub(root.clone().add(tip).multiplyScalar(.5));
-  if(direction.lengthSq()<.00001)direction.set(0,0,/Brazo/.test(c.label)?-1:1);
-  const pole=handle(.075,/Brazo/.test(c.label)?0xffae5b:0xdfee66,{type:'pole',index:i});
-  pole.position.copy(elbow).addScaledVector(direction.normalize(),.5);state.poles.set(i,pole);
+}
+function applyHandCurl(side){
+ const info=state.handCurl.get(side);if(!info)return;
+ const amount=THREE.MathUtils.clamp((info.openY-info.marker.position.y)/.24,0,1);
+ info.amount=amount;
+ info.marker.position.y=THREE.MathUtils.clamp(info.marker.position.y,info.openY-.24,info.openY);
+ for(const bone of info.bones){
+  const base=info.baseline.get(bone.uuid);
+  const axis=info.axisByBone.get(bone.uuid);
+  if(!base||!axis)continue;
+  const strength=cleanName(bone.name).includes('thumb')?.58:1;
+  const bend=new THREE.Quaternion().setFromAxisAngle(axis,amount*strength*.95);
+  bone.quaternion.copy(base).multiply(bend).normalize();
  }
+ state.model.updateMatrixWorld(true);
+}
+function createDirectHandles(){
+ // One shared controller for pelvis/center of gravity, and a separate torso rotation controller.
  const hips=roleBone(['hips','pelvis']);
- if(hips){state.centerHandle=handle(.12,0xff60b4,{type:'center'});
-  state.centerHandle.position.copy(hips.getWorldPosition(new THREE.Vector3()));}
+ if(hips){
+  state.centerHandle=handle(.125,0xff60b4,{type:'center'});
+  state.centerHandle.position.copy(hips.getWorldPosition(new THREE.Vector3()));
+ }
+ const torso=roleBone(['spine2','spine1','spine','chest','upperchest']);
+ if(torso){
+  const torsoMarker=handle(.09,0x8ce8fc,{type:'torso',bone:torso});
+  torsoMarker.position.copy(torso.getWorldPosition(new THREE.Vector3()));
+ }
+ state.chains.forEach((chain,i)=>{
+  if(!/Brazo|Pierna/.test(chain.label))return;
+  const joint=chain.lower.getWorldPosition(new THREE.Vector3());
+  const forward=rigForwardVector();
+  const direction=/Brazo/.test(chain.label)?forward.clone().negate():forward.clone();
+  // Height is EXACTLY the elbow/knee joint height; only horizontal offset changes.
+  const p=handle(.075,/Brazo/.test(chain.label)?0xffa457:0xe3dd63,{type:'pole',index:i});
+  p.position.copy(joint).addScaledVector(direction,.48);
+  state.poles.set(i,p);
+  state.orientationTargets.set(i,chain.tip.getWorldQuaternion(new THREE.Quaternion()));
+  if(/Pierna/.test(chain.label)){
+   const toe=roleBone([chain.label.includes('izquierda')?'lefttoebase':'righttoebase',
+    chain.label.includes('izquierda')?'lefttoe':'righttoe']);
+   const toePos=toe?toe.getWorldPosition(new THREE.Vector3()):chain.tip.getWorldPosition(new THREE.Vector3());
+   const footControl=handle(.078,0x50efc6,{type:'footPole',index:i});
+   footControl.position.copy(toePos).addScaledVector(forward,.24);
+  }
+ });
+ createHandCurl('left');createHandCurl('right');
  syncHandles();
 }
+function rigForwardVector(){
+ // Derive character forward from its toes when present; otherwise +Z.
+ const leftFoot=roleBone(['leftfoot']),leftToe=roleBone(['lefttoebase','lefttoe']);
+ const rightFoot=roleBone(['rightfoot']),rightToe=roleBone(['righttoebase','righttoe']);
+ const v=new THREE.Vector3();
+ for(const [foot,toe] of [[leftFoot,leftToe],[rightFoot,rightToe]]){
+  if(foot&&toe)v.add(toe.getWorldPosition(new THREE.Vector3()).sub(foot.getWorldPosition(new THREE.Vector3())));
+ }
+ v.y=0;
+ if(v.lengthSq()<.0001)v.set(0,0,1);
+ return v.normalize();
+}
 function syncHandles(){
- if(!state.model)return;state.model.updateMatrixWorld(true);
+ if(!state.model)return;
+ state.model.updateMatrixWorld(true);
  for(const h of state.handles){
-  if(h.userData.control.type==='bone')
+  if(h.userData.control.type==='torso'&&h!==gizmo.object)
    h.position.copy(h.userData.control.bone.getWorldPosition(new THREE.Vector3()));
-  else if(h.userData.control.type==='center'&&!gizmo.dragging){
+  else if(h.userData.control.type==='center'&&h!==gizmo.object){
    const hips=roleBone(['hips','pelvis']);
    if(hips)h.position.copy(hips.getWorldPosition(new THREE.Vector3()));
   }
@@ -790,6 +1106,39 @@ function applyPole(chain){
  chain.upper.quaternion.premultiply(parent.clone().invert().multiply(q).multiply(parent)).normalize();
  state.model.updateMatrixWorld(true);
 }
+function setControlMode(mode){
+ const info=state.selectedHandle;if(!info)return;
+ const hip=roleBone(['hips','pelvis']);
+ if(info.type==='center'){
+  gizmo.setMode(mode);
+  if(mode==='translate'){
+   state.previousCenter=state.centerHandle.position.clone();
+   for(let i=0;i<state.chains.length;i++)if(/Pierna/.test(state.chains[i].label)){
+    const c=state.chains[i],t=state.targets.get(i);
+    if(t){t.position.copy(c.tip.getWorldPosition(new THREE.Vector3()));state.plantedFeet.set(i,t.position.clone());}
+   }
+  }
+  gizmo.attach(mode==='rotate'?hip:state.centerHandle);
+ }else if(info.type==='torso'){
+  gizmo.setMode(mode);
+  const marker=state.handles.find(h=>h.userData.control===info);
+  if(mode==='translate'&&marker)state.previousTorso=marker.position.clone();
+  gizmo.attach(mode==='rotate'?info.bone:marker);
+ }else if(info.type==='handCurl'){
+  // Curl remains a one-axis translation control, never a wrist rotation.
+  gizmo.setMode('translate');
+  gizmo.showX=false;gizmo.showY=true;gizmo.showZ=false;
+  gizmo.attach(state.handCurl.get(info.side)?.marker);
+ }else if(info.type==='ik' || info.type==='pole'||info.type==='footPole'){
+  // Orient the end effector with R, translate its controller with G.
+  const chain=state.chains[info.index];
+  const marker=info.type==='ik'?state.targets.get(info.index):
+   state.handles.find(h=>h.userData.control===info);
+  gizmo.setMode(mode);
+  if(mode==='translate'&&info.type==='footPole'&&marker)state.previousFootPole=marker.position.clone();
+  gizmo.attach(mode==='rotate'?chain.tip:marker);
+ }
+}
 function moveCenter(){
  const hips=roleBone(['hips','pelvis']),h=state.centerHandle;
  if(!hips||!h||!state.previousCenter)return;
@@ -810,14 +1159,12 @@ function moveCenter(){
 }
 function activateHandle(info,obj){
  state.selectedHandle=info;
+ gizmo.showX=info.type!=='handCurl';gizmo.showY=true;gizmo.showZ=info.type!=='handCurl';
  if(info.type==='ik'){selectChain(info.index);return;}
- if(info.type==='bone'){
-  selectBone(info.bone.uuid);gizmo.setMode('rotate');gizmo.attach(info.bone);
-  viewStatus('Hueso '+info.bone.name+' · R: rotar');
- }else if(info.type==='pole'){
+ if(info.type==='pole'){
   state.currentChain=state.chains[info.index];
   gizmo.setMode('translate');gizmo.attach(obj);
-  viewStatus('Pole target: arrastra para orientar la flexión.');
+  viewStatus('Pole: arrastra para orientar codo o rodilla.');
  }else if(info.type==='center'){
   gizmo.setMode('translate');gizmo.attach(obj);
   state.previousCenter=obj.position.clone();
@@ -827,7 +1174,19 @@ function activateHandle(info,obj){
     t.position.y=Math.max(0,t.position.y);
     state.plantedFeet.set(i,t.position.clone());}
   }
-  viewStatus('Centro de gravedad · pies fijados al bajar.');
+  viewStatus('Cadera / centro de gravedad: G mover · R rotar.');
+ }else if(info.type==='torso'){
+  gizmo.setMode('translate');gizmo.attach(obj);
+  state.previousTorso=obj.position.clone();
+  viewStatus('Torso independiente: G mover · R rotar.');
+ }else if(info.type==='handCurl'){
+  gizmo.setMode('translate');gizmo.attach(obj);
+  beginHandCurl(info.side);
+  viewStatus('Cerrar mano: bajar = cerrar todos los dedos; subir = abrir.');
+ }else if(info.type==='footPole'){
+  gizmo.setMode('translate');gizmo.attach(obj);
+  state.previousFootPole=obj.position.clone();
+  viewStatus('Control de dedos: G mover pie sin girarlo · R rotar voluntariamente.');
  }
 }
 renderer.domElement.addEventListener('pointerup',e=>{
@@ -847,6 +1206,39 @@ function updateTracks(){
  if(!state.model)return;
  const max=Math.max(1,Math.round(state.duration*30));
  $('creatorTrackInfo').textContent='Fotograma '+Math.round(state.time*30)+' / '+max;
+ // Master track selects and edits the entire pose, not an individual bone.
+ const masterRow=document.createElement('div');
+ masterRow.className='creatorTrackRow creatorMasterRow';
+ const masterLabel=document.createElement('div');
+ masterLabel.className='creatorTrackLabel creatorMasterLabel';
+ masterLabel.textContent='◆ COMPOSICIÓN';
+ masterLabel.title='Seleccionar todos los huesos del fotograma';
+ const masterLane=document.createElement('div');
+ masterLane.className='creatorTrackLane creatorMasterLane';
+ const selectedFrame=Math.round(state.time*30);
+ const cursor=document.createElement('span');cursor.className='creatorMasterCursor';
+ cursor.style.left=(100*selectedFrame/max)+'%';masterLane.appendChild(cursor);
+ masterLane.onclick=e=>{
+  const rect=masterLane.getBoundingClientRect();
+  selectCompleteFrame(Math.round(THREE.MathUtils.clamp((e.clientX-rect.left)/rect.width,0,1)*max));
+ };
+ // Show the reference's frames in subdued markers, full-pose edits in mint.
+ const masterFrames=new Set([...state.keys.keys()]);
+ if(state.sourceClip){
+  for(let frame=0;frame<=max;frame+=Math.max(1,Math.ceil(max/80)))masterFrames.add(frame);
+ }
+ for(const frame of [...masterFrames].sort((a,b)=>a-b)){
+  const edited=state.keys.has(frame);
+  const diamond=document.createElement('button');
+  diamond.type='button';
+  diamond.className='creatorTrackKey creatorMasterKey'+(edited?'':' source')+
+   (activeTimelineKey?.wholeFrame&&activeTimelineKey.frame===frame?' selected':'');
+  diamond.style.left=(100*Math.min(1,frame/max))+'%';
+  diamond.title='Composición completa · fotograma '+frame+(edited?' · editado':' · referencia');
+  diamond.onclick=e=>{e.stopPropagation();selectCompleteFrame(frame);};
+  masterLane.appendChild(diamond);
+ }
+ masterRow.append(masterLabel,masterLane);host.append(masterRow);
  for(const {bone,label} of sortedBones()){
   const row=document.createElement('div');row.className='creatorTrackRow';
   const title=document.createElement('div');title.className='creatorTrackLabel'+(state.currentBone===bone?' active':'');
@@ -880,11 +1272,12 @@ function queueTrackUpdate(){
  requestAnimationFrame(()=>{tracksPending=false;updateTracks();});
 }
 $('creatorTrackDelete').onclick=()=>{
- if(!activeTimelineKey||activeTimelineKey.original){status('Selecciona un rombo editado para eliminar su clave.',true);return;}
- const {bone,frame}=activeTimelineKey,pose=state.keys.get(frame);if(!pose)return;
- delete pose[bone];if(!Object.keys(pose).length)state.keys.delete(frame);
+ if(!activeTimelineKey||activeTimelineKey.original){status('Selecciona una clave editada para eliminarla.',true);return;}
+ const {bone,frame,wholeFrame}=activeTimelineKey,pose=state.keys.get(frame);if(!pose)return;
+ if(wholeFrame)state.keys.delete(frame);
+ else {delete pose[bone];if(!Object.keys(pose).length)state.keys.delete(frame);}
  activeTimelineKey=null;setFrame(frame);queueTrackUpdate();
- status('Clave eliminada de '+bone+' en fotograma '+frame);
+ checkpointEdit();status((wholeFrame?'Fotograma completo':'Clave de '+bone)+' eliminado en '+frame);
 };
 $('creatorTogglePanel').onclick=()=>{
  const shell=document.querySelector('.creatorShell');
@@ -902,8 +1295,18 @@ renderer.domElement.addEventListener('pointerup',e=>{
  if(hit&&Number.isInteger(hit.object.userData.rokIKTarget))activateHandle({type:'ik',index:hit.object.userData.rokIKTarget},hit.object);
 });
 document.addEventListener('keydown',e=>{
- if(e.key.toLowerCase()!=='r'||!state.currentBone||/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName||''))return;
- e.preventDefault();gizmo.setMode('rotate');gizmo.attach(state.currentBone);state.selectedHandle={type:'bone',bone:state.currentBone};
+ if(!state.model||e.altKey||e.ctrlKey||e.metaKey||/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName||''))return;
+ const key=e.key.toLowerCase();
+ if(key==='arrowright'||key==='arrowleft'){
+  e.preventDefault();stepAnimationFrame(key==='arrowright'?1:-1);return;
+ }
+ if(key==='g'&&!e.shiftKey){e.preventDefault();saveCompleteFrame();return;}
+ if(key==='r'&&state.selectedHandle){
+  e.preventDefault();setControlMode('rotate');return;
+ }
+ if(key==='g'&&e.shiftKey&&state.selectedHandle){
+  e.preventDefault();setControlMode('translate');
+ }
 });
 let last=0;
 function render(now){
@@ -918,6 +1321,10 @@ function render(now){
    if(state.currentChain)selectChain(state.chains.indexOf(state.currentChain));
   }
  }
+ // Catch delayed layout changes and browser zoom without relying on a stale canvas size.
+ const viewRect=$('creatorCanvas').getBoundingClientRect();
+ if(viewRect.width>1&&viewRect.height>1&&
+  (Math.abs(viewRect.width-viewportWidth)>1||Math.abs(viewRect.height-viewportHeight)>1))resize();
  orbit.update();renderer.render(scene,camera);
 }
 requestAnimationFrame(render);

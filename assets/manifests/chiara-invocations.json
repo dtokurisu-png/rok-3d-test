@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-05",
+  "caster": "chiara",
+  "element": "water",
+  "status": "partial-assets",
+  "rules": {
+    "territory": "own-half-only",
+    "maxActiveSummons": 6,
+    "missingModelPolicy": "never-substitute-another-model"
+  },
+  "cards": [
+    {
+      "id": "farolera",
+      "name": "Farolera del Umbral",
+      "element": "water",
+      "cost": 1,
+      "model": "assets/models/casters/farolera/chiara_idle.glb",
+      "status": "model-available",
+      "ability": "Restauración / invocación existente"
+    },
+    {
+      "id": "attractor",
+      "name": "Invocación atractora",
+      "element": "water",
+      "cost": 3,
+      "model": null,
+      "status": "awaiting-glb-and-canonical-name",
+      "ability": "Atrae unidades rivales"
+    },
+    {
+      "id": "mind-controller",
+      "name": "Invocación de control mental",
+      "element": "water",
+      "cost": 6,
+      "model": null,
+      "status": "awaiting-glb-and-canonical-name",
+      "ability": "Control mental de unidades enemigas"
+    }
+  ],
+  "notes": "Solo Farolera está disponible como GLB en la Arena. Los modelos pendientes no se reemplazan con Farolera ni se habilitan antes de vincular modelos reales. El reparto de las tres invocaciones de Leoren se hará en una fase posterior."
+}

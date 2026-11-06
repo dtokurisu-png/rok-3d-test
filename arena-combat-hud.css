@@ -123,3 +123,40 @@
  .rokHudLifeIcon{font-size:12px}
  .rokHudSectionLabel svg{width:7px;height:7px}
 }
+
+/* Dominion theming: canonical Agua/Tierra from R.O.K. Lite. */
+.rokHudSide{--dominion-primary:#00FFE4;--dominion-secondary:#00FF8A}
+.rokHudSide[data-hud-side="ally"]{--dominion-primary:#CCFF00;--dominion-secondary:#67400D}
+.rokHudSide[data-hud-side="enemy"]{--dominion-primary:#00FFE4;--dominion-secondary:#00FF8A}
+.rokHudSide .rokHudPortrait,
+.rokHudSide[data-hud-side="enemy"] .rokHudPortrait{
+ border-color:var(--dominion-primary);
+ background:radial-gradient(circle at 50% 35%,color-mix(in srgb,var(--dominion-primary),#111b18 40%),#10181d 82%);
+ box-shadow:inset 0 0 12px color-mix(in srgb,var(--dominion-primary),transparent 60%);
+}
+.rokHudSide .rokHudName,
+.rokHudSide[data-hud-side="enemy"] .rokHudName{color:var(--dominion-primary)}
+.rokHudSide .rokHudLifeCell[data-filled="true"],
+.rokHudSide[data-hud-side="enemy"] .rokHudLifeCell[data-filled="true"]{
+ background:linear-gradient(180deg,var(--dominion-primary),var(--dominion-secondary));
+ border-color:var(--dominion-primary)
+}
+.rokHudSide .rokHudLifeIcon,
+.rokHudSide[data-hud-side="enemy"] .rokHudLifeIcon,
+.rokHudSide .rokHudDropIcon{color:var(--dominion-primary)}
+.rokHudSide .rokHudElementTrack{
+ border-color:color-mix(in srgb,var(--dominion-primary),#5a6a70 52%);
+ box-shadow:inset 0 0 6px color-mix(in srgb,var(--dominion-primary),transparent 83%);
+}
+.rokHudElementCell::after{
+ background:linear-gradient(180deg,
+  color-mix(in srgb,var(--element-color),white 24%),
+  var(--element-color) 43%,var(--element-secondary,var(--element-color)));
+}
+.rokHudElementImage{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 0 2px currentColor)}
+.rokHudSectionLabel .rokHudElementImage{width:12px;height:12px;max-width:100%;max-height:100%}
+.rokHudStatIcon .rokHudElementImage{width:14px;height:14px}
+@media(pointer:coarse) and (max-width:950px){
+ .rokHudSectionLabel .rokHudElementImage{width:9px;height:9px}
+ .rokHudStatIcon .rokHudElementImage{width:10px;height:10px}
+}
