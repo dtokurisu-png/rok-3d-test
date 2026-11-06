@@ -423,7 +423,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.122</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.123</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -643,7 +643,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
-import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261105-mobile-lite-122';
+import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261105-mobile-lite-123';
 import {reduceModelTextureBudget} from './arena-asset-budget.js?v=2';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.100';
 import {createArenaMatchGate} from './arena-match-gate.js?v=20261105-dom-earth-water-1';
@@ -658,6 +658,10 @@ import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 const qs=s=>document.querySelector(s);
 const mobileCombatMode=window.matchMedia('(pointer:coarse)').matches||
  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+// Full decorative studio scenery is opt-in on desktop; combat works with
+// background, floor and the two elemental fountains alone.
+const quickCombatScene=mobileCombatMode||
+ new URLSearchParams(location.search).get('fullScene')!=='1';
 const hud=qs('#top'), head=qs('#head');
 const expand=()=>{hud.classList.toggle('open');const open=hud.classList.contains('open');qs('#expand').textContent=open?'Cerrar ▴':'Opciones ▾';head.setAttribute('aria-expanded',String(open));};
 head.addEventListener('click',expand);head.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();expand();}});
@@ -778,7 +782,7 @@ const fill=new THREE.DirectionalLight(0x00ccb8,.65);fill.position.set(4,5,-6);sc
 const root=new THREE.Group();scene.add(root);
 // Scenery overlay is visual only: never modifies units, hitboxes, pathfinding or rules.
 let attachRealElementSources=null;
-const sceneryOverlay=createArenaSceneOverlay({THREE,root,lightweightTextures:mobileCombatMode,onSourcesChange:sources=>attachRealElementSources?.(sources),renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;},onArenaVisual:opacity=>{
+const sceneryOverlay=createArenaSceneOverlay({THREE,root,lightweightTextures:quickCombatScene,onSourcesChange:sources=>attachRealElementSources?.(sources),renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;},onArenaVisual:opacity=>{
  const fraction=THREE.MathUtils.clamp(Number(opacity)/100,0,1);
  if(arenaArt){arenaArt.material.transparent=true;arenaArt.material.opacity=fraction;arenaArt.material.needsUpdate=true;}
  pendingSceneOpacity=fraction;
@@ -4390,7 +4394,7 @@ void (async()=>{
     if(!sceneryOverlay.currentName){
      const response=await fetch('./assets/scenes/arena-de-chiara.json',{cache:'default'});
      if(!response.ok)throw Error('HTTP '+response.status);
-     const ok=await sceneryOverlay.loadScene(await response.json(),{essentialOnly:mobileCombatMode});
+     const ok=await sceneryOverlay.loadScene(await response.json(),{essentialOnly:quickCombatScene});
      if(!ok)throw Error('No se pudo instalar el escenario publicado');
     }
     sceneryOverlay.show(true);
@@ -4400,7 +4404,9 @@ void (async()=>{
     attachRealElementSources(realSources);
     const name=qs('#testerSceneCurrent');
     if(name)name.textContent=sceneryOverlay.currentName;
-    qs('#testerSceneStatus').textContent='Escenario y fuentes elementales listos';
+    qs('#testerSceneStatus').textContent=quickCombatScene?
+     'Escenario ligero y dos fuentes elementales listos':
+     'Escenario completo y fuentes elementales listos';
    }catch(error){
     console.error('[R.O.K.] No se puede iniciar el combate sin escenario:',error);
     const message='Error al preparar escenario y fuentes: '+String(error.message||error);
