@@ -2496,6 +2496,8 @@ const summonWeaponIconTextures={
 };
 const summonShieldIconTexture=summonHudIconTexture('◆','#c3ccd6');
 const summonEnergyIconTexture=summonHudIconTexture('✦','#8b6bea');
+// Original white armor SVG supplied for Cariona; resolved by the arena.
+const armorHudIconTexture=new THREE.TextureLoader().load('./assets/ui/factor-armadura.svg');
 function createSummonGroundHud(c){
  if(summonGroundHuds.has(c))return;
  const group=new THREE.Group();group.name='ROK_summon_ground_HUD';root.add(group);
@@ -2504,6 +2506,8 @@ function createSummonGroundHud(c){
  // Keep secondary arcs outside the thicker main bars; .90 would overlap.
  // Semillera uses the former shield slot for its ten-step growing charge.
  const shield=summonHudArc(group,'left',.99,c.cardId==='semillera'?0x6bff79:0xe0efff,1,.19);
+ // Cariona uses the second LEFT arc for permanent armor, not a shield:
+ // physical segments are white; magical segments are cyan.
  const lifeTicks=summonHudTicks(group,'left',.945,0x35ff8e);
  const attackTicks=summonHudTicks(group,'right',.945,0xff444e);
  const shieldTicks=[]; // El escudo usa solamente una barra subdividida.
@@ -2520,8 +2524,14 @@ function createSummonGroundHud(c){
   transparent:true,depthWrite:false,depthTest:false,toneMapped:false}));
  shieldIcon.position.set(-.37,.19,.64);shieldIcon.scale.set(.19,.19,1);shieldIcon.renderOrder=20;
  iconGroup.add(shieldIcon);
+ const armorIcon=new THREE.Sprite(new THREE.SpriteMaterial({
+  map:armorHudIconTexture,transparent:true,depthWrite:false,
+  depthTest:false,toneMapped:false}));
+ armorIcon.position.set(-.37,.19,.64);
+ armorIcon.scale.set(.19,.19,1);armorIcon.renderOrder=20;
+ armorIcon.visible=c.cardId==='kariona';iconGroup.add(armorIcon);
  summonGroundHuds.set(c,{group,health,attack,shield,lifeTicks,attackTicks,
-  shieldTicks,shieldIcon,values:''});
+  shieldTicks,shieldIcon,armorIcon,values:''});
 }
 function setSummonHudStat(arc,ticks,value,show=true,subdivide=false,maxValue=10){
  const points=Math.max(0,Math.floor(Number(value)||0));
@@ -2574,19 +2584,33 @@ function updateSummonGroundHuds(){
   h.group.rotation.y=Math.atan2(camera.position.x-c.outer.position.x,
    camera.position.z-c.outer.position.z);
   const semillera=c.cardId==='semillera';
+  const warriorArmor=c.cardId==='kariona';
+  const physicalArmor=warriorArmor?Math.max(0,Math.floor(c.armorPhysical||0)):0;
+  const magicalArmor=warriorArmor?Math.max(0,Math.floor(c.armorMagical||0)):0;
   const shieldMax=Math.max(0,Number(c.shieldMax)||0);
   // Nine cells fill during the nine-second preparation. The tenth cell
   // fills during the one-second release, then resets for the next cycle.
   const seedProgress=semillera?
    (c.crystalHudFlash>0?10:Math.min(9,Math.floor(c.crystalClock||0))):0;
-  const snapshot=[c.hp,c.attackDamage,c.shield,shieldMax,semillera?seedProgress:''].join(':');
+  const snapshot=[c.hp,c.attackDamage,c.shield,shieldMax,
+   semillera?seedProgress:'',warriorArmor?physicalArmor:'',warriorArmor?magicalArmor:''].join(':');
   if(snapshot!==h.values){
    setSummonHudStat(h.health,h.lifeTicks,c.hp);
    setSummonHudStat(h.attack,h.attackTicks,c.attackDamage);
    setSummonHudStat(h.shield,h.shieldTicks,
-    semillera?seedProgress:c.shield,semillera||shieldMax>0,true,
-    semillera?10:shieldMax);
-   h.shieldIcon.visible=!semillera&&shieldMax>0;
+    warriorArmor?physicalArmor+magicalArmor:(semillera?seedProgress:c.shield),
+    warriorArmor||semillera||shieldMax>0,true,
+    warriorArmor||semillera?10:shieldMax);
+   if(warriorArmor){
+    // Non-consumable defense: base 1 physical + 1 magical,
+    // oak equipment adds +2 physical and +1 magical.
+    // The FIRST physicalArmor cells are white; next magicalArmor cyan.
+    h.shield.segments.forEach((segment,i)=>{
+     segment.material.color.setHex(i<physicalArmor?0xffffff:0x66dcff);
+    });
+   }
+   h.shieldIcon.visible=!warriorArmor&&!semillera&&shieldMax>0;
+   h.armorIcon.visible=warriorArmor;
    h.values=snapshot;
   }
  }
@@ -4790,7 +4814,7 @@ const liorenSpellCards=[
   {id:'astarium',name:'Amor de Astarin',race:'melanide',type:'invocation',
    element:'earth',cost:3,portrait:'./assets/amor%20de%20astarium%20.png'},
   {id:'ancient-oak-armor',name:'Armadura de Roble Antiguo',type:'equipment',
-   element:'earth',cost:0,recraftCost:2,slot:'body',requiredQuality:'warrior',
+   element:'earth',cost:2,recraftCost:2,slot:'body',requiredQuality:'warrior',
    portrait:'./assets/ui/armadura-roble-antiguo.webp'},
   null,null,null,null,null],
  Array(9).fill(null),Array(9).fill(null)
@@ -4935,6 +4959,12 @@ function equipOakArmor(c){
  if(oakArmor.state!=='ready'||!availableOakArmorTargets().includes(c))return false;
  // The body slot is exclusive. Future equipment types will use other slots.
  if(c.equippedBody)return false;
+ // Pay only when a valid, living warrior is actually equipped.
+ // The separate two-Earth recrafting cost remains unchanged.
+ if(!combatHud.spend('ally','earth',oakArmorCard.cost)){
+  spellStatus('Necesitas 2 de Tierra para equipar la Armadura de Roble Antiguo.');
+  return false;
+ }
  c.oakOriginalSpeed=c.speed;
  c.armorPhysical=(c.armorPhysical||0)+2;
  c.armorMagical=(c.armorMagical||0)+1;
@@ -5059,7 +5089,7 @@ function renderSpellbook(){
    name.textContent=card.name;button.append(name);
    const cost=document.createElement('span');cost.className='rokSpellCost';
    cost.textContent=oak?(oakArmor.state==='broken'?'Recraftear · 2 Tierra':
-    oakArmor.state==='equipped'?'Equipada':'Gratis · Equipar'):'✦ '+card.cost;
+    oakArmor.state==='equipped'?'Equipada':'✦ '+card.cost+' Tierra · Equipar'):'✦ '+card.cost;
    button.append(cost);
    // Secondary touch must work even with a separate joystick touch held.
    // Pointerdown is handled immediately instead of depending on a synthesized click.
