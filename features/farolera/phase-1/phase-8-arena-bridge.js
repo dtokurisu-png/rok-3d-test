@@ -14,10 +14,15 @@ import {lerpLanternPosition,prepareLanternThrow} from './phase-3-lantern.js';
 export function createFaroleraArenaIntegration({THREE,root,combatants,casters,getClip,setAnim,releaseDuel}){
  const entries=new Map();
  let uid=0;
- const maxRange=4;
+ const unitIds=new WeakMap();
+ const getId=c=>{
+  if(c.rokFaroleraId)return c.rokFaroleraId;
+  if(!unitIds.has(c))unitIds.set(c,'arena-unit-'+(++uid));
+  return unitIds.get(c);
+ };
  const snapshot=c=>{
   const p=c.outer.position;
-  const q={id:c.rokFaroleraId??c.rokAbilityId,side:c.side,role:c.role,
+  const q={id:getId(c),side:c.side,role:c.role,
    stage:c.stage,hp:c.hp,x:p.x,z:p.z,
    attackDamage:c.attackDamage??0,range:c.range??1.5};
   const target=c.currentThreatTarget;
@@ -153,8 +158,9 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   e.step='throw-flight';e.time=0;
   e.lantern.group.position.set(c.outer.position.x,.85,c.outer.position.z);
  }
- function getUnits(){
-  return combatants.filter(c=>c.role==='summon'&&c.hp>0&&!['dead','vanishing','dying'].includes(c.stage))
+ function getUnits(e){
+  return combatants.filter(c=>c.role==='summon'&&c.hp>0&&!['dead','vanishing','dying'].includes(c.stage)&&
+    (c!==e.unit||e.controller.order==='defensive'))
    .map(snapshot);
  }
  function chooseChiaraMode(c,friendlies,opponents){
@@ -209,11 +215,11 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
    if(e.circle){
     e.circle.rotation.y+=dt*.45;
    }
-   const units=e.step==='throw-flight'?[]:getUnits();
+   const units=e.step==='throw-flight'?[]:getUnits(e);
    const {ability,transfers}=tickChiaraFarolera(e.controller,dt,units);
    if(!ability.portalActive&&e.step==='idle'&&e.circle)disposeVisual(e);
    for(const transfer of transfers){
-    const unit=combatants.find(u=>u.rokFaroleraId===transfer.id||u.rokAbilityId===transfer.id);
+    const unit=combatants.find(u=>getId(u)===transfer.id);
     if(!unit||!active(unit))continue;
     releaseDuel(unit);
     unit.outer.position.set(transfer.to.x,unit.outer.position.y,transfer.to.z);
