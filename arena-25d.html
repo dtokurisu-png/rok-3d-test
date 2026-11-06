@@ -2869,7 +2869,9 @@ function finishNewSummon(c,winner=false){
 
 function resetCombatant(c){
   c.currentThreatTarget=null;
-  c.armorPhysical=0;c.armorMagical=0;c.equippedBody=null;
+  c.armorPhysical=c.cardId==='kariona'?1:0;
+  c.armorMagical=c.cardId==='kariona'?1:0;
+  c.equippedBody=null;
   clearEmbeddedArrows(c);
   c.pendingRestore=false;
   c.restorationHp=null;
@@ -2879,11 +2881,12 @@ function resetCombatant(c){
   c.maxHp=archer?ATTACK_PROFILES.archer.hp:shield?12:5;
   if(chiaraSummonDefinitions[c.cardId])c.maxHp=chiaraSummonDefinitions[c.cardId].hp;
   if(c.cardId==='semillera')c.maxHp=1;
+  if(c.cardId==='kariona')c.maxHp=2;
   c.hp=c.maxHp;
   c.shieldMax=shield?2:0;
   c.shield=c.shieldMax;
   c.range=c.cardId==='semillera'?3:(archer?ATTACK_PROFILES.archer.range:shield?3:5);
-  c.attackDamage=c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1));
+  c.attackDamage=c.cardId==='kariona'?2:(c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1)));
   c.speed=shield?2.4:2.15;
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
@@ -3262,7 +3265,7 @@ function updateCast(c,dt){
     c.castFired=true;
     if(c.castMarker)c.castMarker.marker.visible=false;
     if(canDamageTarget(c.castTarget)&&canAttackSummonTarget(c,c.castTarget)){
-      if(c.kind==='archer')launchArrow(c,c.castTarget);
+      if(c.kind==='archer'||c.cardId==='kariona')launchArrow(c,c.castTarget);
       else launchSpell(c,c.castTarget);
     }
     if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=false;
@@ -3799,8 +3802,9 @@ function damage(target,value,source,{committed=false,environment=false}={}){
       requestVictoriousRestoration(source);
   }else {
     beginHit(target);
-    // No stun on the Farolera's ordinary single-target attack.
-    if(source?.kind==='mana'&&source.cardId!=='farolera'&&Math.random()<.50)
+    // Ordinary summon attacks only deal damage: no stun is applied.
+    // Retain the generic stun effect for an explicitly defined future skill.
+    if(source?.role!=='summon'&&source?.kind==='mana'&&Math.random()<.50)
       applyStun(target);
   }
   return true;
@@ -3872,6 +3876,34 @@ function spawnImpact(x,z,aoe,enemySpell){
 // de la flecha exportada de Blender: solo la oculta durante el disparo.
 const arrowShaftGeometry=new THREE.CylinderGeometry(.012,.012,.72,6);
 const arrowPointGeometry=new THREE.ConeGeometry(.040,.14,6);
+// The user-provided FBX dart was converted to GLB with its original
+// texture. The default physical dart keeps Cariona's attack non-magical
+// if the optional binary asset has not yet been published.
+let carionaDartModel=null;
+new GLTFLoader().load('./assets/models/projectiles/cariona-dart.glb',
+ gltf=>{carionaDartModel=gltf.scene;},undefined,()=>{});
+function addCarionaDartVisual(group){
+ if(carionaDartModel){
+  const dart=carionaDartModel.clone(true);
+  dart.traverse(o=>{
+   if(!o.isMesh)return;
+   o.material=Array.isArray(o.material)?
+    o.material.map(mat=>mat.clone()):o.material.clone();
+  });
+  // The original model points along +X. Convert that to the flight +Y.
+  dart.rotation.z=Math.PI/2;
+  dart.scale.setScalar(.68);
+  group.add(dart);
+  return;
+ }
+ // Low-cost fallback until the supplied GLB is added to the repository.
+ const shaft=new THREE.Mesh(arrowShaftGeometry,
+  new THREE.MeshStandardMaterial({color:0x735335,roughness:.9}));
+ const point=new THREE.Mesh(arrowPointGeometry,
+  new THREE.MeshStandardMaterial({color:0x9eac65,roughness:.75}));
+ point.position.y=.43;
+ group.add(shaft,point);
+}
 function launchArrow(attacker,target){
   attacker.model.updateMatrixWorld(true);
   const hand=attacker.castHand;
@@ -3880,11 +3912,14 @@ function launchArrow(attacker,target){
   const cell=worldToCell(target.outer.position.x,target.outer.position.z);
   const aim=cellToWorld(cell.col,cell.row);
   const group=new THREE.Group();root.add(group);group.position.copy(from);
-  const shaft=new THREE.Mesh(arrowShaftGeometry,
-    new THREE.MeshStandardMaterial({color:0x9c7340,roughness:.85}));
-  const tip=new THREE.Mesh(arrowPointGeometry,
-    new THREE.MeshStandardMaterial({color:0xc1cbd0,metalness:.6,roughness:.32}));
-  tip.position.y=.43;group.add(shaft,tip);
+  if(attacker.cardId==='kariona')addCarionaDartVisual(group);
+  else{
+   const shaft=new THREE.Mesh(arrowShaftGeometry,
+     new THREE.MeshStandardMaterial({color:0x9c7340,roughness:.85}));
+   const tip=new THREE.Mesh(arrowPointGeometry,
+     new THREE.MeshStandardMaterial({color:0xc1cbd0,metalness:.6,roughness:.32}));
+   tip.position.y=.43;group.add(shaft,tip);
+  }
   const direction=new THREE.Vector3(aim.x-from.x,.95-from.y,aim.z-from.z);
   if(direction.lengthSq()>1e-6)group.quaternion.setFromUnitVectors(
     new THREE.Vector3(0,1,0),direction.normalize());
@@ -3985,7 +4020,8 @@ function embedArrowOnTarget(m){
   // attach() mantiene las transformaciones de mundo y hace que la flecha
   // reciba los movimientos posteriores del hueso sin volver a calcularlos.
   parent.attach(m.group);
-  m.group.name='ROK_FlechaClavada';
+  m.group.name=m.attacker?.cardId==='kariona'?
+    'ROK_DardoCarionaClavado':'ROK_FlechaClavada';
   if(!target.embeddedArrows)target.embeddedArrows=[];
   target.embeddedArrows.push(m.group);
   while(target.embeddedArrows.length>MAX_EMBEDDED_ARROWS_PER_UNIT)
@@ -4021,6 +4057,7 @@ function updateMagic(dt){
       if(m.target.role!=='caster'&&m.target.stage==='active'&&
          canResolveCommittedShot(m,m.target))
         tryEvasion(m.target,m.attacker,m.impactCell);
+      // Physical arrows and Cariona darts do not produce magic impacts.
       if(!m.arrow)spawnImpact(m.aimX,m.aimZ,m.area,m.attacker.side==='enemy');
       if(m.area){
         // Nueve casillas tácticas reales, con comprobación de cada unidad.
@@ -4793,8 +4830,13 @@ function ensureLiorenSummonModel(id){
   const box=new THREE.Box3().setFromObject(gltf.scene);
   if(box.isEmpty())throw Error('Modelo sin geometría: '+filename);
   if(mobileCombatMode)reduceModelTextureBudget(gltf.scene,{maxSize:1024});
-  const idle=gltf.animations?.find(a=>/idle|standing/i.test(a.name))||
-   gltf.animations?.[0]||new THREE.AnimationClip('Reposo_'+id,1,[]);
+  // Cariona must never loop an arbitrary imported pose or Standing clip.
+  // Without a named Idle, the existing shared animation adapter supplies it.
+  const idle=id==='kariona'
+   ?(gltf.animations?.find(a=>/idle|reposo|rest/i.test(a.name))||
+      new THREE.AnimationClip('Reposo_kariona',1,[]))
+   :(gltf.animations?.find(a=>/idle|standing/i.test(a.name))||
+      gltf.animations?.[0]||new THREE.AnimationClip('Reposo_'+id,1,[]));
   const entry={scene:gltf.scene,idle};
   liorenSummonModels.set(id,entry);
   liorenSummonLoading.delete(id);
@@ -4814,8 +4856,8 @@ const availableMelanideTargets=()=>[...cardSummons].filter(c=>
  c.side==='ally'&&MELANIDE_CARDS.has(c.cardId)&&c.hp>0&&c.stage==='active');
 function resetOakArmor(){
  if(oakArmor.holder){
-  oakArmor.holder.armorPhysical=0;
-  oakArmor.holder.armorMagical=0;
+  oakArmor.holder.armorPhysical=oakArmor.holder.cardId==='kariona'?1:0;
+  oakArmor.holder.armorMagical=oakArmor.holder.cardId==='kariona'?1:0;
   oakArmor.holder.speed=oakArmor.holder.oakOriginalSpeed??oakArmor.holder.speed;
   oakArmor.holder.equippedBody=null;
  }
@@ -4823,7 +4865,8 @@ function resetOakArmor(){
 }
 function onOakArmorHolderDeath(c){
  if(oakArmor.holder!==c)return;
- c.armorPhysical=0;c.armorMagical=0;
+ c.armorPhysical=c.cardId==='kariona'?1:0;
+ c.armorMagical=c.cardId==='kariona'?1:0;
  c.speed=c.oakOriginalSpeed??c.speed;c.equippedBody=null;
  oakArmor.holder=null;oakArmor.state='broken';
  if(spellbook.page&&qs('#casterMoveSide').value==='ally')
@@ -4846,18 +4889,7 @@ function equipOakArmor(c){
 }
 function renderOakArmorTargets(){
  spellbookGrid.replaceChildren();
- const back=document.createElement('button');
- back.type='button';back.className='rokSpellSlot';
- back.textContent='← Volver';back.onclick=()=>{
-  spellbook.targetingEquipment=false;renderSpellbook();
- };
- spellbookGrid.append(back);
  const melanides=availableMelanideTargets();
- if(!melanides.length){
-  const note=document.createElement('p');
-  note.textContent='Invoca una melánide y espera que termine de aparecer para equiparla.';
-  spellbookGrid.append(note);
- }
  for(const [i,c] of melanides.entries()){
   const button=document.createElement('button');
   button.type='button';button.className='rokSpellSlot';
