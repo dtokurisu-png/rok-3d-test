@@ -4437,7 +4437,16 @@ function updateDuel(dt){
     if(c.stage==='active'){
       if(c.cardId==='semillera'&&!c.crystalCast){
        c.crystalClock=Math.min(SEMILLERA_PERIOD,(c.crystalClock||0)+dt);
-       if(c.crystalClock>=SEMILLERA_PERIOD)startSemilleraCrystalCast(c);
+       // Count the two casting phases INSIDE each 5-second production
+       // interval: do not wait five seconds and then add the animation.
+       if(c.outer.position.z>=MAX_Z-.03){
+        const clips=semilleraSourceClips(c);
+        if(clips){
+         const totalCast=.5+Math.max(.01,clips.finish.duration-SEMILLERA_FINISH_START);
+         if(c.crystalClock>=Math.max(0,SEMILLERA_PERIOD-totalCast))
+          startSemilleraCrystalCast(c);
+        }
+       }
       }
       c.cooldown=Math.max(0,c.cooldown-dt);
       c.specialCooldown=Math.max(0,c.specialCooldown-dt);
