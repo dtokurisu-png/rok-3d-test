@@ -24,7 +24,10 @@ try{
   const path=fields.at(-1);
   // Never edit or remove a pre-existing file. The only permitted differences
   // from the protected baseline are phase-1 additions.
-  if(status!=='A'||!allowedNew.some(pattern=>pattern.test(path))){
+  // Owner-authorized integration exception: existing arena entrypoint only.
+  // All other pre-existing files stay protected. Keep the approval code out of GitHub.
+  const approvedArenaIntegration=status==='M'&&path==='arena-25d.html';
+  if(!approvedArenaIntegration&&(status!=='A'||!allowedNew.some(pattern=>pattern.test(path)))){
    violations.push(status+' '+fields.join(' -> '));
   }
  }
