@@ -1,0 +1,21 @@
+name: Farolera phase 1 - protect existing ROK code
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  protect-existing-code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reject modifications outside Farolera phase 1
+        run: node scripts/farolera-scope-lock.mjs
