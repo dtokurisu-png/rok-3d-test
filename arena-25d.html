@@ -685,6 +685,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <!-- JSZip is optional; never block the browser parser or first view. -->
 <script type="module">
 import * as THREE from 'three';
+import {createFaroleraArenaIntegration} from './features/farolera/phase-1/phase-8-arena-bridge.js?v=20261106-chiara-ai-1';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
@@ -827,6 +828,12 @@ const key=new THREE.DirectionalLight(0xffffff,2.2);key.position.set(-5,13,7);sce
 const fill=new THREE.DirectionalLight(0x00ccb8,.65);fill.position.set(4,5,-6);scene.add(fill);
 
 const root=new THREE.Group();scene.add(root);
+// Farolera tactical spell integration: Chiara chooses offense/defense autonomously.
+// No separate viewer, temporary selector or changes to existing summon cards.
+const faroleraAbilityBridge=createFaroleraArenaIntegration({
+ THREE,root,combatants,casters,getClip:getCombatClip,setAnim,
+ releaseDuel:releaseSummonDuel
+});
 // Scenery overlay is visual only: never modifies units, hitboxes, pathfinding or rules.
 let attachRealElementSources=null;
 const sceneryOverlay=createArenaSceneOverlay({THREE,root,lightweightTextures:quickCombatScene,onSourcesChange:sources=>attachRealElementSources?.(sources),renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;},onArenaVisual:opacity=>{
@@ -3001,6 +3008,7 @@ function resetCombatant(c){
 // Remove them together with the unit, including their own materials; shared
 // textures/geometries remain owned by the arena.
 function disposeCardSummon(c){
+ faroleraAbilityBridge.remove(c);
  const unmount=node=>{
   if(!node)return;
   node.parent?.remove(node);
@@ -3190,6 +3198,7 @@ function updateSemilleraCrystals(dt){
  }
 }
 function resetDemoCombat(){
+  faroleraAbilityBridge.reset();
   // A new match invalidates any in-progress manual attack/cooldown.
   casterMovement?.disable();
   rivalAI?.reset();
@@ -4505,12 +4514,14 @@ function updateDuel(dt){
     if(c.stage!=='casting'&&c.stage!=='semilleraElementCast'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
     updateCastMarker(c);
     if(c.kind!=='archer'&&c.animId===12)liftWalkArm(c);
-    if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
+    if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!faroleraAbilityBridge.lanternDeployed(c)&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
   }
+  // Farolera magic, autonomous Chiara orders and portal transfers share the live arena.
+  faroleraAbilityBridge.tick(dt);
   // Combat without summoned units is valid; the casters must still update.
   if(casters.length!==2)return;
   if(!casterLost())for(const c of combatants){
-    if(c.stage!=='active')continue;
+    if(c.stage!=='active'||faroleraAbilityBridge.immobilized(c))continue;
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
     if(!target&&c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
