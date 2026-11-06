@@ -1,3 +1,4 @@
+import {reduceTextureImage} from './arena-asset-budget.js?v=2';
 /* R.O.K. 3D — separate exterior ground layer.
  * Never touches the combat grid or its collision/navigation geometry.
  */
@@ -19,7 +20,7 @@ export function normalizeSceneFloor(value={}){
   repeatX:num(value.repeatX,1,100,12),repeatZ:num(value.repeatZ,1,100,16),
   texture,textureData};
 }
-export function createSceneFloor(THREE,{onStatus}={}){
+export function createSceneFloor(THREE,{onStatus,textureLimit=0}={}){
  const group=new THREE.Group();group.name='ROK_ExteriorFloor_VisualOnly';
  const loader=new THREE.TextureLoader();
  let config=normalizeSceneFloor(),generation=0,currentMap=null,materials=[];
@@ -62,6 +63,7 @@ export function createSceneFloor(THREE,{onStatus}={}){
    const path=config.textureData||'./'+config.texture.split('/').map(encodeURIComponent).join('/');
    loader.load(path,tex=>{
     if(token!==generation){tex.dispose();return;}
+    if(textureLimit)reduceTextureImage(tex,textureLimit);
     tex.colorSpace=THREE.SRGBColorSpace;
     tex.wrapS=THREE.RepeatWrapping;tex.wrapT=THREE.RepeatWrapping;
     tex.repeat.set(1,1);
