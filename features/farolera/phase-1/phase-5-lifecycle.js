@@ -115,6 +115,7 @@ export function tickFaroleraAbility(state,dt){
  if(!Number.isFinite(dt)||dt<0)throw new RangeError('dt debe ser >= 0');
  if(!state.alive)return {phase:'dead',cooldownRemaining:state.cooldownRemaining};
  state.cooldownRemaining=Math.max(0,state.cooldownRemaining-dt);
+ if(state.cooldownRemaining<1e-8)state.cooldownRemaining=0;
  if(state.phase==='cooldown'&&state.cooldownRemaining<=0)state.phase='ready';
  return {phase:state.phase,cooldownRemaining:state.cooldownRemaining};
 }
