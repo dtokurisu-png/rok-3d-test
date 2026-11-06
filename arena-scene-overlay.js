@@ -10,10 +10,10 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual,o
  const catalog=new Map(), cache=new Map();
  const loader=new GLTFLoader();
  const scenery=new THREE.Group();scenery.name='ROK_scenery_visual_only';root.add(scenery);
- const background=createSceneBackground(THREE,{onStatus:renderStatus,textureLimit:lightweightTextures?1024:0});
+ const background=createSceneBackground(THREE,{onStatus:renderStatus,textureLimit:lightweightTextures?1536:0});
  // Keep this independent of the prop swap: a failed scene must not replace it.
  root.add(background.group);background.show(false);
- const floor=createSceneFloor(THREE,{onStatus:renderStatus,textureLimit:lightweightTextures?768:0});root.add(floor.group);
+ const floor=createSceneFloor(THREE,{onStatus:renderStatus,textureLimit:lightweightTextures?1536:0});root.add(floor.group);
  floor.setVisible(false);
  const effects=new Set(['glow','light','particles','fog','pulse']);
  const objects=[];
@@ -85,7 +85,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual,o
   if(!cache.has(model.id)){
    const promise=loader.loadAsync(url(model.path)).then(gltf=>{
     const group=gltf.scene;
-    if(lightweightTextures)reduceModelTextureBudget(group,{maxSize:768});
+    if(lightweightTextures)reduceModelTextureBudget(group,{maxSize:1024});
     const bound=new THREE.Box3().setFromObject(group);
     if(bound.isEmpty())throw Error('Modelo sin geometría: '+model.name);
     const size=bound.getSize(new THREE.Vector3());
