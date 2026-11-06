@@ -8,6 +8,7 @@ import {
 } from './phase-4-portal.js';
 
 export const FAROLERA_COOLDOWN_SECONDS=20;
+export const FAROLERA_DEFENSE_COOLDOWN_SECONDS=5;
 
 /**
  * El enfriamiento empieza al completar la SEGUNDA activación (lámpara).
@@ -66,8 +67,44 @@ export function finishFaroleraLantern(state,lamp){
  };
 }
 
+/**
+ * Defensive stance: lamp FIRST (within four cells of current position),
+ * then move freely and place the rescue circle within four cells of the
+ * Farolera's NEW position. A portal is active only after both activations.
+ */
+export function beginDefensiveLantern(state,{origin,lamp}){
+ if(!ready(state))return {ok:false,reason:state.alive?'cooldown-or-pending':'owner-dead'};
+ const dx=lamp?.x-origin?.x,dz=lamp?.z-origin?.z;
+ if(![origin?.x,origin?.z,lamp?.x,lamp?.z].every(Number.isFinite)||
+   Math.hypot(dx,dz)>4+1e-8)
+  throw new RangeError('Farol defensivo fuera de cuatro casillas');
+ state.pending={launchOrigin:{x:origin.x,z:origin.z},lamp:{x:lamp.x,z:lamp.z},
+  mode:'defensive'};
+ state.phase='awaiting-circle';
+ return {ok:true,phase:state.phase,lamp:{...state.pending.lamp}};
+}
+
+export function finishDefensiveCircle(state,{origin,circle}){
+ if(!state.alive)return {ok:false,reason:'owner-dead'};
+ if(state.phase!=='awaiting-circle'||state.pending?.mode!=='defensive')
+  return {ok:false,reason:'lantern-required'};
+ const pending=state.pending;
+ const portal=createFaroleraPortal({
+  ownerId:state.ownerId,ownerSide:state.ownerSide,origin,circle,mode:'defensive'
+ });
+ linkFaroleraLantern(portal,pending.lamp,{launchOrigin:pending.launchOrigin});
+ if(state.portal){
+  state.portal.active=false;state.portal.inside.clear();state.portal.previous.clear();
+ }
+ state.portal=portal;state.pending=null;state.castCount++;state.generation++;
+ state.cooldownRemaining=FAROLERA_DEFENSE_COOLDOWN_SECONDS;
+ state.phase='cooldown';
+ return {ok:true,phase:state.phase,cooldownRemaining:state.cooldownRemaining,
+  generation:state.generation,circle:{...portal.circle}};
+}
+
 export function cancelFaroleraPlacement(state){
- if(state.phase!=='awaiting-lantern')return false;
+ if(!['awaiting-lantern','awaiting-circle'].includes(state.phase))return false;
  state.pending=null;
  state.phase=state.cooldownRemaining>0?'cooldown':'ready';
  return true;
@@ -113,6 +150,7 @@ export function getFaroleraAbilityStatus(state){
   alive:state.alive,
   canCast:ready(state),
   awaitingLantern:state.phase==='awaiting-lantern',
+  awaitingCircle:state.phase==='awaiting-circle',
   portalActive:!!(state.alive&&state.portal?.active),
   cooldownRemaining:state.cooldownRemaining,
   castCount:state.castCount,
