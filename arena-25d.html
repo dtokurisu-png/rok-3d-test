@@ -2496,8 +2496,33 @@ const summonWeaponIconTextures={
 };
 const summonShieldIconTexture=summonHudIconTexture('◆','#c3ccd6');
 const summonEnergyIconTexture=summonHudIconTexture('✦','#8b6bea');
-// Original white armor SVG supplied for Cariona; resolved by the arena.
-const armorHudIconTexture=new THREE.TextureLoader().load('./assets/factores/factor%20armadura.svg');
+// The supplied armor SVG has a viewBox but no intrinsic pixel dimensions.
+// Draw it in a sized canvas so its white silhouette is reliable in WebGL.
+function createArmorHudIconTexture(){
+ const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;
+ const ctx=canvas.getContext('2d');
+ const texture=new THREE.CanvasTexture(canvas);
+ texture.colorSpace=THREE.SRGBColorSpace;
+ const image=new Image();
+ image.onload=()=>{
+  ctx.clearRect(0,0,128,128);
+  ctx.beginPath();ctx.arc(64,64,57,0,Math.PI*2);
+  ctx.fillStyle='#09151b';ctx.fill();
+  ctx.lineWidth=7;ctx.strokeStyle='#ffffff';ctx.stroke();
+  ctx.drawImage(image,27,27,74,74);
+  texture.needsUpdate=true;
+ };
+ image.onerror=()=>console.warn('[R.O.K.] No se pudo cargar el factor de armadura de assets/factores.');
+ // Set intrinsic dimensions in an SVG image source without altering the original file.
+ fetch('./assets/factores/factor%20armadura.svg')
+  .then(response=>{if(!response.ok)throw Error('HTTP '+response.status);return response.text();})
+  .then(source=>{
+   const svg=source.replace(/<svg\\b/, '<svg width="128" height="128"');
+   image.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+  }).catch(error=>console.warn('[R.O.K.] Factor armadura:',error));
+ return texture;
+}
+const armorHudIconTexture=createArmorHudIconTexture();
 function createSummonGroundHud(c){
  if(summonGroundHuds.has(c))return;
  const group=new THREE.Group();group.name='ROK_summon_ground_HUD';root.add(group);
@@ -2527,8 +2552,8 @@ function createSummonGroundHud(c){
  const armorIcon=new THREE.Sprite(new THREE.SpriteMaterial({
   map:armorHudIconTexture,transparent:true,depthWrite:false,
   depthTest:false,toneMapped:false}));
- armorIcon.position.set(-.37,.19,.64);
- armorIcon.scale.set(.19,.19,1);armorIcon.renderOrder=20;
+ armorIcon.position.set(-.37,.23,.64);
+ armorIcon.scale.set(.30,.30,1);armorIcon.renderOrder=21;
  armorIcon.visible=c.cardId==='kariona';iconGroup.add(armorIcon);
  summonGroundHuds.set(c,{group,health,attack,shield,lifeTicks,attackTicks,
   shieldTicks,shieldIcon,armorIcon,values:''});
@@ -4955,25 +4980,56 @@ function onOakArmorHolderDeath(c){
   renderSpellbook();
  spellStatus('Armadura de Roble Antiguo dañada. Recrafteo: 2 Tierra.');
 }
-function equipOakArmor(c){
- if(oakArmor.state!=='ready'||!availableOakArmorTargets().includes(c))return false;
- // The body slot is exclusive. Future equipment types will use other slots.
- if(c.equippedBody)return false;
- // Pay only when a valid, living warrior is actually equipped.
- // The separate two-Earth recrafting cost remains unchanged.
- if(!combatHud.spend('ally','earth',oakArmorCard.cost)){
-  spellStatus('Necesitas 2 de Tierra para equipar la Armadura de Roble Antiguo.');
-  return false;
- }
+function applyOakArmor(c){
+ if(oakArmor.state!=='casting'||!availableOakArmorTargets().includes(c))return false;
  c.oakOriginalSpeed=c.speed;
  c.armorPhysical=(c.armorPhysical||0)+2;
  c.armorMagical=(c.armorMagical||0)+1;
  c.speed=Math.max(0,c.speed-c.oakOriginalSpeed/3);
  c.equippedBody='ancient-oak-armor';
  oakArmor.holder=c;oakArmor.state='equipped';
+ renderSpellbook();
+ spellStatus('Armadura de Roble Antiguo equipada: +2 física, +1 mágica, -1 velocidad.');
+ return true;
+}
+function equipOakArmor(c){
+ if(oakArmor.state!=='ready'||!availableOakArmorTargets().includes(c))return false;
+ const caster=casters.find(unit=>unit.side==='ally');
+ if(!caster||caster.stage!=='active')return false;
+ if(!caster.model?.userData?.rokCast22Clip||!caster.model?.userData?.rokCast21Clip){
+  casterMovement.prepareCardCast();
+  spellStatus('Preparando animaciones 22 y 21 para la armadura.');
+  return false;
+ }
+ if(!combatHud.spend('ally','earth',oakArmorCard.cost)){
+  spellStatus('Necesitas 2 de Tierra para equipar la Armadura de Roble Antiguo.');
+  return false;
+ }
+ const started=casterMovement.startCardCast({
+  cost:oakArmorCard.cost,durationMultiplier:2,
+  onRelease:()=>{
+   if(!applyOakArmor(c)){
+    combatHud.refund('ally','earth',oakArmorCard.cost);
+    oakArmor.state='ready';renderSpellbook();
+    spellStatus('Objetivo no disponible: coste de armadura devuelto.');
+   }
+  },
+  onCancel:()=>{
+   if(oakArmor.state!=='casting')return;
+   combatHud.refund('ally','earth',oakArmorCard.cost);
+   oakArmor.state='ready';renderSpellbook();
+   spellStatus('Casteo de armadura interrumpido: coste devuelto.');
+  }
+ });
+ if(!started){
+  combatHud.refund('ally','earth',oakArmorCard.cost);
+  spellStatus('No se pudo iniciar el casteo de la armadura; coste devuelto.');
+  return false;
+ }
+ oakArmor.state='casting';
  spellbook.targetingEquipment=false;spellbook.page=0;
  clearOakTargetMarkers();renderSpellbook();
- spellStatus('Armadura de Roble Antiguo equipada: +2 física, +1 mágica, -1 velocidad.');
+ spellStatus('Casteando Armadura de Roble Antiguo · 2.0 s (equipo x2).');
  return true;
 }
 function renderOakArmorTargets(){
@@ -5053,7 +5109,7 @@ function renderSpellbook(){
   if(card?.race==='melanide')button.classList.add('rokEarthCardArt');
   if(card?.id==='ancient-oak-armor')button.classList.add('rokEarthEquipmentCard');
   const oak=card?.id==='ancient-oak-armor';
-  button.disabled=!card||(oak&&oakArmor.state==='equipped');
+  button.disabled=!card||(oak&&(oakArmor.state==='equipped'||oakArmor.state==='casting'));
   const cardCost=oak&&oakArmor.state==='broken'?card.recraftCost:card?.cost;
   button.setAttribute('aria-label',card?'Casilla '+(i+1)+': '+card.name+
    ', costo '+cardCost+(oak?' · '+oakArmor.state:''):'Casilla '+(i+1)+': vacía');
@@ -5089,7 +5145,7 @@ function renderSpellbook(){
    name.textContent=card.name;button.append(name);
    const cost=document.createElement('span');cost.className='rokSpellCost';
    cost.textContent=oak?(oakArmor.state==='broken'?'Recraftear · 2 Tierra':
-    oakArmor.state==='equipped'?'Equipada':'✦ '+card.cost+' Tierra · Equipar'):'✦ '+card.cost;
+    oakArmor.state==='equipped'?'Equipada':oakArmor.state==='casting'?'Casteando':'✦ '+card.cost+' Tierra · Equipar'):'✦ '+card.cost;
    button.append(cost);
    // Secondary touch must work even with a separate joystick touch held.
    // Pointerdown is handled immediately instead of depending on a synthesized click.
@@ -5213,8 +5269,8 @@ function selectSpellCard(index){
  if(!caster||caster.stage!=='active'){spellStatus('Caster no disponible.');return;}
  if(card.id==='ancient-oak-armor'){
   if(caster.side!=='ally')return;
-  if(oakArmor.state==='equipped'){
-   spellStatus('Armadura equipada; vuelve al grimorio cuando la portadora muera.');return;
+  if(oakArmor.state==='equipped'||oakArmor.state==='casting'){
+   spellStatus('Armadura equipada o en proceso de casteo.');return;
   }
   if(oakArmor.state==='broken'){
    if(!combatHud.spend('ally','earth',2)){
