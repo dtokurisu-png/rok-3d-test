@@ -3014,7 +3014,7 @@ function emitSemilleraCrystal(source){
  group.position.set(
   THREE.MathUtils.clamp(source.outer.position.x+(.5-Math.random())*.8,-MAX_X,MAX_X),
   .34,
-  THREE.MathUtils.clamp(source.outer.position.z-1.15,-MAX_Z,MAX_Z));
+  THREE.MathUtils.clamp(source.outer.position.z-3.1,-MAX_Z,MAX_Z));
  const gem=new THREE.Mesh(semilleraCrystalGeometry,new THREE.MeshBasicMaterial({
   color:0xCCFF00,transparent:true,opacity:.96,depthWrite:false
  }));
