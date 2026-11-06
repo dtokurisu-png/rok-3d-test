@@ -3265,7 +3265,7 @@ function updateCast(c,dt){
     c.castFired=true;
     if(c.castMarker)c.castMarker.marker.visible=false;
     if(canDamageTarget(c.castTarget)&&canAttackSummonTarget(c,c.castTarget)){
-      if(c.kind==='archer')launchArrow(c,c.castTarget);
+      if(c.kind==='archer'||c.cardId==='kariona')launchArrow(c,c.castTarget);
       else launchSpell(c,c.castTarget);
     }
     if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=false;
@@ -3876,6 +3876,34 @@ function spawnImpact(x,z,aoe,enemySpell){
 // de la flecha exportada de Blender: solo la oculta durante el disparo.
 const arrowShaftGeometry=new THREE.CylinderGeometry(.012,.012,.72,6);
 const arrowPointGeometry=new THREE.ConeGeometry(.040,.14,6);
+// The user-provided FBX dart was converted to GLB with its original
+// texture. The default physical dart keeps Cariona's attack non-magical
+// if the optional binary asset has not yet been published.
+let carionaDartModel=null;
+new GLTFLoader().load('./assets/models/projectiles/cariona-dart.glb',
+ gltf=>{carionaDartModel=gltf.scene;},undefined,()=>{});
+function addCarionaDartVisual(group){
+ if(carionaDartModel){
+  const dart=carionaDartModel.clone(true);
+  dart.traverse(o=>{
+   if(!o.isMesh)return;
+   o.material=Array.isArray(o.material)?
+    o.material.map(mat=>mat.clone()):o.material.clone();
+  });
+  // The original model points along +X. Convert that to the flight +Y.
+  dart.rotation.z=Math.PI/2;
+  dart.scale.setScalar(.68);
+  group.add(dart);
+  return;
+ }
+ // Low-cost fallback until the supplied GLB is added to the repository.
+ const shaft=new THREE.Mesh(arrowShaftGeometry,
+  new THREE.MeshStandardMaterial({color:0x735335,roughness:.9}));
+ const point=new THREE.Mesh(arrowPointGeometry,
+  new THREE.MeshStandardMaterial({color:0x9eac65,roughness:.75}));
+ point.position.y=.43;
+ group.add(shaft,point);
+}
 function launchArrow(attacker,target){
   attacker.model.updateMatrixWorld(true);
   const hand=attacker.castHand;
@@ -3884,11 +3912,14 @@ function launchArrow(attacker,target){
   const cell=worldToCell(target.outer.position.x,target.outer.position.z);
   const aim=cellToWorld(cell.col,cell.row);
   const group=new THREE.Group();root.add(group);group.position.copy(from);
-  const shaft=new THREE.Mesh(arrowShaftGeometry,
-    new THREE.MeshStandardMaterial({color:0x9c7340,roughness:.85}));
-  const tip=new THREE.Mesh(arrowPointGeometry,
-    new THREE.MeshStandardMaterial({color:0xc1cbd0,metalness:.6,roughness:.32}));
-  tip.position.y=.43;group.add(shaft,tip);
+  if(attacker.cardId==='kariona')addCarionaDartVisual(group);
+  else{
+   const shaft=new THREE.Mesh(arrowShaftGeometry,
+     new THREE.MeshStandardMaterial({color:0x9c7340,roughness:.85}));
+   const tip=new THREE.Mesh(arrowPointGeometry,
+     new THREE.MeshStandardMaterial({color:0xc1cbd0,metalness:.6,roughness:.32}));
+   tip.position.y=.43;group.add(shaft,tip);
+  }
   const direction=new THREE.Vector3(aim.x-from.x,.95-from.y,aim.z-from.z);
   if(direction.lengthSq()>1e-6)group.quaternion.setFromUnitVectors(
     new THREE.Vector3(0,1,0),direction.normalize());
@@ -3989,7 +4020,8 @@ function embedArrowOnTarget(m){
   // attach() mantiene las transformaciones de mundo y hace que la flecha
   // reciba los movimientos posteriores del hueso sin volver a calcularlos.
   parent.attach(m.group);
-  m.group.name='ROK_FlechaClavada';
+  m.group.name=m.attacker?.cardId==='kariona'?
+    'ROK_DardoCarionaClavado':'ROK_FlechaClavada';
   if(!target.embeddedArrows)target.embeddedArrows=[];
   target.embeddedArrows.push(m.group);
   while(target.embeddedArrows.length>MAX_EMBEDDED_ARROWS_PER_UNIT)
@@ -4025,6 +4057,7 @@ function updateMagic(dt){
       if(m.target.role!=='caster'&&m.target.stage==='active'&&
          canResolveCommittedShot(m,m.target))
         tryEvasion(m.target,m.attacker,m.impactCell);
+      // Physical arrows and Cariona darts do not produce magic impacts.
       if(!m.arrow)spawnImpact(m.aimX,m.aimZ,m.area,m.attacker.side==='enemy');
       if(m.area){
         // Nueve casillas tácticas reales, con comprobación de cada unidad.
