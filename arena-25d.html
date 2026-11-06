@@ -3329,8 +3329,8 @@ function updateDeathSequence(c,dt){
   }else if(c.stage==='dead'){
     c.deathParticlesT=Math.max(0,c.deathParticlesT-dt);
     updateDeathFx(c,dt,0,0);
-    // Tras la desaparición comienza el casteo nuevo de 3 segundos.
-    startSummonCountdown(c);
+    // La muerte es definitiva. Se espera a terminar las partículas;
+    // solo una carta lanzada de nuevo puede crear otra invocación.
   }
 }
 
@@ -3715,14 +3715,9 @@ function incomingCommittedProjectile(target){
       (m.area&&cellRadius(targetCell,m.impactCell)<=1)));
 }
 function requestVictoriousRestoration(source){
-  if(!source||source.role!=='summon'||source.hp<=0)return;
-  if(incomingCommittedProjectile(source)){
-    // La victoria se decide cuando se hayan resuelto los tiros ya lanzados.
-    // Hasta entonces la unidad permanece vulnerable al daño (sin restauración).
-    source.pendingRestore=true;
-    return;
-  }
-  startRestoration(source);
+  // Ganar un duelo no teletransporta ni restaura a una invocación.
+  // El vencedor permanece en el tablero con su vida actual.
+  if(source?.role==='summon')source.pendingRestore=false;
 }
 function resolvePendingVictories(){
   for(const c of combatants){
@@ -4478,6 +4473,15 @@ function updateDuel(dt){
   // El orden del bucle ya no determina quién sobrevive: esperar hasta
   // concluir TODOS los proyectiles de este fotograma.
   resolvePendingVictories();
+  // Reutilizar el destructor existente para retirar las invocaciones
+  // definitivamente tras su muerte y liberar todos los recursos y efectos.
+  for(let i=combatants.length-1;i>=0;i--){
+    const c=combatants[i];
+    if(c.role!=='summon'||c.stage!=='dead'||c.deathParticlesT>0)continue;
+    combatants.splice(i,1);
+    cardSummons.delete(c);
+    disposeCardSummon(c);
+  }
   updatePortalEffects(dt);
   for(const caster of casters){
     // Manual caster mixer is updated in casterMovement.step(), exactly once.
