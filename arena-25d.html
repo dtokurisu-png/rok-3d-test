@@ -2869,7 +2869,9 @@ function finishNewSummon(c,winner=false){
 
 function resetCombatant(c){
   c.currentThreatTarget=null;
-  c.armorPhysical=0;c.armorMagical=0;c.equippedBody=null;
+  c.armorPhysical=c.cardId==='kariona'?1:0;
+  c.armorMagical=c.cardId==='kariona'?1:0;
+  c.equippedBody=null;
   clearEmbeddedArrows(c);
   c.pendingRestore=false;
   c.restorationHp=null;
@@ -2879,11 +2881,12 @@ function resetCombatant(c){
   c.maxHp=archer?ATTACK_PROFILES.archer.hp:shield?12:5;
   if(chiaraSummonDefinitions[c.cardId])c.maxHp=chiaraSummonDefinitions[c.cardId].hp;
   if(c.cardId==='semillera')c.maxHp=1;
+  if(c.cardId==='kariona')c.maxHp=2;
   c.hp=c.maxHp;
   c.shieldMax=shield?2:0;
   c.shield=c.shieldMax;
   c.range=c.cardId==='semillera'?3:(archer?ATTACK_PROFILES.archer.range:shield?3:5);
-  c.attackDamage=c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1));
+  c.attackDamage=c.cardId==='kariona'?2:(c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1)));
   c.speed=shield?2.4:2.15;
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
@@ -4793,8 +4796,13 @@ function ensureLiorenSummonModel(id){
   const box=new THREE.Box3().setFromObject(gltf.scene);
   if(box.isEmpty())throw Error('Modelo sin geometría: '+filename);
   if(mobileCombatMode)reduceModelTextureBudget(gltf.scene,{maxSize:1024});
-  const idle=gltf.animations?.find(a=>/idle|standing/i.test(a.name))||
-   gltf.animations?.[0]||new THREE.AnimationClip('Reposo_'+id,1,[]);
+  // Cariona must never loop an arbitrary imported pose or Standing clip.
+  // Without a named Idle, the existing shared animation adapter supplies it.
+  const idle=id==='kariona'
+   ?(gltf.animations?.find(a=>/idle|reposo|rest/i.test(a.name))||
+      new THREE.AnimationClip('Reposo_kariona',1,[]))
+   :(gltf.animations?.find(a=>/idle|standing/i.test(a.name))||
+      gltf.animations?.[0]||new THREE.AnimationClip('Reposo_'+id,1,[]));
   const entry={scene:gltf.scene,idle};
   liorenSummonModels.set(id,entry);
   liorenSummonLoading.delete(id);
@@ -4814,8 +4822,8 @@ const availableMelanideTargets=()=>[...cardSummons].filter(c=>
  c.side==='ally'&&MELANIDE_CARDS.has(c.cardId)&&c.hp>0&&c.stage==='active');
 function resetOakArmor(){
  if(oakArmor.holder){
-  oakArmor.holder.armorPhysical=0;
-  oakArmor.holder.armorMagical=0;
+  oakArmor.holder.armorPhysical=oakArmor.holder.cardId==='kariona'?1:0;
+  oakArmor.holder.armorMagical=oakArmor.holder.cardId==='kariona'?1:0;
   oakArmor.holder.speed=oakArmor.holder.oakOriginalSpeed??oakArmor.holder.speed;
   oakArmor.holder.equippedBody=null;
  }
@@ -4823,7 +4831,8 @@ function resetOakArmor(){
 }
 function onOakArmorHolderDeath(c){
  if(oakArmor.holder!==c)return;
- c.armorPhysical=0;c.armorMagical=0;
+ c.armorPhysical=c.cardId==='kariona'?1:0;
+ c.armorMagical=c.cardId==='kariona'?1:0;
  c.speed=c.oakOriginalSpeed??c.speed;c.equippedBody=null;
  oakArmor.holder=null;oakArmor.state='broken';
  if(spellbook.page&&qs('#casterMoveSide').value==='ally')
