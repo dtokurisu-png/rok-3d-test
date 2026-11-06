@@ -1910,6 +1910,10 @@ function updateSummonNexuses(dt){
  }
 }
 
+// The Farolera's reference scale must be measured only once from its
+// original GLB. Re-measuring a skinned/animated clone on every summon can
+// produce giant or tiny instances when the skeleton changes pose.
+const faroleraOriginalScale=new WeakMap();
 function createFighter(baseScene,clip,side,kind){
   const model=cloneSkinned(baseScene);
   const outer=new THREE.Group();root.add(outer);outer.add(model);
@@ -1918,8 +1922,15 @@ function createFighter(baseScene,clip,side,kind){
   const startZ=side==='ally'?SPAWN_Z:-SPAWN_Z;
   const startX=kind==='shield'?-1:kind==='mana'?1:0;
   outer.position.set(startX,0,startZ);
-  const size=new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
-  const factor=1.65/Math.max(.2,size.y);
+  const isFarolera=kind==='mana'&&baseScene===window.ROKSummonAssets?.farolera?.scene;
+  let factor;
+  if(isFarolera&&faroleraOriginalScale.has(baseScene)){
+    factor=faroleraOriginalScale.get(baseScene);
+  }else{
+    const size=new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
+    factor=1.65/Math.max(.2,size.y);
+    if(isFarolera)faroleraOriginalScale.set(baseScene,factor);
+  }
   model.scale.setScalar(factor);
   const mats=[];
   model.traverse(o=>{
