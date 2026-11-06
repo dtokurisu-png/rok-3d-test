@@ -4856,18 +4856,7 @@ function equipOakArmor(c){
 }
 function renderOakArmorTargets(){
  spellbookGrid.replaceChildren();
- const back=document.createElement('button');
- back.type='button';back.className='rokSpellSlot';
- back.textContent='← Volver';back.onclick=()=>{
-  spellbook.targetingEquipment=false;renderSpellbook();
- };
- spellbookGrid.append(back);
  const melanides=availableMelanideTargets();
- if(!melanides.length){
-  const note=document.createElement('p');
-  note.textContent='Invoca una melánide y espera que termine de aparecer para equiparla.';
-  spellbookGrid.append(note);
- }
  for(const [i,c] of melanides.entries()){
   const button=document.createElement('button');
   button.type='button';button.className='rokSpellSlot';
