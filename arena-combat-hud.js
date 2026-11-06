@@ -158,6 +158,16 @@ export function createArenaCombatHud(){
   paintElements(side);
   return true;
  }
+ // Guard upkeep: a quarter-element every half second of continuous hold.
+ function spendFragment(side,element){
+  const player=sides[side];
+  if(!player||!player.levels.includes(element))return false;
+  const available=Number(player.elementAmounts[element]||0);
+  if(available+.00001<.25)return false;
+  player.elementAmounts[element]=Math.max(0,Math.round((available-.25)*4)/4);
+  paintElements(side);
+  return true;
+ }
  function refund(side,element,cost){
   const player=sides[side];if(!player||!player.levels.includes(element))return;
   player.elementAmounts[element]=Math.min(player.unlocked[element]||0,
@@ -268,10 +278,9 @@ export function createArenaCombatHud(){
   for(const side of ['ally','enemy']){
    const player=sides[side];
    player.fragmentClock+=dt;
-   // One quarter-element fragment every 2 seconds:
-   // 4 fragments restore 1 complete elemental unit in 8 seconds.
-   while(player.fragmentClock>=2){
-    player.fragmentClock-=2;
+   // 33% slower: one quarter fragment every 3 seconds (was 2).
+   while(player.fragmentClock>=3){
+    player.fragmentClock-=3;
     for(let n=0;n<1+(player.regenBonus||0);n++)regenerateFragment(side);
    }
   }
@@ -285,5 +294,5 @@ export function createArenaCombatHud(){
   return {available:Number(player.elementAmounts[element]||0),
    unlocked:Number(player.unlocked[element]||0)};
  }
- return {configure,draw,reset,advance,setElements,collectOrb,collectFragment,addRegenSpeed,spend,refund,getResources};
+ return {configure,draw,reset,advance,setElements,collectOrb,collectFragment,addRegenSpeed,spend,spendFragment,refund,getResources};
 }
