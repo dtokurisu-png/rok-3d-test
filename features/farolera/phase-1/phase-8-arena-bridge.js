@@ -10,6 +10,8 @@ import {
  tickChiaraFarolera,chiaraFaroleraDeath
 } from './phase-8-chiara-controller.js';
 import {assessFaroleraThreat} from './phase-7-defense.js';
+import {directedLampPosition,directedTarget,canDirectedCast,DIRECTED_TELEPORT_COOLDOWN}
+ from './phase-9-directed-teleport.js';
 import {lerpLanternPosition,prepareLanternThrow,distanceXZ} from './phase-3-lantern.js';
 
 export function createFaroleraArenaIntegration({THREE,root,combatants,casters,getClip,setAnim,releaseDuel}){
@@ -96,13 +98,13 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
  function makeLantern(c){
   const group=new THREE.Group();root.add(group);
   const cage=new THREE.Mesh(new THREE.CylinderGeometry(.13,.10,.31,8),
-   new THREE.MeshStandardMaterial({color:0x967345,metalness:.65,roughness:.35,
-    emissive:0xb98e26,emissiveIntensity:.6}));
+   new THREE.MeshStandardMaterial({color:0x135d9a,metalness:.6,roughness:.28,
+    emissive:0x008ff6,emissiveIntensity:1.3}));
   group.add(cage);
   const glow=new THREE.Mesh(new THREE.SphereGeometry(.11,12,8),
-   new THREE.MeshBasicMaterial({color:0xffe7aa}));
+   new THREE.MeshBasicMaterial({color:0x77eaff}));
   group.add(glow);
-  const pointLight=new THREE.PointLight(0xffd89b,2.3,3.5,2);
+  const pointLight=new THREE.PointLight(0x27baff,3.4,5.5,1.5);
   group.add(pointLight);
   const chainMat=new THREE.MeshStandardMaterial({color:0x9c9c91,metalness:.68,roughness:.4});
   const chain=new THREE.Mesh(new THREE.CylinderGeometry(.013,.013,1,8),chainMat);
@@ -137,13 +139,15 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
    chiaraId:'chiara-'+side,faroleraId:c.rokFaroleraId,side
   });
   const e={unit:c,controller,step:'idle',time:0,circle:null,lantern:null,
-   plan:null,hiddenLamp:false,lastMode:null,finished:false};
+   plan:null,hiddenLamp:false,lastMode:null,finished:false,
+   cooldown:0,target:null,castSnapshot:null,transitGlow:null};
   entries.set(c,e);
   return e;
  }
  function remove(c){
   const e=entries.get(c);if(!e)return;
   chiaraFaroleraDeath(e.controller);
+  clearNode(e.transitGlow);e.transitGlow=null;
   disposeVisual(e);entries.delete(c);
  }
  function reset(){for(const c of [...entries.keys()])remove(c)}
@@ -163,49 +167,82 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   }
   return true;
  }
+ // The lamp is always the FIRST activation. One target, one cast, no
+ // persistent portal entry detection. The target is selected at cast time.
  function begin(e,plan){
   const c=e.unit;
-  const defensive=plan.mode==='defensive';
-  const result=defensive?
-   activateChiaraDefensiveLantern(e.controller,plan,{farolera:snapshot(c)}):
-   activateChiaraFaroleraCircle(e.controller,plan,{farolera:snapshot(c)});
-  if(!result.ok)return false;
+  if(e.step!=='idle'||e.cooldown>0)return false;
+  if(!canDirectedCast(snapshot(c),e.opponents||[],c.duelOpponent))return false;
   disposeVisual(e);
-  e.plan=plan;e.time=0;
-  if(defensive){
-   e.step='throw-animation';setClipSegment(e,2);
-  }else{
-   e.circle=makeCircle(plan.circle,c.side);
-   e.step='circle-animation';
-   const hasClip=setClipSegment(e,14,26,50);
-   e.stageTime=hasClip?Math.max(.30,e.animEnd-26/30):.75;
-  }
+  e.plan=plan;e.target=null;e.time=0;
+  e.step='throw-animation';
+  setClipSegment(e,2);
   return true;
  }
  function throwLantern(e){
   const c=e.unit;
-  let result;
-  try{
-   result=e.plan.mode==='defensive'?{ok:true}:
-    activateChiaraFaroleraLantern(e.controller);
-  }catch(error){
-   console.warn('[ROK Farolera] Lanzamiento inválido:',error);
-   e.step='idle';return;
-  }
-  if(!result.ok){e.step='idle';return}
-  // Both offensive and defensive lamp launches validate the actual current
-  // Farolera position, never an earlier planned or future position.
-  if(distanceXZ(snapshot(c),e.plan.lamp)>4+1e-8){
-   console.warn('[ROK Farolera] Farol fuera de alcance al lanzar');
-   e.step='idle';return;
-  }
-  const oldLantern=e.lantern;
-  if(oldLantern){clearNode(oldLantern.group);clearNode(oldLantern.chain)}
+  const current=snapshot(c);
+  if(distanceXZ(current,e.plan.lamp)>4+1e-8){e.step='idle';return}
   e.lantern=makeLantern(c);
   if(c.lamp){c.lamp.visible=false;e.hiddenLamp=true}
-  e.throwPlan=prepareLanternThrow(snapshot(c),e.plan.lamp);
+  e.throwPlan=prepareLanternThrow(current,e.plan.lamp);
   e.step='throw-flight';e.time=0;
-  e.lantern.group.position.set(c.outer.position.x,.85,c.outer.position.z);
+  e.lantern.group.position.set(current.x,.85,current.z);
+ }
+ function findTarget(e){
+  const c=e.unit,mode=e.plan.mode;
+  return directedTarget({
+   farolera:snapshot(c),
+   allies:combatants.filter(u=>u!==c&&u.side===c.side&&u.role==='summon'&&u.hp>0).map(snapshot),
+   enemies:e.opponents||[],mode,
+   inCombat:u=>{
+    const actual=combatants.find(x=>getId(x)===u.id);
+    return !!actual?.duelOpponent;
+   }
+  });
+ }
+ function beginTransport(e){
+  if(!e.lantern||!e.plan)return false;
+  const c=e.unit;
+  if(!canDirectedCast(snapshot(c),e.opponents||[],c.duelOpponent))return false;
+  const chosen=findTarget(e);
+  if(!chosen)return false;
+  const actual=combatants.find(u=>getId(u)===chosen.id);
+  if(!actual||actual.hp<=0||actual.duelOpponent)return false;
+  e.target=actual;e.castSnapshot=chosen;
+  clearNode(e.circle);
+  e.circle=makeCircle(chosen,c.side);
+  e.step='transport-cast';e.time=0;
+  const clip=getClip(c,14);
+  const ok=!!clip&&setClipSegment(e,14,26,50);
+  e.stageTime=ok?Math.max(.3,e.animEnd-26/30):.8;
+  // Distinct aquamarine glow over the beneficiary while the spell plays.
+  const color=c.side==='enemy'?0x59caff:0x00dfff;
+  const aura=new THREE.Mesh(new THREE.SphereGeometry(.66,20,12),
+   new THREE.MeshBasicMaterial({color,transparent:true,opacity:.12,
+    blending:THREE.AdditiveBlending,depthWrite:false,depthTest:false}));
+  aura.position.set(actual.outer.position.x,.85,actual.outer.position.z);
+  root.add(aura);e.transitGlow=aura;
+  return true;
+ }
+ function completeTransport(e){
+  const c=e.unit,unit=e.target;
+  if(unit&&unit.hp>0&&!['dead','dying','vanishing'].includes(unit.stage)){
+   const x=e.plan.lamp.x,z=e.plan.lamp.z;
+   // Teleport is instantaneous after the cast, never a new movement state.
+   // Keep active/casting/attack state, speed and AI movement intact.
+   if(unit.duelOpponent){/* Do not remove an active fight. */}
+   else{
+    unit.outer.position.set(x,unit.outer.position.y,z);
+    unit.currentThreatTarget=null;
+    if(unit===c)e.finished=true;
+   }
+  }
+  clearNode(e.transitGlow);e.transitGlow=null;
+  clearNode(e.circle);e.circle=null;
+  e.target=null;e.castSnapshot=null;
+  e.step='idle';e.cooldown=DIRECTED_TELEPORT_COOLDOWN;
+  setAnim(c,'idle',{fade:.16});
  }
  function getUnits(e){
   return combatants.filter(c=>c.role==='summon'&&c.hp>0&&!['dead','vanishing','dying'].includes(c.stage)&&
@@ -225,31 +262,24 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   return risky||approaching?'defensive':'offensive';
  }
  function tick(dt){
-  const current=combatants.filter(c=>c.cardId==='farolera');
-  for(const c of current)if(!entries.has(c))attach(c);
+  for(const unit of combatants)if(unit.cardId==='farolera'&&!entries.has(unit))attach(unit);
   for(const [c,e] of entries){
-   if(!combatants.includes(c)){remove(c);continue}
-   const caster=casters.find(k=>k.side===c.side&&k.stage==='active');
-   if(!caster||!c.hp||['dead','vanishing','dying'].includes(c.stage)){
+   if(!combatants.includes(c)||!c.hp||['dead','dying','vanishing'].includes(c.stage)){
     remove(c);continue;
    }
+   e.cooldown=Math.max(0,e.cooldown-dt);
+   const caster=casters.find(k=>k.side===c.side&&k.stage==='active');
+   if(!caster)continue;
    const own=snapshot(c);
    const friends=combatants.filter(u=>u!==c&&u.side===c.side&&u.hp>0&&u.role==='summon')
     .map(snapshot);
    const opponents=[...combatants,...casters].filter(u=>u.side!==c.side&&u.hp>0)
     .map(snapshot);
+   e.opponents=opponents;
    const mode=chooseChiaraMode(c,friends,opponents);
-   // A change of strategic order never interrupts an animation in progress.
-   if(e.step==='idle'&&e.controller.order!==mode){
+   if(e.step==='idle'&&e.controller.order!==mode)
     orderFaroleraMode(e.controller,{issuerId:e.controller.chiaraId,mode});
-   }
-   if(e.step==='circle-animation'){
-    e.time+=dt;
-    if(e.time>=e.stageTime){
-     setClipSegment(e,2);
-     e.step='throw-animation';e.time=0;
-    }
-   }else if(e.step==='throw-animation'){
+   if(e.step==='throw-animation'){
     e.time+=dt;
     if(e.time>=.35)throwLantern(e);
    }else if(e.step==='throw-flight'){
@@ -258,75 +288,48 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
     const v=lerpLanternPosition(e.throwPlan,t);
     e.lantern.group.position.set(v.x,v.height,v.z);
     linkChain(c,e.lantern);
-    if(t===1){
-     e.step=e.plan.mode==='defensive'?'defense-wait':'idle';
-     e.time=0;setAnim(c,'idle',{fade:.16});
-    }
-   }else if(e.step==='defense-wait'){
-    // Rescue circles are cast only when the beneficiary actually faces danger.
-    // Farolera can move with allies after depositing the lamp.
+    if(t>=1){e.step='target-wait';e.time=0;setAnim(c,'idle',{fade:.15})}
+   }else if(e.step==='target-wait'){
+    // Combat stops initiation, but a fight is never broken just to cast.
     e.time+=dt;
-    const target=combatants.find(u=>getId(u)===e.plan.targetId&&u.hp>0&&
-      !['dead','dying','vanishing'].includes(u.stage));
-    const rescue=target||c;
-    const t=assessFaroleraThreat(snapshot(rescue),opponents);
-    const origin=snapshot(c),destination=snapshot(rescue);
-    if((t.danger>0||t.lethal)&&distanceXZ(origin,destination)<=4+1e-8&&
-      distanceXZ(destination,e.plan.lamp)>1.15){
-     const result=activateChiaraDefensiveCircle(e.controller,{
-      farolera:origin,circle:{x:destination.x,z:destination.z}
-     });
-     if(result.ok){
-      e.circle=makeCircle(destination,c.side);
-      e.step='circle-animation-defense';e.time=0;
-      const hasClip=setClipSegment(e,14,26,50);
-      e.stageTime=hasClip?Math.max(.30,e.animEnd-26/30):.75;
-     }
-    }
+    if(canDirectedCast(snapshot(c),opponents,c.duelOpponent))beginTransport(e);
     if(e.lantern)linkChain(c,e.lantern);
-   }else if(e.step==='circle-animation-defense'){
+   }else if(e.step==='transport-cast'){
     e.time+=dt;
-    if(e.time>=e.stageTime){e.step='idle';setAnim(c,'idle',{fade:.16});}
+    if(e.target&&e.target.hp>0&&e.transitGlow){
+     e.transitGlow.position.set(e.target.outer.position.x,.85,e.target.outer.position.z);
+     const p=Math.min(1,e.time/e.stageTime);
+     e.transitGlow.material.opacity=.10+.45*p;
+     e.transitGlow.scale.setScalar(.9+.5*p);
+    }
+    if(e.time>=e.stageTime)completeTransport(e);
     if(e.lantern)linkChain(c,e.lantern);
-   }else if(e.lantern){
-    linkChain(c,e.lantern);
-   }
+   }else if(e.lantern)linkChain(c,e.lantern);
    if(e.circle){
     e.circle.rotation.y+=dt*.45;
     const fx=e.circle.userData.magicPulse;
     if(fx){
      fx.phase+=dt*3.1;
      const wave=Math.sin(fx.phase);
-     const pulse=1+.035*wave;
-     e.circle.scale.set(pulse,1,pulse);
-     for(const item of fx.animated)
-      item.material.opacity=item.baseOpacity*(.91+.09*wave);
+     e.circle.scale.set(1+.035*wave,1,1+.035*wave);
+     for(const item of fx.animated)item.material.opacity=item.baseOpacity*(.91+.09*wave);
      fx.light.intensity=fx.baseLight*(.90+.10*wave);
     }
    }
-   const units=['throw-flight','circle-animation-defense'].includes(e.step)?[]:getUnits(e);
-   const {ability,transfers}=tickChiaraFarolera(e.controller,dt,units);
-   if(!ability.portalActive&&e.step==='idle'&&e.circle)disposeVisual(e);
-   for(const transfer of transfers){
-    const unit=combatants.find(u=>getId(u)===transfer.id);
-    if(!unit||!active(unit))continue;
-    releaseDuel(unit);
-    unit.outer.position.set(transfer.to.x,unit.outer.position.y,transfer.to.z);
-    unit.currentThreatTarget=null;
-   }
-   if(e.step==='idle'&&ability.canCast&&active(c)){
-    const plan=proposeChiaraFaroleraAction(e.controller,{
-     farolera:own,allies:friends,enemies:opponents,
-     friendlyCaster:snapshot(caster),
-     enemyCaster:opponents.find(u=>u.role==='caster')
-    });
-    if(plan.ok)begin(e,plan);
+   if(e.step==='idle'&&e.cooldown<=0&&active(c)&&
+    canDirectedCast(own,opponents,c.duelOpponent)){
+    // Launch forward on own half in offense, backward in defense.
+    const lamp=directedLampPosition({farolera:own,mode});
+    const target=directedTarget({farolera:own,allies:friends,
+     enemies:opponents,mode,inCombat:u=>!!combatants.find(x=>getId(x)===u.id)?.duelOpponent});
+    if(lamp&&(mode==='defensive'||target)&&distanceXZ(lamp,own)>.3)
+     begin(e,{mode,lamp});
    }
   }
  }
  function immobilized(c){
   const e=entries.get(c);
-  return !!e&&e.step!=='idle'&&e.step!=='defense-wait';
+  return !!e&&['throw-animation','throw-flight','transport-cast'].includes(e.step);
  }
  /**
   * Defensive escort: follow the threatened ally rather than chasing the
@@ -334,27 +337,9 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   * Called from the existing arena's movement loop, not a parallel game loop.
   */
  function escort(c,dt){
-  const e=entries.get(c);
-  if(!e||c.stage!=='active')return false;
-  // The Farolera is a tactical support unit. Hold her in the back during
-  // offense so an incoming ally can use the full four-cell portal projection.
-  if(e.step==='idle'&&e.controller.order==='offensive'){
-   setAnim(c,'idle',{fade:.15});return true;
-  }
-  if(e.step!=='defense-wait')return false;
-  const target=combatants.find(u=>getId(u)===e.plan.targetId&&u!==c&&u.hp>0&&
-   !['dead','dying','vanishing'].includes(u.stage));
-  if(!target)return false;
-  const dx=target.outer.position.x-c.outer.position.x;
-  const dz=target.outer.position.z-c.outer.position.z;
-  const dist=Math.hypot(dx,dz);
-  if(dist>1.35){
-   const step=Math.min((c.speed||2)*dt,dist-1.35);
-   c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/dist*step,-7.25,7.25);
-   c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/dist*step,-14.75,14.75);
-   setAnim(c,12,{fade:.16});
-  }else setAnim(c,'idle',{fade:.15});
-  return true;
+  // Do not seize locomotion after a teleport; the normal arena movement
+  // and target-acquisition loops continue on their following tick.
+  return false;
  }
  function lanternDeployed(c){
   const e=entries.get(c);
