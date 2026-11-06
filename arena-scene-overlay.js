@@ -1,11 +1,12 @@
 /* R.O.K. 3D Studio · tester visual scenario overlay (stage 5).
    Strictly decorative: never touches the arena's combatants, colliders or tiles. */
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {reduceModelTextureBudget} from './arena-asset-budget.js?v=1';
 import {createSceneBackground,normalizeSceneBackground} from './scene-background.js';
 import {createSceneFloor,normalizeSceneFloor} from './scene-floor.js';
 import {ARENA_COLUMNS,ARENA_ROWS,SCENERY_BOUNDS,assertPlacement} from './scene-placement-rules.js';
 
-export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual,onSourcesChange}){
+export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual,onSourcesChange,lightweightTextures=false}){
  const catalog=new Map(), cache=new Map();
  const loader=new GLTFLoader();
  const scenery=new THREE.Group();scenery.name='ROK_scenery_visual_only';root.add(scenery);
@@ -84,6 +85,7 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual,o
   if(!cache.has(model.id)){
    const promise=loader.loadAsync(url(model.path)).then(gltf=>{
     const group=gltf.scene;
+    if(lightweightTextures)reduceModelTextureBudget(group,{maxSize:768});
     const bound=new THREE.Box3().setFromObject(group);
     if(bound.isEmpty())throw Error('Modelo sin geometría: '+model.name);
     const size=bound.getSize(new THREE.Vector3());
