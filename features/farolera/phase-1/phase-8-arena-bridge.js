@@ -45,22 +45,52 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   });
  };
  function makeCircle(p,side){
-  const group=new THREE.Group();group.position.set(p.x,.07,p.z);
-  const m=new THREE.MeshBasicMaterial({color:side==='enemy'?0xb692ff:0x5dffdc,
-   transparent:true,opacity:.82,depthWrite:false,side:THREE.DoubleSide});
-  for(const [r,thick] of [[.42,.035],[.29,.014]]){
-   const ring=new THREE.Mesh(new THREE.RingGeometry(r,r+thick,48),m.clone());
-   ring.rotation.x=-Math.PI/2;group.add(ring);
+  // Brighter magic circle: separate concentric runes, additive halos, and
+  // a restrained real light. This remains purely visual (portal radius .48).
+  const group=new THREE.Group();group.position.set(p.x,.072,p.z);
+  group.name='ROK_Farolera_BrightPortalCircle';
+  const isEnemy=side==='enemy';
+  const primary=isEnemy?0xd1b6ff:0x9afff3;
+  const halo=isEnemy?0xb89aff:0x66fce0;
+  const addMaterial=(color,opacity)=>new THREE.MeshBasicMaterial({
+   color,transparent:true,opacity,depthWrite:false,depthTest:true,
+   side:THREE.DoubleSide,blending:THREE.AdditiveBlending
+  });
+  const animated=[];
+  const addSurface=(mesh,baseOpacity)=>{
+   mesh.rotation.x=-Math.PI/2;
+   mesh.renderOrder=15;
+   group.add(mesh);
+   animated.push({material:mesh.material,baseOpacity});
+   return mesh;
+  };
+  // Wide, soft halo and internal energy — visually larger than the
+  // collision circle, without changing the actual teleport activation area.
+  const outer=addSurface(new THREE.Mesh(
+   new THREE.RingGeometry(.45,.74,64),addMaterial(halo,.26)),.26);
+  outer.position.y=.001;
+  const inner=addSurface(new THREE.Mesh(
+   new THREE.CircleGeometry(.35,64),addMaterial(primary,.16)),.16);
+  inner.position.y=.002;
+  for(const [radius,width,opacity] of [[.42,.047,1],[.31,.018,.86],[.19,.014,.69]]){
+   const ring=addSurface(new THREE.Mesh(
+    new THREE.RingGeometry(radius,radius+width,64),
+    addMaterial(primary,opacity)),opacity);
+   ring.position.y=.004;
   }
-  for(let i=0;i<7;i++){
-   const a=i*Math.PI*2/7;
-   const sign=new THREE.Mesh(new THREE.PlaneGeometry(.085,.12),
-    new THREE.MeshBasicMaterial({color:0xd6fff4,side:THREE.DoubleSide,transparent:true,opacity:.88}));
-   sign.rotation.x=-Math.PI/2;
-   sign.rotation.z=a;
-   sign.position.set(Math.cos(a)*.35,.003,Math.sin(a)*.35);
-   group.add(sign);
+  // Eight high-contrast glyph marks, with each material pulse-managed once.
+  for(let i=0;i<8;i++){
+   const angle=i*Math.PI/4;
+   const rune=addSurface(new THREE.Mesh(
+    new THREE.PlaneGeometry(.080,.13),addMaterial(0xffffff,.98)),.98);
+   rune.rotation.z=angle;
+   rune.position.set(Math.cos(angle)*.375,.006,Math.sin(angle)*.375);
   }
+  const circleLight=new THREE.PointLight(halo,1.35,3,2);
+  circleLight.position.set(0,.55,0);group.add(circleLight);
+  group.userData.magicPulse={
+   phase:0,animated,light:circleLight,baseLight:1.35
+  };
   root.add(group);return group;
  }
  function makeLantern(c){
@@ -263,6 +293,16 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
    }
    if(e.circle){
     e.circle.rotation.y+=dt*.45;
+    const fx=e.circle.userData.magicPulse;
+    if(fx){
+     fx.phase+=dt*3.1;
+     const wave=Math.sin(fx.phase);
+     const pulse=1+.035*wave;
+     e.circle.scale.set(pulse,1,pulse);
+     for(const item of fx.animated)
+      item.material.opacity=item.baseOpacity*(.91+.09*wave);
+     fx.light.intensity=fx.baseLight*(.90+.10*wave);
+    }
    }
    const units=['throw-flight','circle-animation-defense'].includes(e.step)?[]:getUnits(e);
    const {ability,transfers}=tickChiaraFarolera(e.controller,dt,units);
