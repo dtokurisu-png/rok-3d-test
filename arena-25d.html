@@ -128,17 +128,6 @@ canvas{display:block;touch-action:none}
 .casterStar{color:#ffe17c;font-size:24px;line-height:.8;text-shadow:0 1px 3px #000,0 0 9px #f3af31;flex:none}
 .unitTag.caster.defeated .unitHealth{opacity:.6}
 .unitTag.caster.defeated .casterStar{opacity:.5}
-/* Cuenta atrás del casteo de sustitución, independiente del HUD de vida. */
-#summonCastLayer{position:fixed;inset:0;pointer-events:none;z-index:10}
-.summonCast{position:absolute;transform:translate(-50%,-100%);
-  width:142px;padding:5px 7px 7px;background:#081c2be8;
-  border:1px solid #55cbbf;border-radius:7px;box-shadow:0 2px 10px #0008;
-  text-align:center;font:700 11px/1.25 Roboto,system-ui,sans-serif;color:#fff;
-  text-shadow:0 1px 2px #000}
-.summonCast.enemy{border-color:#dc91b2}
-.summonCastMeter{height:6px;margin-top:5px;border-radius:5px;overflow:hidden;background:#163d46}
-.summonCastFill{width:0%;height:100%;background:#00ffe4;transition:width .05s linear}
-.summonCast.enemy .summonCastFill{background:#ef9ac3}
 @media(max-width:759px){
   #phase,#hint{bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}
   .unitTag{width:90px}
@@ -525,7 +514,6 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <div id="casterAttackTargetLayer" aria-hidden="true"><span id="casterAttackReticle" class="rokAttackReticle"></span></div>
 <div id="orbEdgeLayer" aria-hidden="true"></div>
 <div id="summonEdgeLayer" aria-hidden="true"></div>
-<div id="summonCastLayer" aria-hidden="true"></div>
 <div id="phase">Preparando combate…</div>
 <div id="hint">WASD: mover · Espacio: atacar · Shift: defensa</div>
 <section id="rokSpellbook" aria-label="Grimorio de tres páginas">
@@ -2346,18 +2334,6 @@ function hitEffects(t){
   hits.rotation.set(.4,(which+1)*.9,which%2?1.2:-.9);
   if(max>.3)qs('#phase').textContent='⚔ Intercambio de golpes · demostración';
 }
-function updateStage(t){
-  let msg='Preparando combate…';
-  if(t<1.4)msg='✦ Materializando ambas Faroleras';
-  else if(t<5.85)msg='➜ Avanzando por las 9 filas propias hacia el rival';
-  else if(t<8.2)msg='⚔ Encuentro · combate de prueba';
-  else if(t<8.38)msg='✦ Brillo de restauración tras el combate';
-  else if(t<9.28)msg='✧ Retorno 2× rápido · estela de partículas';
-  else if(t<9.95)msg='✦ Reapareciendo desde el suelo';
-  else msg='✓ Restauración completada · próximo avance sin aparición extra';
-  qs('#phase').textContent=msg;
-}
-
 /* R.O.K. arena · duelo de prueba v0.9.7. No altera el motor del juego principal. */
 let attackMode='magic';
 const nameplates=new Map();
@@ -2704,34 +2680,6 @@ function updateNameplate(c){
    del vencedor; no crear mallas/sistemas adicionales en cada muerte. */
 const SUMMON_CAST_SECONDS=3;
 const SUMMON_RISE_SECONDS=.95;
-function makeSummonCountdown(c){
-  const el=document.createElement('div');
-  el.className='summonCast '+c.side;
-  el.style.display='none';
-  el.innerHTML='<span class="summonCastLabel">Casteando · 3.0 s</span>'+
-    '<div class="summonCastMeter"><div class="summonCastFill"></div></div>';
-  qs('#summonCastLayer').appendChild(el);
-  c.summonBar=el;
-}
-function updateSummonCountdown(c){
-  const el=c.summonBar;
-  if(!el)return;
-  if(c.stage!=='summonCasting'){
-    el.style.display='none';return;
-  }
-  const position=new THREE.Vector3(c.startX,.45,c.startZ).project(camera);
-  if(position.z< -1||position.z>1||
-     Math.abs(position.x)>1.1||Math.abs(position.y)>1.15){
-    el.style.display='none';return;
-  }
-  el.style.display='block';
-  el.style.left=((position.x*.5+.5)*innerWidth)+'px';
-  el.style.top=((-position.y*.5+.5)*innerHeight)+'px';
-  el.querySelector('.summonCastLabel').textContent='Casteando · '+
-    Math.max(0,c.summonCastLeft).toFixed(1)+' s';
-  el.querySelector('.summonCastFill').style.width=
-    (100*THREE.MathUtils.clamp(1-c.summonCastLeft/SUMMON_CAST_SECONDS,0,1))+'%';
-}
 function clearSummonFx(c){
   if(!c.fx)return;
   c.fx.ring.material.opacity=0;
@@ -2775,8 +2723,6 @@ function startSummonCountdown(c){
   c.summonCastLeft=SUMMON_CAST_SECONDS;
   c.summonProgress=0;
   c.model.visible=false;
-  if(c.summonBar)c.summonBar.style.display='none';
-  qs('#phase').textContent='✦ Casteando una nueva invocación · 3 segundos';
 }
 function beginSummonEmergence(c){
   releaseSummonDuel(c);
@@ -2837,7 +2783,6 @@ function beginSummonEmergence(c){
   c.summonBlending=false;c.summonBlendLeft=0;c.summonBlendDuration=0;
   c.stage=winner?'restoring':'summonEmerging';
   if(winner)c.restorationPhase='rise';
-  if(c.summonBar)c.summonBar.style.display='none';
   c.fx.g.position.set(c.startX,.08,c.startZ);
   updateSummonFx(c,0);
   resetLampDynamics(c);
@@ -2978,7 +2923,6 @@ function resetCombatant(c){
   c.restorationStartX=0;c.restorationStartZ=0;
   c.summonCastLeft=0;c.summonProgress=0;c.summonStandingLeft=0;c.summonBaseY=0;
   c.summonBlending=false;c.summonBlendLeft=0;c.summonBlendDuration=0;
-  if(c.summonBar)c.summonBar.style.display='none';
   c.cooldown=archer?.45:c.kind==='mana'?.20:.65;
   c.specialCooldown=0;
   c.baseEndZ=c.endZ;
@@ -3040,7 +2984,6 @@ function disposeCardSummon(c){
  for(const part of c.deathFx?.particles||[])unmount(part.sprite);
  removeSummonNexus(c);
  nameplates.get(c)?.remove();nameplates.delete(c);
- c.summonBar?.remove();c.summonBar=null;
  const ground=summonGroundHuds.get(c);
  if(ground){
   ground.group.traverse(node=>{
@@ -3077,10 +3020,9 @@ function verifyCleanMatchBoundary(){
  if(leaked)console.warn('[R.O.K.] Comprobación de limpieza tras reinicio:',residue);
  return !leaked;
 }
-// Semillera: one small single-orb crystal every five active seconds.
-// Collected by the allied caster; each pickup grants +1 regeneration speed
-// for the current match, never unlocks additional elemental reservoirs.
 // Melánide Semillera: each instance owns an independent 10-second timer.
+// Each collected orb grants +1 allied regeneration speed, without
+// unlocking additional elemental reservoirs.
 // Cast 22 (frames 0..48, 0.5s), then 21 (from frame 20, native speed).
 // Exactly ONE miniature orb is released on the final frame of clip 21.
 const semilleraCrystals=[];
@@ -4470,7 +4412,7 @@ function updateDuel(dt){
       if(c.cardId==='semillera'&&!c.crystalCast){
        c.crystalClock=Math.min(SEMILLERA_PERIOD,(c.crystalClock||0)+dt);
        // Count the two casting phases INSIDE each 10-second production
-       // interval: do not wait five seconds and then add the animation.
+       // interval: do not add the animation after the timer expires.
        if(c.outer.position.z>=MAX_Z-.03){
         const clips=semilleraSourceClips(c);
         if(clips){
@@ -5083,7 +5025,7 @@ function summonCardFarolera(caster){
  c.startX=x;c.startZ=z;c.endZ=z;
  c.model.userData.baseScale=c.model.scale.x;
  resetCombatant(c);
- makeNameplate(c);makeSummonCountdown(c);
+ makeNameplate(c);
  createSummonNexus(c,arenaCharacterArt.farolera);
  cardSummons.add(c);
  // Use the ORIGINAL emergence: rise from beneath the floor with the
@@ -5104,7 +5046,7 @@ function summonChiaraCard(caster,card){
  unit.cardId=card.id;unit.startX=x;unit.startZ=z;unit.endZ=z;
  unit.model.userData.baseScale=unit.model.scale.x;
  resetCombatant(unit);
- makeNameplate(unit);makeSummonCountdown(unit);
+ makeNameplate(unit);
  cardSummons.add(unit);
  unit.stage='summonCasting';unit.summonCastLeft=0;
  beginSummonEmergence(unit);
@@ -5124,7 +5066,7 @@ function summonLiorenCard(caster,card){
  c.startX=x;c.startZ=z;c.endZ=z;
  c.model.userData.baseScale=c.model.scale.x;
  resetCombatant(c);
- makeNameplate(c);makeSummonCountdown(c);
+ makeNameplate(c);
  // Generic summon appearance; unique abilities/portraits come later.
  cardSummons.add(c);
  c.stage='summonCasting';c.summonCastLeft=0;
@@ -5936,7 +5878,7 @@ function loop(now){
     if(c.stage==='defeated'&&c.deathAnimationActive)c.mixer.update(dt);
   if(casterReview.active&&casterReview.previousCaster)casterReview.previousCaster.mixer.update(dt);
   if(loaded){
-    for(const c of combatants){updateNameplate(c);updateSummonCountdown(c);}
+    for(const c of combatants)updateNameplate(c);
     for(const c of casters)updateNameplate(c);
     updateCasterThreatIndicators();
     updateCasterAttackReticle();
