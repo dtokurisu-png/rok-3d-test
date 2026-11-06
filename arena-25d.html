@@ -417,7 +417,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.119</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.120</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -968,6 +968,10 @@ const ARROW_FLIGHT_SPEED=28.5; // 3 x 9,5 casillas/s; NO modifica la cadencia de
 const ARCHER_ARM_PROFILE={rightarm:{x:-18,y:58,z:-14},leftarm:{x:20,y:-10,z:5}};
 let archerRigReference=null;
 function getCombatClip(c,id){
+  // The new invocations have their own GLB rigs. Until their dedicated
+  // animations are assigned, never retarget Farolera animations onto them.
+  if(c.cardId&&['semillera','kariona','astarium'].includes(c.cardId))
+   return id==='idle'?c.idleClip:null;
   return id==='idle'?c.idleClip:
     (c.kind==='archer'?archerCombatAnimations:combatAnimations).get(id);
 }
@@ -2106,7 +2110,7 @@ const matchGate=createArenaMatchGate({
   if(!loaded)throw Error('Los modelos todavía no están listos');
   casterMovement?.disable();
   resetDemoCombat();
-  combatHud.configure('ally',configuration);
+  combatHud.configure('ally',['earth']);
   combatHud.configure('enemy',['water']);
   combatHud.reset();
   elementOrbs.reset();
@@ -4510,6 +4514,48 @@ const spellCards=[
    portrait:arenaCharacterArt.farolera},null,null,null,null,null,null,null,null],
  Array(9).fill(null),Array(9).fill(null)
 ];
+// Three Earth invocations assigned to Lioren only. Spells, traits and
+// special locomotion will be implemented in the next phase.
+const liorenSpellCards=[
+ [{id:'semillera',name:'Dríada Semillera',element:'earth',cost:1},
+  {id:'kariona',name:'Kariona',element:'earth',cost:2},
+  {id:'astarium',name:'Amor de Astarium',element:'earth',cost:3},
+  null,null,null,null,null,null],
+ Array(9).fill(null),Array(9).fill(null)
+];
+const spellDeckForSide=side=>side==='enemy'?spellCards:liorenSpellCards;
+// The same GLBs used in the viewer; they remain optional for loading the
+// arena itself, never substituted by Farolera.
+const liorenSummonFiles={
+ semillera:'DRIADA SEMILLERA.glb',
+ kariona:'kariona invocacion.glb',
+ astarium:'AMOR DE ASTARIUM.glb'
+};
+const liorenSummonModels=new Map();
+const liorenSummonLoading=new Map();
+function ensureLiorenSummonModel(id){
+ if(liorenSummonModels.has(id))return Promise.resolve(liorenSummonModels.get(id));
+ if(liorenSummonLoading.has(id))return liorenSummonLoading.get(id);
+ const filename=liorenSummonFiles[id];
+ if(!filename)return Promise.reject(Error('Invocación desconocida: '+id));
+ const task=new GLTFLoader().loadAsync('./'+encodeURIComponent(filename)).then(gltf=>{
+  if(!gltf?.scene)throw Error('Modelo GLB vacío: '+filename);
+  const box=new THREE.Box3().setFromObject(gltf.scene);
+  if(box.isEmpty())throw Error('Modelo sin geometría: '+filename);
+  const idle=gltf.animations?.find(a=>/idle|standing/i.test(a.name))||
+   gltf.animations?.[0]||new THREE.AnimationClip('Reposo_'+id,1,[]);
+  const entry={scene:gltf.scene,idle};
+  liorenSummonModels.set(id,entry);
+  liorenSummonLoading.delete(id);
+  return entry;
+ }).catch(error=>{
+  liorenSummonLoading.delete(id);
+  console.warn('[R.O.K.] Invocación Tierra '+id+':',error);
+  throw error;
+ });
+ liorenSummonLoading.set(id,task);
+ return task;
+}
 const spellbook={page:0,rapid:new Map()};
 const spellbookPanel=qs('#rokSpellbookCards');
 const spellbookGrid=qs('#rokSpellbookGrid');
@@ -4522,7 +4568,7 @@ function renderSpellbook(){
   button.setAttribute('aria-pressed',String(Number(button.dataset.page)===spellbook.page));
  spellbookGrid.replaceChildren();
  if(spellbook.page===0)return;
- const cards=spellCards[spellbook.page-1];
+ const cards=spellDeckForSide(qs('#casterMoveSide').value)[spellbook.page-1];
  // Numpad order (visual top to bottom): 7 8 9 / 4 5 6 / 1 2 3.
  // Keep the underlying card indices (1..9) unchanged for keyboard selection.
  for(const slotNumber of [7,8,9,4,5,6,1,2,3]){
@@ -4536,8 +4582,16 @@ function renderSpellbook(){
   number.className='rokSpellNumber';number.textContent=String(i+1);
   button.append(number);
   if(card){
-   const img=document.createElement('img');img.src=card.portrait;img.alt='';
-   button.append(img);
+   if(card.portrait){
+    const img=document.createElement('img');img.src=card.portrait;img.alt='';
+    button.append(img);
+   }else{
+    const symbol=document.createElement('span');
+    symbol.className='rokSpellPortraitPlaceholder';
+    symbol.textContent=card.id==='semillera'?'✿':card.id==='kariona'?'◆':'✧';
+    symbol.style.cssText='font-size:22px;color:#CCFF00;text-shadow:0 0 8px #67400D';
+    button.append(symbol);
+   }
    const name=document.createElement('span');name.className='rokSpellName';
    name.textContent=card.name;button.append(name);
    const cost=document.createElement('span');cost.className='rokSpellCost';
@@ -4601,18 +4655,49 @@ function summonCardFarolera(caster){
  spellStatus('✦ Farolera invocada · nexo de restauración activo');
  return true;
 }
+function summonLiorenCard(caster,card){
+ const prototype=liorenSummonModels.get(card.id);
+ if(!prototype){spellStatus('Modelo de '+card.name+' todavía cargando.');return false;}
+ if(!hasSummonRoom(caster.side)||caster.side!=='ally'||caster.outer.position.z<=0){
+  spellStatus('Solo puedes invocar desde tu propio territorio con espacio libre.');return false;
+ }
+ const x=THREE.MathUtils.clamp(Math.round(caster.outer.position.x),-HALF_W,HALF_W);
+ const z=THREE.MathUtils.clamp(
+  Math.round(caster.outer.position.z-1+HALF_D)-HALF_D,.5,HALF_D);
+ const c=createFighter(prototype.scene,prototype.idle,caster.side,'mana');
+ c.cardId=card.id;
+ c.startX=x;c.startZ=z;c.endZ=z;
+ c.model.userData.baseScale=c.model.scale.x;
+ resetCombatant(c);
+ makeNameplate(c);makeSummonCountdown(c);
+ // Generic summon appearance; unique abilities/portraits come later.
+ cardSummons.add(c);
+ c.stage='summonCasting';c.summonCastLeft=0;
+ beginSummonEmergence(c);
+ spellStatus('✦ '+card.name+' invocada');
+ return true;
+}
 function selectSpellCard(index){
  if(!spellbook.page||index<0||index>=9)return;
- const card=spellCards[spellbook.page-1][index];
+ const card=spellDeckForSide(qs('#casterMoveSide').value)[spellbook.page-1][index];
  if(!card)return;
  if(!loaded||!playing||!matchGate.isRunning){
   spellStatus('Primero debes iniciar el combate.');return;
  }
  const caster=casters.find(c=>c.side===qs('#casterMoveSide').value);
  if(!caster||caster.stage!=='active'){spellStatus('Caster no disponible.');return;}
- if(card.id==='farolera'&&(!hasSummonRoom(caster.side)||
-    (caster.side==='enemy'?caster.outer.position.z>=0:caster.outer.position.z<=0))){
+ if(!hasSummonRoom(caster.side)||
+    (caster.side==='enemy'?caster.outer.position.z>=0:caster.outer.position.z<=0)){
   spellStatus('Necesitas espacio para invocar y estar en tu propio campo.');return;
+ }
+ // Models are prepared independently of the arena's boot. An unavailable
+ // Earth GLB does not charge elements and does not summon a substitute.
+ if(caster.side==='ally'&&!liorenSummonModels.has(card.id)){
+  spellStatus('Cargando modelo 3D de '+card.name+'; vuelve a pulsar cuando esté listo.');
+  void ensureLiorenSummonModel(card.id).then(()=>{
+   spellStatus('Modelo de '+card.name+' listo para castear.');
+  }).catch(e=>spellStatus('No se pudo cargar '+card.name+': '+e.message));
+  return;
  }
  // Validate cast readiness BEFORE paying, so a failed attempt does not
  // consume resources. The definitive resource charge is on selection.
@@ -4629,7 +4714,9 @@ function selectSpellCard(index){
  const started=casterMovement.startCardCast({
   cost:card.cost,
   onRelease:activeCaster=>{
-   if(card.id==='farolera')summonCardFarolera(activeCaster);
+   const okay=card.id==='farolera'?summonCardFarolera(activeCaster):
+    summonLiorenCard(activeCaster,card);
+   if(!okay)combatHud.refund(caster.side,card.element,card.cost);
   }
  });
  if(!started){
