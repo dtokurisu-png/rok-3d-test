@@ -981,13 +981,29 @@ const ATTACK_PROFILES={shield:{period:2,clip:2},mana:{period:2,clip:2},
 const ARROW_FLIGHT_SPEED=28.5; // 3 x 9,5 casillas/s; NO modifica la cadencia de ataque.
 const ARCHER_ARM_PROFILE={rightarm:{x:-18,y:58,z:-14},leftarm:{x:20,y:-10,z:5}};
 let archerRigReference=null;
+// Clip adaptations are cached by card and animation ID. They use Farolera's
+// approved motion vocabulary but retarget onto the individual GLB skeleton.
+const sharedSummonClipCache=new Map();
 function getCombatClip(c,id){
-  // The new invocations have their own GLB rigs. Until their dedicated
-  // animations are assigned, never retarget Farolera animations onto them.
-  if(c.cardId&&['semillera','kariona','astarium'].includes(c.cardId))
-   return id==='idle'?c.idleClip:null;
-  return id==='idle'?c.idleClip:
-    (c.kind==='archer'?archerCombatAnimations:combatAnimations).get(id);
+ if(id==='idle')return c.idleClip;
+ if(c.cardId&&c.cardId!=='farolera'){
+  const sourceClip=combatAnimations.get(id);
+  const sourceModel=window.ROKSummonAssets?.farolera?.scene;
+  if(!sourceClip||!sourceModel)return null;
+  const key=c.cardId+':'+id;
+  if(sharedSummonClipCache.has(key))return sharedSummonClipCache.get(key);
+  try{
+   const adapted=adaptAnimationFBX(sourceModel,sourceClip,c.model,'ROK_Shared_'+key);
+   sharedSummonClipCache.set(key,adapted);
+   return adapted;
+  }catch(error){
+   // Do not apply raw Farolera tracks to an incompatible rig.
+   if(!sharedSummonClipCache.has(key))console.warn('[R.O.K.] Retarget pendiente:',key,error);
+   sharedSummonClipCache.set(key,null);
+   return null;
+  }
+ }
+ return (c.kind==='archer'?archerCombatAnimations:combatAnimations).get(id);
 }
 
 // Textura procedural circular para partículas. Se comparte entre ambos personajes
