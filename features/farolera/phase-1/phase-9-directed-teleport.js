@@ -23,7 +23,7 @@ export function directedLampPosition({farolera,mode,ownHalf=true}){
 export function directedTarget({farolera,allies,mode,enemies=[],inCombat=()=>false}){
  if(!living(farolera))return null;
  const eligible=[...allies,farolera].filter(u=>
-  u.side===farolera.side&&living(u)&&u.role==='summon'&&!inCombat(u));
+  u.side===farolera.side&&living(u)&&u.role==='summon');
  if(!eligible.length)return null;
  if(mode==='offensive'){
   const others=eligible.filter(u=>u.id!==farolera.id);
