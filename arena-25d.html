@@ -3802,8 +3802,9 @@ function damage(target,value,source,{committed=false,environment=false}={}){
       requestVictoriousRestoration(source);
   }else {
     beginHit(target);
-    // No stun on the Farolera's ordinary single-target attack.
-    if(source?.kind==='mana'&&source.cardId!=='farolera'&&Math.random()<.50)
+    // Ordinary summon attacks only deal damage: no stun is applied.
+    // Retain the generic stun effect for an explicitly defined future skill.
+    if(source?.role!=='summon'&&source?.kind==='mana'&&Math.random()<.50)
       applyStun(target);
   }
   return true;
