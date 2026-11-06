@@ -3708,9 +3708,14 @@ function incomingCommittedProjectile(target){
       (m.area&&cellRadius(targetCell,m.impactCell)<=1)));
 }
 function requestVictoriousRestoration(source){
-  // Ganar un duelo no teletransporta ni restaura a una invocación.
-  // El vencedor permanece en el tablero con su vida actual.
-  if(source?.role==='summon')source.pendingRestore=false;
+  if(!source||source.role!=='summon'||source.hp<=0)return;
+  if(incomingCommittedProjectile(source)){
+    // La victoria se decide cuando se hayan resuelto los tiros ya lanzados.
+    // Hasta entonces la unidad permanece vulnerable al daño (sin restauración).
+    source.pendingRestore=true;
+    return;
+  }
+  startRestoration(source);
 }
 function resolvePendingVictories(){
   for(const c of combatants){
