@@ -53,3 +53,54 @@ export function clearTelepateSource(units,source){
  for(const target of units)if(target.rokProvocation?.source===source)
   target.rokProvocation=null;
 }
+
+/** Three.js-only visual layer; does not modify aura range or combat targets. */
+export function createTelepateAuraVisuals({THREE,root}){
+ const live=new Map();
+ const make=source=>{
+  const group=new THREE.Group();
+  group.name='ROK_Telepate_Provocation_Aura';
+  const material=new THREE.MeshBasicMaterial({color:0x21c5ff,
+   transparent:true,opacity:.25,depthWrite:false,
+   side:THREE.DoubleSide,blending:THREE.AdditiveBlending});
+  const persistent=new THREE.Mesh(new THREE.RingGeometry(4.93,5.02,96),material);
+  persistent.rotation.x=-Math.PI/2;group.add(persistent);
+  const pulseMat=material.clone();pulseMat.opacity=0;
+  const pulse=new THREE.Mesh(new THREE.RingGeometry(.95,1.03,96),pulseMat);
+  pulse.rotation.x=-Math.PI/2;group.add(pulse);
+  group.position.set(source.outer.position.x,.083,source.outer.position.z);
+  root.add(group);
+  const v={group,persistent,pulse,age:1,source};
+  live.set(source,v);
+  return v;
+ };
+ function remove(source){
+  const v=live.get(source);if(!v)return;
+  root.remove(v.group);
+  v.persistent.geometry.dispose();v.persistent.material.dispose();
+  v.pulse.geometry.dispose();v.pulse.material.dispose();
+  live.delete(source);
+ }
+ function update(units,dt){
+  const present=new Set(units);
+  for(const source of units){
+   if(source.cardId!=='telepate'||!VALID_STAGE(source))continue;
+   let v=live.get(source);
+   if(!v)v=make(source);
+   v.group.position.set(source.outer.position.x,.083,source.outer.position.z);
+   v.persistent.material.opacity=.16+.08*Math.sin((source.rokAuraClock||0)*2);
+   v.age+=dt;
+   const progress=Math.min(1,v.age/.65);
+   v.pulse.scale.setScalar(TELEPATE_AURA_RADIUS*progress);
+   v.pulse.material.opacity=v.age<.65?.57*(1-progress):0;
+  }
+  for(const source of [...live.keys()])
+   if(!present.has(source)||!VALID_STAGE(source))remove(source);
+ }
+ function pulse(source){
+  const v=live.get(source)|| (VALID_STAGE(source)?make(source):null);
+  if(v)v.age=0;
+ }
+ function clear(){for(const source of [...live.keys()])remove(source)}
+ return {update,pulse,remove,clear};
+}
