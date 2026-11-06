@@ -3049,11 +3049,11 @@ function verifyCleanMatchBoundary(){
 // Semillera: one small single-orb crystal every five active seconds.
 // Collected by the allied caster; each pickup grants +1 regeneration speed
 // for the current match, never unlocks additional elemental reservoirs.
-// Melánide Semillera: each instance owns an independent 5-second timer.
+// Melánide Semillera: each instance owns an independent 10-second timer.
 // Cast 22 (frames 0..48, 0.5s), then 21 (from frame 20, native speed).
 // Exactly ONE miniature orb is released on the final frame of clip 21.
 const semilleraCrystals=[];
-const SEMILLERA_PERIOD=5;
+const SEMILLERA_PERIOD=10;
 const SEMILLERA_FINISH_START=20/30;
 function clearSemilleraCrystals(){
  for(const crystal of semilleraCrystals)crystal.visual.dispose();
@@ -4437,7 +4437,7 @@ function updateDuel(dt){
     if(c.stage==='active'){
       if(c.cardId==='semillera'&&!c.crystalCast){
        c.crystalClock=Math.min(SEMILLERA_PERIOD,(c.crystalClock||0)+dt);
-       // Count the two casting phases INSIDE each 5-second production
+       // Count the two casting phases INSIDE each 10-second production
        // interval: do not wait five seconds and then add the animation.
        if(c.outer.position.z>=MAX_Z-.03){
         const clips=semilleraSourceClips(c);
@@ -5047,6 +5047,9 @@ function summonCardFarolera(caster){
   caster.side==='enemy'?-HALF_D:.5,caster.side==='enemy'?-.5:HALF_D);
  const c=createFighter(prototype.scene,prototype.idle,caster.side,'mana');
  c.cardId='farolera';
+ // The GLB belongs to the Farolera summon, NOT a caster-sized unit.
+ // Keep its original animations but give this one-cost card its own scale.
+ c.model.scale.setScalar(c.model.scale.x*(1.05/1.65));
  c.startX=x;c.startZ=z;c.endZ=z;
  c.model.userData.baseScale=c.model.scale.x;
  resetCombatant(c);
@@ -5209,20 +5212,45 @@ document.addEventListener('keydown',event=>{
 });
 renderSpellbook();
 
-// Rival autonomy is isolated from the manual controller. The only currently
-// distributable card is the real Farolera; future decks will be assigned here.
+// Rival economy only: tactical orb collection, guarding, movement, attacks,
+// and defensive priorities remain owned by caster-rival-ai.js.
 const rivalAction={attackUntil:0,castingUntil:0,reserved:null};
 function chiaraCastPlan(caster,amount){
  const live=[...cardSummons].filter(u=>u.side==='enemy'&&u.hp>0&&
   !['dead','dying','vanishing'].includes(u.stage));
  const count=id=>live.filter(u=>u.cardId===id).length;
  const f=count('farolera'),t=count('telepate'),boss=count('controladora');
+ const capacity=combatHud.getResources(caster.side,'water').unlocked;
+ // Unlock tier, not current reserves, controls the tactical composition.
+ // 1-2: one-cost Farolera first, then conserve to reach tier 3.
+ // 3-5: up to two Telepates and four Faroleras while collecting.
+ // 6+: fight with one Telepate and two Faroleras; reserve six for
+ //      the Controladora instead of spending every newly recovered orb.
  let id=null;
- if(boss){if(t<1)id='telepate';else if(f<1)id='farolera';}
- else if(t<1)id='telepate';
- else if(f<2)id='farolera';
- else if(t<2)id='telepate';
- else id='controladora';
+ if(capacity<3){
+  if(f<1)id='farolera';
+ }else if(capacity<6){
+  // Bring one Telepate as soon as its cost is available.
+  // When the immediate card isn't affordable, maintain existing troops
+  // rather than wasting the three-element reserve on fillers.
+  if(t<1)id='telepate';
+  else if(f<2)id='farolera';
+  else if(t<2)id='telepate';
+  else if(f<4)id='farolera';
+ }else if(boss<1){
+  // At tier six, save for the six-cost summon. Maintain only the
+  // small defensive escort; never fill the sixth slot with a filler.
+  if(t<1)id='telepate';
+  else if(f<2)id='farolera';
+  else if(live.length<6)id='controladora';
+ }else{
+  // Controladora in play: protect her with Telepate + Faroleras
+  // without overrunning the six-unit cap.
+  if(t<1)id='telepate';
+  else if(f<2)id='farolera';
+  else if(t<2&&live.length<6)id='telepate';
+  else if(f<3&&live.length<6)id='farolera';
+ }
  const def=chiaraSummonDefinitions[id];
  if(!def||amount<def.cost)return null;
  const model=id==='farolera'?window.ROKSummonAssets?.farolera:chiaraSummonModels.get(id);
