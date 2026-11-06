@@ -28,7 +28,7 @@ const alive=u=>u&&u.stage!=='dead'&&u.stage!=='dying'&&u.stage!=='vanishing'&&
  * Out-of-range projected positions are disregarded; a feasible intermediate
  * prediction is allowed. A higher-attack unit wins among feasible options.
  */
-export function chooseOffensiveCircle({farolera,allies,bounds=ARENA_BOUNDS,predictionSeconds=1.1}){
+export function chooseOffensiveCircle({farolera,allies,enemyCaster=null,bounds=ARENA_BOUNDS,predictionSeconds=1.1}){
  if(!finite(farolera)||!Array.isArray(allies))throw TypeError('Entradas inválidas');
  const candidates=[];
  for(const ally of allies){
@@ -47,9 +47,13 @@ export function chooseOffensiveCircle({farolera,allies,bounds=ARENA_BOUNDS,predi
    break;
   }
  }
+ // Among equally strong beneficiaries, maximize the entry-to-exit gap:
+ // favor circles farther from the enemy while the lamp projects forward.
+ // Every candidate remains within four cells of Farolera's actual position.
  candidates.sort((a,b)=>b.damage-a.damage||
+  (finite(enemyCaster)?distanceXZ(b.circle,enemyCaster)-distanceXZ(a.circle,enemyCaster):0)||
   b.predictionSeconds-a.predictionSeconds||
-  a.distance-b.distance||
+  b.distance-a.distance||
   String(a.allyId).localeCompare(String(b.allyId)));
  return candidates[0]||null;
 }
@@ -79,7 +83,7 @@ export function planFaroleraOffense({farolera,allies,enemyCaster,mode,abilitySta
  if(mode!=='offensive')return {ok:false,reason:'not-offensive'};
  if(abilityStatus?.canCast!==true)return {ok:false,reason:'ability-unavailable'};
  if(!alive(farolera)||!finite(farolera))return {ok:false,reason:'farolera-unavailable'};
- const selected=chooseOffensiveCircle({farolera,allies,bounds,predictionSeconds});
+ const selected=chooseOffensiveCircle({farolera,allies,enemyCaster,bounds,predictionSeconds});
  if(!selected)return {ok:false,reason:'no-eligible-ally-in-reach'};
  const landing=chooseOffensiveLamp({farolera,enemyCaster,circle:selected.circle,bounds});
  if(!landing)return {ok:false,reason:'no-safe-lantern-direction'};
