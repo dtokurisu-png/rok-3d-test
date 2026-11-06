@@ -235,6 +235,10 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 #rokSpellbook .rokSpellbookPageKey[aria-pressed="true"]{border-color:#00ffdf;
  box-shadow:0 0 11px #00ffdf,inset 0 0 7px #000}
 #rokSpellbook .rokSpellbookPageKey:focus-visible{outline:3px solid white;outline-offset:3px}
+#rokSpellbook .rokSpellbookPageKey:disabled{
+ opacity:.38;cursor:not-allowed;filter:grayscale(1);
+ border-color:#666;box-shadow:inset 0 0 8px #000;
+}
 /* The supplied golden-vine frame is a transparent PNG converted to WebP.
    The gradients remain visible through its nine circular openings. */
 #rokSpellbookCards{position:fixed;z-index:52;right:10px;
@@ -4859,7 +4863,21 @@ const spellbookPanel=qs('#rokSpellbookCards');
 const spellbookGrid=qs('#rokSpellbookGrid');
 const spellbookStatus=qs('#rokSpellbookStatus');
 function spellStatus(message){spellbookStatus.textContent=message;}
+function spellbookPageHasCards(page,side=qs('#casterMoveSide').value){
+ const cards=spellDeckForSide(side)?.[page-1];
+ return Array.isArray(cards)&&cards.some(card=>card!==null&&card!==undefined);
+}
 function renderSpellbook(){
+ // Reflect changes to the actual deck without introducing new page state.
+ for(const button of document.querySelectorAll('.rokSpellbookPageKey')){
+  const page=Number(button.dataset.page);
+  const available=spellbookPageHasCards(page);
+  button.disabled=!available;
+  button.setAttribute('aria-disabled',String(!available));
+  button.title=available?'Abrir página '+page:'Página '+page+' vacía';
+ }
+ if(spellbook.page&&!spellbookPageHasCards(spellbook.page))
+  spellbook.page=0;
  spellbookPanel.hidden=spellbook.page===0;
  spellbookPanel.setAttribute('aria-label','Página '+spellbook.page+' del grimorio, nueve cartas');
  for(const button of document.querySelectorAll('.rokSpellbookPageKey'))
@@ -4939,6 +4957,10 @@ qs('#casterMoveSide').addEventListener('change',()=>{
  if(spellbook.page)renderSpellbook();
 });
 function openSpellbook(page){
+ if(!spellbookPageHasCards(page)){
+  // Empty pages should never open, whether using mouse, touch or keys.
+  return;
+ }
  if(!loaded||!playing||!matchGate.isRunning){
   spellStatus('Inicia un combate para abrir el grimorio.');return;
  }
