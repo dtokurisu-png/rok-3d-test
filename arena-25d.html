@@ -283,6 +283,24 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  padding:2px 5px;border-radius:50%;font-weight:900}
 .rokSpellSlot .rokSpellCost{position:absolute;top:3px;right:3px;color:#f6e6a1;background:#000b;
  padding:2px 4px;border-radius:4px;font-weight:900}
+/* Earth invocation cards: forest artwork beneath the canonical Earth card skin.
+   Art lives in assets/cards/earth/; keep the placeholder until uploaded. */
+.rokSpellSlot.rokEarthCardArt{
+ background:linear-gradient(155deg,#395f2b,#0b2010 70%);
+ border:1px solid #67400D;
+}
+.rokSpellSlot.rokEarthCardArt::after{
+ content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
+ background:url('https://raw.githubusercontent.com/dtokurisu-png/rok-lirte-html/main/assets/card-skin-earth.png')
+  center / 100% 100% no-repeat;
+}
+.rokSpellSlot.rokEarthCardArt .rokSpellNumber,
+.rokSpellSlot.rokEarthCardArt .rokSpellCost,
+.rokSpellSlot.rokEarthCardArt .rokSpellName{z-index:3}
+.rokSpellSlot.rokEarthCardArt .rokSpellName{
+ background:linear-gradient(0deg,#071508f2,#071508b8);
+ text-shadow:0 1px 3px #000;
+}
 /* Keep casting feedback for screen readers, without visible HUD text. */
 #rokSpellbookStatus{position:absolute!important;width:1px!important;height:1px!important;
  padding:0!important;margin:-1px!important;overflow:hidden!important;
@@ -4675,9 +4693,12 @@ const spellCards=[
 // Three Earth invocations assigned to Lioren only. Spells, traits and
 // special locomotion will be implemented in the next phase.
 const liorenSpellCards=[
- [{id:'semillera',name:'Dríada Semillera',element:'earth',cost:1},
-  {id:'kariona',name:'Kariona',element:'earth',cost:2},
-  {id:'astarium',name:'Amor de Astarium',element:'earth',cost:3},
+ [{id:'semillera',name:'Dríada Semillera',element:'earth',cost:1,
+  portrait:'./assets/cards/earth/semillera-bosque.webp'},
+  {id:'kariona',name:'Kariona',element:'earth',cost:2,
+  portrait:'./assets/cards/earth/kariona-bosque.webp'},
+  {id:'astarium',name:'Amor de Astarium',element:'earth',cost:3,
+  portrait:'./assets/cards/earth/astarium-bosque.webp'},
   {id:'ancient-oak-armor',name:'Armadura de Roble Antiguo',type:'equipment',
    element:'earth',cost:0,recraftCost:2,slot:'body',
    portrait:'./assets/ui/armadura-roble-antiguo.webp'},
@@ -4795,6 +4816,8 @@ function renderOakArmorTargets(){
  for(const [i,c] of dryads.entries()){
   const button=document.createElement('button');
   button.type='button';button.className='rokSpellSlot';
+  if(card&&['semillera','kariona','astarium'].includes(card.id))
+   button.classList.add('rokEarthCardArt');
   button.textContent=(i+1)+'. '+(liorenSpellCards[0].find(card=>card?.id===c.cardId)?.name||c.cardId)+
    ' · '+c.hp+'/'+c.maxHp+' PV';
   button.disabled=!!c.equippedBody;
@@ -4832,6 +4855,16 @@ function renderSpellbook(){
   if(card){
    if(card.portrait){
     const img=document.createElement('img');img.src=card.portrait;img.alt='';
+    if(button.classList.contains('rokEarthCardArt')){
+     img.addEventListener('error',()=>{
+      img.remove();
+      const symbol=document.createElement('span');
+      symbol.className='rokSpellPortraitPlaceholder';
+      symbol.textContent=card.id==='semillera'?'✿':card.id==='kariona'?'◆':'✧';
+      symbol.style.cssText='font-size:22px;color:#CCFF00;text-shadow:0 0 8px #67400D';
+      button.append(symbol);
+     },{once:true});
+    }
     button.append(img);
    }else{
     const symbol=document.createElement('span');
