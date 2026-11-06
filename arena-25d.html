@@ -4403,6 +4403,16 @@ void (async()=>{
   // The preparation interface was shown before downloading models.
   playing=false;
   matchGate.setCoreReady();
+  // The Earth summon models load only AFTER the real caster pair and arena
+  // are playable. They never hold up boot or replace a failed model.
+  setTimeout(()=>{
+   void (async()=>{
+    for(const id of ['semillera','kariona','astarium']){
+     try{await ensureLiorenSummonModel(id);}
+     catch(error){console.warn('[R.O.K.] Modelo opcional de '+id+':',error);}
+    }
+   })();
+  },1200);
   // The scene catalog no longer competes with core models for bandwidth.
   if(!window.matchMedia('(pointer:coarse) and (max-width:950px)').matches)
    setTimeout(initializeOptionalSceneControls,1800);
@@ -4616,6 +4626,9 @@ function renderSpellbook(){
   spellbookGrid.append(button);
  }
 }
+qs('#casterMoveSide').addEventListener('change',()=>{
+ if(spellbook.page)renderSpellbook();
+});
 function openSpellbook(page){
  if(!loaded||!playing||!matchGate.isRunning){
   spellStatus('Inicia un combate para abrir el grimorio.');return;
