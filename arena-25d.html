@@ -3086,7 +3086,7 @@ function updateSemilleraCrystals(dt){
   const collected=crystal.landed&&at&&Math.hypot(
    at.x-crystal.visual.group.position.x,
    at.z-crystal.visual.group.position.z)<=1.4;
-  if(collected)combatHud.addRegenSpeed('ally',1);
+  if(collected)combatHud.collectFragment('ally');
   if(collected||crystal.age>=30){
    crystal.visual.dispose();semilleraCrystals.splice(i,1);
   }
