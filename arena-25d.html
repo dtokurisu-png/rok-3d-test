@@ -2967,6 +2967,7 @@ function finishNewSummon(c,winner=false){
 }
 
 function resetCombatant(c){
+  c.deathResourceDropped=false;
   c.currentThreatTarget=null;
   c.armorPhysical=c.cardId==='kariona'?1:0;
   c.armorMagical=c.cardId==='kariona'?1:0;
@@ -3259,6 +3260,7 @@ function resetDemoCombat(){
   // Card equipment is a per-match consumable; the next match starts fresh.
   resetOakArmor();
   clearSemilleraCrystals();
+  clearDeathFragments();
   // Card-generated units are NOT initial units: discard on match reset.
   for(const c of cardSummons){
    const index=combatants.indexOf(c);
@@ -3382,11 +3384,57 @@ function updateCast(c,dt){
   }
 }
 
+// Neutral fragments dropped on a permanent summon death.
+// Every one-cost unit drops two quarter-elements; any caster may collect.
+const deathElementFragments=[];
+function summonDeathCost(c){
+ const deck=c.side==='enemy'?spellCards:liorenSpellCards;
+ return Number(deck.flat().find(card=>card?.id===c.cardId)?.cost||
+  chiaraSummonDefinitions[c.cardId]?.cost||c.cardCost||0);
+}
+function releaseDeathFragments(c){
+ if(c.role!=='summon'||c.deathResourceDropped)return;
+ c.deathResourceDropped=true;
+ const count=Math.max(0,Math.round(2*summonDeathCost(c)));
+ for(let i=0;i<count;i++){
+  const fx=elementOrbs.createFragmentVisual();
+  const angle=2*Math.PI*i/Math.max(1,count);
+  const radius=.40+.15*(i%4);
+  fx.group.position.set(
+   THREE.MathUtils.clamp(c.outer.position.x+Math.cos(angle)*radius,-MAX_X,MAX_X),
+   .35,
+   THREE.MathUtils.clamp(c.outer.position.z+Math.sin(angle)*radius,-MAX_Z,MAX_Z)
+  );
+  deathElementFragments.push({fx,age:0,phase:i*.45});
+ }
+}
+function clearDeathFragments(){
+ for(const f of deathElementFragments)f.fx.dispose();
+ deathElementFragments.length=0;
+}
+function updateDeathFragments(dt){
+ for(let i=deathElementFragments.length-1;i>=0;i--){
+  const f=deathElementFragments[i];f.age+=dt;f.fx.update(dt);
+  f.fx.group.position.y=.35+.09*Math.sin(f.age*3+f.phase);
+  let collected=false;
+  for(const caster of casters){
+   if(caster.stage!=='active'||caster.hp<=0)continue;
+   if(Math.hypot(caster.outer.position.x-f.fx.group.position.x,
+    caster.outer.position.z-f.fx.group.position.z)<1.05){
+    if(combatHud.collectFragment(caster.side)){collected=true;break;}
+   }
+  }
+  if(collected||f.age>=20){
+   f.fx.dispose();deathElementFragments.splice(i,1);
+  }
+ }
+}
 function beginDeath(c){
   if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
   c.pendingRestore=false;
   c.restorationHp=null;
   onOakArmorHolderDeath(c);
+  releaseDeathFragments(c);
   stopHitOverlay(c);
   releaseSummonDuel(c);
   c.stage='dying';c.deathT=0;c.castTarget=null;c.castFired=true;
@@ -4580,6 +4628,7 @@ function updateDuel(dt){
     }
   }
   updateSemilleraCrystals(dt);
+  updateDeathFragments(dt);
   updateMagic(dt);
   // El orden del bucle ya no determina quién sobrevive: esperar hasta
   // concluir TODOS los proyectiles de este fotograma.
