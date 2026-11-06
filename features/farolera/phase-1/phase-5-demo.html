@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R.O.K. — Farolera fase 5</title>
+<style>
+:root{font-family:system-ui;color-scheme:dark;background:#0b1718;color:#e7f9ed}
+body{max-width:820px;margin:auto;padding:20px}h1{font-size:1.6rem}
+section{display:flex;gap:9px;flex-wrap:wrap;margin:14px 0}
+button{padding:11px 13px;border-radius:8px;background:#13493f;border:1px solid #65a791;color:#fff;cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+#bar{width:100%;height:18px;accent-color:#00d4a4}
+.card{border:1px solid #345c56;border-radius:12px;padding:15px;margin-top:16px}
+p{line-height:1.5}output{font-weight:700;color:#9bffdf}small{color:#a9c4be}
+</style></head><body>
+<h1>Farolera · Fase 5 — Enfriamiento y ciclo de vida</h1>
+<p>Tester independiente. Simula las dos activaciones, el enfriamiento de 20 segundos, el recasteo y la muerte. No modifica el combate existente.</p>
+<section>
+<button id="circle">1 · Crear círculo</button>
+<button id="lamp">2 · Lanzar lámpara</button>
+<button id="tick1">+1 segundo</button>
+<button id="tick5">+5 segundos</button>
+<button id="tick20">+20 segundos</button>
+</section>
+<section>
+<button id="enter">Invocación entra al portal</button>
+<button id="restore">Restaurar invocación</button>
+<button id="death">Farolera muere</button>
+<button id="restart">Nueva partida</button>
+</section>
+<div class="card">
+ <p><b>Estado:</b> <output id="phase"></output></p>
+ <p><b>Enfriamiento restante:</b> <output id="cooldown"></output> s</p>
+ <progress id="bar" value="0" max="20"></progress>
+ <p><b>Portal:</b> <output id="portal"></output></p>
+ <p><b>Casteos completados:</b> <output id="count"></output></p>
+</div>
+<div class="card"><p id="message" aria-live="polite"></p><small>El portal permanece activo durante el enfriamiento. En modo ofensivo transporta a invocaciones aliadas, pero no a la Farolera.</small></div>
+<script type="module">
+import {createFaroleraAbility,beginFaroleraCircle,finishFaroleraLantern,tickFaroleraAbility,
+ onFaroleraDeath,stepFaroleraAbility,getFaroleraAbilityStatus} from './phase-5-lifecycle.js';
+let state,ally,iteration=0;
+const by=id=>document.getElementById(id);
+function say(message){by('message').textContent=message}
+function render(){
+ const s=getFaroleraAbilityStatus(state);
+ by('phase').textContent=s.phase;by('cooldown').textContent=s.cooldownRemaining.toFixed(1);
+ by('bar').value=20-s.cooldownRemaining;
+ by('portal').textContent=s.portalActive?'ACTIVO':'INACTIVO';
+ by('count').textContent=s.castCount;
+ by('circle').disabled=!s.canCast;by('lamp').disabled=!s.awaitingLantern;
+ by('death').disabled=!s.alive;by('enter').disabled=!s.portalActive;
+ by('restore').disabled=!s.alive;
+}
+function reset(){
+ state=createFaroleraAbility({ownerId:'farolera',ownerSide:'ally'});
+ ally={id:'guerrero',side:'ally',role:'summon',stage:'active',x:0,z:0};iteration=0;
+ say('Selecciona «Crear círculo» para comenzar.');render();
+}
+by('circle').addEventListener('click',()=>{
+ const result=beginFaroleraCircle(state,{origin:{x:0,z:0},circle:{x:1,z:0},mode:'offensive'});
+ say(result.ok?'Primera activación: círculo mágico preparado.':'La habilidad no está disponible.');render();
+});
+by('lamp').addEventListener('click',()=>{
+ try{const result=finishFaroleraLantern(state,{x:4,z:0});say(result.ok?'Segunda activación: lámpara lanzada. Enfriamiento iniciado.':'Falta crear el círculo.')}
+ catch(e){say(e.message)}render();
+});
+for(const [id,sec] of [['tick1',1],['tick5',5],['tick20',20]]){
+ by(id).addEventListener('click',()=>{tickFaroleraAbility(state,sec);say('El reloj del combate avanzó '+sec+' s.');render()});
+}
+by('enter').addEventListener('click',()=>{
+ // Leave the entrance first to reset its contact; then step onto it.
+ ally.x=0;stepFaroleraAbility(state,[ally]);
+ ally.x=1;const move=stepFaroleraAbility(state,[ally]);
+ if(move.length){ally={...ally,...move[0].to};say('¡Guerrero teletransportado a ('+ally.x.toFixed(1)+','+ally.z.toFixed(1)+')!')}
+ else say('No se pudo teletransportar.');render();
+});
+by('restore').addEventListener('click',()=>{
+ ally.stage='restoring';say('El guerrero está restaurándose; el portal permanece '+(state.portal?.active?'activo.':'inactivo.'));render();
+});
+by('death').addEventListener('click',()=>{onFaroleraDeath(state);say('La Farolera murió. El círculo y la lámpara dejaron de funcionar.');render()});
+by('restart').addEventListener('click',reset);
+reset();
+</script></body></html>
