@@ -2010,7 +2010,8 @@ function resetCaster(c){
 }
 const canDamageTarget=c=>(c?.role==='caster'?
   c.hp>0&&c.stage==='active':
-  !!c&&c.hp>0&&(c.stage==='active'||c.stage==='stunned'||c.stage==='casting'));
+  !!c&&c.hp>0&&(c.stage==='active'||c.stage==='stunned'||
+   c.stage==='casting'||c.stage==='semilleraElementCast'));
 const casterLost=()=>casters.some(c=>c.stage==='defeated');
 // Enfrentamientos 1 contra 1: una invocación solo puede reservar una
 // invocación enemiga y ninguna otra puede atacarla mientras dure el duelo.
