@@ -1,0 +1,32 @@
+name: Farolera gameplay integration tests
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'features/farolera/**'
+      - 'tests/farolera-phase1*.test.mjs'
+      - 'arena-25d.html'
+      - '.github/workflows/farolera-integration-tests.yml'
+  workflow_dispatch:
+jobs:
+  farolera:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify tactical gameplay modules
+        run: node --test tests/farolera-phase1*.test.mjs
+      - name: Syntax check arena entrypoint inline module
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const html=fs.readFileSync('arena-25d.html','utf8');
+          const chunks=[...html.matchAll(/<script\s+type="module"\s*>([\s\S]*?)<\/script>/g)];
+          if(chunks.length!==1)throw Error('Expected one inline module, got '+chunks.length);
+          new vm.SourceTextModule(chunks[0][1]);
+          NODE
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
