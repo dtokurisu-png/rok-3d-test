@@ -144,8 +144,12 @@ export function createArenaSceneOverlay({THREE,root,renderStatus,onArenaVisual,o
   }
   group.clear();
  }
- async function loadScene(data){
+ async function loadScene(data,{essentialOnly=false}={}){
   const normalized=normalize(data);
+  // Play mode needs only functional fountain models. Leave floor/background
+  // settings intact and skip every unrelated decorative GLB.
+  if(essentialOnly)normalized.entries=normalized.entries.filter(entry=>
+   entry.elementSourcePlayer===1||entry.elementSourcePlayer===2);
   const token=++generation;
   // Build completely offscreen first. A bad GLB must not destroy the current scenery.
   const nextRoot=new THREE.Group(),nextObjects=[];
