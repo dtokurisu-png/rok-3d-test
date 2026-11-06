@@ -1,10 +1,10 @@
-/* R.O.K. Arena v1 — persistent same-origin immutable asset cache.
+/* R.O.K. Arena v2 — persistent same-origin immutable asset cache.
  * No HTML, JS, CSS, or manifests cached: deployments remain current.
  * Never touches localStorage or the user's custom mobile control layout.
  */
-const CACHE_NAME='rok-arena-assets-v1';
+const CACHE_NAME='rok-arena-assets-v2';
 const MAX_FILE_BYTES=48*1024*1024;
-const EXT=/\.(?:glb|gltf|bin|fbx|png|jpe?g|webp|ktx2|basis)$/i;
+const EXT=/\.(?:glb|gltf|bin|fbx|zip|png|jpe?g|webp|avif|ktx2|basis)$/i;
 self.addEventListener('install',event=>{event.waitUntil(self.skipWaiting());});
 self.addEventListener('activate',event=>{
  event.waitUntil((async()=>{
