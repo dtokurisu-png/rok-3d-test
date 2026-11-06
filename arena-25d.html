@@ -2496,7 +2496,8 @@ function createSummonGroundHud(c){
  const health=summonHudArc(group,'left',.64,0x36ff91,1,.29);
  const attack=summonHudArc(group,'right',.64,0xff4c50,1,.29);
  // Keep secondary arcs outside the thicker main bars; .90 would overlap.
- const shield=summonHudArc(group,'left',.99,0xe0efff,1,.19);
+ // Semillera uses the former shield slot for its ten-step growing charge.
+ const shield=summonHudArc(group,'left',.99,c.cardId==='semillera'?0x6bff79:0xe0efff,1,.19);
  const lifeTicks=summonHudTicks(group,'left',.945,0x35ff8e);
  const attackTicks=summonHudTicks(group,'right',.945,0xff444e);
  const shieldTicks=[]; // El escudo usa solamente una barra subdividida.
@@ -2566,13 +2567,19 @@ function updateSummonGroundHuds(){
   // Camera-facing at all times, independent of the summon model's rotation.
   h.group.rotation.y=Math.atan2(camera.position.x-c.outer.position.x,
    camera.position.z-c.outer.position.z);
+  const semillera=c.cardId==='semillera';
   const shieldMax=Math.max(0,Number(c.shieldMax)||0);
-  const snapshot=[c.hp,c.attackDamage,c.shield,shieldMax].join(':');
+  // Nine cells fill during the nine-second preparation. The tenth cell
+  // fills during the one-second release, then resets for the next cycle.
+  const seedProgress=semillera?Math.min(10,Math.floor(c.crystalClock||0)):0;
+  const snapshot=[c.hp,c.attackDamage,c.shield,shieldMax,semillera?seedProgress:''].join(':');
   if(snapshot!==h.values){
    setSummonHudStat(h.health,h.lifeTicks,c.hp);
    setSummonHudStat(h.attack,h.attackTicks,c.attackDamage);
-   setSummonHudStat(h.shield,h.shieldTicks,c.shield,shieldMax>0,true,shieldMax);
-   h.shieldIcon.visible=shieldMax>0;
+   setSummonHudStat(h.shield,h.shieldTicks,
+    semillera?seedProgress:c.shield,semillera||shieldMax>0,true,
+    semillera?10:shieldMax);
+   h.shieldIcon.visible=!semillera&&shieldMax>0;
    h.values=snapshot;
   }
  }
@@ -2988,7 +2995,7 @@ function verifyCleanMatchBoundary(){
 // Melánide Semillera: each instance owns an independent 10-second timer.
 // Each collected orb grants +1 allied regeneration speed, without
 // unlocking additional elemental reservoirs.
-// Cast 22 (frames 0..48, 0.5s), then 21 (from frame 20, native speed).
+// Cast 22 (frames 0..48 over 9s), then 21 (from frame 20 over 1s).
 // Exactly ONE miniature orb is released on the final frame of clip 21.
 const semilleraCrystals=[];
 const SEMILLERA_PERIOD=10;
@@ -3039,10 +3046,12 @@ function startSemilleraCrystalCast(unit){
  if(unit.cardId!=='semillera'||unit.stage!=='active'||unit.crystalCast)return false;
  const clips=semilleraSourceClips(unit);
  if(!clips)return false; // Do not fake a cast with no animation.
- unit.crystalCast={clips,phase:'prepare',time:0,duration:.5,
-  finishDuration:Math.max(.01,clips.finish.duration-SEMILLERA_FINISH_START)};
+ unit.crystalClock=0;
+ unit.crystalCast={clips,phase:'prepare',time:0,duration:9,
+  finishDuration:1};
  unit.stage='semilleraElementCast';
- playSemilleraAction(unit,clips.prep,clips.prep.duration/.5);
+ // Stretch the complete first composite clip to exactly nine seconds.
+ playSemilleraAction(unit,clips.prep,clips.prep.duration/9);
  return true;
 }
 function emitSemilleraCrystal(source){
@@ -3062,11 +3071,14 @@ function stepSemilleraCrystalCast(unit,dt){
  const cast=unit.crystalCast;
  if(!cast||unit.stage!=='semilleraElementCast')return;
  cast.time+=dt;
+ unit.crystalClock=Math.min(SEMILLERA_PERIOD,
+  (cast.phase==='prepare'?0:9)+cast.time);
  if(cast.phase==='prepare'&&cast.time>=cast.duration){
-  cast.phase='finish';cast.time=0;
-  // Match the caster's crossfade from frame 48 of clip 22 into
-  // frame 20 of clip 21. No crystal is emitted at this transition.
-  playSemilleraAction(unit,cast.clips.finish,1,SEMILLERA_FINISH_START);
+  cast.phase='finish';cast.time=Math.max(0,cast.time-cast.duration);
+  unit.crystalClock=Math.min(10,9+cast.time);
+  // Only after the ninth second, continue from frame 20 of clip 21.
+  const remaining=cast.clips.finish.duration-SEMILLERA_FINISH_START;
+  playSemilleraAction(unit,cast.clips.finish,remaining/cast.finishDuration,SEMILLERA_FINISH_START);
  }else if(cast.phase==='finish'&&cast.time>=cast.finishDuration){
   // Force the exact terminal pose before measuring RightHand.
   cast.time=cast.finishDuration;
@@ -4360,17 +4372,9 @@ function updateDuel(dt){
     }
     if(c.stage==='active'){
       if(c.cardId==='semillera'&&!c.crystalCast){
-       c.crystalClock=Math.min(SEMILLERA_PERIOD,(c.crystalClock||0)+dt);
-       // Count the two casting phases INSIDE each 10-second production
-       // interval: do not add the animation after the timer expires.
-       if(c.outer.position.z>=MAX_Z-.03){
-        const clips=semilleraSourceClips(c);
-        if(clips){
-         const totalCast=.5+Math.max(.01,clips.finish.duration-SEMILLERA_FINISH_START);
-         if(c.crystalClock>=Math.max(0,SEMILLERA_PERIOD-totalCast))
-          startSemilleraCrystalCast(c);
-        }
-       }
+       // Production is the cast itself: 9 s in clip 22, then 1 s
+       // in clip 21. Both the animation and its HUD start together.
+       if(c.outer.position.z>=MAX_Z-.03)startSemilleraCrystalCast(c);
       }
       c.cooldown=Math.max(0,c.cooldown-dt);
       c.specialCooldown=Math.max(0,c.specialCooldown-dt);
