@@ -4874,7 +4874,7 @@ const liorenSpellCards=[
   {id:'astarium',name:'Amor de Astarin',race:'melanide',type:'invocation',
    element:'earth',cost:3,portrait:'./assets/amor%20de%20astarium%20.png'},
   {id:'ancient-oak-armor',name:'Armadura de Roble Antiguo',type:'equipment',
-   element:'earth',cost:2,recraftCost:2,slot:'body',requiredQuality:'warrior',
+   element:'earth',cost:4,recraftCost:2,slot:'body',requiredQuality:'warrior',
    portrait:'./assets/ui/armadura-roble-antiguo.webp'},
   null,null,null,null,null],
  Array(9).fill(null),Array(9).fill(null)
@@ -5038,7 +5038,7 @@ function equipOakArmor(c){
   return false;
  }
  if(!combatHud.spend('ally','earth',oakArmorCard.cost)){
-  spellStatus('Necesitas 2 de Tierra para equipar la Armadura de Roble Antiguo.');
+  spellStatus('Necesitas 4 de Tierra para equipar la Armadura de Roble Antiguo.');
   return false;
  }
  const started=casterMovement.startCardCast({
@@ -5415,40 +5415,28 @@ function chiaraCastPlan(caster,amount){
  const live=[...cardSummons].filter(u=>u.side==='enemy'&&u.hp>0&&
   !['dead','dying','vanishing'].includes(u.stage));
  const count=id=>live.filter(u=>u.cardId===id).length;
+ const enemyThreats=combatants.filter(u=>u.side==='ally'&&u.hp>0&&
+  !['dead','dying','vanishing'].includes(u.stage)&&
+  Math.hypot(u.outer.position.x-caster.outer.position.x,
+    u.outer.position.z-caster.outer.position.z)<=9).length;
  const f=count('farolera'),t=count('telepate'),boss=count('controladora');
- const capacity=combatHud.getResources(caster.side,'water').unlocked;
- // Unlock tier, not current reserves, controls the tactical composition.
- // 1-2: one-cost Farolera first, then conserve to reach tier 3.
- // 3-5: up to two Telepates and four Faroleras while collecting.
- // 6+: fight with one Telepate and two Faroleras; reserve six for
- //      the Controladora instead of spending every newly recovered orb.
+ // Actual RESERVE determines priority, never only the unlocked tier.
+ // 1-2 water: spend on Faroleras freely until the six-unit cap.
+ // At 3+: favor tier-three troops. A wave of 2-3 enemies is an
+ // emergency exception that permits additional Faroleras.
  let id=null;
- if(capacity<3){
-  if(f<1)id='farolera';
- }else if(capacity<6){
-  // Bring one Telepate as soon as its cost is available.
-  // When the immediate card isn't affordable, maintain existing troops
-  // rather than wasting the three-element reserve on fillers.
-  if(t<1)id='telepate';
-  else if(f<2)id='farolera';
-  else if(t<2)id='telepate';
-  else if(f<4)id='farolera';
- }else if(boss<1){
-  // At tier six, save for the six-cost summon. Maintain only the
-  // small defensive escort; never fill the sixth slot with a filler.
-  if(t<1)id='telepate';
-  else if(f<2)id='farolera';
-  else if(live.length<6)id='controladora';
- }else{
-  // Controladora in play: protect her with Telepate + Faroleras
-  // without overrunning the six-unit cap.
-  if(t<1)id='telepate';
-  else if(f<2)id='farolera';
-  else if(t<2&&live.length<6)id='telepate';
-  else if(f<3&&live.length<6)id='farolera';
+ if(amount>=1&&amount<3)id='farolera';
+ else if(amount>=3){
+  if(t<2)id='telepate';
+  else if(amount>=6&&boss<1)id='controladora';
+  else if(enemyThreats>=2&&f<4)id='farolera';
+  else if(amount>=6&&boss<2)id='controladora';
+  else if(t<3)id='telepate';
  }
+ // Farolera is expendable, but cannot override tier-3 priority unless
+ // the caller has only 1-2 elements or the caster faces a real swarm.
  const def=chiaraSummonDefinitions[id];
- if(!def||amount<def.cost)return null;
+ if(!def||amount<def.cost||live.length>=MAX_ACTIVE_SUMMONS_PER_SIDE)return null;
  const model=id==='farolera'?window.ROKSummonAssets?.farolera:chiaraSummonModels.get(id);
  return model?.scene?{id,cost:def.cost,element:'water'}:null;
 }
