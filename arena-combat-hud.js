@@ -25,8 +25,8 @@ export function createArenaCombatHud(){
   wind:{label:'Viento',color:'#57B569',secondary:'#FFFFFF'}
  };
  const sides={
-  ally:{root:el.querySelector('[data-hud-side="ally"]'),levels:['earth'],hpMax:0,elementAmounts:{},unlocked:{},fragmentClock:0,nextElement:0,unlockCursor:0},
-  enemy:{root:el.querySelector('[data-hud-side="enemy"]'),levels:['water'],hpMax:0,elementAmounts:{},unlocked:{},fragmentClock:0,nextElement:0,unlockCursor:0}
+  ally:{root:el.querySelector('[data-hud-side="ally"]'),levels:['earth'],hpMax:0,elementAmounts:{},unlocked:{},fragmentClock:0,regenBonus:0,nextElement:0,unlockCursor:0},
+  enemy:{root:el.querySelector('[data-hud-side="enemy"]'),levels:['water'],hpMax:0,elementAmounts:{},unlocked:{},fragmentClock:0,regenBonus:0,nextElement:0,unlockCursor:0}
  };
  const TOTAL=30;
  let seconds=0,refreshLeft=0;
@@ -54,7 +54,7 @@ export function createArenaCombatHud(){
   player.root.style.setProperty('--dominion-icon',primary.icon?'url("'+primary.icon+'")':'none');
   player.elementAmounts=Object.fromEntries(player.levels.map(id=>[id,0]));
   player.unlocked=Object.fromEntries(player.levels.map(id=>[id,0]));
-  player.fragmentClock=0;player.nextElement=0;player.unlockCursor=0;
+  player.fragmentClock=0;player.regenBonus=0;player.nextElement=0;player.unlockCursor=0;
   const row=player.root.querySelector('.rokHudElementRows');
   row.replaceChildren();
   row.classList.add('rokHudElementRow');
@@ -133,7 +133,8 @@ export function createArenaCombatHud(){
   track.setAttribute('aria-label','Energía elemental '+totalStored.toFixed(2)+
    '/'+totalUnlocked+' unidades; máximo futuro '+TOTAL);
   track.title='Energía elemental: '+totalStored.toFixed(2)+'/'+totalUnlocked+
-   ' · Capacidad máxima desbloqueable: '+TOTAL;
+   ' · Capacidad máxima desbloqueable: '+TOTAL+
+   ' · Velocidad de recuperación: x'+(1+(player.regenBonus||0));
  }
  function setElements(side,amounts={}){
   const player=sides[side];if(!player)return;
@@ -238,10 +239,17 @@ export function createArenaCombatHud(){
   }
   return 0; // Maximum 30 reservoirs already obtained.
  }
+ function addRegenSpeed(side,amount=1){
+  const player=sides[side];if(!player)return 0;
+  const increase=Math.max(0,Math.floor(Number(amount)||0));
+  player.regenBonus=(player.regenBonus||0)+increase;
+  paintElements(side);
+  return player.regenBonus;
+ }
  function reset(){
   seconds=0;refreshLeft=0;
   for(const side of ['ally','enemy']){
-   sides[side].fragmentClock=0;sides[side].nextElement=0;
+   sides[side].fragmentClock=0;sides[side].regenBonus=0;sides[side].nextElement=0;
    sides[side].unlockCursor=0;
    for(const id of sides[side].levels)sides[side].unlocked[id]=0;
    setElements(side,{});
@@ -257,7 +265,7 @@ export function createArenaCombatHud(){
    // 4 fragments restore 1 complete elemental unit in 8 seconds.
    while(player.fragmentClock>=2){
     player.fragmentClock-=2;
-    regenerateFragment(side);
+    for(let n=0;n<1+(player.regenBonus||0);n++)regenerateFragment(side);
    }
   }
   if(refreshLeft<=0){refreshLeft=.12;draw(casters);}
@@ -270,5 +278,5 @@ export function createArenaCombatHud(){
   return {available:Number(player.elementAmounts[element]||0),
    unlocked:Number(player.unlocked[element]||0)};
  }
- return {configure,draw,reset,advance,setElements,collectOrb,spend,refund,getResources};
+ return {configure,draw,reset,advance,setElements,collectOrb,addRegenSpeed,spend,refund,getResources};
 }
