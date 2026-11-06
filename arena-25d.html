@@ -276,6 +276,12 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  padding:2px 5px;border-radius:50%;font-weight:900}
 .rokSpellSlot .rokSpellCost{position:absolute;top:3px;right:3px;color:#f6e6a1;background:#000b;
  padding:2px 4px;border-radius:4px;font-weight:900}
+.rokOakTargetNumber{position:absolute;z-index:12;transform:translate(-50%,-100%);
+ min-width:30px;height:30px;padding:3px 7px;border-radius:50%;
+ background:#07221de8;border:2px solid #00ffdf;color:#fff;
+ box-shadow:0 0 9px #00ffdfbb,0 2px 8px #000;
+ font:900 21px/22px Roboto,system-ui,sans-serif;text-align:center;
+ pointer-events:none}
 /* Published Earth skin + ordinary forest. Special elemental backgrounds
    (fondo verde/celeste/amarillo) are reserved for equipment cards only. */
 .rokSpellSlot.rokEarthCardArt{
@@ -4780,11 +4786,11 @@ const liorenSpellCards=[
  [{id:'semillera',name:'Melánide Semillera',race:'melanide',type:'invocation',
    element:'earth',cost:1,portrait:'./assets/driada%20semillera.png'},
   {id:'kariona',name:'Cariona',race:'melanide',type:'invocation',
-   element:'earth',cost:2,portrait:'./assets/kariona.png'},
+   element:'earth',cost:2,qualities:['warrior'],portrait:'./assets/kariona.png'},
   {id:'astarium',name:'Amor de Astarin',race:'melanide',type:'invocation',
    element:'earth',cost:3,portrait:'./assets/amor%20de%20astarium%20.png'},
   {id:'ancient-oak-armor',name:'Armadura de Roble Antiguo',type:'equipment',
-   element:'earth',cost:0,recraftCost:2,slot:'body',
+   element:'earth',cost:0,recraftCost:2,slot:'body',requiredQuality:'warrior',
    portrait:'./assets/ui/armadura-roble-antiguo.webp'},
   null,null,null,null,null],
  Array(9).fill(null),Array(9).fill(null)
@@ -4856,6 +4862,56 @@ const oakArmor={state:'ready',holder:null};
 const MELANIDE_CARDS=new Set(['semillera','kariona','astarium']);
 const availableMelanideTargets=()=>[...cardSummons].filter(c=>
  c.side==='ally'&&MELANIDE_CARDS.has(c.cardId)&&c.hp>0&&c.stage==='active');
+// TEMPORARY R.O.K. QUALITY BRIDGE: priorities and item restrictions must
+// migrate to the canonical R.O.K. card-quality system when integrated.
+// Today Cariona has the "warrior" tag; Oak Armor requires that same tag.
+// Never replace this rule with a hard-coded card name in the equip validator.
+const oakArmorCard=liorenSpellCards[0].find(card=>card?.id==='ancient-oak-armor');
+const summonQualities=c=>liorenSpellCards.flat().find(card=>card?.id===c.cardId)?.qualities||[];
+const availableOakArmorTargets=()=>availableMelanideTargets().filter(c=>
+ summonQualities(c).includes(oakArmorCard.requiredQuality)&&!c.equippedBody);
+const oakTargetNumbers=new Map();
+const oakTargetMarkers=new Map();
+let oakTargetSignature='';
+const oakMarkerLayer=qs('#nameplateLayer');
+function clearOakTargetMarkers(){
+ for(const label of oakTargetMarkers.values())label.remove();
+ oakTargetMarkers.clear();oakTargetNumbers.clear();oakTargetSignature='';
+}
+function updateOakTargetMarkers(){
+ if(!spellbook.targetingEquipment||!spellbook.page){
+  if(oakTargetMarkers.size)clearOakTargetMarkers();
+  return;
+ }
+ const targets=availableOakArmorTargets().slice(0,9);
+ const signature=targets.map(c=>c.uuid||c.outer?.uuid).join('|');
+ if(signature!==oakTargetSignature){
+  clearOakTargetMarkers();
+  oakTargetSignature=signature;
+  targets.forEach((c,i)=>{
+   const number=i+1;
+   oakTargetNumbers.set(c,number);
+   const label=document.createElement('div');
+   label.className='rokOakTargetNumber';
+   label.textContent=String(number);
+   oakMarkerLayer.append(label);
+   oakTargetMarkers.set(c,label);
+  });
+  renderOakArmorTargets();
+ }
+ for(const [c,label] of oakTargetMarkers){
+  const point=new THREE.Vector3(0,2.15,0);
+  c.outer.localToWorld(point);
+  point.project(camera);
+  const visible=c.hp>0&&c.stage==='active'&&point.z>=-1&&point.z<=1&&
+   Math.abs(point.x)<=1&&Math.abs(point.y)<=1;
+  label.style.display=visible?'block':'none';
+  if(visible){
+   label.style.left=((point.x*.5+.5)*innerWidth)+'px';
+   label.style.top=((-point.y*.5+.5)*innerHeight)+'px';
+  }
+ }
+}
 function resetOakArmor(){
  if(oakArmor.holder){
   oakArmor.holder.armorPhysical=oakArmor.holder.cardId==='kariona'?1:0;
@@ -4876,7 +4932,7 @@ function onOakArmorHolderDeath(c){
  spellStatus('Armadura de Roble Antiguo dañada. Recrafteo: 2 Tierra.');
 }
 function equipOakArmor(c){
- if(oakArmor.state!=='ready'||!availableDryadTargets().includes(c))return false;
+ if(oakArmor.state!=='ready'||!availableOakArmorTargets().includes(c))return false;
  // The body slot is exclusive. Future equipment types will use other slots.
  if(c.equippedBody)return false;
  c.oakOriginalSpeed=c.speed;
@@ -4885,20 +4941,46 @@ function equipOakArmor(c){
  c.speed=Math.max(0,c.speed-c.oakOriginalSpeed/3);
  c.equippedBody='ancient-oak-armor';
  oakArmor.holder=c;oakArmor.state='equipped';
- spellbook.targetingEquipment=false;spellbook.page=0;renderSpellbook();
+ spellbook.targetingEquipment=false;spellbook.page=0;
+ clearOakTargetMarkers();renderSpellbook();
  spellStatus('Armadura de Roble Antiguo equipada: +2 física, +1 mágica, -1 velocidad.');
  return true;
 }
 function renderOakArmorTargets(){
  spellbookGrid.replaceChildren();
- const melanides=availableMelanideTargets();
- for(const [i,c] of melanides.entries()){
+ const targets=availableOakArmorTargets().slice(0,9);
+ const card=liorenSpellCards[0].find(item=>item?.id==='kariona');
+ // Mirror the existing numeric keypad layout, including empty slots.
+ for(const number of [7,8,9,4,5,6,1,2,3]){
+  const c=targets[number-1];
   const button=document.createElement('button');
   button.type='button';button.className='rokSpellSlot';
-  button.textContent=(i+1)+'. '+(liorenSpellCards[0].find(card=>card?.id===c.cardId)?.name||c.cardId)+
-   ' · '+c.hp+'/'+c.maxHp+' PV';
-  button.disabled=!!c.equippedBody;
-  button.onclick=()=>equipOakArmor(c);
+  button.disabled=!c;
+  button.setAttribute('aria-label',c?
+   'Equipar a Cariona '+number:'Casilla '+number+': vacía');
+  if(c){
+   button.classList.add('rokEarthCardArt');
+   const portrait=document.createElement('img');
+   portrait.src=card.portrait;portrait.alt='';portrait.className='rokEarthCharacterArt';
+   button.append(portrait);
+   const race=document.createElement('img');
+   race.src=MELANIDE_RACE_ICON;race.alt='';
+   race.className='rokMelanideRaceIcon';button.append(race);
+   const name=document.createElement('span');
+   name.className='rokSpellName';name.textContent=card.name;button.append(name);
+   button.addEventListener('pointerdown',event=>{
+    if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;
+    event.preventDefault();event.stopPropagation();button.dataset.touchTime=String(Date.now());
+    equipOakArmor(c);
+   });
+   button.addEventListener('click',()=>{
+    if(Date.now()-Number(button.dataset.touchTime||0)<650)return;
+    equipOakArmor(c);
+   });
+  }
+  const num=document.createElement('span');
+  num.className='rokSpellNumber';num.textContent=String(number);
+  button.append(num);
   spellbookGrid.append(button);
  }
 }
@@ -4922,12 +5004,15 @@ function renderSpellbook(){
  if(spellbook.page&&!spellbookPageHasCards(spellbook.page))
   spellbook.page=0;
  spellbookPanel.hidden=spellbook.page===0;
- spellbookPanel.setAttribute('aria-label','Página '+spellbook.page+' del grimorio, nueve cartas');
+ spellbookPanel.setAttribute('aria-label',spellbook.targetingEquipment?
+  'Seleccionar Cariona para Armadura de Roble Antiguo':
+  'Página '+spellbook.page+' del grimorio, nueve cartas');
  for(const button of document.querySelectorAll('.rokSpellbookPageKey'))
   button.setAttribute('aria-pressed',String(Number(button.dataset.page)===spellbook.page));
  spellbookGrid.replaceChildren();
- if(spellbook.page===0)return;
+ if(spellbook.page===0){clearOakTargetMarkers();return;}
  if(spellbook.targetingEquipment){renderOakArmorTargets();return;}
+ clearOakTargetMarkers();
  const cards=spellDeckForSide(qs('#casterMoveSide').value)[spellbook.page-1];
  // Numpad order (visual top to bottom): 7 8 9 / 4 5 6 / 1 2 3.
  // Keep the underlying card indices (1..9) unchanged for keyboard selection.
@@ -5009,6 +5094,7 @@ function openSpellbook(page){
  }
  spellbook.page=spellbook.page===page?0:page;
  spellbook.targetingEquipment=false;
+ clearOakTargetMarkers();
  renderSpellbook();
 }
 function summonCardFarolera(caster){
@@ -5083,6 +5169,11 @@ function summonLiorenCard(caster,card){
 }
 function selectSpellCard(index){
  if(!spellbook.page||index<0||index>=9)return;
+ if(spellbook.targetingEquipment){
+  const target=availableOakArmorTargets().slice(0,9)[index];
+  if(target)equipOakArmor(target);
+  return;
+ }
  const card=spellDeckForSide(qs('#casterMoveSide').value)[spellbook.page-1][index];
  if(!card)return;
  if(!loaded||!playing||!matchGate.isRunning){
@@ -5104,7 +5195,8 @@ function selectSpellCard(index){
    return;
   }
   spellbook.targetingEquipment=true;renderSpellbook();
-  spellStatus('Selecciona la dríada que recibirá Armadura de Roble Antiguo.');
+  updateOakTargetMarkers();
+  spellStatus('Selecciona una Cariona guerrera para equipar la armadura.');
   return;
  }
  if(!hasSummonRoom(caster.side)||
@@ -5164,7 +5256,8 @@ for(const button of document.querySelectorAll('.rokSpellbookPageKey')){
  });
 }
 function closeSpellbook(){
- spellbook.page=0;renderSpellbook();
+ spellbook.page=0;spellbook.targetingEquipment=false;
+ clearOakTargetMarkers();renderSpellbook();
 }
 
 document.addEventListener('pointerdown',event=>{
@@ -5887,6 +5980,7 @@ function loop(now){
   if(loaded){
     for(const c of combatants)updateNameplate(c);
     for(const c of casters)updateNameplate(c);
+    updateOakTargetMarkers();
     updateCasterThreatIndicators();
     updateCasterAttackReticle();
   }
