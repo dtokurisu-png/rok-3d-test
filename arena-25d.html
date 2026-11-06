@@ -283,23 +283,34 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  padding:2px 5px;border-radius:50%;font-weight:900}
 .rokSpellSlot .rokSpellCost{position:absolute;top:3px;right:3px;color:#f6e6a1;background:#000b;
  padding:2px 4px;border-radius:4px;font-weight:900}
-/* Earth invocation cards: forest artwork beneath the canonical Earth card skin.
-   Art lives in assets/cards/earth/; keep the placeholder until uploaded. */
+/* Published Earth skin + ordinary forest. Special elemental backgrounds
+   (fondo verde/celeste/amarillo) are reserved for equipment cards only. */
 .rokSpellSlot.rokEarthCardArt{
- background:linear-gradient(155deg,#395f2b,#0b2010 70%);
+ background:#142618 url('./assets/back%20gound%20de%20bosque%20basico.png')
+  center / cover no-repeat;
  border:1px solid #67400D;
 }
 .rokSpellSlot.rokEarthCardArt::after{
  content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
- background:url('https://raw.githubusercontent.com/dtokurisu-png/rok-lirte-html/main/assets/card-skin-earth.png')
-  center / 100% 100% no-repeat;
+ background:url('./assets/tierra.png') center / 100% 100% no-repeat;
+}
+.rokSpellSlot.rokEarthCardArt img.rokEarthCharacterArt{
+ position:absolute;z-index:1;inset:2% 0 11%;width:100%;height:87%;
+ object-fit:contain;object-position:center bottom;opacity:1;
+ filter:drop-shadow(0 2px 4px #081a0acc);
+}
+.rokSpellSlot.rokEarthCardArt img.rokMelanideRaceIcon{
+ position:absolute;z-index:4;left:7%;top:8%;width:25%;height:22%;
+ max-width:30px;max-height:30px;object-fit:contain;opacity:1;
+ filter:drop-shadow(0 1px 3px #101509);
 }
 .rokSpellSlot.rokEarthCardArt .rokSpellNumber,
 .rokSpellSlot.rokEarthCardArt .rokSpellCost,
-.rokSpellSlot.rokEarthCardArt .rokSpellName{z-index:3}
+.rokSpellSlot.rokEarthCardArt .rokSpellName{z-index:4}
 .rokSpellSlot.rokEarthCardArt .rokSpellName{
  background:linear-gradient(0deg,#071508f2,#071508b8);
  text-shadow:0 1px 3px #000;
+ font-size:clamp(7px,.95vw,10px);
 }
 /* Keep casting feedback for screen readers, without visible HUD text. */
 #rokSpellbookStatus{position:absolute!important;width:1px!important;height:1px!important;
@@ -4690,15 +4701,16 @@ const spellCards=[
   null,null,null,null,null,null],
  Array(9).fill(null),Array(9).fill(null)
 ];
-// Three Earth invocations assigned to Lioren only. Spells, traits and
-// special locomotion will be implemented in the next phase.
+// Melánide invocations use the published normal Earth background, not the
+// special Tierra/Agua/Rayo equipment backgrounds.
+const MELANIDE_RACE_ICON='./assets/raza%20melanide.png';
 const liorenSpellCards=[
- [{id:'semillera',name:'Dríada Semillera',element:'earth',cost:1,
-  portrait:'./assets/cards/earth/semillera-bosque.webp'},
-  {id:'kariona',name:'Kariona',element:'earth',cost:2,
-  portrait:'./assets/cards/earth/kariona-bosque.webp'},
-  {id:'astarium',name:'Amor de Astarium',element:'earth',cost:3,
-  portrait:'./assets/cards/earth/astarium-bosque.webp'},
+ [{id:'semillera',name:'Melánide Semillera',race:'melanide',type:'invocation',
+   element:'earth',cost:1,portrait:'./assets/driada%20semillera.png'},
+  {id:'kariona',name:'Cariona',race:'melanide',type:'invocation',
+   element:'earth',cost:2,portrait:'./assets/kariona.png'},
+  {id:'astarium',name:'Amor de Astarin',race:'melanide',type:'invocation',
+   element:'earth',cost:3,portrait:'./assets/amor%20de%20astarium%20.png'},
   {id:'ancient-oak-armor',name:'Armadura de Roble Antiguo',type:'equipment',
    element:'earth',cost:0,recraftCost:2,slot:'body',
    portrait:'./assets/ui/armadura-roble-antiguo.webp'},
@@ -4807,17 +4819,15 @@ function renderOakArmorTargets(){
   spellbook.targetingEquipment=false;renderSpellbook();
  };
  spellbookGrid.append(back);
- const dryads=availableDryadTargets();
- if(!dryads.length){
+ const melanides=availableDryadTargets();
+ if(!melanides.length){
   const note=document.createElement('p');
-  note.textContent='Invoca una dríada y espera que termine de aparecer para equiparla.';
+  note.textContent='Invoca una melánide y espera que termine de aparecer para equiparla.';
   spellbookGrid.append(note);
  }
- for(const [i,c] of dryads.entries()){
+ for(const [i,c] of melanides.entries()){
   const button=document.createElement('button');
   button.type='button';button.className='rokSpellSlot';
-  if(card&&['semillera','kariona','astarium'].includes(card.id))
-   button.classList.add('rokEarthCardArt');
   button.textContent=(i+1)+'. '+(liorenSpellCards[0].find(card=>card?.id===c.cardId)?.name||c.cardId)+
    ' · '+c.hp+'/'+c.maxHp+' PV';
   button.disabled=!!c.equippedBody;
@@ -4844,6 +4854,7 @@ function renderSpellbook(){
   const i=slotNumber-1;
   const card=cards[i],button=document.createElement('button');
   button.type='button';button.className='rokSpellSlot';
+  if(card?.race==='melanide')button.classList.add('rokEarthCardArt');
   const oak=card?.id==='ancient-oak-armor';
   button.disabled=!card||(oak&&oakArmor.state==='equipped');
   const cardCost=oak&&oakArmor.state==='broken'?card.recraftCost:card?.cost;
@@ -4854,24 +4865,28 @@ function renderSpellbook(){
   button.append(number);
   if(card){
    if(card.portrait){
-    const img=document.createElement('img');img.src=card.portrait;img.alt='';
-    if(button.classList.contains('rokEarthCardArt')){
+    const img=document.createElement('img');
+    img.src=card.portrait;img.alt='';
+    if(card.race==='melanide'){
+     img.className='rokEarthCharacterArt';
      img.addEventListener('error',()=>{
-      img.remove();
-      const symbol=document.createElement('span');
-      symbol.className='rokSpellPortraitPlaceholder';
-      symbol.textContent=card.id==='semillera'?'✿':card.id==='kariona'?'◆':'✧';
-      symbol.style.cssText='font-size:22px;color:#CCFF00;text-shadow:0 0 8px #67400D';
-      button.append(symbol);
+      console.warn('[R.O.K.] Ilustración Melánide no disponible:',card.portrait);
      },{once:true});
     }
     button.append(img);
+    if(card.race==='melanide'){
+     const insignia=document.createElement('img');
+     insignia.className='rokMelanideRaceIcon';
+     insignia.src=MELANIDE_RACE_ICON;
+     insignia.alt='Raza Melánide';
+     insignia.title='Raza: Melánide';
+     button.append(insignia);
+     button.title=card.name+' · Raza Melánide';
+    }
    }else{
     const symbol=document.createElement('span');
     symbol.className='rokSpellPortraitPlaceholder';
-    symbol.textContent=card.id==='semillera'?'✿':card.id==='kariona'?'◆':'✧';
-    symbol.style.cssText='font-size:22px;color:#CCFF00;text-shadow:0 0 8px #67400D';
-    button.append(symbol);
+    symbol.textContent='✧';button.append(symbol);
    }
    const name=document.createElement('span');name.className='rokSpellName';
    name.textContent=card.name;button.append(name);
