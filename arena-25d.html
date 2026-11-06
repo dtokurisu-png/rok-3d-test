@@ -5230,7 +5230,9 @@ function summonCardFarolera(caster){
  }
  // A temporary spawn position for the first playable card. Final
  // placement rules and per-card exceptions arrive in phase 6.
- const direction=caster.side==='ally'?-1:1;
+ // Chiara deploys Farolera in her own rearguard, preserving four cells
+ // of forward projection for the portal rather than spawning her in front.
+ const direction=caster.side==='ally'?1:-1;
  const x=THREE.MathUtils.clamp(Math.round(caster.outer.position.x),-HALF_W,HALF_W);
  const z=THREE.MathUtils.clamp(
   Math.round(caster.outer.position.z+direction+HALF_D)-HALF_D,
