@@ -4,7 +4,7 @@
  * All distances measured in board world units.
  */
 export function createRivalCasterAI({
- getCaster,getOrbs,getEnemies,getThreats,getResourceState,
+ getCaster,getOrbs,getEnemies,getThreats,getResourceState,getCastPlan,
  move,face,guard,attack,cast,onCastResolve,animate,canCast,
  bounds={x:7.25,z:14.75},
  settings={}
@@ -17,7 +17,7 @@ export function createRivalCasterAI({
   ...settings
  };
  const state={mode:'collect',target:null,elapsed:0,decision:0,
-  castCooldown:0,attackCooldown:0,guardLeft:0,castLeft:0,castTarget:null,
+  castCooldown:0,attackCooldown:0,guardLeft:0,castLeft:0,castTarget:null,castCard:null,
   castDone:false,casting:false,castDefensive:false,incursion:false,records:{collectedAttempts:0,casts:0,attacks:0}};
  const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
@@ -25,7 +25,7 @@ export function createRivalCasterAI({
  function reset(){
   state.mode='collect';state.target=null;state.elapsed=0;state.decision=0;
   state.castCooldown=0;state.attackCooldown=0;state.guardLeft=0;
-  state.castLeft=0;state.castTarget=null;state.castDone=false;state.casting=false;
+  state.castLeft=0;state.castTarget=null;state.castCard=null;state.castDone=false;state.casting=false;
   state.castDefensive=false;state.incursion=false;
   guard?.(false);
  }
@@ -51,14 +51,14 @@ export function createRivalCasterAI({
   animate?.(c,Math.abs(dz)>.08?'forward':dx>=0?'right':'left');
   return true;
  }
- function startCast(c,position,defensive){
-  if(state.casting||state.castCooldown>0||!canCast?.(c))return false;
+ function startCast(c,position,defensive,card=null){
+  if(state.casting||state.castCooldown>0||!card||!canCast?.(c,card))return false;
   if(c.outer.position.z>=0||position.z>=0)return false;
   const duration=.5;
-  if(!cast?.(c,{position,defensive,duration}))return false;
+  if(!cast?.(c,{position,defensive,duration,card}))return false;
   state.mode=defensive?'intercept':'pressure';
   state.casting=true;state.castLeft=duration;state.castDone=false;
-  state.castTarget={...position};state.castDefensive=defensive;
+  state.castTarget={...position};state.castCard=card;state.castDefensive=defensive;
   state.castCooldown=cfg.castCooldown;
   state.records.casts++;
   return true;
@@ -100,8 +100,8 @@ export function createRivalCasterAI({
    state.castLeft=Math.max(0,state.castLeft-dt);
    if(state.castLeft===0){
     // Commit the physical invocation when the casting windup completes.
-    onCastResolve?.(c,{position:state.castTarget,defensive:state.castDefensive});
-    state.casting=false;state.castTarget=null;state.castDefensive=false;
+    onCastResolve?.(c,{position:state.castTarget,defensive:state.castDefensive,card:state.castCard});
+    state.casting=false;state.castTarget=null;state.castCard=null;state.castDefensive=false;
    }
    animate?.(c,'idle');
    return;
@@ -116,6 +116,12 @@ export function createRivalCasterAI({
   const incoming=(getThreats?.(c)||[]).filter(t=>t?.position&&
    distance(pos,t.position)<=cfg.threatRange);
   const atRisk=incoming.length>0||nearby.distance<cfg.interceptRange;
+  // The economic plan has priority when a card is affordable: do not
+  // endlessly chase orbs while waiting to cast an already available unit.
+  const amount=Math.max(0,Number(getResourceState?.(c)?.available)||0);
+  const planned=getCastPlan?.(c,amount)||null;
+  if(planned&&amount>=planned.cost&&pos.z<0&&
+     startCast(c,{x:pos.x,z:pos.z},atRisk,planned))return;
   // Enter enemy territory ONLY for a feasible orb. Once magnetized or
   // collected, immediately return to the enemy half of the arena.
   const canPursue=orbs.item&&(!(pos.z>0)||feasibleOrb(c,orbs.item));
@@ -143,12 +149,7 @@ export function createRivalCasterAI({
    return;
   }
   state.target=null;state.incursion=false;
-  const amount=Math.max(0,Number(getResourceState?.(c)?.available)||0);
-  // Defensive invocation intercepts a rushing unit; only when not
-  // contesting an elemental orb.
-  if(atRisk&&amount>=1&&!state.casting){
-   if(startCast(c,{x:pos.x,z:pos.z},true))return;
-  }
+  // Survival and guard remain active while saving resources.
   if(incoming.length&&state.guardLeft<=0){
    guard?.(true);state.guardLeft=cfg.guardDuration;
   }
@@ -156,11 +157,11 @@ export function createRivalCasterAI({
   // enter hostile territory solely to reach the ideal cast point.
   const objective={x:clamp(nearby.item?.position.x??0,-bounds.x,bounds.x),
    z:Math.min(-.15,cfg.idealPressureZ)};
-  if(amount>=1){
+  if(planned&&amount>=planned.cost){
    if(pos.z<cfg.idealPressureZ-0.8&&!atRisk){
     state.mode='advance';advanceToward(c,objective,dt);return;
    }
-   if(startCast(c,{x:pos.x,z:pos.z},false))return;
+   if(startCast(c,{x:pos.x,z:pos.z},false,planned))return;
   }
   // No resource available: position for pressure while scanning orbs.
   if(!atRisk&&pos.z<cfg.idealPressureZ-1){
