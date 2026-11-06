@@ -2498,6 +2498,8 @@ const summonShieldIconTexture=summonHudIconTexture('◆','#c3ccd6');
 const summonEnergyIconTexture=summonHudIconTexture('✦','#8b6bea');
 // The supplied armor SVG has a viewBox but no intrinsic pixel dimensions.
 // Draw it in a sized canvas so its white silhouette is reliable in WebGL.
+// Use the EXISTING secondary HUD container; this texture is only the white
+// factor artwork, without a new circle, border or HUD background.
 function createArmorHudIconTexture(){
  const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;
  const ctx=canvas.getContext('2d');
@@ -2506,14 +2508,10 @@ function createArmorHudIconTexture(){
  const image=new Image();
  image.onload=()=>{
   ctx.clearRect(0,0,128,128);
-  ctx.beginPath();ctx.arc(64,64,57,0,Math.PI*2);
-  ctx.fillStyle='#09151b';ctx.fill();
-  ctx.lineWidth=7;ctx.strokeStyle='#ffffff';ctx.stroke();
-  ctx.drawImage(image,27,27,74,74);
+  ctx.drawImage(image,8,8,112,112);
   texture.needsUpdate=true;
  };
- image.onerror=()=>console.warn('[R.O.K.] No se pudo cargar el factor de armadura de assets/factores.');
- // Set intrinsic dimensions in an SVG image source without altering the original file.
+ image.onerror=()=>console.warn('[R.O.K.] No se pudo cargar el factor de armadura.');
  fetch('./assets/factores/factor%20armadura.svg')
   .then(response=>{if(!response.ok)throw Error('HTTP '+response.status);return response.text();})
   .then(source=>{
@@ -2552,8 +2550,8 @@ function createSummonGroundHud(c){
  const armorIcon=new THREE.Sprite(new THREE.SpriteMaterial({
   map:armorHudIconTexture,transparent:true,depthWrite:false,
   depthTest:false,toneMapped:false}));
- armorIcon.position.set(-.37,.23,.64);
- armorIcon.scale.set(.30,.30,1);armorIcon.renderOrder=21;
+ armorIcon.position.set(-.37,.19,.655);
+ armorIcon.scale.set(.135,.135,1);armorIcon.renderOrder=21;
  armorIcon.visible=c.cardId==='kariona';iconGroup.add(armorIcon);
  summonGroundHuds.set(c,{group,health,attack,shield,lifeTicks,attackTicks,
   shieldTicks,shieldIcon,armorIcon,values:''});
@@ -2634,7 +2632,9 @@ function updateSummonGroundHuds(){
      segment.material.color.setHex(i<physicalArmor?0xffffff:0x66dcff);
     });
    }
-   h.shieldIcon.visible=!warriorArmor&&!semillera&&shieldMax>0;
+   // Keep the already-established lower HUD circle for both shield and armor.
+   // The armor factor SVG is only a foreground glyph inside that circle.
+   h.shieldIcon.visible=warriorArmor||(!semillera&&shieldMax>0);
    h.armorIcon.visible=warriorArmor;
    h.values=snapshot;
   }
