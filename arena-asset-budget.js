@@ -16,28 +16,29 @@ export function reduceModelTextureBudget(model,{maxSize=768}={}){
    const tex=material?.[key];
    if(!tex||handled.has(tex))continue;
    handled.add(tex);
-   const image=tex.image;
-   const width=image?.width||0,height=image?.height||0;
-   if(!width||!height||Math.max(width,height)<=maxSize)continue;
-   // 2D textures only. Never alter video/cubemap/compressed image payloads.
-   if(tex.isCompressedTexture||tex.isCubeTexture||Array.isArray(image))continue;
-   const scale=maxSize/Math.max(width,height);
-   const canvas=document.createElement('canvas');
-   canvas.width=Math.max(1,Math.round(width*scale));
-   canvas.height=Math.max(1,Math.round(height*scale));
-   try{
-    const context=canvas.getContext('2d',{alpha:true});
-    if(!context)continue;
-    context.drawImage(image,0,0,canvas.width,canvas.height);
-    tex.image=canvas;
-    tex.needsUpdate=true;
-    tex.anisotropy=1;
-    changed++;
-   }catch(error){
-    // Browser may refuse a source not drawable on canvas. Keep original.
-    console.warn('[R.O.K.] Textura original preservada:',error);
-   }
+   if(reduceTextureImage(tex,maxSize))changed++;
   }
  });
  return changed;
+}
+
+export function reduceTextureImage(tex,maxSize=768){
+ const image=tex?.image;
+ const width=image?.width||0,height=image?.height||0;
+ if(!width||!height||Math.max(width,height)<=maxSize)return false;
+ if(tex.isCompressedTexture||tex.isCubeTexture||Array.isArray(image))return false;
+ const scale=maxSize/Math.max(width,height);
+ const canvas=document.createElement('canvas');
+ canvas.width=Math.max(1,Math.round(width*scale));
+ canvas.height=Math.max(1,Math.round(height*scale));
+ try{
+  const context=canvas.getContext('2d',{alpha:true});
+  if(!context)return false;
+  context.drawImage(image,0,0,canvas.width,canvas.height);
+  tex.image=canvas;tex.needsUpdate=true;tex.anisotropy=1;
+  return true;
+ }catch(error){
+  console.warn('[R.O.K.] Textura original preservada:',error);
+  return false;
+ }
 }
