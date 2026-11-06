@@ -696,7 +696,7 @@ import {reduceModelTextureBudget} from './arena-asset-budget.js?v=2';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.100';
 import {createArenaMatchGate} from './arena-match-gate.js?v=20261105-dom-earth-water-1';
 import {createArenaCombatHud} from './arena-combat-hud.js?v=20261106-semillera-crystals-1';
-import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.105';
+import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semillera-one-orb-1';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
@@ -2939,7 +2939,10 @@ function resetCombatant(c){
   c.range=archer?ATTACK_PROFILES.archer.range:shield?3:5;
   c.attackDamage=c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1));
   c.speed=shield?2.4:2.15;
-  if(c.cardId==='semillera')c.crystalClock=0;
+  if(c.cardId==='semillera'){
+   c.crystalClock=0;c.crystalCast=null;c.semilleraClips=null;
+   c.semilleraClipWarning=false;
+  }
   c.stage='intro';c.introT=0;
   c.hitLeft=0;c.castT=0;c.castDuration=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
   c.restoringT=0;c.stunLeft=0;c.postRestoreStun=0;
@@ -3045,49 +3048,118 @@ function verifyCleanMatchBoundary(){
 // Semillera: one small single-orb crystal every five active seconds.
 // Collected by the allied caster; each pickup grants +1 regeneration speed
 // for the current match, never unlocks additional elemental reservoirs.
+// Melánide Semillera: each instance owns an independent 5-second timer.
+// Cast 22 (frames 0..48, 0.5s), then 21 (from frame 20, native speed).
+// Exactly ONE miniature orb is released on the final frame of clip 21.
 const semilleraCrystals=[];
-const semilleraCrystalGeometry=new THREE.OctahedronGeometry(.14,0);
+const SEMILLERA_PERIOD=5;
+const SEMILLERA_FINISH_START=20/30;
 function clearSemilleraCrystals(){
- for(const crystal of semilleraCrystals){
-  root.remove(crystal.group);
-  crystal.group.traverse(node=>{
-   if(node.material?.dispose)node.material.dispose();
-  });
- }
+ for(const crystal of semilleraCrystals)crystal.visual.dispose();
  semilleraCrystals.length=0;
 }
+function semilleraSourceClips(unit){
+ // Both clips are the very same ones already loaded for the ally caster.
+ const ally=casters.find(c=>c.side==='ally');
+ const clip22=ally?.model?.userData?.rokCast22Clip;
+ const clip21=ally?.model?.userData?.rokCast21Clip;
+ if(!ally?.model||!clip22||!clip21||clip21.duration<=SEMILLERA_FINISH_START+.01)return null;
+ if(!unit.semilleraClips||unit.semilleraClips.source22!==clip22||
+    unit.semilleraClips.source21!==clip21){
+  try{
+   // Never change the live caster skeleton while retargeting.
+   const source=cloneSkinned(ally.model);
+   const first=THREE.AnimationUtils.subclip(clip22,'Semillera_22_0_48',0,48,30);
+   if(!first.tracks.length||first.duration<=.01)return null;
+   const prep=adaptAnimationFBX(source,first,unit.model,'Semillera_Prep_22');
+   const finish=adaptAnimationFBX(source,clip21,unit.model,'Semillera_Finish_21');
+   if(!prep.tracks.length||!finish.tracks.length)return null;
+   unit.semilleraClips={source22:clip22,source21:clip21,prep,finish};
+  }catch(error){
+   if(!unit.semilleraClipWarning){
+    console.warn('[R.O.K.] No se pudieron adaptar las animaciones 22/21 a Semillera:',error);
+    unit.semilleraClipWarning=true;
+   }
+   return null;
+  }
+ }
+ return unit.semilleraClips;
+}
+function playSemilleraAction(unit,clip,speed=1,startTime=0){
+ const previous=unit.animAction;
+ const action=unit.mixer.clipAction(clip);
+ action.reset();action.enabled=true;action.setEffectiveWeight(1);
+ action.setEffectiveTimeScale(speed);action.setLoop(THREE.LoopOnce,1);
+ action.clampWhenFinished=true;action.time=startTime;
+ action.play();
+ if(previous&&previous!==action){previous.fadeOut(.12);action.fadeIn(.12);}
+ unit.animAction=action;unit.animId='semillera-element';
+ return action;
+}
+function startSemilleraCrystalCast(unit){
+ if(unit.cardId!=='semillera'||unit.stage!=='active'||unit.crystalCast)return false;
+ const clips=semilleraSourceClips(unit);
+ if(!clips)return false; // Do not fake a cast with no animation.
+ unit.crystalCast={clips,phase:'prepare',time:0,duration:.5,
+  finishDuration:Math.max(.01,clips.finish.duration-SEMILLERA_FINISH_START)};
+ unit.stage='semilleraElementCast';
+ playSemilleraAction(unit,clips.prep,clips.prep.duration/.5);
+ return true;
+}
 function emitSemilleraCrystal(source){
- // Dispose old uncollected crystals at 30 seconds: no unbounded GPU objects.
- const group=new THREE.Group();
- group.position.set(
-  THREE.MathUtils.clamp(source.outer.position.x+(.5-Math.random())*.8,-MAX_X,MAX_X),
-  .34,
-  THREE.MathUtils.clamp(source.outer.position.z-3.1,-MAX_Z,MAX_Z));
- const gem=new THREE.Mesh(semilleraCrystalGeometry,new THREE.MeshBasicMaterial({
-  color:0xCCFF00,transparent:true,opacity:.96,depthWrite:false
- }));
- const orbit=new THREE.Mesh(new THREE.TorusGeometry(.21,.014,5,20),new THREE.MeshBasicMaterial({
-  color:0x67400D,transparent:true,opacity:.78,depthWrite:false
- }));
- orbit.rotation.x=Math.PI/3;
- group.add(gem,orbit);root.add(group);
- semilleraCrystals.push({group,gem,orbit,age:0});
+ if(source.stage!=='semilleraElementCast'||!source.castHand)return false;
+ // Final-frame position comes from the actual right-hand skeleton bone.
+ source.model.updateWorldMatrix(true,true);
+ const origin=source.castHand.getWorldPosition(new THREE.Vector3());
+ const destination=new THREE.Vector3(
+  THREE.MathUtils.clamp(source.outer.position.x,-MAX_X,MAX_X),.33,
+  THREE.MathUtils.clamp(source.outer.position.z-2.3,-MAX_Z,MAX_Z));
+ const visual=elementOrbs.createFragmentVisual();
+ visual.group.position.copy(origin);
+ semilleraCrystals.push({visual,origin,destination,flight:0,age:0,landed:false});
+ return true;
+}
+function stepSemilleraCrystalCast(unit,dt){
+ const cast=unit.crystalCast;
+ if(!cast||unit.stage!=='semilleraElementCast')return;
+ cast.time+=dt;
+ if(cast.phase==='prepare'&&cast.time>=cast.duration){
+  cast.phase='finish';cast.time=0;
+  // Match the caster's crossfade from frame 48 of clip 22 into
+  // frame 20 of clip 21. No crystal is emitted at this transition.
+  playSemilleraAction(unit,cast.clips.finish,1,SEMILLERA_FINISH_START);
+ }else if(cast.phase==='finish'&&cast.time>=cast.finishDuration){
+  // Force the exact terminal pose before measuring RightHand.
+  cast.time=cast.finishDuration;
+  const action=unit.animAction;
+  if(action){action.time=Math.max(0,cast.clips.finish.duration-.0001);
+   unit.mixer.update(0);}
+  emitSemilleraCrystal(unit);
+  unit.crystalCast=null;unit.crystalClock=0;unit.stage='active';
+  setAnim(unit,'idle',{fade:.16,force:true});
+ }
 }
 function updateSemilleraCrystals(dt){
  const caster=casters.find(c=>c.side==='ally'&&c.stage==='active');
  for(let i=semilleraCrystals.length-1;i>=0;i--){
-  const crystal=semilleraCrystals[i];
-  crystal.age+=dt;
-  crystal.gem.rotation.y+=dt*1.7;
-  crystal.orbit.rotation.z+=dt*.8;
-  crystal.group.position.y=.34+Math.sin(crystal.age*3)*.05;
+  const crystal=semilleraCrystals[i];crystal.age+=dt;
+  crystal.visual.update(dt);
+  if(!crystal.landed){
+   crystal.flight=Math.min(1,crystal.flight+dt/.62);
+   const t=crystal.flight;
+   crystal.visual.group.position.lerpVectors(crystal.origin,crystal.destination,t);
+   crystal.visual.group.position.y+=.45*Math.sin(Math.PI*t);
+   if(t>=1)crystal.landed=true;
+  }else{
+   crystal.visual.group.position.y=.33+Math.sin(crystal.age*3)*.04;
+  }
   const at=caster?.outer?.position;
-  const collected=at&&Math.hypot(at.x-crystal.group.position.x,at.z-crystal.group.position.z)<=1.4;
+  const collected=crystal.landed&&at&&Math.hypot(
+   at.x-crystal.visual.group.position.x,
+   at.z-crystal.visual.group.position.z)<=1.4;
   if(collected)combatHud.addRegenSpeed('ally',1);
   if(collected||crystal.age>=30){
-   root.remove(crystal.group);
-   crystal.group.traverse(node=>node.material?.dispose?.());
-   semilleraCrystals.splice(i,1);
+   crystal.visual.dispose();semilleraCrystals.splice(i,1);
   }
  }
 }
@@ -4335,6 +4407,8 @@ function updateDuel(dt){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
       updateTeleportation(c,dt);
+    }else if(c.stage==='semilleraElementCast'){
+      stepSemilleraCrystalCast(c,dt);
     }else if(c.stage==='casting'){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
@@ -4360,9 +4434,9 @@ function updateDuel(dt){
       updateHit(c,dt);
     }
     if(c.stage==='active'){
-      if(c.cardId==='semillera'){
-       c.crystalClock=(c.crystalClock||0)+dt;
-       while(c.crystalClock>=5){c.crystalClock-=5;emitSemilleraCrystal(c);}
+      if(c.cardId==='semillera'&&!c.crystalCast){
+       c.crystalClock=Math.min(SEMILLERA_PERIOD,(c.crystalClock||0)+dt);
+       if(c.crystalClock>=SEMILLERA_PERIOD)startSemilleraCrystalCast(c);
       }
       c.cooldown=Math.max(0,c.cooldown-dt);
       c.specialCooldown=Math.max(0,c.specialCooldown-dt);
@@ -4379,7 +4453,7 @@ function updateDuel(dt){
     }
     // Mantener el movimiento vertical de pies, rodillas y torso también
     // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
-    if(c.stage!=='casting'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
+    if(c.stage!=='casting'&&c.stage!=='semilleraElementCast'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
     updateCastMarker(c);
     if(c.kind!=='archer'&&c.animId===12)liftWalkArm(c);
     if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
