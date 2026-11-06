@@ -2544,19 +2544,27 @@ function createSummonGroundHud(c){
  };
  icon(summonLifeIconTexture,-.19);
  icon(summonWeaponIconTextures[c.kind]||summonWeaponIconTextures.shield,.19);
+ // Secondary factors occupy the existing circular HUD slots behind the unit.
+ // Grouping the glyph and its circle keeps both aligned when a second factor exists.
+ const secondaryIcons=new THREE.Group();group.add(secondaryIcons);
+ const shieldSlot=new THREE.Group();secondaryIcons.add(shieldSlot);
  const shieldIcon=new THREE.Sprite(new THREE.SpriteMaterial({
   map:c.cardId==='kariona'?summonArmorSlotTexture:summonShieldIconTexture,
   transparent:true,depthWrite:false,depthTest:false,toneMapped:false}));
- shieldIcon.position.set(-.37,.19,.64);shieldIcon.scale.set(.19,.19,1);shieldIcon.renderOrder=20;
- iconGroup.add(shieldIcon);
+ shieldIcon.scale.set(.19,.19,1);shieldIcon.renderOrder=20;shieldSlot.add(shieldIcon);
  const armorIcon=new THREE.Sprite(new THREE.SpriteMaterial({
   map:armorHudIconTexture,transparent:true,depthWrite:false,
   depthTest:false,toneMapped:false}));
- armorIcon.position.set(-.37,.19,.655);
- armorIcon.scale.set(.135,.135,1);armorIcon.renderOrder=21;
- armorIcon.visible=c.cardId==='kariona';iconGroup.add(armorIcon);
+ armorIcon.position.z=.015;armorIcon.scale.set(.135,.135,1);armorIcon.renderOrder=21;
+ armorIcon.visible=c.cardId==='kariona';shieldSlot.add(armorIcon);
+ const manaSlot=new THREE.Group();secondaryIcons.add(manaSlot);
+ const manaIcon=new THREE.Sprite(new THREE.SpriteMaterial({
+  map:summonEnergyIconTexture,transparent:true,depthWrite:false,
+  depthTest:false,toneMapped:false}));
+ manaIcon.scale.set(.19,.19,1);manaIcon.renderOrder=20;manaSlot.add(manaIcon);
+ manaSlot.visible=false;
  summonGroundHuds.set(c,{group,health,attack,shield,lifeTicks,attackTicks,
-  shieldTicks,shieldIcon,armorIcon,values:''});
+  shieldTicks,shieldSlot,shieldIcon,armorIcon,manaSlot,secondaryIcons,values:''});
 }
 function setSummonHudStat(arc,ticks,value,show=true,subdivide=false,maxValue=10){
  const points=Math.max(0,Math.floor(Number(value)||0));
@@ -2608,6 +2616,19 @@ function updateSummonGroundHuds(){
   // Camera-facing at all times, independent of the summon model's rotation.
   h.group.rotation.y=Math.atan2(camera.position.x-c.outer.position.x,
    camera.position.z-c.outer.position.z);
+  // The secondary HUD follows the invocation, behind it on its own side
+  // of the battlefield. Convert that world-space offset to the camera-facing HUD.
+  const rearZ=c.side==='ally'?.88:-.88;
+  const yaw=h.group.rotation.y;
+  h.secondaryIcons.position.set(-Math.sin(yaw)*rearZ,.24,Math.cos(yaw)*rearZ);
+  const hasArmor=c.cardId==='kariona';
+  const hasShield=!hasArmor&&Number(c.shieldMax)>0;
+  const hasMana=Number(c.maxMana)>0;
+  h.shieldSlot.visible=hasArmor||hasShield;
+  h.manaSlot.visible=hasMana;
+  const both=h.shieldSlot.visible&&hasMana;
+  h.shieldSlot.position.x=both?-.12:0;
+  h.manaSlot.position.x=both?.12:0;
   const semillera=c.cardId==='semillera';
   const warriorArmor=c.cardId==='kariona';
   const physicalArmor=warriorArmor?Math.max(0,Math.floor(c.armorPhysical||0)):0;
