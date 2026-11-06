@@ -423,7 +423,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.123</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.124</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -2841,6 +2841,7 @@ function finishNewSummon(c,winner=false){
 
 function resetCombatant(c){
   c.currentThreatTarget=null;
+  c.armorPhysical=0;c.armorMagical=0;c.equippedBody=null;
   clearEmbeddedArrows(c);
   c.pendingRestore=false;
   c.restorationHp=null;
@@ -2992,6 +2993,8 @@ function resetDemoCombat(){
    });
   }
   magicImpacts.length=0;
+  // Card equipment is a per-match consumable; the next match starts fresh.
+  resetOakArmor();
   // Card-generated units are NOT initial units: discard on match reset.
   for(const c of cardSummons){
    const index=combatants.indexOf(c);
@@ -3118,6 +3121,7 @@ function beginDeath(c){
   if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
   c.pendingRestore=false;
   c.restorationHp=null;
+  onOakArmorHolderDeath(c);
   stopHitOverlay(c);
   releaseSummonDuel(c);
   c.stage='dying';c.deathT=0;c.castTarget=null;c.castFired=true;
@@ -3624,10 +3628,15 @@ function damage(target,value,source,{committed=false,environment=false}={}){
     }
     return true;
   }
-  const absorbed=Math.min(target.shield,value);
+  // Armor is permanent flat damage reduction; it is NOT a shield.
+  // The existing shield still absorbs only the damage that passes armor.
+  const magic=source?.kind==='mana'||source?.role==='caster';
+  const armor=environment?0:magic?(target.armorMagical||0):(target.armorPhysical||0);
+  const effective=Math.max(0,value-armor);
+  const absorbed=Math.min(target.shield,effective);
   target.shield-=absorbed;
   if(absorbed>0)target.shieldPulse=.8;
-  target.hp=Math.max(0,target.hp-(value-absorbed));
+  target.hp=Math.max(0,target.hp-(effective-absorbed));
   if(target.pendV){
     target.pendV.y+=(target.side==='ally'?-1:1)*2;
     target.pendV.x+=.6;
@@ -4561,7 +4570,10 @@ const liorenSpellCards=[
  [{id:'semillera',name:'Dríada Semillera',element:'earth',cost:1},
   {id:'kariona',name:'Kariona',element:'earth',cost:2},
   {id:'astarium',name:'Amor de Astarium',element:'earth',cost:3},
-  null,null,null,null,null,null],
+  {id:'ancient-oak-armor',name:'Armadura de Roble Antiguo',type:'equipment',
+   element:'earth',cost:0,recraftCost:2,slot:'body',
+   portrait:'./assets/ui/armadura-roble-antiguo.svg'},
+  null,null,null,null,null],
  Array(9).fill(null),Array(9).fill(null)
 ];
 const spellDeckForSide=side=>side==='enemy'?spellCards:liorenSpellCards;
@@ -4598,7 +4610,67 @@ function ensureLiorenSummonModel(id){
  liorenSummonLoading.set(id,task);
  return task;
 }
-const spellbook={page:0,rapid:new Map()};
+const spellbook={page:0,rapid:new Map(),targetingEquipment:false};
+const oakArmor={state:'ready',holder:null};
+const DRYAD_CARDS=new Set(['semillera','kariona','astarium']);
+const availableDryadTargets=()=>[...cardSummons].filter(c=>
+ c.side==='ally'&&DRYAD_CARDS.has(c.cardId)&&c.hp>0&&c.stage==='active');
+function resetOakArmor(){
+ if(oakArmor.holder){
+  oakArmor.holder.armorPhysical=0;
+  oakArmor.holder.armorMagical=0;
+  oakArmor.holder.speed=oakArmor.holder.oakOriginalSpeed??oakArmor.holder.speed;
+  oakArmor.holder.equippedBody=null;
+ }
+ oakArmor.holder=null;oakArmor.state='ready';spellbook.targetingEquipment=false;
+}
+function onOakArmorHolderDeath(c){
+ if(oakArmor.holder!==c)return;
+ c.armorPhysical=0;c.armorMagical=0;
+ c.speed=c.oakOriginalSpeed??c.speed;c.equippedBody=null;
+ oakArmor.holder=null;oakArmor.state='broken';
+ if(spellbook.page&&qs('#casterMoveSide').value==='ally')
+  renderSpellbook();
+ spellStatus('Armadura de Roble Antiguo dañada. Recrafteo: 2 Tierra.');
+}
+function equipOakArmor(c){
+ if(oakArmor.state!=='ready'||!availableDryadTargets().includes(c))return false;
+ // The body slot is exclusive. Future equipment types will use other slots.
+ if(c.equippedBody)return false;
+ c.oakOriginalSpeed=c.speed;
+ c.armorPhysical=(c.armorPhysical||0)+2;
+ c.armorMagical=(c.armorMagical||0)+1;
+ c.speed=Math.max(0,c.speed-c.oakOriginalSpeed/3);
+ c.equippedBody='ancient-oak-armor';
+ oakArmor.holder=c;oakArmor.state='equipped';
+ spellbook.targetingEquipment=false;spellbook.page=0;renderSpellbook();
+ spellStatus('Armadura de Roble Antiguo equipada: +2 física, +1 mágica, -1 velocidad.');
+ return true;
+}
+function renderOakArmorTargets(){
+ spellbookGrid.replaceChildren();
+ const back=document.createElement('button');
+ back.type='button';back.className='rokSpellSlot';
+ back.textContent='← Volver';back.onclick=()=>{
+  spellbook.targetingEquipment=false;renderSpellbook();
+ };
+ spellbookGrid.append(back);
+ const dryads=availableDryadTargets();
+ if(!dryads.length){
+  const note=document.createElement('p');
+  note.textContent='Invoca una dríada y espera que termine de aparecer para equiparla.';
+  spellbookGrid.append(note);
+ }
+ for(const [i,c] of dryads.entries()){
+  const button=document.createElement('button');
+  button.type='button';button.className='rokSpellSlot';
+  button.textContent=(i+1)+'. '+(liorenSpellCards[0].find(card=>card?.id===c.cardId)?.name||c.cardId)+
+   ' · '+c.hp+'/'+c.maxHp+' PV';
+  button.disabled=!!c.equippedBody;
+  button.onclick=()=>equipOakArmor(c);
+  spellbookGrid.append(button);
+ }
+}
 const spellbookPanel=qs('#rokSpellbookCards');
 const spellbookGrid=qs('#rokSpellbookGrid');
 const spellbookStatus=qs('#rokSpellbookStatus');
@@ -4610,6 +4682,7 @@ function renderSpellbook(){
   button.setAttribute('aria-pressed',String(Number(button.dataset.page)===spellbook.page));
  spellbookGrid.replaceChildren();
  if(spellbook.page===0)return;
+ if(spellbook.targetingEquipment){renderOakArmorTargets();return;}
  const cards=spellDeckForSide(qs('#casterMoveSide').value)[spellbook.page-1];
  // Numpad order (visual top to bottom): 7 8 9 / 4 5 6 / 1 2 3.
  // Keep the underlying card indices (1..9) unchanged for keyboard selection.
@@ -4617,9 +4690,11 @@ function renderSpellbook(){
   const i=slotNumber-1;
   const card=cards[i],button=document.createElement('button');
   button.type='button';button.className='rokSpellSlot';
-  button.disabled=!card;
+  const oak=card?.id==='ancient-oak-armor';
+  button.disabled=!card||(oak&&oakArmor.state==='equipped');
+  const cardCost=oak&&oakArmor.state==='broken'?card.recraftCost:card?.cost;
   button.setAttribute('aria-label',card?'Casilla '+(i+1)+': '+card.name+
-   ', costo '+card.cost:'Casilla '+(i+1)+': vacía');
+   ', costo '+cardCost+(oak?' · '+oakArmor.state:''):'Casilla '+(i+1)+': vacía');
   const number=document.createElement('span');
   number.className='rokSpellNumber';number.textContent=String(i+1);
   button.append(number);
@@ -4637,7 +4712,9 @@ function renderSpellbook(){
    const name=document.createElement('span');name.className='rokSpellName';
    name.textContent=card.name;button.append(name);
    const cost=document.createElement('span');cost.className='rokSpellCost';
-   cost.textContent='✦ '+card.cost;button.append(cost);
+   cost.textContent=oak?(oakArmor.state==='broken'?'Recraftear · 2 Tierra':
+    oakArmor.state==='equipped'?'Equipada':'Gratis · Equipar'):'✦ '+card.cost;
+   button.append(cost);
    // Secondary touch must work even with a separate joystick touch held.
    // Pointerdown is handled immediately instead of depending on a synthesized click.
    let lastTouch=0;
@@ -4666,6 +4743,7 @@ function openSpellbook(page){
   spellStatus('Inicia un combate para abrir el grimorio.');return;
  }
  spellbook.page=spellbook.page===page?0:page;
+ spellbook.targetingEquipment=false;
  renderSpellbook();
 }
 function summonCardFarolera(caster){
@@ -4731,6 +4809,23 @@ function selectSpellCard(index){
  }
  const caster=casters.find(c=>c.side===qs('#casterMoveSide').value);
  if(!caster||caster.stage!=='active'){spellStatus('Caster no disponible.');return;}
+ if(card.id==='ancient-oak-armor'){
+  if(caster.side!=='ally')return;
+  if(oakArmor.state==='equipped'){
+   spellStatus('Armadura equipada; vuelve al grimorio cuando la portadora muera.');return;
+  }
+  if(oakArmor.state==='broken'){
+   if(!combatHud.spend('ally','earth',2)){
+    spellStatus('Necesitas 2 de Tierra para recraftear la armadura.');return;
+   }
+   oakArmor.state='ready';renderSpellbook();
+   spellStatus('Armadura recrafteada. Selecciónala de nuevo para equiparla.');
+   return;
+  }
+  spellbook.targetingEquipment=true;renderSpellbook();
+  spellStatus('Selecciona la dríada que recibirá Armadura de Roble Antiguo.');
+  return;
+ }
  if(!hasSummonRoom(caster.side)||
     (caster.side==='enemy'?caster.outer.position.z>=0:caster.outer.position.z<=0)){
   spellStatus('Necesitas espacio para invocar y estar en tu propio campo.');return;
