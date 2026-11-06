@@ -417,7 +417,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 })();
 </script>
 <div id="versionProof" aria-label="Versión de la arena">v0.9.106 · Nexo de restauración y aparición original</div>
-<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.120</div>
+<div id="mobileVersionBadge" aria-label="Versión cargada del probador">R.O.K. v0.9.121</div>
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
@@ -637,7 +637,8 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {retargetClip} from 'three/addons/utils/SkeletonUtils.js';
-import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261104-real-fountains-1';
+import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-overlay.js?v=20261105-mobile-lite-121';
+import {reduceModelTextureBudget} from './arena-asset-budget.js?v=1';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.100';
 import {createArenaMatchGate} from './arena-match-gate.js?v=20261105-dom-earth-water-1';
 import {createArenaCombatHud} from './arena-combat-hud.js?v=20261105-dom-earth-water-1';
@@ -649,17 +650,19 @@ import {createRivalCasterAI} from './caster-rival-ai.js?v=0.4';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 
 const qs=s=>document.querySelector(s);
+const mobileCombatMode=window.matchMedia('(pointer:coarse)').matches||
+ /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const hud=qs('#top'), head=qs('#head');
 const expand=()=>{hud.classList.toggle('open');const open=hud.classList.contains('open');qs('#expand').textContent=open?'Cerrar ▴':'Opciones ▾';head.setAttribute('aria-expanded',String(open));};
 head.addEventListener('click',expand);head.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();expand();}});
 qs('#expand').addEventListener('click',e=>e.stopPropagation());
 qs('#expand').addEventListener('click',expand);
 
-const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+const renderer=new THREE.WebGLRenderer({antialias:!mobileCombatMode,powerPreference:'high-performance'});
 // Landscape phones often report >700 CSS px, previously forcing 2x pixel ratio.
 // Keep their GPU workload bounded independently of screen orientation.
 const arenaPixelRatio=()=>Math.min(window.devicePixelRatio||1,
- window.matchMedia('(pointer:coarse) and (max-width:950px)').matches?1.25:
+ mobileCombatMode?1:
  window.innerWidth<700?1.5:2);
 renderer.setPixelRatio(arenaPixelRatio());
 renderer.setSize(innerWidth,innerHeight);
@@ -769,7 +772,7 @@ const fill=new THREE.DirectionalLight(0x00ccb8,.65);fill.position.set(4,5,-6);sc
 const root=new THREE.Group();scene.add(root);
 // Scenery overlay is visual only: never modifies units, hitboxes, pathfinding or rules.
 let attachRealElementSources=null;
-const sceneryOverlay=createArenaSceneOverlay({THREE,root,onSourcesChange:sources=>attachRealElementSources?.(sources),renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;},onArenaVisual:opacity=>{
+const sceneryOverlay=createArenaSceneOverlay({THREE,root,lightweightTextures:mobileCombatMode,onSourcesChange:sources=>attachRealElementSources?.(sources),renderStatus:message=>{const node=qs("#testerSceneStatus");if(node)node.textContent=message;},onArenaVisual:opacity=>{
  const fraction=THREE.MathUtils.clamp(Number(opacity)/100,0,1);
  if(arenaArt){arenaArt.material.transparent=true;arenaArt.material.opacity=fraction;arenaArt.material.needsUpdate=true;}
  pendingSceneOpacity=fraction;
@@ -852,7 +855,7 @@ function cssDimension(css,name){
 }
 async function loadSharedArenaBackground(){
   try{
-    const response=await fetch('./'+bgCssPath+'?v='+Date.now(),{cache:'no-store'});
+    const response=await fetch('./'+bgCssPath,{cache:'default'});
     if(!response.ok)throw Error('HTTP '+response.status);
     const css=await response.text();
     setArenaSpriteAxis('width',cssDimension(css,'width'));
@@ -4315,6 +4318,7 @@ void (async()=>{
   const faroleraTask=new GLTFLoader().loadAsync('./assets/models/casters/farolera/chiara_idle.glb')
    .then(g=>{
     if(!g?.scene||!g.animations?.length)throw Error('Farolera sin Idle');
+    if(mobileCombatMode)reduceModelTextureBudget(g.scene,{maxSize:768});
     window.ROKSummonAssets={farolera:{scene:g.scene,idle:g.animations[0]}};
     return g;
    }).catch(error=>{
@@ -4331,6 +4335,7 @@ void (async()=>{
    try{gltf=await new GLTFLoader().loadAsync(url);}
    catch(error){throw Error('No se pudo cargar '+spec.label+' ('+String(error?.message||error)+')');}
    if(!gltf?.scene)throw Error('El GLB de '+spec.label+' no contiene un modelo válido');
+   if(mobileCombatMode)reduceModelTextureBudget(gltf.scene,{maxSize:1024});
    const bounds=new THREE.Box3().setFromObject(gltf.scene);
    const height=bounds.getSize(new THREE.Vector3()).y;
    if(!Number.isFinite(height)||height<=.001)
@@ -4376,9 +4381,9 @@ void (async()=>{
     window.ROKBoot.progress('Cargando templo y fuentes elementales…',94);
     await sceneryOverlay.init();
     if(!sceneryOverlay.currentName){
-     const response=await fetch('./assets/scenes/arena-de-chiara.json',{cache:'no-store'});
+     const response=await fetch('./assets/scenes/arena-de-chiara.json',{cache:'default'});
      if(!response.ok)throw Error('HTTP '+response.status);
-     const ok=await sceneryOverlay.loadScene(await response.json());
+     const ok=await sceneryOverlay.loadScene(await response.json(),{essentialOnly:mobileCombatMode});
      if(!ok)throw Error('No se pudo instalar el escenario publicado');
     }
     sceneryOverlay.show(true);
@@ -4403,18 +4408,22 @@ void (async()=>{
   // The preparation interface was shown before downloading models.
   playing=false;
   matchGate.setCoreReady();
-  // The Earth summon models load only AFTER the real caster pair and arena
-  // are playable. They never hold up boot or replace a failed model.
+  // First cost-one Earth card, then heavier cards while the game runs.
+  setTimeout(()=>{
+   void ensureLiorenSummonModel('semillera').catch(error=>
+    console.warn('[R.O.K.] Semillera:',error));
+  },150);
   setTimeout(()=>{
    void (async()=>{
-    for(const id of ['semillera','kariona','astarium']){
+    for(const id of ['kariona','astarium']){
      try{await ensureLiorenSummonModel(id);}
-     catch(error){console.warn('[R.O.K.] Modelo opcional de '+id+':',error);}
+     catch(error){console.warn('[R.O.K.] Carta adicional '+id+':',error);}
+     await new Promise(resolve=>setTimeout(resolve,700));
     }
    })();
-  },1200);
+  },mobileCombatMode?12000:5000);
   // The scene catalog no longer competes with core models for bandwidth.
-  if(!window.matchMedia('(pointer:coarse) and (max-width:950px)').matches)
+  if(!mobileCombatMode)
    setTimeout(initializeOptionalSceneControls,1800);
   // Load optional animations gradually, never on the critical startup path.
   // They can be cached by the browser for subsequent rounds.
@@ -4552,6 +4561,7 @@ function ensureLiorenSummonModel(id){
   if(!gltf?.scene)throw Error('Modelo GLB vacío: '+filename);
   const box=new THREE.Box3().setFromObject(gltf.scene);
   if(box.isEmpty())throw Error('Modelo sin geometría: '+filename);
+  if(mobileCombatMode)reduceModelTextureBudget(gltf.scene,{maxSize:768});
   const idle=gltf.animations?.find(a=>/idle|standing/i.test(a.name))||
    gltf.animations?.[0]||new THREE.AnimationClip('Reposo_'+id,1,[]);
   const entry={scene:gltf.scene,idle};
