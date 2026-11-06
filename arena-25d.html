@@ -5047,9 +5047,7 @@ function summonCardFarolera(caster){
   caster.side==='enemy'?-HALF_D:.5,caster.side==='enemy'?-.5:HALF_D);
  const c=createFighter(prototype.scene,prototype.idle,caster.side,'mana');
  c.cardId='farolera';
- // The GLB belongs to the Farolera summon, NOT a caster-sized unit.
- // Keep its original animations but give this one-cost card its own scale.
- c.model.scale.setScalar(c.model.scale.x*(1.05/1.65));
+ // Restore the exact original summon scale; never resize this card.
  c.startX=x;c.startZ=z;c.endZ=z;
  c.model.userData.baseScale=c.model.scale.x;
  resetCombatant(c);
