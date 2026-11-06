@@ -118,9 +118,10 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   orb.phase+=dt*4.6;
   const t=orb.phase,positions=orb.points.geometry.attributes.position.array;
   const colors=orb.points.geometry.attributes.color.array;
-  const radius=.41;
-  for(let j=0;j<ORBIT_PARTICLES;j++){
-   const a=t+j*Math.PI/2;
+  const radius=orb.orbitRadius??.41;
+  const satellites=orb.satellites??ORBIT_PARTICLES;
+  for(let j=0;j<satellites;j++){
+   const a=t+j*Math.PI*2/satellites;
    // Four satellites in alternating inclined orbits around one nucleus.
    const tilt=j%2===0?1:-1;
    const x=Math.cos(a)*radius;
@@ -161,6 +162,31 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   orb.core.scale.setScalar(.9+.14*Math.sin(t*4.4));
  }
 
+ // Share exactly the fountain-orb nucleus, chromatic texture and orbital
+ // shader with a Semillera fragment; only the scale and satellite count vary.
+ function createFragmentVisual(){
+  const group=new THREE.Group();
+  group.scale.setScalar(.43);
+  const core=new THREE.Mesh(coreGeo,coreMaterial.clone());group.add(core);
+  const glow=new THREE.Mesh(haloGeo,haloMaterial.clone());group.add(glow);
+  const geometry=new THREE.BufferGeometry();
+  const positions=new Float32Array((1+TRAIL_PER_PARTICLE)*3);
+  const colors=new Float32Array((1+TRAIL_PER_PARTICLE)*3);
+  geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
+  geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
+  const points=new THREE.Points(geometry,pointMaterial.clone());
+  points.frustumCulled=false;group.add(points);root.add(group);
+  const visual={group,core,glow,points,phase:0,age:0,satellites:1,orbitRadius:.32};
+  updateAtom(visual,0);
+  return {
+   group,
+   update(dt){visual.age=0;updateAtom(visual,dt);},
+   dispose(){
+    root.remove(group);geometry.dispose();
+    core.material.dispose();glow.material.dispose();points.material.dispose();
+   }
+  };
+ }
  function clearSources(){
   for(const source of sources)disposeVisual(source.visual);
   sources.length=0;
