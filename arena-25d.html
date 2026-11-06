@@ -4522,6 +4522,7 @@ function updateDuel(dt){
   if(casters.length!==2)return;
   if(!casterLost())for(const c of combatants){
     if(c.stage!=='active'||faroleraAbilityBridge.immobilized(c))continue;
+    if(c.cardId==='farolera'&&faroleraAbilityBridge.escort(c,dt))continue;
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
     if(!target&&c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
