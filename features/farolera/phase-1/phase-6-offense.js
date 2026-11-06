@@ -69,7 +69,9 @@ export function chooseOffensiveLamp({farolera,enemyCaster,circle,bounds=ARENA_BO
   const lamp={x:farolera.x+direction.x*range,z:farolera.z+direction.z*range};
   if(!inside(lamp,bounds))continue;
   if(distanceXZ(circle,lamp)<=PORTAL_RADIUS+LANDING_CLEARANCE+.03)continue;
-  return {lamp,range:Number(range.toFixed(2))};
+  return {lamp:{x:Math.max(bounds.minX,Math.min(bounds.maxX,lamp.x)),
+   z:Math.max(bounds.minZ,Math.min(bounds.maxZ,lamp.z))},
+   range:Number(range.toFixed(2))};
  }
  return null;
 }
