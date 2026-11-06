@@ -6,10 +6,11 @@
 import {
  createChiaraFaroleraController,orderFaroleraMode,proposeChiaraFaroleraAction,
  activateChiaraFaroleraCircle,activateChiaraFaroleraLantern,
+ activateChiaraDefensiveLantern,activateChiaraDefensiveCircle,
  tickChiaraFarolera,chiaraFaroleraDeath
 } from './phase-8-chiara-controller.js';
 import {assessFaroleraThreat} from './phase-7-defense.js';
-import {lerpLanternPosition,prepareLanternThrow} from './phase-3-lantern.js';
+import {lerpLanternPosition,prepareLanternThrow,distanceXZ} from './phase-3-lantern.js';
 
 export function createFaroleraArenaIntegration({THREE,root,combatants,casters,getClip,setAnim,releaseDuel}){
  const entries=new Map();
@@ -134,22 +135,40 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
  }
  function begin(e,plan){
   const c=e.unit;
-  const result=activateChiaraFaroleraCircle(e.controller,plan,{farolera:snapshot(c)});
+  const defensive=plan.mode==='defensive';
+  const result=defensive?
+   activateChiaraDefensiveLantern(e.controller,plan,{farolera:snapshot(c)}):
+   activateChiaraFaroleraCircle(e.controller,plan,{farolera:snapshot(c)});
   if(!result.ok)return false;
   disposeVisual(e);
-  e.plan=plan;e.circle=makeCircle(plan.circle,c.side);
-  e.step='circle-animation';e.time=0;
-  const clip=getClip(c,14);
-  const hasClip=!!clip&&setClipSegment(e,14,26,50);
-  e.stageTime=hasClip?Math.max(.30,e.animEnd-26/30):.75;
+  e.plan=plan;e.time=0;
+  if(defensive){
+   e.step='throw-animation';setClipSegment(e,2);
+  }else{
+   e.circle=makeCircle(plan.circle,c.side);
+   e.step='circle-animation';
+   const hasClip=setClipSegment(e,14,26,50);
+   e.stageTime=hasClip?Math.max(.30,e.animEnd-26/30):.75;
+  }
   return true;
  }
  function throwLantern(e){
   const c=e.unit;
   let result;
-  try{result=activateChiaraFaroleraLantern(e.controller)}
-  catch(error){console.warn('[ROK Farolera] Lanzamiento inválido:',error);e.step='idle';return}
+  try{
+   result=e.plan.mode==='defensive'?{ok:true}:
+    activateChiaraFaroleraLantern(e.controller);
+  }catch(error){
+   console.warn('[ROK Farolera] Lanzamiento inválido:',error);
+   e.step='idle';return;
+  }
   if(!result.ok){e.step='idle';return}
+  // Both offensive and defensive lamp launches validate the actual current
+  // Farolera position, never an earlier planned or future position.
+  if(distanceXZ(snapshot(c),e.plan.lamp)>4+1e-8){
+   console.warn('[ROK Farolera] Farol fuera de alcance al lanzar');
+   e.step='idle';return;
+  }
   const oldLantern=e.lantern;
   if(oldLantern){clearNode(oldLantern.group);clearNode(oldLantern.chain)}
   e.lantern=makeLantern(c);
@@ -206,10 +225,37 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
     const v=lerpLanternPosition(e.throwPlan,t);
     e.lantern.group.position.set(v.x,v.height,v.z);
     linkChain(c,e.lantern);
-    if(t===1){e.step='idle';setAnim(c,'idle',{fade:.16});}
+    if(t===1){
+     e.step=e.plan.mode==='defensive'?'defense-wait':'idle';
+     e.time=0;setAnim(c,'idle',{fade:.16});
+    }
+   }else if(e.step==='defense-wait'){
+    // Rescue circles are cast only when the beneficiary actually faces danger.
+    // Farolera can move with allies after depositing the lamp.
+    e.time+=dt;
+    const target=combatants.find(u=>getId(u)===e.plan.targetId&&u.hp>0&&
+      !['dead','dying','vanishing'].includes(u.stage));
+    const rescue=target||c;
+    const t=assessFaroleraThreat(snapshot(rescue),opponents);
+    const origin=snapshot(c),destination=snapshot(rescue);
+    if((t.danger>0||t.lethal)&&distanceXZ(origin,destination)<=4+1e-8&&
+      distanceXZ(destination,e.plan.lamp)>1.15){
+     const result=activateChiaraDefensiveCircle(e.controller,{
+      farolera:origin,circle:{x:destination.x,z:destination.z}
+     });
+     if(result.ok){
+      e.circle=makeCircle(destination,c.side);
+      e.step='circle-animation-defense';e.time=0;
+      const hasClip=setClipSegment(e,14,26,50);
+      e.stageTime=hasClip?Math.max(.30,e.animEnd-26/30):.75;
+     }
+    }
+    if(e.lantern)linkChain(c,e.lantern);
+   }else if(e.step==='circle-animation-defense'){
+    e.time+=dt;
+    if(e.time>=e.stageTime){e.step='idle';setAnim(c,'idle',{fade:.16});}
+    if(e.lantern)linkChain(c,e.lantern);
    }else if(e.lantern){
-    // The hand moves with subsequent character animations while the lantern
-    // remains at its landed location; the chain is always re-anchored.
     linkChain(c,e.lantern);
    }
    if(e.circle){
@@ -237,11 +283,33 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
  }
  function immobilized(c){
   const e=entries.get(c);
-  return !!e&&e.step!=='idle';
+  return !!e&&e.step!=='idle'&&e.step!=='defense-wait';
+ }
+ /**
+  * Defensive escort: follow the threatened ally rather than chasing the
+  * enemy caster while the retreat lamp is already positioned behind.
+  * Called from the existing arena's movement loop, not a parallel game loop.
+  */
+ function escort(c,dt){
+  const e=entries.get(c);
+  if(!e||e.step!=='defense-wait'||c.stage!=='active')return false;
+  const target=combatants.find(u=>getId(u)===e.plan.targetId&&u!==c&&u.hp>0&&
+   !['dead','dying','vanishing'].includes(u.stage));
+  if(!target)return false;
+  const dx=target.outer.position.x-c.outer.position.x;
+  const dz=target.outer.position.z-c.outer.position.z;
+  const dist=Math.hypot(dx,dz);
+  if(dist>1.35){
+   const step=Math.min((c.speed||2)*dt,dist-1.35);
+   c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/dist*step,-7.25,7.25);
+   c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/dist*step,-14.75,14.75);
+   setAnim(c,12,{fade:.16});
+  }else setAnim(c,'idle',{fade:.15});
+  return true;
  }
  function lanternDeployed(c){
   const e=entries.get(c);
   return !!(e?.hiddenLamp);
  }
- return {tick,reset,remove,immobilized,lanternDeployed};
+ return {tick,reset,remove,immobilized,lanternDeployed,escort};
 }
