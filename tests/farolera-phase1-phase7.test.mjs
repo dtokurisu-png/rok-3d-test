@@ -34,9 +34,11 @@ test('phase 7: Farolera may escape herself in defensive mode',()=>{
  assert.equal(plan.ok,true);
  assert.equal(plan.targetId,'farolera');assert.equal(plan.selfRescue,true);
 });
-test('phase 7: no defensive trigger in absence of threats',()=>{
+test('phase 7: defensive lamp can be prepared before threats appear',()=>{
  const plan=planFaroleraDefense(params({allies:[ally('a',2,1,0)]}));
- assert.deepEqual(plan,{ok:false,reason:'no-rescue-opportunity'});
+ assert.equal(plan.ok,true);
+ assert.deepEqual(plan.actions,['throw-lantern','approach-ally','cast-circle']);
+ assert.ok(Math.hypot(plan.lamp.x,plan.lamp.z)<=4+1e-8);
 });
 test('phase 7: mode is external and cannot override cooldown',()=>{
  const base={enemies:[enemy('danger',6,1,0)]};
@@ -48,7 +50,8 @@ test('phase 7: deceased or enemy-side targets are ignored',()=>{
   allies:[ally('dead',1,1,0,{stage:'dead'}),ally('enemy',1,2,0,{side:'enemy'})],
   enemies:[enemy('threat',6,2,0.5)]
  }));
- assert.equal(plan.ok,false);
+ assert.equal(plan.ok,true);
+ assert.equal(plan.targetId,'farolera');
 });
 test('phase 7: projected interception stays within four cells of Farolera',()=>{
  const plan=chooseDefensiveCircle({
