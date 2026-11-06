@@ -382,7 +382,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   waterGeo.dispose();waterRingGeo.dispose();beamGeo.dispose();sparkGeo.dispose();
   rainbowTexture.dispose();
  }
- return {bindSources,reset,tick,idle,dispose,
+ return {bindSources,reset,tick,idle,dispose,createFragmentVisual,
   forEachActiveOrb(callback){for(let i=0;i<orbs.length;i++)callback(orbs[i],i);},
   get sourceCount(){return sources.length;}};
 }
