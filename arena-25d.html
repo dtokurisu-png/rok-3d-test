@@ -685,6 +685,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <!-- JSZip is optional; never block the browser parser or first view. -->
 <script type="module">
 import * as THREE from 'three';
+import {stepTelepateProvocations,provocationSource,clearTelepateSource,createTelepateAuraVisuals} from './features/farolera/phase-1/telepate-provocation.js?v=20261106-taunt-1';
 import {createFaroleraArenaIntegration} from './features/farolera/phase-1/phase-8-arena-bridge.js?v=20261106-directed-3';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
@@ -828,6 +829,7 @@ const key=new THREE.DirectionalLight(0xffffff,2.2);key.position.set(-5,13,7);sce
 const fill=new THREE.DirectionalLight(0x00ccb8,.65);fill.position.set(4,5,-6);scene.add(fill);
 
 const root=new THREE.Group();scene.add(root);
+const telepateAuraVisuals=createTelepateAuraVisuals({THREE,root});
 // Farolera tactical spell integration: Chiara chooses offense/defense autonomously.
 // No separate viewer, temporary selector or changes to existing summon cards.
 const faroleraAbilityBridge=createFaroleraArenaIntegration({
@@ -2086,6 +2088,21 @@ function selectCombatTarget(c){
     other.outer.position.x-c.outer.position.x,
     other.outer.position.z-c.outer.position.z);
   const withinRange=other=>distanceTo(other)<=c.range+.005;
+  const forced=provocationSource(c);
+  if(forced&&canDamageTarget(forced)){
+    const assigned=currentSummonDuel(c);
+    if(assigned&&assigned!==forced&&c.stage!=='casting')releaseSummonDuel(c);
+    if(distanceTo(forced)<=c.range+.005){
+      if(!currentSummonDuel(c)){
+        // A taunted unit may challenge this telepate but must not steal
+        // another unit's existing one-on-one duel.
+        if(!currentSummonDuel(forced))reserveSummonDuel(c,forced);
+      }
+    }
+    // Return as a navigation destination even outside weapon range.
+    // No movement teleport or speed alteration occurs.
+    if(!currentSummonDuel(c)||currentSummonDuel(c)===forced)return forced;
+  }
   const assigned=currentSummonDuel(c);
   // Preserve one-on-one combat while the two opponents are actually engaged.
   if(assigned&&withinRange(assigned))return assigned;
@@ -2972,6 +2989,7 @@ function finishNewSummon(c,winner=false){
 }
 
 function resetCombatant(c){
+  c.rokProvocation=null;c.rokAuraClock=0;
   c.deathResourceDropped=false;
   c.currentThreatTarget=null;
   c.armorPhysical=c.cardId==='kariona'?1:0;
@@ -3035,6 +3053,8 @@ function resetCombatant(c){
 // Remove them together with the unit, including their own materials; shared
 // textures/geometries remain owned by the arena.
 function disposeCardSummon(c){
+ telepateAuraVisuals.remove(c);
+ clearTelepateSource(combatants,c);
  faroleraAbilityBridge.remove(c);
  const unmount=node=>{
   if(!node)return;
@@ -3225,6 +3245,8 @@ function updateSemilleraCrystals(dt){
  }
 }
 function resetDemoCombat(){
+  telepateAuraVisuals.clear();
+  for(const unit of combatants){unit.rokProvocation=null;unit.rokAuraClock=0;}
   faroleraAbilityBridge.reset();
   // A new match invalidates any in-progress manual attack/cooldown.
   casterMovement?.disable();
@@ -4509,6 +4531,15 @@ function updateDuel(dt){
       qs('#phase').textContent='★ EMPATE · ambos casters derrotados';
     return;
   }
+  // R.O.K. Lite Provocación factor: timer, independent 32% rolls and
+  // forced target priority on eligible rival summons within five cells.
+  telepateAuraVisuals.update(combatants,dt);
+  stepTelepateProvocations(combatants,dt,{
+   onPulse:source=>telepateAuraVisuals.pulse(source),
+   onSuccess:(source,target)=>{
+    if(target.stage==='active')releaseSummonDuel(target);
+   }
+  });
   for(const c of combatants){
     if(c.cardId==='semillera'&&c.crystalHudFlash>0)
       c.crystalHudFlash=Math.max(0,c.crystalHudFlash-dt);
