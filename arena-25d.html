@@ -647,7 +647,7 @@ import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-ove
 import {reduceModelTextureBudget} from './arena-asset-budget.js?v=2';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.100';
 import {createArenaMatchGate} from './arena-match-gate.js?v=20261105-dom-earth-water-1';
-import {createArenaCombatHud} from './arena-combat-hud.js?v=20261105-dom-earth-water-1';
+import {createArenaCombatHud} from './arena-combat-hud.js?v=20261106-semillera-crystals-1';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.105';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
@@ -2884,12 +2884,14 @@ function resetCombatant(c){
   const shield=c.kind==='shield',archer=c.kind==='archer';
   c.maxHp=archer?ATTACK_PROFILES.archer.hp:shield?12:5;
   if(chiaraSummonDefinitions[c.cardId])c.maxHp=chiaraSummonDefinitions[c.cardId].hp;
+  if(c.cardId==='semillera')c.maxHp=1;
   c.hp=c.maxHp;
   c.shieldMax=shield?2:0;
   c.shield=c.shieldMax;
   c.range=archer?ATTACK_PROFILES.archer.range:shield?3:5;
-  c.attackDamage=chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1);
+  c.attackDamage=c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1));
   c.speed=shield?2.4:2.15;
+  if(c.cardId==='semillera')c.crystalClock=0;
   c.stage='intro';c.introT=0;
   c.hitLeft=0;c.castT=0;c.castDuration=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
   c.restoringT=0;c.stunLeft=0;c.postRestoreStun=0;
@@ -2992,6 +2994,55 @@ function verifyCleanMatchBoundary(){
  if(leaked)console.warn('[R.O.K.] Comprobación de limpieza tras reinicio:',residue);
  return !leaked;
 }
+// Semillera: one small single-orb crystal every five active seconds.
+// Collected by the allied caster; each pickup grants +1 regeneration speed
+// for the current match, never unlocks additional elemental reservoirs.
+const semilleraCrystals=[];
+const semilleraCrystalGeometry=new THREE.OctahedronGeometry(.14,0);
+function clearSemilleraCrystals(){
+ for(const crystal of semilleraCrystals){
+  root.remove(crystal.group);
+  crystal.group.traverse(node=>{
+   if(node.material?.dispose)node.material.dispose();
+  });
+ }
+ semilleraCrystals.length=0;
+}
+function emitSemilleraCrystal(source){
+ // Dispose old uncollected crystals at 30 seconds: no unbounded GPU objects.
+ const group=new THREE.Group();
+ group.position.set(
+  THREE.MathUtils.clamp(source.outer.position.x+(.5-Math.random())*.8,-MAX_X,MAX_X),
+  .34,
+  THREE.MathUtils.clamp(source.outer.position.z-1.15,-MAX_Z,MAX_Z));
+ const gem=new THREE.Mesh(semilleraCrystalGeometry,new THREE.MeshBasicMaterial({
+  color:0xCCFF00,transparent:true,opacity:.96,depthWrite:false
+ }));
+ const orbit=new THREE.Mesh(new THREE.TorusGeometry(.21,.014,5,20),new THREE.MeshBasicMaterial({
+  color:0x67400D,transparent:true,opacity:.78,depthWrite:false
+ }));
+ orbit.rotation.x=Math.PI/3;
+ group.add(gem,orbit);root.add(group);
+ semilleraCrystals.push({group,gem,orbit,age:0});
+}
+function updateSemilleraCrystals(dt){
+ const caster=casters.find(c=>c.side==='ally'&&c.stage==='active');
+ for(let i=semilleraCrystals.length-1;i>=0;i--){
+  const crystal=semilleraCrystals[i];
+  crystal.age+=dt;
+  crystal.gem.rotation.y+=dt*1.7;
+  crystal.orbit.rotation.z+=dt*.8;
+  crystal.group.position.y=.34+Math.sin(crystal.age*3)*.05;
+  const at=caster?.outer?.position;
+  const collected=at&&Math.hypot(at.x-crystal.group.position.x,at.z-crystal.group.position.z)<=1.4;
+  if(collected)combatHud.addRegenSpeed('ally',1);
+  if(collected||crystal.age>=30){
+   root.remove(crystal.group);
+   crystal.group.traverse(node=>node.material?.dispose?.());
+   semilleraCrystals.splice(i,1);
+  }
+ }
+}
 function resetDemoCombat(){
   // A new match invalidates any in-progress manual attack/cooldown.
   casterMovement?.disable();
@@ -3029,6 +3080,7 @@ function resetDemoCombat(){
   magicImpacts.length=0;
   // Card equipment is a per-match consumable; the next match starts fresh.
   resetOakArmor();
+  clearSemilleraCrystals();
   // Card-generated units are NOT initial units: discard on match reset.
   for(const c of cardSummons){
    const index=combatants.indexOf(c);
@@ -4260,6 +4312,10 @@ function updateDuel(dt){
       updateHit(c,dt);
     }
     if(c.stage==='active'){
+      if(c.cardId==='semillera'){
+       c.crystalClock=(c.crystalClock||0)+dt;
+       while(c.crystalClock>=5){c.crystalClock-=5;emitSemilleraCrystal(c);}
+      }
       c.cooldown=Math.max(0,c.cooldown-dt);
       c.specialCooldown=Math.max(0,c.specialCooldown-dt);
     }
@@ -4286,6 +4342,10 @@ function updateDuel(dt){
     if(c.stage!=='active')continue;
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
+    if(!target&&c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
+      c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
+      setAnim(c,12,{fade:.16});continue;
+    }
     if(!target){setAnim(c,'idle',{fade:.15});continue;}
     // La Farolera aturdida sigue siendo un objetivo legal, incluso si el
     // enemigo está en su ciclo de reacción al golpe.
@@ -4293,7 +4353,15 @@ function updateDuel(dt){
     const dx=target.outer.position.x-c.outer.position.x;
     const dz=target.outer.position.z-c.outer.position.z;
     const distance=Math.hypot(dx,dz);
+    // Campeo: Semillera retreats to the far edge of her own half instead
+    // of following enemies. She can attack once an enemy enters her range.
+    if(c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
+      c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
+      setAnim(c,12,{fade:.16});
+      continue;
+    }
     if(distance>c.range+.005){
+      if(c.cardId==='semillera'){setAnim(c,'idle',{fade:.15});continue;}
       const step=Math.min(c.speed*dt,distance-c.range);
       c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/distance*step,-MAX_X,MAX_X);
       c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-MAX_Z,MAX_Z);
@@ -4305,6 +4373,7 @@ function updateDuel(dt){
       setAnim(c,'idle',{fade:.15});
     }
   }
+  updateSemilleraCrystals(dt);
   updateMagic(dt);
   // El orden del bucle ya no determina quién sobrevive: esperar hasta
   // concluir TODOS los proyectiles de este fotograma.
