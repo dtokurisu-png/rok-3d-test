@@ -1742,9 +1742,22 @@ function findBone(c,name){
 }
 // El círculo de preparación y el proyectil comparten EXACTAMENTE el
 // mismo origen óseo RightHand. Sigue la mano en cada frame del ataque.
+// The cast circle is a separate scene-root object, not a child of the GLB.
+// Always dispose it when its owning summoned unit is destroyed.
+function disposeCastMarker(c){
+ const fx=c.castMarker;
+ if(!fx)return;
+ fx.marker.visible=false;
+ fx.marker.parent?.remove(fx.marker);
+ fx.circle.geometry?.dispose?.();
+ fx.circle.material?.dispose?.();
+ // Sprite material is per unit; its glowTexture map is shared by the arena.
+ fx.glow.material?.dispose?.();
+ c.castMarker=null;
+}
 function updateCastMarker(c){
-  const fx=c.castMarker;
-  if(!fx)return;
+ const fx=c.castMarker;
+ if(!fx)return;
   if(c.kind==='archer'||c.stage!=='casting'||c.castFired||!c.castHand){
     fx.marker.visible=false;return;
   }
@@ -1780,7 +1793,9 @@ function setUpAnimationRig(c,idleClip){
     blending:THREE.AdditiveBlending
   }));
   glow.scale.set(.38,.38,1);
-  marker.add(glow,circle);marker.visible=false;root.add(marker);
+  marker.add(glow,circle);marker.visible=false;
+  marker.userData.rokCastCircleOwner=c.role;
+  root.add(marker);
   c.castMarker={marker,circle,glow};
 
   c.walkArm=findBone(c,'rightarm');
@@ -2916,6 +2931,7 @@ function updateSummonBlend(c,dt,winner=false){
   if(c.summonBlendLeft<=0)finishNewSummon(c,winner);
 }
 function finishNewSummon(c,winner=false){
+  if(c.castMarker)c.castMarker.marker.visible=false;
   // No volver a imponer Y=0 ni reiniciar Idle: ambas operaciones causaban
   // el salto visual cuando Standing terminaba.
   c.model.position.y=c.groundDelta;
@@ -3007,6 +3023,7 @@ function disposeCardSummon(c){
  stopHitOverlay(c);
  c.mixer?.stopAllAction();
  c.mixer?.uncacheRoot?.(c.model);
+ disposeCastMarker(c);
  resetDeathFx(c);
  resetRestorationFx(c);
  clearSummonFx(c);
@@ -3047,6 +3064,9 @@ function disposeCardSummon(c){
 function verifyCleanMatchBoundary(){
  const residue={
   cardSummons:cardSummons.size,
+  orphanCastMarkers:root.children.filter(node=>
+   node.userData?.rokCastCircleOwner==='summon'&&
+   !combatants.some(c=>c.castMarker?.marker===node)).length,
   orphanNexuses:[...summonNexuses.keys()].filter(c=>!combatants.includes(c)).length,
   missiles:missiles.length,
   impacts:magicImpacts.length,
@@ -3328,6 +3348,7 @@ function updateCast(c,dt){
     if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=false;
   }
   if(c.castT>=c.castDuration){
+    if(c.castMarker)c.castMarker.marker.visible=false;
     if(c.kind==='archer'&&c.heldArrow)c.heldArrow.visible=true;
     if(c.animAction)c.animAction.paused=false;
     c.stage='active';c.castTarget=null;c.castClip=null;c.cooldown=0;
