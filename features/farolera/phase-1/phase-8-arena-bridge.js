@@ -189,7 +189,10 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
    const t=assessFaroleraThreat(u,opponents);
    return t.lethal||t.danger>=1.3;
   });
-  return risky?'defensive':'offensive';
+  // Anticipate danger: deploy the defensive lamp before lethal damage.
+  const approaching=[self,...friendlies].some(ally=>
+   opponents.some(enemy=>enemy.side!==ally.side&&distanceXZ(ally,enemy)<=5.5));
+  return risky||approaching?'defensive':'offensive';
  }
  function tick(dt){
   const current=combatants.filter(c=>c.cardId==='farolera');
@@ -261,7 +264,7 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
    if(e.circle){
     e.circle.rotation.y+=dt*.45;
    }
-   const units=e.step==='throw-flight'?[]:getUnits(e);
+   const units=['throw-flight','circle-animation-defense'].includes(e.step)?[]:getUnits(e);
    const {ability,transfers}=tickChiaraFarolera(e.controller,dt,units);
    if(!ability.portalActive&&e.step==='idle'&&e.circle)disposeVisual(e);
    for(const transfer of transfers){
@@ -292,7 +295,13 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   */
  function escort(c,dt){
   const e=entries.get(c);
-  if(!e||e.step!=='defense-wait'||c.stage!=='active')return false;
+  if(!e||c.stage!=='active')return false;
+  // The Farolera is a tactical support unit. Hold her in the back during
+  // offense so an incoming ally can use the full four-cell portal projection.
+  if(e.step==='idle'&&e.controller.order==='offensive'){
+   setAnim(c,'idle',{fade:.15});return true;
+  }
+  if(e.step!=='defense-wait')return false;
   const target=combatants.find(u=>getId(u)===e.plan.targetId&&u!==c&&u.hp>0&&
    !['dead','dying','vanishing'].includes(u.stage));
   if(!target)return false;
