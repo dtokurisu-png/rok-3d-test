@@ -2517,7 +2517,7 @@ function createArmorHudIconTexture(){
  fetch('./assets/factores/factor%20armadura.svg')
   .then(response=>{if(!response.ok)throw Error('HTTP '+response.status);return response.text();})
   .then(source=>{
-   const svg=source.replace(/<svg\\b/, '<svg width="128" height="128"');
+   const svg=source.replace('<svg ', '<svg width="128" height="128" ');
    image.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
   }).catch(error=>console.warn('[R.O.K.] Factor armadura:',error));
  return texture;
