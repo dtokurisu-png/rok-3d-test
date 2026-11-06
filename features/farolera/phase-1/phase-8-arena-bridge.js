@@ -208,7 +208,7 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   const chosen=findTarget(e);
   if(!chosen)return false;
   const actual=combatants.find(u=>getId(u)===chosen.id);
-  if(!actual||actual.hp<=0||actual.duelOpponent)return false;
+  if(!actual||actual.hp<=0)return false;
   e.target=actual;e.castSnapshot=chosen;
   clearNode(e.circle);
   e.circle=makeCircle(chosen,c.side);
@@ -231,12 +231,10 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
    const x=e.plan.lamp.x,z=e.plan.lamp.z;
    // Teleport is instantaneous after the cast, never a new movement state.
    // Keep active/casting/attack state, speed and AI movement intact.
-   if(unit.duelOpponent){/* Do not remove an active fight. */}
-   else{
-    unit.outer.position.set(x,unit.outer.position.y,z);
-    unit.currentThreatTarget=null;
-    if(unit===c)e.finished=true;
-   }
+   if(unit.duelOpponent)releaseDuel(unit);
+   unit.outer.position.set(x,unit.outer.position.y,z);
+   unit.currentThreatTarget=null;
+   if(unit===c)e.finished=true;
   }
   clearNode(e.transitGlow);e.transitGlow=null;
   clearNode(e.circle);e.circle=null;
