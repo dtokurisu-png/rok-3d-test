@@ -312,6 +312,25 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  text-shadow:0 1px 3px #000;
  font-size:clamp(7px,.95vw,10px);
 }
+/* Equipment is deliberately distinct from the normal Earth forest. */
+.rokSpellSlot.rokEarthEquipmentCard{
+ background:#1c2b10 url('./assets/fondo%20verde.png') center / cover no-repeat;
+ border:1px solid #67400D;
+}
+.rokSpellSlot.rokEarthEquipmentCard::after{
+ content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
+ background:url('./assets/tierra.png') center / 100% 100% no-repeat;
+}
+.rokSpellSlot.rokEarthEquipmentCard .rokSpellName,
+.rokSpellSlot.rokEarthEquipmentCard .rokSpellCost{z-index:4}
+.rokSpellSlot.rokEarthEquipmentCard img{object-fit:contain;z-index:1}
+@media(pointer:coarse) and (max-width:950px){
+ #rokSpellbookGrid .rokEarthCardArt img.rokEarthCharacterArt,
+ #rokSpellbookGrid .rokEarthCardArt img.rokMelanideRaceIcon,
+ #rokSpellbookGrid .rokEarthEquipmentCard img{
+  object-fit:contain!important;
+ }
+}
 /* Keep casting feedback for screen readers, without visible HUD text. */
 #rokSpellbookStatus{position:absolute!important;width:1px!important;height:1px!important;
  padding:0!important;margin:-1px!important;overflow:hidden!important;
@@ -4776,9 +4795,9 @@ function ensureLiorenSummonModel(id){
 }
 const spellbook={page:0,rapid:new Map(),targetingEquipment:false};
 const oakArmor={state:'ready',holder:null};
-const DRYAD_CARDS=new Set(['semillera','kariona','astarium']);
-const availableDryadTargets=()=>[...cardSummons].filter(c=>
- c.side==='ally'&&DRYAD_CARDS.has(c.cardId)&&c.hp>0&&c.stage==='active');
+const MELANIDE_CARDS=new Set(['semillera','kariona','astarium']);
+const availableMelanideTargets=()=>[...cardSummons].filter(c=>
+ c.side==='ally'&&MELANIDE_CARDS.has(c.cardId)&&c.hp>0&&c.stage==='active');
 function resetOakArmor(){
  if(oakArmor.holder){
   oakArmor.holder.armorPhysical=0;
@@ -4819,7 +4838,7 @@ function renderOakArmorTargets(){
   spellbook.targetingEquipment=false;renderSpellbook();
  };
  spellbookGrid.append(back);
- const melanides=availableDryadTargets();
+ const melanides=availableMelanideTargets();
  if(!melanides.length){
   const note=document.createElement('p');
   note.textContent='Invoca una melánide y espera que termine de aparecer para equiparla.';
@@ -4855,6 +4874,7 @@ function renderSpellbook(){
   const card=cards[i],button=document.createElement('button');
   button.type='button';button.className='rokSpellSlot';
   if(card?.race==='melanide')button.classList.add('rokEarthCardArt');
+  if(card?.id==='ancient-oak-armor')button.classList.add('rokEarthEquipmentCard');
   const oak=card?.id==='ancient-oak-armor';
   button.disabled=!card||(oak&&oakArmor.state==='equipped');
   const cardCost=oak&&oakArmor.state==='broken'?card.recraftCost:card?.cost;
