@@ -8,6 +8,7 @@ import {planFaroleraDefense} from './phase-7-defense.js';
 import {
  createFaroleraAbility,getFaroleraAbilityStatus,beginFaroleraCircle,
  finishFaroleraLantern,tickFaroleraAbility,stepFaroleraAbility,
+ beginDefensiveLantern,finishDefensiveCircle,
  cancelFaroleraPlacement,onFaroleraDeath
 } from './phase-5-lifecycle.js';
 
@@ -104,6 +105,42 @@ export function activateChiaraFaroleraLantern(controller){
   return {ok:false,reason:'order-changed'};
  }
  const result=finishFaroleraLantern(controller.ability,plan.lamp);
+ if(result.ok)controller.pendingPlan=null;
+ return result;
+}
+
+/**
+ * Defensive deployment is reversed: Chiara orders a safe lamp first, the
+ * Farolera approaches a threatened ally, then casts the rescue circle.
+ */
+export function activateChiaraDefensiveLantern(controller,proposal,{farolera}={}){
+ if(!proposal?.ok||proposal.mode!=='defensive'||
+  proposal.mode!==controller.order||proposal.orderRevision!==controller.orderRevision)
+  return {ok:false,reason:'obsolete-or-unapproved-plan'};
+ if(controller.pendingPlan)return {ok:false,reason:'first-activation-pending'};
+ if(!farolera||farolera.id!==controller.faroleraId||farolera.side!==controller.side)
+  return {ok:false,reason:'farolera-identity-mismatch'};
+ const result=beginDefensiveLantern(controller.ability,{
+  origin:clonePosition(farolera),lamp:proposal.lamp
+ });
+ if(result.ok)controller.pendingPlan={
+  ...copyPlan(proposal),orderRevision:controller.orderRevision
+ };
+ return result;
+}
+
+export function activateChiaraDefensiveCircle(controller,{farolera,circle}={}){
+ const plan=controller.pendingPlan;
+ if(!plan||plan.mode!=='defensive')return {ok:false,reason:'lantern-required'};
+ if(plan.orderRevision!==controller.orderRevision||controller.order!=='defensive'){
+  cancelFaroleraPlacement(controller.ability);controller.pendingPlan=null;
+  return {ok:false,reason:'order-changed'};
+ }
+ if(!farolera||farolera.id!==controller.faroleraId||farolera.side!==controller.side)
+  return {ok:false,reason:'farolera-identity-mismatch'};
+ const result=finishDefensiveCircle(controller.ability,{
+  origin:clonePosition(farolera),circle:circle||plan.circle
+ });
  if(result.ok)controller.pendingPlan=null;
  return result;
 }
