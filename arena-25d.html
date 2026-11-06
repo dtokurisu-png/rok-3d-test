@@ -409,6 +409,12 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
   if(!done&&event.message&&/script|module|import|webgl|three|syntaxerror/i.test(String(event.message)))
    window.ROKBoot.fail(event.message);
  });
+ // Save downloaded models/textures locally for subsequent visits.
+ // Does not modify or clear controls in localStorage.
+ if('serviceWorker' in navigator&&location.protocol==='https:'){
+  navigator.serviceWorker.register('./arena-cache-sw.js',{scope:'./'})
+   .catch(error=>console.warn('[R.O.K.] Caché no disponible:',error));
+ }
  window.addEventListener('unhandledrejection',event=>{
   // Loading failures from noncritical modules are surfaced in the console;
   // fatal core-model errors are handled explicitly by their loader callbacks.
@@ -2133,7 +2139,7 @@ const matchGate=createArenaMatchGate({
 });
 // Show element selection without waiting for any GLB, FBX or ZIP.
 matchGate.resourcesReady();
-window.ROKBoot.ready();
+// Keep dark overlay until essential real assets are ready.
 const CASTER_RESTART_DELAY=1.8; // Mostrar victoria/derrota antes de reiniciar.
 let matchRestartLeft=null;
 const DURATION=10.25;
@@ -4313,18 +4319,6 @@ function updateDuel(dt){
 window.ROKBoot.progress('Descargando modelos de invocaciones…',12);
 void (async()=>{
   try{
-  // Optional Farolera is fetched independently and cannot prevent the two
-  // real casters from loading or enabling the arena.
-  const faroleraTask=new GLTFLoader().loadAsync('./assets/models/casters/farolera/chiara_idle.glb')
-   .then(g=>{
-    if(!g?.scene||!g.animations?.length)throw Error('Farolera sin Idle');
-    if(mobileCombatMode)reduceModelTextureBudget(g.scene,{maxSize:768});
-    window.ROKSummonAssets={farolera:{scene:g.scene,idle:g.animations[0]}};
-    return g;
-   }).catch(error=>{
-    console.warn('[R.O.K.] Invocación Farolera opcional:',error);
-    return null;
-   });
   window.ROKBoot.progress('Cargando los dos casters reales…',27);
   const casterModelTasks=[
    {side:'ally',folder:'lioren',path:'lioren kaster.glb',label:'Lioren'},
@@ -4349,6 +4343,19 @@ void (async()=>{
   // The match MUST NOT become ready while either caster is missing.
   // Promise.all rejects explicitly; no Farolera fallback and no silent errors.
   const realCasters=await Promise.all(casterModelTasks);
+  // Optional Farolera is fetched independently and cannot prevent the two
+  // real casters from loading or enabling the arena.
+  const faroleraTask=new GLTFLoader().loadAsync('./assets/models/casters/farolera/chiara_idle.glb')
+   .then(g=>{
+    if(!g?.scene||!g.animations?.length)throw Error('Farolera sin Idle');
+    if(mobileCombatMode)reduceModelTextureBudget(g.scene,{maxSize:768});
+    window.ROKSummonAssets={farolera:{scene:g.scene,idle:g.animations[0]}};
+    return g;
+   }).catch(error=>{
+    console.warn('[R.O.K.] Invocación Farolera opcional:',error);
+    return null;
+   });
+
   const deferredCasterAnimations=[];
   for(const {spec,gltf,idle,bounds} of realCasters){
    const caster=createCaster(gltf.scene,idle,spec.side);
@@ -4399,15 +4406,23 @@ void (async()=>{
     const message='Error al preparar escenario y fuentes: '+String(error.message||error);
     qs('#testerSceneStatus').textContent=message;
     qs('#sceneStatus').textContent=message;
-    window.ROKBoot.progress(message,94);
+    window.ROKBoot.fail(message);
     return;
    }
   }
+  window.ROKBoot.progress('Preparando cartas de costo 1…',96);
+  // Only cost-one models are essential for the first test. Do not hang
+  // indefinitely on missing optional models.
+  await Promise.race([
+   Promise.allSettled([faroleraTask,ensureLiorenSummonModel('semillera')]),
+   new Promise(resolve=>setTimeout(resolve,12000))
+  ]);
   qs('#modelStatus').textContent='Lioren y Chiara listos · Farolera solo como invocación';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
   // The preparation interface was shown before downloading models.
   playing=false;
   matchGate.setCoreReady();
+  window.ROKBoot.ready();
   // First cost-one Earth card, then heavier cards while the game runs.
   setTimeout(()=>{
    void ensureLiorenSummonModel('semillera').catch(error=>
@@ -4468,6 +4483,7 @@ void (async()=>{
     qs('#phase').textContent='⚠ No se pudo iniciar el combate: '+message;
     qs('#sceneStatus').textContent='Error de arranque: '+message;
     matchGate.setCoreError(message);
+    window.ROKBoot.fail(message);
   }
 })();
 
@@ -5397,7 +5413,7 @@ qs('#reviewExport').onclick=()=>{
   setTimeout(()=>URL.revokeObjectURL(url),2000);
   reviewMessage('Decisiones exportadas. Envíame el JSON; aún no se ha borrado ningún clip.');
 };
-fetch('./assets/manifests/caster-animations.json',{cache:'no-store'}).then(response=>{
+if(!mobileCombatMode)fetch('./assets/manifests/caster-animations.json',{cache:'default'}).then(response=>{
   if(!response.ok)throw Error('Manifest no disponible');
   return response.json();
 }).then(manifest=>{casterReview.items=(manifest.animations||[]).filter(animation=>animation.status!=='rejected');renderCasterAnimationReview();
