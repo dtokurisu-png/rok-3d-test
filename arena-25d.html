@@ -1839,34 +1839,53 @@ function nexusPortraitTexture(src){
  texture.colorSpace=THREE.SRGBColorSpace;
  texture.anisotropy=Math.min(renderer.capabilities.getMaxAnisotropy(),8);
  nexusPortraitCache.set(src,texture);
- const picture=new Image();
- picture.onload=()=>{
-  ctx.clearRect(0,0,256,256);
-  ctx.save();ctx.beginPath();ctx.arc(128,128,120,0,Math.PI*2);ctx.clip();
-  const ratio=Math.max(256/picture.width,256/picture.height);
-  const w=picture.width*ratio,h=picture.height*ratio;
-  ctx.drawImage(picture,(256-w)/2,(256-h)/2,w,h);ctx.restore();
+ if(src){
+  const picture=new Image();
+  picture.onload=()=>{
+   ctx.clearRect(0,0,256,256);
+   ctx.save();ctx.beginPath();ctx.arc(128,128,120,0,Math.PI*2);ctx.clip();
+   const ratio=Math.max(256/picture.width,256/picture.height);
+   const w=picture.width*ratio,h=picture.height*ratio;
+   ctx.drawImage(picture,(256-w)/2,(256-h)/2,w,h);ctx.restore();
+   texture.needsUpdate=true;
+  };
+  picture.onerror=()=>{
+   // Never substitute another character's portrait for a missing asset.
+   ctx.fillStyle='#d3daca';ctx.font='bold 150px sans-serif';
+   ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('✦',128,131);
+   texture.needsUpdate=true;
+  };
+  picture.src=src;
+ }else{
+  // A neutral rune until the specific invocation's portrait is published.
+  ctx.fillStyle='#d3daca';ctx.font='bold 150px sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('✦',128,131);
   texture.needsUpdate=true;
- };
- picture.src=src;
+ }
  return texture;
 }
-function createSummonNexus(c,portrait){
+function summonNexusPortrait(c){
+ const card=spellDeckForSide(c.side).flat().find(item=>item?.id===c.cardId);
+ return card?.portrait||(c.cardId==='telepate'?arenaCharacterArt.telepata:null);
+}
+function createSummonNexus(c){
+ if(summonNexuses.has(c))return;
+ const portrait=summonNexusPortrait(c);
  const group=new THREE.Group();
  group.name='ROK_Summon_Restoration_Nexus';
  group.position.set(c.startX,.07,c.startZ);
  const ally=c.side==='ally';
  const face=new THREE.Mesh(nexusDiscGeometry,new THREE.MeshBasicMaterial({
   map:nexusPortraitTexture(portrait),color:0xffffff,
-  transparent:true,depthWrite:false,depthTest:false,side:THREE.DoubleSide
+  transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide
  }));
- face.rotation.x=-Math.PI/2;face.position.y=.008;face.renderOrder=14;
+ face.rotation.x=-Math.PI/2;face.position.y=.008;
  group.add(face);
  const ring=new THREE.Mesh(nexusRingGeometry,new THREE.MeshBasicMaterial({
   color:ally?0x00ffe4:0xff779a,transparent:true,opacity:.88,
-  depthWrite:false,depthTest:false,side:THREE.DoubleSide
+  depthWrite:false,depthTest:true,side:THREE.DoubleSide
  }));
- ring.rotation.x=-Math.PI/2;ring.position.y=.013;ring.renderOrder=15;
+ ring.rotation.x=-Math.PI/2;ring.position.y=.013;
  group.add(ring);root.add(group);
  summonNexuses.set(c,{group,ring,phase:0});
 }
@@ -2687,6 +2706,9 @@ function beginSummonEmergence(c){
   releaseSummonDuel(c);
   const winner=c.stage==='restoring'&&c.restorationPhase==='travel';
   if(c.stage!=='summonCasting'&&!winner)return;
+  // Centralized for every summon card, including future invocations.
+  // Restore existing nexus on recasts; never create duplicates.
+  if(c.role==='summon'&&c.cardId)createSummonNexus(c);
   stopHitOverlay(c);
   clearEmbeddedArrows(c); // Una vida nueva no hereda las flechas de la anterior.
   // Reiniciar el mismo contenedor 3D (nuevo ciclo de vida), sin crear
@@ -4991,7 +5013,6 @@ function summonCardFarolera(caster){
  c.model.userData.baseScale=c.model.scale.x;
  resetCombatant(c);
  makeNameplate(c);
- createSummonNexus(c,arenaCharacterArt.farolera);
  cardSummons.add(c);
  // Use the ORIGINAL emergence: rise from beneath the floor with the
  // colored ring, sparks and rays, then Standing 13 blending into Idle.
