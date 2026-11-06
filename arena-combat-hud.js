@@ -239,6 +239,13 @@ export function createArenaCombatHud(){
   }
   return 0; // Maximum 30 reservoirs already obtained.
  }
+ // A Melánide Semillera pickup restores exactly ONE quarter-unit.
+ // Unlike a fountain orb, it never unlocks a new reservoir; unlike a
+ // regeneration bonus, it does not change the rate of later ticks.
+ function collectFragment(side){
+  if(!sides[side])return false;
+  return regenerateFragment(side);
+ }
  function addRegenSpeed(side,amount=1){
   const player=sides[side];if(!player)return 0;
   const increase=Math.max(0,Math.floor(Number(amount)||0));
@@ -278,5 +285,5 @@ export function createArenaCombatHud(){
   return {available:Number(player.elementAmounts[element]||0),
    unlocked:Number(player.unlocked[element]||0)};
  }
- return {configure,draw,reset,advance,setElements,collectOrb,addRegenSpeed,spend,refund,getResources};
+ return {configure,draw,reset,advance,setElements,collectOrb,collectFragment,addRegenSpeed,spend,refund,getResources};
 }
