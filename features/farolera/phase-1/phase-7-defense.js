@@ -1,7 +1,7 @@
 /**
  * R.O.K. — Fase 7: planificador DEFENSIVO de la Farolera.
  * Módulo aislado. No cambia el combate ni selecciona el modo de Chiara.
- * Devuelve una propuesta para las dos activaciones: círculo -> lámpara.
+ * Secuencia defensiva: lámpara de retirada -> acercamiento -> círculo.
  */
 import {FAROLERA_RANGE,distanceXZ} from './phase-3-lantern.js';
 import {ARENA_BOUNDS,PORTAL_RADIUS,LANDING_CLEARANCE} from './phase-4-portal.js';
@@ -97,31 +97,34 @@ export function planFaroleraDefense({farolera,allies=[],enemies=[],friendlyCaste
  if(mode!=='defensive')return {ok:false,reason:'not-defensive'};
  if(abilityStatus?.canCast!==true)return {ok:false,reason:'ability-unavailable'};
  if(!living(farolera))return {ok:false,reason:'farolera-unavailable'};
- const targets=[...allies,farolera].filter((u,i,all)=>living(u)&&u.side===farolera.side&&
-  (u.id!==farolera.id||i===all.length-1)&&u.id!=null);
- const candidates=[];
- for(const unit of targets){
-  const threat=assessFaroleraThreat(unit,enemies);
-  if(threat.danger<=0)continue;
-  const circle=chooseDefensiveCircle({farolera,unit,bounds,predictionSeconds});
-  if(!circle)continue;
-  const lamp=chooseDefensiveLamp({farolera,circle:circle.circle,allies:targets,
-   enemies,friendlyCaster,bounds});
-  if(!lamp)continue;
-  candidates.push({unit,threat,circle,lamp});
- }
- candidates.sort((a,b)=>Number(b.threat.lethal)-Number(a.threat.lethal)||
+ const candidates=[...allies,farolera].filter((unit,i,all)=>
+  living(unit)&&unit.id!=null&&unit.side===farolera.side&&
+  (unit.id!==farolera.id||i===all.length-1));
+ if(!candidates.length)return {ok:false,reason:'no-defensive-target'};
+ // Pre-position the lantern BEFORE a rescue is needed, so the Farolera
+ // has time to accompany the ally and can cast the rescue circle on demand.
+ const scores=candidates.map(unit=>({unit,threat:assessFaroleraThreat(unit,enemies)}));
+ scores.sort((a,b)=>Number(b.threat.lethal)-Number(a.threat.lethal)||
   b.threat.danger-a.threat.danger||
   Number(a.unit.id===farolera.id)-Number(b.unit.id===farolera.id)||
-  String(a.unit.id).localeCompare(String(b.unit.id)));
- const best=candidates[0];
- if(!best)return {ok:false,reason:'no-rescue-opportunity'};
+  distanceXZ(farolera,a.unit)-distanceXZ(farolera,b.unit));
+ const target=scores[0];
+ // The eventual circle is not cast here. It's planned close to the ally
+ // and revalidated from the Farolera's new position at cast time.
+ const projected=move(target.unit,Math.max(0,Math.min(.65,predictionSeconds)));
+ const circle=inside(projected,bounds)?projected:position(target.unit);
+ const lamp=chooseDefensiveLamp({
+  farolera,circle,allies:candidates,enemies,friendlyCaster,bounds
+ });
+ if(!lamp)return {ok:false,reason:'no-safe-lantern-direction'};
+ if(distanceXZ(farolera,lamp.lamp)>FAROLERA_RANGE+EPS)
+  return {ok:false,reason:'lamp-out-of-range'};
  return {
-  ok:true,mode:'defensive',targetId:best.unit.id,
-  selfRescue:best.unit.id===farolera.id,
-  dangerScore:best.threat.danger,lethalRisk:best.threat.lethal,
-  circle:best.circle.circle,lamp:best.lamp.lamp,lampRange:best.lamp.range,
-  actions:['cast-circle','throw-lantern'],
+  ok:true,mode:'defensive',targetId:target.unit.id,
+  selfRescue:target.unit.id===farolera.id,
+  dangerScore:target.threat.danger,lethalRisk:target.threat.lethal,
+  circle,lamp:lamp.lamp,lampRange:lamp.range,
+  actions:['throw-lantern','approach-ally','cast-circle'],
   readyForChiaraDecision:true
  };
 }
