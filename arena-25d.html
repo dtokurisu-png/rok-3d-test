@@ -2495,6 +2495,7 @@ const summonWeaponIconTextures={
  archer:summonHudIconTexture('➶','#ff6767')
 };
 const summonShieldIconTexture=summonHudIconTexture('◆','#c3ccd6');
+const summonArmorSlotTexture=summonHudIconTexture('','#c3ccd6');
 const summonEnergyIconTexture=summonHudIconTexture('✦','#8b6bea');
 // The supplied armor SVG has a viewBox but no intrinsic pixel dimensions.
 // Draw it in a sized canvas so its white silhouette is reliable in WebGL.
@@ -2543,7 +2544,8 @@ function createSummonGroundHud(c){
  };
  icon(summonLifeIconTexture,-.19);
  icon(summonWeaponIconTextures[c.kind]||summonWeaponIconTextures.shield,.19);
- const shieldIcon=new THREE.Sprite(new THREE.SpriteMaterial({map:summonShieldIconTexture,
+ const shieldIcon=new THREE.Sprite(new THREE.SpriteMaterial({
+  map:c.cardId==='kariona'?summonArmorSlotTexture:summonShieldIconTexture,
   transparent:true,depthWrite:false,depthTest:false,toneMapped:false}));
  shieldIcon.position.set(-.37,.19,.64);shieldIcon.scale.set(.19,.19,1);shieldIcon.renderOrder=20;
  iconGroup.add(shieldIcon);
