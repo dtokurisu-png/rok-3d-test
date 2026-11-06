@@ -29,9 +29,9 @@ export function createFaroleraPortal({ownerId,ownerSide='ally',origin,circle,mod
  };
 }
 
-export function linkFaroleraLantern(portal,lamp){
+export function linkFaroleraLantern(portal,lamp,{launchOrigin=portal.origin}={}){
  if(portal.phase!=='circle')throw Error('Primero se debe crear el círculo');
- if(!finite(lamp)||!withinThrowRange(portal.origin,lamp))throw RangeError('Lámpara fuera del radio de 4 casillas');
+ if(!finite(lamp)||!finite(launchOrigin)||!withinThrowRange(launchOrigin,lamp))throw RangeError('Lámpara fuera del radio de 4 casillas desde el punto de lanzamiento');
  if(!inArena(lamp,portal.bounds))throw RangeError('Lámpara fuera de la arena');
  if(distanceXZ(portal.circle,lamp)<=portal.radius+LANDING_CLEARANCE)
   throw RangeError('El destino no puede solaparse con la entrada del portal');
