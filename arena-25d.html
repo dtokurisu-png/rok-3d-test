@@ -4944,7 +4944,8 @@ const spellbook={page:0,rapid:new Map(),targetingEquipment:false};
 const oakArmor={state:'ready',holder:null};
 const MELANIDE_CARDS=new Set(['semillera','kariona','astarium']);
 const availableMelanideTargets=()=>[...cardSummons].filter(c=>
- c.side==='ally'&&MELANIDE_CARDS.has(c.cardId)&&c.hp>0&&c.stage==='active');
+ c.side==='ally'&&MELANIDE_CARDS.has(c.cardId)&&c.hp>0&&
+ !['dead','dying','vanishing'].includes(c.stage));
 // TEMPORARY R.O.K. QUALITY BRIDGE: priorities and item restrictions must
 // migrate to the canonical R.O.K. card-quality system when integrated.
 // Today Cariona has the "warrior" tag; Oak Armor requires that same tag.
@@ -4986,7 +4987,7 @@ function updateOakTargetMarkers(){
   const point=new THREE.Vector3(0,2.15,0);
   c.outer.localToWorld(point);
   point.project(camera);
-  const visible=c.hp>0&&c.stage==='active'&&point.z>=-1&&point.z<=1&&
+  const visible=c.hp>0&&!['dead','dying','vanishing'].includes(c.stage)&&point.z>=-1&&point.z<=1&&
    Math.abs(point.x)<=1&&Math.abs(point.y)<=1;
   label.style.display=visible?'block':'none';
   if(visible){
