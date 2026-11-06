@@ -880,21 +880,8 @@ function setArenaSpriteAxis(axis,percent){
 }
 widthControl.addEventListener('input',()=>setArenaSpriteAxis('width',widthControl.value));
 lengthControl.addEventListener('input',()=>setArenaSpriteAxis('length',lengthControl.value));
-const bgSaveButton=qs('#saveArenaBackground');
 const bgSaveStatus=qs('#backgroundSaveStatus');
 const bgCssPath='arena-background.css';
-const bgApiUrl='https://api.github.com/repos/dtokurisu-png/rok-3d-test/contents/'+bgCssPath;
-function backgroundCss(width,length){
-  return [
-    '/* R.O.K. Arena 2.5D — dimensiones oficiales del sprite de fondo.',
-    '   Modificadas por el botón Guardar en GitHub. Valores en porcentaje. */',
-    ':root {',
-    '  --rok-arena-bg-width: '+width+';',
-    '  --rok-arena-bg-length: '+length+';',
-    '}',
-    ''
-  ].join(String.fromCharCode(10));
-}
 function cssDimension(css,name){
   const part=css.split('--rok-arena-bg-'+name+':')[1];
   const value=part===undefined?NaN:Number.parseFloat(part);
@@ -1473,23 +1460,6 @@ function adaptAnimationFBX(source,sourceClip,targetModel,name){
     temp.stopAllAction();
   }
   const clip=new THREE.AnimationClip(name,-1,tracks);clip.optimize();return clip;
-}
-
-function captureArcherRig(model){
-  const sk=findSkeletonForAnimation(model);
-  if(!sk)throw Error('GLB de Arquera sin esqueleto');
-  sk.pose();model.updateMatrixWorld(true);
-  const reference=new Map();
-  for(const bone of sk.bones){
-    const key=boneKey(bone.name);
-    if(key&&!reference.has(key))reference.set(key,{
-      name:bone.name,local:bone.quaternion.clone().normalize(),
-      world:bone.getWorldQuaternion(new THREE.Quaternion()).normalize()
-    });
-  }
-  for(const key of ['hips','rightarm','leftarm','righthand','lefthand'])
-    if(!reference.has(key))throw Error('Hueso ausente en Arquera: '+key);
-  return reference;
 }
 
 // La secuencia Standing 13 empieza agachada y termina erguida.
@@ -2318,21 +2288,6 @@ function animateFighter(c,t){
     p.material.opacity=.8*amount;
     p.position.y=.1+(j%4)*.2+(1-amount)*.62;
   });
-}
-const hits=new THREE.Group();root.add(hits);
-const hitA=new THREE.Mesh(new THREE.RingGeometry(.14,.23,48),new THREE.MeshBasicMaterial({color:0xe7ffff,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));hits.add(hitA);
-const hitB=new THREE.Mesh(new THREE.RingGeometry(.18,.24,48),new THREE.MeshBasicMaterial({color:0x00ffe4,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));hits.add(hitB);
-const hitFlash=new THREE.Mesh(new THREE.SphereGeometry(.26,16,12),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0,depthWrite:false}));hits.add(hitFlash);
-hits.position.set(0,.9,0);
-function hitEffects(t){
-  let max=0,which=0;
-  eventTimes.forEach((at,i)=>{const v=bump(t,at,.12);if(v>max){max=v;which=i;}});
-  hits.visible=max>.005;
-  hitA.scale.setScalar(1+(1-max)*4.4);hitA.material.opacity=.8*max;
-  hitB.scale.setScalar(.5+(1-max)*3.4);hitB.material.opacity=.7*max;
-  hitFlash.scale.setScalar(.35+max*1.7);hitFlash.material.opacity=.72*max;
-  hits.rotation.set(.4,(which+1)*.9,which%2?1.2:-.9);
-  if(max>.3)qs('#phase').textContent='⚔ Intercambio de golpes · demostración';
 }
 /* R.O.K. arena · duelo de prueba v0.9.7. No altera el motor del juego principal. */
 let attackMode='magic';
@@ -3445,17 +3400,6 @@ function updateHit(c,dt){
   }
   return c.hitLeft>0;
 }
-function startRestoringStanding(c){
-  if(c.standingPlayed)return;
-  c.standingPlayed=true;
-  // Arquera ya tiene Standing 13 corregida por el fotograma final.
-  const clip=getCombatClip(c,13);
-  // Animación completa durante la subida final de 0,67 s. El clip original
-  // NO se modifica; únicamente se adapta su velocidad en el mixer.
-  const speed=clip?Math.max(.2,clip.duration/.67):1;
-  setAnim(c,13,{once:true,fade:.1,force:true,speed});
-}
-
 // Restauración del VENCEDOR, sin relación con la animación de muerte.
 // Conserva el efecto original: destello -> retorno con estela -> reaparición.
 // Standing (13) pertenece exclusivamente a la FUTURA nueva invocación.
@@ -4602,7 +4546,6 @@ void (async()=>{
   await Promise.all([sharedBackgroundReady,arenaTextureReady]);
   window.ROKBoot.progress('Comprobando y preparando el combate…',92);
   attackModeButton.disabled=false;renderAttackMode();
-  hits.visible=false;
   loaded=true;qs('#sceneStatus').textContent='Arena 2.5D lista · combate con vida, alcance y magia';
   // The playable arena depends on the published scenery: its two real
   // elemental fountains are required to create and emit collectible orbs.
