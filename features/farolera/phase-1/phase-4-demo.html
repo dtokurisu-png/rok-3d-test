@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R.O.K. — Farolera, Fase 4</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui;background:#08111b;color:#e6f8f5}
+body{max-width:880px;margin:auto;padding:22px}h1{font-size:1.45rem}p{line-height:1.5}
+section{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0}
+button,select{border:1px solid #508d83;background:#133330;color:white;border-radius:7px;padding:9px;cursor:pointer}
+button[aria-pressed=true]{background:#00a98f;color:#001614;font-weight:700}
+canvas{display:block;border:1px solid #47736d;background:#0c2226;width:min(100%,520px);aspect-ratio:1/2;touch-action:none}
+#status{color:#9decd1;min-height:3em}small{color:#a4b9bd}
+</style></head><body>
+<h1>Farolera · Fase 4: Portal vinculado</h1>
+<p>Prototipo autónomo: coloca primero el círculo dentro de 4 casillas de la Farolera, después la lámpara, y mueve la invocación aliada a la entrada. No modifica la arena principal.</p>
+<section>
+<button id="circle" aria-pressed="false">1 · Colocar círculo</button>
+<button id="lamp" aria-pressed="false">2 · Colocar lámpara</button>
+<button id="unit" aria-pressed="false">3 · Mover invocación</button>
+<select id="mode"><option value="offensive">Ofensiva</option><option value="defensive">Defensiva</option></select>
+<button id="reset">Reiniciar</button>
+</section>
+<p id="status" aria-live="polite"></p>
+<canvas id="arena" width="450" height="900" aria-label="Arena interactiva de 15 por 30 casillas"></canvas>
+<p><small>Farolera: rombo dorado · Círculo: verde · Lámpara: luz ámbar · Invocación: punto azul. El radio máximo de colocación es 4 casillas euclidianas.</small></p>
+<script type="module">
+import {createFaroleraPortal,linkFaroleraLantern,stepFaroleraPortal} from './phase-4-portal.js';
+const canvas=document.querySelector('#arena'),ctx=canvas.getContext('2d'),msg=document.querySelector('#status');
+const TILE=30, X0=7,Z0=14.5,owner={x:0,z:0,id:'farolera',side:'ally',role:'caster',stage:'active'};
+let circle=null,lamp=null,portal=null,mode='offensive',action='circle';
+let unit={id:'unit',side:'ally',role:'summon',stage:'active',x:-2,z:0},flashes=[];
+const px=x=>(x+X0+.5)*TILE,pz=z=>(z+Z0+.5)*TILE;
+function draw(){
+ ctx.clearRect(0,0,450,900);
+ for(let z=0;z<30;z++)for(let x=0;x<15;x++){
+  ctx.fillStyle=(x+z)%2?'#112c31':'#14353a';
+  ctx.fillRect(x*TILE,z*TILE,TILE-1,TILE-1);
+ }
+ ctx.strokeStyle='#41856d';ctx.setLineDash([5,6]);ctx.beginPath();
+ ctx.arc(px(owner.x),pz(owner.z),4*TILE,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+ if(circle){
+  ctx.fillStyle='rgba(0,255,190,.2)';ctx.strokeStyle='#00f0c4';ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(px(circle.x),pz(circle.z),.48*TILE,0,Math.PI*2);ctx.fill();ctx.stroke();
+ }
+ if(lamp){
+  const g=ctx.createRadialGradient(px(lamp.x),pz(lamp.z),0,px(lamp.x),pz(lamp.z),2.25*TILE);
+  g.addColorStop(0,'rgba(255,225,120,.55)');g.addColorStop(1,'rgba(255,225,120,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(px(lamp.x),pz(lamp.z),2.25*TILE,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ffe499';ctx.beginPath();ctx.arc(px(lamp.x),pz(lamp.z),8,0,7);ctx.fill();
+  ctx.strokeStyle='#8cb9a7';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px(owner.x),pz(owner.z));ctx.lineTo(px(lamp.x),pz(lamp.z));ctx.stroke();
+ }
+ ctx.fillStyle='#f4c65d';ctx.beginPath();ctx.moveTo(px(0),pz(0)-9);ctx.lineTo(px(0)+9,pz(0));ctx.lineTo(px(0),pz(0)+9);ctx.lineTo(px(0)-9,pz(0));ctx.fill();
+ ctx.fillStyle='#6fcaff';ctx.beginPath();ctx.arc(px(unit.x),pz(unit.z),8,0,7);ctx.fill();
+ for(const p of flashes){ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(px(p.x),pz(p.z),12,0,7);ctx.stroke()}
+}
+function status(t){msg.textContent=t}
+function choose(a){action=a;for(const k of ['circle','lamp','unit'])document.querySelector('#'+k).setAttribute('aria-pressed',String(k===a))}
+for(const k of ['circle','lamp','unit'])document.querySelector('#'+k).addEventListener('click',()=>choose(k));
+document.querySelector('#mode').addEventListener('change',e=>{mode=e.target.value;reset()});
+document.querySelector('#reset').addEventListener('click',reset);
+function reset(){circle=null;lamp=null;portal=null;unit={...unit,x:-2,z:0};flashes=[];choose('circle');status('Selecciona una casilla para crear el círculo.');draw()}
+canvas.addEventListener('pointerdown',e=>{
+ const b=canvas.getBoundingClientRect(),x=Math.round(((e.clientX-b.left)/b.width)*15-7.5),z=Math.round(((e.clientY-b.top)/b.height)*30-15);
+ if(Math.abs(x)>7||Math.abs(z)>14.5)return;
+ if(action==='circle'){
+  try{portal=createFaroleraPortal({ownerId:owner.id,origin:owner,circle:{x,z},mode});circle={x,z};lamp=null;choose('lamp');status('Círculo creado. Ahora elige dónde lanzar la lámpara.')}
+  catch(err){status(err.message)}
+ }else if(action==='lamp'){
+  if(!portal){status('Primero crea el círculo');return}
+  try{linkFaroleraLantern(portal,{x,z});lamp={x,z};choose('unit');status('¡Portal enlazado! Mueve la invocación azul al círculo.')}
+  catch(err){status(err.message)}
+ }else{
+  const previous=unit;unit={...unit,x,z};
+  if(portal?.active){
+   const transfers=stepFaroleraPortal(portal,[unit,owner]);
+   if(transfers.length){const to=transfers[0].to;unit={...unit,...to};flashes=[to];status('¡Teletransporte! La invocación apareció junto a la lámpara.')}
+   else{flashes=[];status('Invocación movida. Pisa el círculo para activar el portal.')}
+  }else status('La invocación se movió, pero el portal aún no está enlazado.');
+ }
+ draw();
+});
+reset();
+</script></body></html>
