@@ -2687,13 +2687,6 @@ function updateSummonFx(c,progress){
     ray.material.opacity=.68*strength*(1-run*.9);
   }
 }
-function startSummonCountdown(c){
-  if(c.stage!=='dead')return;
-  c.stage='summonCasting';
-  c.summonCastLeft=SUMMON_CAST_SECONDS;
-  c.summonProgress=0;
-  c.model.visible=false;
-}
 function beginSummonEmergence(c){
   releaseSummonDuel(c);
   const winner=c.stage==='restoring'&&c.restorationPhase==='travel';
