@@ -2497,11 +2497,9 @@ function createSummonGroundHud(c){
  const attack=summonHudArc(group,'right',.64,0xff4c50,1,.29);
  // Keep secondary arcs outside the thicker main bars; .90 would overlap.
  const shield=summonHudArc(group,'left',.99,0xe0efff,1,.19);
- const energy=summonHudArc(group,'right',.99,0xbb7fff,1,.19);
  const lifeTicks=summonHudTicks(group,'left',.945,0x35ff8e);
  const attackTicks=summonHudTicks(group,'right',.945,0xff444e);
  const shieldTicks=[]; // El escudo usa solamente una barra subdividida.
- const energyTicks=[]; // La energía usa solamente una barra subdividida.
  const iconGroup=new THREE.Group();group.add(iconGroup);
  const icon=(texture,x)=>{
   const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,
@@ -2515,12 +2513,8 @@ function createSummonGroundHud(c){
   transparent:true,depthWrite:false,depthTest:false,toneMapped:false}));
  shieldIcon.position.set(-.37,.19,.64);shieldIcon.scale.set(.19,.19,1);shieldIcon.renderOrder=20;
  iconGroup.add(shieldIcon);
- const energyIcon=new THREE.Sprite(new THREE.SpriteMaterial({map:summonEnergyIconTexture,
-  transparent:true,depthWrite:false,depthTest:false,toneMapped:false}));
- energyIcon.position.set(.37,.19,.64);energyIcon.scale.set(.19,.19,1);energyIcon.renderOrder=20;
- iconGroup.add(energyIcon);
- summonGroundHuds.set(c,{group,health,attack,shield,energy,lifeTicks,attackTicks,
-  shieldTicks,energyTicks,shieldIcon,energyIcon,values:''});
+ summonGroundHuds.set(c,{group,health,attack,shield,lifeTicks,attackTicks,
+  shieldTicks,shieldIcon,values:''});
 }
 function setSummonHudStat(arc,ticks,value,show=true,subdivide=false,maxValue=10){
  const points=Math.max(0,Math.floor(Number(value)||0));
@@ -2573,15 +2567,12 @@ function updateSummonGroundHuds(){
   h.group.rotation.y=Math.atan2(camera.position.x-c.outer.position.x,
    camera.position.z-c.outer.position.z);
   const shieldMax=Math.max(0,Number(c.shieldMax)||0);
-  const manaMax=Math.max(0,Number(c.maxMana)||0);
-  const snapshot=[c.hp,c.attackDamage,c.shield,c.mana,shieldMax,manaMax].join(':');
+  const snapshot=[c.hp,c.attackDamage,c.shield,shieldMax].join(':');
   if(snapshot!==h.values){
    setSummonHudStat(h.health,h.lifeTicks,c.hp);
    setSummonHudStat(h.attack,h.attackTicks,c.attackDamage);
    setSummonHudStat(h.shield,h.shieldTicks,c.shield,shieldMax>0,true,shieldMax);
-   setSummonHudStat(h.energy,h.energyTicks,c.mana,manaMax>0,true,manaMax);
    h.shieldIcon.visible=shieldMax>0;
-   h.energyIcon.visible=manaMax>0;
    h.values=snapshot;
   }
  }
@@ -2597,8 +2588,7 @@ function makeNameplate(c){
   // La estrella del caster acompaña únicamente su barra de 12 PV.
   el.innerHTML=caster?
     '<div class="casterHealthRow"><span class="casterStar" title="Caster principal">★</span>'+life+'</div>':
-    life+'<div class="unitBar unitShield"><div class="unitBarFill"></div><div class="unitBarText"></div></div>'+
-    '<div class="unitBar unitMana"><div class="unitBarFill"></div><div class="unitBarText"></div></div>';
+    life+'<div class="unitBar unitShield"><div class="unitBarFill"></div><div class="unitBarText"></div></div>';
   if(!caster){
     // El HUD de las invocaciones se renderiza en el suelo, no en HTML sobre su cabeza.
     // HUD is optional presentation. It must NEVER block model initialization.
@@ -2633,12 +2623,6 @@ function updateNameplate(c){
     shield.querySelector('.unitBarFill').style.width=(THREE.MathUtils.clamp(c.shield/c.shieldMax,0,1)*100)+'%';
     shield.querySelector('.unitBarText').textContent=c.shield+' / '+c.shieldMax;
     shield.dataset.empty=String(c.shield<=0);
-  }
-  const mana=el.querySelector('.unitMana');
-  mana.hidden=c.maxMana<=0;
-  if(c.maxMana>0){
-    mana.querySelector('.unitBarFill').style.width=(THREE.MathUtils.clamp(c.mana/c.maxMana,0,1)*100)+'%';
-    mana.querySelector('.unitBarText').textContent=Math.floor(c.mana)+' / '+c.maxMana;
   }
   }
   const pos=new THREE.Vector3(0,1.94*Math.max(.5,c.model.scale.x/c.model.userData.baseScale)+c.model.position.y,0);
@@ -2909,8 +2893,8 @@ function resetCombatant(c){
   c.baseEndZ=c.endZ;
   c.endX=0;
   c.shieldPulse=0;
-  c.maxMana=c.cardId==='farolera'?0:c.kind==='mana'?10:0;
-  c.mana=c.maxMana;c.manaTimer=0;c.dodgeCooldown=0;
+  // All summons are non-mana units and have no teleport resource.
+  c.maxMana=0;c.mana=0;c.manaTimer=0;c.dodgeCooldown=0;
   c.outer.position.x=c.startX;
   c.outer.rotation.y=c.side==='ally'?Math.PI:0;
   setDeathOpacity(c,1);
@@ -3653,9 +3637,9 @@ function updateTeleportation(c,dt){
   }
 }
 function tryEvasion(target,attacker,impactCell){
-  // Basic invocations have no evasion/teleport skill.
- if(['semillera','astarium'].includes(target.cardId))return false;
- if(target.kind!=='mana'||target.stage!=='active'||target.mana<6||target.dodgeCooldown>0)return false;
+  // No summoned unit can teleport, regardless of its card ID.
+  if(target.role==='summon')return false;
+  if(target.kind!=='mana'||target.stage!=='active'||target.mana<6||target.dodgeCooldown>0)return false;
   const origin=worldToCell(attacker.outer.position.x,attacker.outer.position.z);
   const candidates=[];
   for(let row=0;row<D;row++)for(let col=0;col<W;col++){
@@ -3903,10 +3887,8 @@ function launchArrow(attacker,target){
 }
 
 function launchSpell(attacker,target,{manualCasterShot=false}={}){
-  // Farolera and cost-three Earth mage (Amor de Astarin) use ordinary
-  // single-target projectiles; other unit-specific AoE behavior is unchanged.
-  const area=attacker.kind==='mana'&&
-   !['farolera','astarium'].includes(attacker.cardId);
+  // All current and future summoned units use single-target attacks.
+  const area=attacker.role!=='summon'&&attacker.kind==='mana';
   const group=new THREE.Group();root.add(group);
   // El proyectil aparece exactamente en RightHand, centro del círculo de carga.
   const hand=attacker.castHand;
@@ -4321,13 +4303,6 @@ function updateDuel(dt){
     return;
   }
   for(const c of combatants){
-    if(c.kind==='mana'){
-      c.dodgeCooldown=Math.max(0,c.dodgeCooldown-dt);
-      if(c.mana<c.maxMana){
-        c.manaTimer+=dt;
-        while(c.manaTimer>=3&&c.mana<c.maxMana){c.manaTimer-=3;c.mana+=1}
-      }else c.manaTimer=0;
-    }
     // Recover unintended one-shot pause outside casting.
     if(c.stage==='active'&&c.animAction?.paused&&c.animId!=='idle')
       c.animAction.paused=false;
