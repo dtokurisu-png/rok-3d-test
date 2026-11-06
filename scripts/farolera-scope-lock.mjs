@@ -10,7 +10,8 @@ const allowedNew=[
  /^tests\/farolera-phase1(?:-[a-zA-Z0-9_-]+)?\.test\.mjs$/,
  /^docs\/FAROLERA_PHASE1\.md$/,
  /^scripts\/farolera-scope-lock\.mjs$/,
- /^\.github\/workflows\/farolera-scope-lock\.yml$/
+ /^\.github\/workflows\/farolera-scope-lock\.yml$/,
+ /^\.github\/workflows\/farolera-integration-tests\.yml$/
 ];
 function git(...args){
  return execFileSync('git',args,{encoding:'utf8'}).trim();
