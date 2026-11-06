@@ -685,7 +685,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <!-- JSZip is optional; never block the browser parser or first view. -->
 <script type="module">
 import * as THREE from 'three';
-import {createFaroleraArenaIntegration} from './features/farolera/phase-1/phase-8-arena-bridge.js?v=20261106-chiara-ai-1';
+import {createFaroleraArenaIntegration} from './features/farolera/phase-1/phase-8-arena-bridge.js?v=20261106-directed-3';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
@@ -694,7 +694,7 @@ import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-ove
 import {reduceModelTextureBudget} from './arena-asset-budget.js?v=2';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.100';
 import {createArenaMatchGate} from './arena-match-gate.js?v=20261105-dom-earth-water-1';
-import {createArenaCombatHud} from './arena-combat-hud.js?v=20261106-semillera-quarter-charge-1';
+import {createArenaCombatHud} from './arena-combat-hud.js?v=20261106-economy-3';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semillera-one-orb-1';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
@@ -2109,23 +2109,28 @@ let loaded=false,playing=false,tm=0,prevTime=performance.now();
 const combatHud=createArenaCombatHud();
 const guardHoldSeconds={ally:0,enemy:0};
 const guardPowered={ally:false,enemy:false};
+const guardDepleted={ally:false,enemy:false};
 function updateGuardEconomy(dt){
  for(const side of ['ally','enemy']){
   const caster=casters.find(unit=>unit.side===side);
   const held=!!(caster&&caster.stage==='active'&&caster.manualDefending);
-  if(!held){guardHoldSeconds[side]=0;guardPowered[side]=false;continue}
+  if(!held){
+   guardHoldSeconds[side]=0;guardPowered[side]=false;guardDepleted[side]=false;
+   continue;
+  }
+  // Once the shield exhausts its resources, it stays disabled until
+  // release. Holding with 0 energy must never grant repeated free blocks.
+  if(guardDepleted[side]){guardPowered[side]=false;continue}
   guardPowered[side]=true;
   guardHoldSeconds[side]+=dt;
   while(guardHoldSeconds[side]>=.5){
    guardHoldSeconds[side]-=.5;
    if(!combatHud.spendFragment(side,side==='ally'?'earth':'water')){
-    guardPowered[side]=false;
+    guardPowered[side]=false;guardDepleted[side]=true;
     guardHoldSeconds[side]=0;
     break;
    }
   }
-  if(combatHud.getResources(side,side==='ally'?'earth':'water').available<=0&&
-    guardHoldSeconds[side]===0)guardPowered[side]=false;
  }
 }
 const elementOrbs=createArenaElementOrbs({THREE,root,casters,onCollect:side=>combatHud.collectOrb(side)});
@@ -3227,6 +3232,7 @@ function resetDemoCombat(){
   rivalAction.attackUntil=0;rivalAction.castingUntil=0;rivalAction.reserved=null;
   guardHoldSeconds.ally=0;guardHoldSeconds.enemy=0;
   guardPowered.ally=false;guardPowered.enemy=false;
+  guardDepleted.ally=false;guardDepleted.enemy=false;
   // Switch to downloaded real caster skins at a round boundary only.
   for(const install of pendingCasterInstalls.splice(0)){
    try{install();}catch(error){console.warn('[R.O.K.] Caster aplazado:',error);}
