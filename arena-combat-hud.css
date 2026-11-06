@@ -70,7 +70,7 @@
   var(--element-color) 38%,
   color-mix(in srgb,var(--element-color),#071820 25%));
  box-shadow:inset 0 2px 0 #d9fff86e,0 0 7px var(--element-color);
- transition:height .3s ease;opacity:.94
+ transition:none;opacity:.94
 }
 .rokHudElementCell::before{
  content:"";position:absolute;inset:1px 1px 1px 0;
