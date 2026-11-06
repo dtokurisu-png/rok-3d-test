@@ -2107,6 +2107,27 @@ function selectCombatTarget(c){
 }
 let loaded=false,playing=false,tm=0,prevTime=performance.now();
 const combatHud=createArenaCombatHud();
+const guardHoldSeconds={ally:0,enemy:0};
+const guardPowered={ally:false,enemy:false};
+function updateGuardEconomy(dt){
+ for(const side of ['ally','enemy']){
+  const caster=casters.find(unit=>unit.side===side);
+  const held=!!(caster&&caster.stage==='active'&&caster.manualDefending);
+  if(!held){guardHoldSeconds[side]=0;guardPowered[side]=false;continue}
+  guardPowered[side]=true;
+  guardHoldSeconds[side]+=dt;
+  while(guardHoldSeconds[side]>=.5){
+   guardHoldSeconds[side]-=.5;
+   if(!combatHud.spendFragment(side,side==='ally'?'earth':'water')){
+    guardPowered[side]=false;
+    guardHoldSeconds[side]=0;
+    break;
+   }
+  }
+  if(combatHud.getResources(side,side==='ally'?'earth':'water').available<=0&&
+    guardHoldSeconds[side]===0)guardPowered[side]=false;
+ }
+}
 const elementOrbs=createArenaElementOrbs({THREE,root,casters,onCollect:side=>combatHud.collectOrb(side)});
 attachRealElementSources=sources=>{elementOrbs.bindSources(sources);elementOrbs.reset();};
 // Exactly twelve reusable DOM compass markers for the existing orb pool.
@@ -3203,6 +3224,8 @@ function resetDemoCombat(){
   casterMovement?.disable();
   rivalAI?.reset();
   rivalAction.attackUntil=0;rivalAction.castingUntil=0;rivalAction.reserved=null;
+  guardHoldSeconds.ally=0;guardHoldSeconds.enemy=0;
+  guardPowered.ally=false;guardPowered.enemy=false;
   // Switch to downloaded real caster skins at a round boundary only.
   for(const install of pendingCasterInstalls.splice(0)){
    try{install();}catch(error){console.warn('[R.O.K.] Caster aplazado:',error);}
@@ -3838,13 +3861,13 @@ function damage(target,value,source,{committed=false,environment=false}={}){
      (!committed&&!canAttackSummonTarget(source,target)))return false;
   if(target.role==='caster'){
     // Temporary Shift guard blocks damage while held; animation composition 23 is pending.
-    if(!environment&&target.manualDefending&&target.stage==='active'){
+    if(!environment&&target.manualDefending&&guardPowered[target.side]&&target.stage==='active'){
+      value*=.5;
       const el=qs('#casterMoveStatus');
       if(el&&casterMovement?.caster===target){
-        el.textContent='◆ Defensa · golpe bloqueado';
-        el.title='Shift bloqueó '+value+' punto(s) de daño';
+        el.textContent='◆ Defensa · daño reducido 50 %';
+        el.title='Shift redujo el daño a '+value+' punto(s)';
       }
-      return true;
     }
     target.hp=Math.max(0,target.hp-value);
     if(target.hp>0)casterLayers.hit(target,target.model?.userData?.rokHitClip);
@@ -6064,6 +6087,7 @@ function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
   if(loaded&&playing&&matchGate.isRunning&&!casterReview.active){
+   updateGuardEconomy(dt);
    updateDuel(dt);
    combatHud.advance(dt,casters);
    elementOrbs.tick(dt);
