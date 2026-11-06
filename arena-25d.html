@@ -985,7 +985,24 @@ let archerRigReference=null;
 // approved motion vocabulary but retarget onto the individual GLB skeleton.
 const sharedSummonClipCache=new Map();
 function getCombatClip(c,id){
- if(id==='idle')return c.idleClip;
+ if(id==='idle'){
+  if(c.cardId&&c.cardId!=='farolera'&&!c.idleClip?.tracks?.length){
+   const source=window.ROKSummonAssets?.farolera;
+   const key=c.cardId+':idle';
+   if(source?.scene&&source?.idle){
+    if(!sharedSummonClipCache.has(key)){
+     try{sharedSummonClipCache.set(key,
+      adaptAnimationFBX(source.scene,source.idle,c.model,'ROK_Shared_'+key));}
+     catch(error){
+      console.warn('[R.O.K.] Idle compartido pendiente:',key,error);
+      sharedSummonClipCache.set(key,null);
+     }
+    }
+    return sharedSummonClipCache.get(key)||c.idleClip;
+   }
+  }
+  return c.idleClip;
+ }
  if(c.cardId&&c.cardId!=='farolera'){
   const sourceClip=combatAnimations.get(id);
   const sourceModel=window.ROKSummonAssets?.farolera?.scene;
