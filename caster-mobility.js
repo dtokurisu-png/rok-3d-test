@@ -150,10 +150,13 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
  // the action is committed only at that boundary, then clip 21 plays complete.
  function cancelCardCast(c){
   if(!cardCast)return;
+  const interrupted=cardCast.phase==='preparing';
+  const onCancel=cardCast.onCancel;
   layers.clearCastLower(c);
   layers.endUpper(c,'card-cast');
   layers.endUpper(c,'card-finish');
   cardCast=null;
+  if(interrupted)onCancel?.();
  }
  function castDuration(cost){
   const n=Math.max(0,Math.floor(Number(cost)||0));
@@ -164,7 +167,7 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   requestClips(caster);
   return true;
  }
- function startCardCast({cost=1,onRelease}={}){
+ function startCardCast({cost=1,durationMultiplier=1,onRelease,onCancel}={}){
   if(!engage())return false;
   const c=caster;
   if(c.stage!=='active'||defending||cardCast||attackDuration>0)return false;
@@ -181,7 +184,8 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
    notify('La animación 22 (0–48) o la 21 está incompleta');
    return false;
   }
-  const duration=castDuration(cost);
+  // Equipment uses the same 22 -> 21 cast, with double preparation time.
+  const duration=castDuration(cost)*Math.max(1,Number(durationMultiplier)||1);
   const speed=clip22.duration/duration;
   if(!layers.upper(c,'card-cast',clip22,speed)){
    notify('No hay huesos superiores válidos para el casteo 22');
@@ -195,7 +199,8 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
   }
   cardCast={caster:c,clip22,clip21:source21,duration,elapsed:0,
    postElapsed:0,finishStart,finishDuration:source21.duration-finishStart,
-   phase:'preparing',onRelease:typeof onRelease==='function'?onRelease:null};
+   phase:'preparing',onRelease:typeof onRelease==='function'?onRelease:null,
+   onCancel:typeof onCancel==='function'?onCancel:null};
   notify('Casteo 22 · '+duration.toFixed(1)+' s · preparación');
   return true;
  }
