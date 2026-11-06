@@ -652,7 +652,7 @@ import {createArenaElementOrbs} from './arena-element-orbs.js?v=0.9.105';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
-import {createRivalCasterAI} from './caster-rival-ai.js?v=0.4';
+import {createRivalCasterAI} from './caster-rival-ai.js?v=20261105-strategy-1';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 
 const qs=s=>document.querySelector(s);
@@ -2850,12 +2850,12 @@ function resetCombatant(c){
   releaseSummonDuel(c);
   const shield=c.kind==='shield',archer=c.kind==='archer';
   c.maxHp=archer?ATTACK_PROFILES.archer.hp:shield?12:5;
-  if(c.cardId==='farolera')c.maxHp=2;
+  if(chiaraSummonDefinitions[c.cardId])c.maxHp=chiaraSummonDefinitions[c.cardId].hp;
   c.hp=c.maxHp;
   c.shieldMax=shield?2:0;
   c.shield=c.shieldMax;
   c.range=archer?ATTACK_PROFILES.archer.range:shield?3:5;
-  c.attackDamage=c.cardId==='farolera'?1:archer?ATTACK_PROFILES.archer.damage:shield?2:1;
+  c.attackDamage=chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1);
   c.speed=shield?2.4:2.15;
   c.stage='intro';c.introT=0;
   c.hitLeft=0;c.castT=0;c.castDuration=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
@@ -2963,7 +2963,7 @@ function resetDemoCombat(){
   // A new match invalidates any in-progress manual attack/cooldown.
   casterMovement?.disable();
   rivalAI?.reset();
-  rivalAction.attackUntil=0;rivalAction.castingUntil=0;
+  rivalAction.attackUntil=0;rivalAction.castingUntil=0;rivalAction.reserved=null;
   // Switch to downloaded real caster skins at a round boundary only.
   for(const install of pendingCasterInstalls.splice(0)){
    try{install();}catch(error){console.warn('[R.O.K.] Caster aplazado:',error);}
@@ -4370,6 +4370,8 @@ void (async()=>{
     return null;
    });
 
+  for(const id of ['telepate','controladora'])
+   void ensureChiaraSummonModel(id).catch(()=>{});
   const deferredCasterAnimations=[];
   for(const {spec,gltf,idle,bounds} of realCasters){
    const caster=createCaster(gltf.scene,idle,spec.side);
@@ -4562,7 +4564,10 @@ qs('#casterCastTestRun').addEventListener('click',()=>{
 // later, but no shortcut controls are enabled in this version.
 const spellCards=[
  [{id:'farolera',name:'Farolera',element:'water',cost:1,
-   portrait:arenaCharacterArt.farolera},null,null,null,null,null,null,null,null],
+   portrait:arenaCharacterArt.farolera},
+  {id:'telepate',name:'Telépate de Agua',element:'water',cost:3},
+  {id:'controladora',name:'Controladora de Agua',element:'water',cost:6},
+  null,null,null,null,null,null],
  Array(9).fill(null),Array(9).fill(null)
 ];
 // Three Earth invocations assigned to Lioren only. Spells, traits and
@@ -4578,6 +4583,29 @@ const liorenSpellCards=[
  Array(9).fill(null),Array(9).fill(null)
 ];
 const spellDeckForSide=side=>side==='enemy'?spellCards:liorenSpellCards;
+const chiaraSummonDefinitions={
+ farolera:{cost:1,hp:2,attack:1},
+ telepate:{cost:3,hp:3,attack:2,file:'telepate agua 1.glb'},
+ controladora:{cost:6,hp:5,attack:2,file:'CONTROLADORA agua 1.glb'}
+};
+const chiaraSummonModels=new Map(),chiaraSummonLoading=new Map();
+function ensureChiaraSummonModel(id){
+ if(chiaraSummonModels.has(id))return Promise.resolve(chiaraSummonModels.get(id));
+ if(chiaraSummonLoading.has(id))return chiaraSummonLoading.get(id);
+ const file=chiaraSummonDefinitions[id]?.file;
+ if(!file)return Promise.reject(Error('Unidad desconocida: '+id));
+ const job=new GLTFLoader().loadAsync('./'+encodeURIComponent(file)).then(gltf=>{
+  if(!gltf?.scene||new THREE.Box3().setFromObject(gltf.scene).isEmpty())
+   throw Error('GLB vacío: '+file);
+  if(mobileCombatMode)reduceModelTextureBudget(gltf.scene,{maxSize:1024});
+  const idle=gltf.animations?.find(a=>/idle|standing/i.test(a.name))||
+   gltf.animations?.[0]||new THREE.AnimationClip('Reposo_'+id,1,[]);
+  const model={scene:gltf.scene,idle};
+  chiaraSummonModels.set(id,model);chiaraSummonLoading.delete(id);
+  return model;
+ }).catch(error=>{chiaraSummonLoading.delete(id);console.warn('[R.O.K.] Unidad de Chiara:',id,error);throw error;});
+ chiaraSummonLoading.set(id,job);return job;
+}
 // The same GLBs used in the viewer; they remain optional for loading the
 // arena itself, never substituted by Farolera.
 const liorenSummonFiles={
@@ -4779,6 +4807,22 @@ function summonCardFarolera(caster){
  spellStatus('✦ Farolera invocada · nexo de restauración activo');
  return true;
 }
+function summonChiaraCard(caster,card){
+ if(card.id==='farolera')return summonCardFarolera(caster);
+ const prototype=chiaraSummonModels.get(card.id);
+ if(!prototype||caster.side!=='enemy'||caster.outer.position.z>=0||!hasSummonRoom('enemy'))return false;
+ const x=THREE.MathUtils.clamp(Math.round(caster.outer.position.x),-HALF_W,HALF_W);
+ const z=THREE.MathUtils.clamp(Math.round(caster.outer.position.z+1),-HALF_D,-.5);
+ const unit=createFighter(prototype.scene,prototype.idle,'enemy','mana');
+ unit.cardId=card.id;unit.startX=x;unit.startZ=z;unit.endZ=z;
+ unit.model.userData.baseScale=unit.model.scale.x;
+ resetCombatant(unit);
+ makeNameplate(unit);makeSummonCountdown(unit);
+ cardSummons.add(unit);
+ unit.stage='summonCasting';unit.summonCastLeft=0;
+ beginSummonEmergence(unit);
+ return true;
+}
 function summonLiorenCard(caster,card){
  const prototype=liorenSummonModels.get(card.id);
  if(!prototype){spellStatus('Modelo de '+card.name+' todavía cargando.');return false;}
@@ -4913,7 +4957,23 @@ renderSpellbook();
 
 // Rival autonomy is isolated from the manual controller. The only currently
 // distributable card is the real Farolera; future decks will be assigned here.
-const rivalAction={attackUntil:0,castingUntil:0};
+const rivalAction={attackUntil:0,castingUntil:0,reserved:null};
+function chiaraCastPlan(caster,amount){
+ const live=[...cardSummons].filter(u=>u.side==='enemy'&&u.hp>0&&
+  !['dead','dying','vanishing'].includes(u.stage));
+ const count=id=>live.filter(u=>u.cardId===id).length;
+ const f=count('farolera'),t=count('telepate'),boss=count('controladora');
+ let id=null;
+ if(boss){if(t<1)id='telepate';else if(f<1)id='farolera';}
+ else if(t<1)id='telepate';
+ else if(f<2)id='farolera';
+ else if(t<2)id='telepate';
+ else id='controladora';
+ const def=chiaraSummonDefinitions[id];
+ if(!def||amount<def.cost)return null;
+ const model=id==='farolera'?window.ROKSummonAssets?.farolera:chiaraSummonModels.get(id);
+ return model?.scene?{id,cost:def.cost,element:'water'}:null;
+}
 rivalAI=createRivalCasterAI({
  getCaster:()=>casters.find(c=>c.side==='enemy'&&c.stage==='active'&&
   !(casterMovement?.enabled&&casterMovement.caster===c)),
@@ -4930,6 +4990,7 @@ rivalAI=createRivalCasterAI({
  getThreats:c=>missiles.filter(m=>m.target===c&&m.attacker?.side!==c.side)
   .map(m=>({position:m.group.position})),
  getResourceState:c=>combatHud.getResources(c.side,'water'),
+ getCastPlan:chiaraCastPlan,
  bounds:{x:MAX_X,z:MAX_Z},
  settings:{idealPressureZ:-.85,attackRange:3,pickupRadius:3.65,
   territorialGrace:2.65,minimumSurvivalHp:2},
@@ -4953,16 +5014,13 @@ rivalAI=createRivalCasterAI({
    if(clip)casterLayers.upper(c,'defense',clip,1.8);
   }else casterLayers.endUpper(c,'defense');
  },
- canCast:c=>c.stage==='active'&&c.outer.position.z<0&&
-  hasSummonRoom(c.side)&&!!window.ROKSummonAssets?.farolera?.scene,
- cast:(c,{defensive,duration})=>{
-  const card=spellCards[0][0]; // Temporary rival deck: Farolera only.
-  if(!card||c.outer.position.z>=0||!hasSummonRoom(c.side)||
+ canCast:(c,card)=>c.stage==='active'&&c.outer.position.z<0&&
+  hasSummonRoom(c.side)&&!!card&&
+  !!(card.id==='farolera'?window.ROKSummonAssets?.farolera?.scene:chiaraSummonModels.get(card.id)?.scene),
+ cast:(c,{defensive,duration,card})=>{
+  if(!card||rivalAction.reserved||c.outer.position.z>=0||!hasSummonRoom(c.side)||
     !combatHud.spend(c.side,card.element,card.cost))return false;
-  // Never spend the resource if the physical summoning prototype is absent.
-  if(!window.ROKSummonAssets?.farolera?.scene){
-   combatHud.refund(c.side,card.element,card.cost);return false;
-  }
+  rivalAction.reserved=card;
   casterLayers.shield(c,false);c.manualDefending=false;
   casterLayers.endUpper(c,'defense');
   const clip=c.model?.userData?.rokCast22Clip;
@@ -4974,10 +5032,12 @@ rivalAI=createRivalCasterAI({
   rivalAction.castingUntil=performance.now()+duration*1000;
   return true;
  },
- onCastResolve:c=>{
-  // Revalidate at release; refund a reserved resource if the unit cannot spawn.
-  if(c.stage!=='active'||!summonCardFarolera(c))
-   combatHud.refund(c.side,'water',1);
+ onCastResolve:(c,{card})=>{
+  const charged=rivalAction.reserved;
+  rivalAction.reserved=null;
+  if(!charged)return;
+  if(c.stage!=='active'||!summonChiaraCard(c,charged))
+   combatHud.refund(c.side,charged.element,charged.cost);
   const finish=c.model?.userData?.rokCast21Clip;
   if(finish&&finish.duration>20/30){
    casterLayers.upper(c,'card-finish',finish,1,{startTime:20/30,transition:true});
