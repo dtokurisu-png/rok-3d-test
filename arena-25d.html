@@ -775,7 +775,7 @@ import {createArenaMatchGate} from './arena-match-gate.js?v=20261105-dom-earth-w
 import {createArenaCombatHud} from './arena-combat-hud.js?v=20261106-economy-3';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semillera-one-orb-1';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
-import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-rebuild-1';
+import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-composite-22-21-2';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261105-strategy-1';
@@ -5299,7 +5299,11 @@ const casterCastLayers={
  syncCastLower:(c,progress)=>casterPoseFor(c).syncCastLower(c,progress),
  clearCastLower:c=>casterPoseFor(c).clearCastLower(c),
  setCastLower(c,clip,speed,progress){
-  if(c?.side==='enemy')return chiaraRig.setCastLower(c,clip,speed,progress);
+  if(c?.side==='enemy'){
+   if(typeof chiaraRig.setCastLower==='function')return chiaraRig.setCastLower(c,clip,speed,progress);
+   console.error('[R.O.K.] Chiara: controlador antiguo en caché; se omite solo la capa inferior de casteo. Recarga la página.');
+   return;
+  }
   let cleaned=anchoredCastLower.get(clip);
   if(!cleaned){
    const tracks=clip.tracks.filter(track=>
@@ -6122,7 +6126,7 @@ rivalAI=createRivalCasterAI({
    if(prep.tracks.length){
     const speed=Math.max(.1,prep.duration/Math.max(.1,duration));
     if(chiaraRig.upper(c,'card-cast',prep,speed))
-     chiaraRig.setCastLower(c,prep,speed,0);
+     casterCastLayers.setCastLower(c,prep,speed,0);
    }
   }
   rivalAction.castingUntil=performance.now()+duration*1000;
@@ -6137,7 +6141,7 @@ rivalAI=createRivalCasterAI({
   const finish=c.model?.userData?.rokCast21Clip;
   if(finish&&finish.duration>20/30){
    if(chiaraRig.upper(c,'card-finish',finish,1,{startTime:20/30,transition:true}))
-    chiaraRig.setCastLower(c,finish,1,(20/30)/finish.duration);
+    casterCastLayers.setCastLower(c,finish,1,(20/30)/finish.duration);
   }else chiaraRig.endUpper(c,'card-cast');
   rivalAction.castingUntil=performance.now()+250;
  },
