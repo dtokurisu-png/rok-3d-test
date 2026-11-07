@@ -5201,7 +5201,7 @@ const spellCards=[
  [{id:'farolera',name:'Farolera',element:'water',cost:1,
    portrait:arenaCharacterArt.farolera},
   {id:'telepate',name:'Telépate de Agua',element:'water',cost:3},
-  {id:'controladora',name:'Controladora de Agua',element:'water',cost:6},
+  {id:'controladora',name:'Controladora de Agua',element:'water',cost:5},
   null,null,null,null,null,null],
  Array(9).fill(null),Array(9).fill(null)
 ];
@@ -5225,7 +5225,7 @@ const spellDeckForSide=side=>side==='enemy'?spellCards:liorenSpellCards;
 const chiaraSummonDefinitions={
  farolera:{cost:1,hp:2,attack:1},
  telepate:{cost:3,hp:4,attack:2,file:'telepate agua 1.glb'},
- controladora:{cost:6,hp:5,attack:2,file:'CONTROLADORA agua 1.glb'}
+ controladora:{cost:5,hp:5,attack:2,file:'CONTROLADORA agua 1.glb'}
 };
 const chiaraSummonModels=new Map(),chiaraSummonLoading=new Map();
 function ensureChiaraSummonModel(id){
@@ -5845,40 +5845,36 @@ renderSpellbook();
 
 // Rival economy only: tactical orb collection, guarding, movement, attacks,
 // and defensive priorities remain owned by caster-rival-ai.js.
-const rivalAction={attackUntil:0,castingUntil:0,reserved:null};
+const rivalAction={attackUntil:0,castingUntil:0,reserved:null,cast22Cache:new WeakMap()};
 function chiaraCastPlan(caster,amount,resources={}){
  const live=[...cardSummons].filter(u=>u.side==='enemy'&&u.hp>0&&
   !['dead','dying','vanishing'].includes(u.stage));
  const count=id=>live.filter(u=>u.cardId===id).length;
- const enemyThreats=combatants.filter(u=>u.side==='ally'&&u.hp>0&&
-  !['dead','dying','vanishing'].includes(u.stage)&&
-  Math.hypot(u.outer.position.x-caster.outer.position.x,
-    u.outer.position.z-caster.outer.position.z)<=9).length;
  const f=count('farolera'),t=count('telepate'),boss=count('controladora');
- // Stop spending when two full reservoirs are charged and the source
- // has passed half its interval to produce the third capacity orb.
- // When three reservoirs are already unlocked, conserve every remaining
- // quarter until a Telépate is affordable.
+ if(live.length>=MAX_ACTIVE_SUMMONS_PER_SIDE)return null;
  const unlocked=Number(resources.unlocked)||0;
- const fountain=resources.nextOrb||null;
- const saveForThird=unlocked>=2&&unlocked<3&&amount>=2-.001&&
-  !!fountain?.halfElapsed;
- const saveToRefillThree=unlocked>=3&&amount<3-.001;
- if(saveForThird||saveToRefillThree)return null;
+ const telepates=live.filter(u=>u.cardId==='telepate');
+ const faroleras=live.filter(u=>u.cardId==='farolera');
+ const threatened=telepates.some(u=>u.hp/u.maxHp<=.75||
+  [...combatants,...casters].some(enemy=>enemy.side!==u.side&&
+   canDamageTarget(enemy)&&Math.hypot(enemy.outer.position.x-u.outer.position.x,
+    enemy.outer.position.z-u.outer.position.z)<6));
+ const storageFull=unlocked>0&&amount>=unlocked-.05;
  let id=null;
- if(amount>=3){
-  if(t<2)id='telepate';
-  else if(amount>=6&&boss<1)id='controladora';
-  else if(t<3)id='telepate';
-  else if(enemyThreats>=2&&f<4)id='farolera';
-  else if(amount>=6&&boss<2)id='controladora';
- }else if(amount>=1){
-  // Keep two slots free for the cost-three Telépate phase.
-  // Overcrowding with cheap Faroleras previously blocked tier-three casts.
-  if(f<4&&live.length<4)id='farolera';
- }
+ if(!t){
+  // Save the first three units for the offensive decoy, not cheap cards.
+  if(amount>=3)id='telepate';
+ }else if(boss<1&&amount>=5){
+  id='controladora';
+ }else if(f<2&&amount>=1&&(threatened||storageFull||f===0&&t>0)){
+  // At least one Farolera supports the first Telépate. A second
+  // joins when a rescue is needed or storage would otherwise overflow.
+  id='farolera';
+ }else if(!boss&&t>0&&f>=1&&amount>=5)id='controladora';
+ else if(t<2&&boss&&amount>=3&&f>=1)id='telepate';
+ else if(storageFull&&f<3&&amount>=1)id='farolera';
  const def=chiaraSummonDefinitions[id];
- if(!def||amount<def.cost||live.length>=MAX_ACTIVE_SUMMONS_PER_SIDE)return null;
+ if(!def||amount<def.cost)return null;
  const model=id==='farolera'?window.ROKSummonAssets?.farolera:chiaraSummonModels.get(id);
  return model?.scene?{id,cost:def.cost,element:'water'}:null;
 }
@@ -5909,8 +5905,9 @@ rivalAI=createRivalCasterAI({
  getResourceState:c=>({...combatHud.getResources(c.side,'water'),
   nextOrb:elementOrbs.getNextOrbForecast(2)}),
  getCastPlan:chiaraCastPlan,
+ getStagingPosition:(c,card)=>card?.id==='telepate'||card?.id==='farolera'||card?.id==='controladora'?{x:THREE.MathUtils.clamp(c.outer.position.x,-MAX_X+.5,MAX_X-.5),z:-Math.min(MAX_Z-2,10.5)}:null,
  bounds:{x:MAX_X,z:MAX_Z},
- settings:{idealPressureZ:-.85,attackRange:3,pickupRadius:3.65,
+ settings:{idealPressureZ:-10.5,attackRange:3,pickupRadius:3.65,
   territorialGrace:2.65,minimumSurvivalHp:2},
  move:(c,x,z)=>{c.outer.position.x=x;c.outer.position.z=z;},
  face:(c,p)=>{
@@ -5943,7 +5940,9 @@ rivalAI=createRivalCasterAI({
   casterLayers.endUpper(c,'defense');
   const clip=c.model?.userData?.rokCast22Clip;
   if(clip){
-   const prep=THREE.AnimationUtils.subclip(clip,'ROK_Rival_Cast22_0_48',0,48,30);
+   let prep=rivalAction.cast22Cache.get(clip);
+    if(!prep){prep=THREE.AnimationUtils.subclip(clip,'ROK_Rival_Cast22_0_48',0,48,30);
+     rivalAction.cast22Cache.set(clip,prep);}
    if(prep.tracks.length)casterLayers.upper(c,'card-cast',prep,
     Math.max(.1,prep.duration/Math.max(.1,duration)));
   }
