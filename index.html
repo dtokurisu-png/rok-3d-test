@@ -1893,16 +1893,16 @@ async function loadNewAnimation(row,playAfter=false){
   const selected=currentCharacter;
   row.status='loading';row.details='Archivo en GitHub · cargando y adaptando para '+selected+'…';renderAnimList();
   try{
-    let buffer=newAnimationBuffers.get(row.name);
+    let buffer=newAnimationBuffers.get(row.assetPath||row.name);
     if(!buffer){
       const url=row.assetPath||'./assets/animations/casters/shared/'+encodeURIComponent(row.name);
       const response=await fetch(url,{cache:'force-cache'});
       if(!response.ok)throw Error('HTTP '+response.status);
       buffer=await response.arrayBuffer();
-      newAnimationBuffers.set(row.name,buffer);
+      newAnimationBuffers.set(row.assetPath||row.name,buffer);
     }
     if(selected!==currentCharacter)return;
-    await importAnimation(row.name,buffer);
+    await importAnimation(row.name,buffer,row.index);
     if(selected!==currentCharacter)return;
     if(!row.clip)throw Error(row.details||'El rig no es compatible');
     if(playAfter)playAnimation(row.index);
@@ -1964,8 +1964,10 @@ async function preloadRepoAnimations(){
   }
   return false;
 }
-async function importAnimation(name,buffer){
-  const row=identifyAnimation(name);
+async function importAnimation(name,buffer,preferredIndex=null){
+  // Catalog identity is the stable numbered entry, not the filename:
+  // two different FBX uploads intentionally share a basename.
+  const row=(preferredIndex==null?null:animationRows.find(r=>r.index===preferredIndex))||identifyAnimation(name);
   if(rejectedAnimationIds.has(row.index))return;
   try{
     const source=fbxLoader.parse(buffer,'');
