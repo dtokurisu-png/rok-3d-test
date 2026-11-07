@@ -1,0 +1,54 @@
+/* R.O.K. Arena — casting flyer, visual phase 2 only. */
+.rokHudBars{position:relative}
+.rokCastFlyer{
+ --rok-cast-color:#CCFF00;--rok-cast-secondary:#67400D;
+ position:relative;isolation:isolate;display:flex;align-items:center;
+ gap:7px;width:100%;min-width:0;height:39px;margin-top:5px;
+ padding:4px 8px 4px 5px;overflow:hidden;border-radius:7px;
+ border:1px solid color-mix(in srgb,var(--rok-cast-color),#28313e 48%);
+ background:linear-gradient(95deg,rgba(0,0,0,.95) 5%,rgba(6,12,17,.9) 46%,
+ color-mix(in srgb,var(--rok-cast-color),#000 60%) 100%);
+ box-shadow:inset 0 0 10px #0009,0 0 9px color-mix(in srgb,var(--rok-cast-color),transparent 75%);
+ pointer-events:none;
+}
+.rokCastFlyer[hidden]{display:none!important}
+.rokCastFlyerPortrait{
+ flex:0 0 29px;width:29px;height:29px;border-radius:4px;overflow:hidden;
+ border:1px solid color-mix(in srgb,var(--rok-cast-color),white 25%);
+ box-shadow:0 0 5px color-mix(in srgb,var(--rok-cast-color),transparent 55%);
+ background:#111c20;z-index:2;
+}
+.rokCastFlyerPortrait img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.rokCastFlyerContents{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;z-index:2}
+.rokCastFlyerName{font:800 10px/1.15 Roboto,system-ui,sans-serif;color:#fff;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px #000}
+.rokCastFlyerProgress{position:relative;width:100%;height:8px;border:1px solid #b4e7d055;
+ border-radius:3px;background:rgba(0,0,0,.72);overflow:hidden}
+.rokCastFlyerFill{display:block;width:100%;height:100%;transform:scaleX(0);
+ transform-origin:left center;will-change:transform;
+ background:linear-gradient(90deg,var(--rok-cast-secondary),var(--rok-cast-color));
+ box-shadow:0 0 7px var(--rok-cast-color)}
+.rokCastFlyerParticles{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1}
+.rokCastFlyerParticles i{position:absolute;bottom:-3px;width:3px;height:3px;border-radius:50%;
+ background:var(--rok-cast-color);opacity:0;
+ box-shadow:0 0 6px var(--rok-cast-color);
+ animation:rokCastDust 1.9s linear infinite}
+.rokCastFlyer[data-phase="released"] .rokCastFlyerFill{filter:brightness(1.65)}
+@keyframes rokCastDust{
+ 0%{transform:translateY(0) scale(.6);opacity:0}
+ 28%{opacity:.72}
+ 80%{opacity:.42}
+ 100%{transform:translateY(-34px) scale(1.2);opacity:0}
+}
+.rokHudSide[data-hud-side="enemy"] .rokCastFlyer{flex-direction:row-reverse;
+ padding:4px 5px 4px 8px;background:linear-gradient(265deg,rgba(0,0,0,.95) 5%,
+ rgba(6,12,17,.9) 46%,color-mix(in srgb,var(--rok-cast-color),#000 60%) 100%)}
+.rokHudSide[data-hud-side="enemy"] .rokCastFlyerName{text-align:right}
+.rokHudSide[data-hud-side="enemy"] .rokCastFlyerFill{transform-origin:right center}
+@media (pointer:coarse) and (max-width:950px){
+ .rokCastFlyer{height:29px;gap:4px;padding:3px 5px;margin-top:3px;border-radius:5px}
+ .rokCastFlyerPortrait{width:22px;height:22px;flex-basis:22px}
+ .rokCastFlyerName{font-size:8px}
+ .rokCastFlyerProgress{height:6px}
+}
+@media(prefers-reduced-motion:reduce){.rokCastFlyerParticles i{animation:none}}
