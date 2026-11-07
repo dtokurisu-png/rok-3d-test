@@ -70,7 +70,7 @@ export function createCasterTacticalPositioning({id,side,learning,bounds}){
   const safe=choices.filter(c=>c.risk<=(imminent?.7:1.3));
   const viable=safe.length?safe:choices;
   viable.sort((a,b)=>b.score-a.score);
-  if(!decision||decisionAge>=2.2||imminent&&decision.action==='advance'){
+  if(!decision||decisionAge>=2.2||imminent&&decision.risk>.55){
    decision=viable[0];decisionAge=0;
   }
   if(!last)last={time:clock,ctx,action:decision.action,
