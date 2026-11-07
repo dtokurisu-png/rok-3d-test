@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
  stepTelepateProvocations,provocationSource,clearTelepateSource,
  TELEPATE_AURA_RADIUS,TELEPATE_AURA_INTERVAL,TELEPATE_PROVOKE_DURATION,
- TELEPATE_CONFUSE_CHANCE,TELEPATE_CONFUSE_DURATION
+ TELEPATE_CONFUSE_CHANCE,TELEPATE_CONFUSE_DURATION,
+ rollTelepateConfusedAttack,TELEPATE_CONFUSION_TARGET_WEIGHTS
 } from '../features/farolera/phase-1/telepate-provocation.js';
 
 const unit=(id,side,x,z,cardId='kariona')=>({
@@ -15,7 +16,7 @@ test('five-second provocation is guaranteed, not a control effect',()=>{
  assert.equal(TELEPATE_AURA_RADIUS,10);
  assert.equal(TELEPATE_AURA_INTERVAL,5);
  assert.equal(TELEPATE_PROVOKE_DURATION,8);
- assert.equal(TELEPATE_CONFUSE_CHANCE,.5);
+ assert.equal(TELEPATE_CONFUSE_CHANCE,1);
  assert.equal(TELEPATE_CONFUSE_DURATION,1);
  const telepate=unit('t','enemy',0,0,'telepate');
  const a=unit('a','ally',2,0),b=unit('b','ally',10,0);
@@ -43,34 +44,40 @@ test('only hostile, living summons inside aura are provoked',()=>{
   assert.equal(target.rokProvocation,undefined);
 });
 
-test('each affected enemy has an independent 50% confusion roll',()=>{
+test('every eligible enemy is confused for one second with no RNG activation roll',()=>{
  const t=unit('t','enemy',0,0,'telepate');
  const a=unit('a','ally',2,0),b=unit('b','ally',4,0);
- let rolls=0,applied=0;
+ let applied=0,rolls=0;
  stepTelepateProvocations([t,a,b],5,{
-  random:()=>++rolls===1?.3:.8,
-  onConfusion:()=>applied++
+  random:()=>{rolls++;return .99},onConfusion:()=>applied++
  });
- assert.equal(rolls,2);
- assert.equal(applied,1);
+ assert.equal(rolls,0);
+ assert.equal(applied,2);
  assert.equal(a.rokConfusion.remaining,1);
- assert.equal(b.rokConfusion,undefined);
+ assert.equal(b.rokConfusion.remaining,1);
+ stepTelepateProvocations([t,a,b],5,{random:()=>.99});
+ assert.equal(a.rokConfusion.remaining,1);
 });
 
-test('confusion resolves after one second with one of three equiprobable outcomes',()=>{
+test('confusion expires without fabricating an attack, preserving provocation',()=>{
  const t=unit('t','enemy',0,0,'telepate'),e=unit('e','ally',1,0);
- const results=[];
- stepTelepateProvocations([t,e],5,{random:()=>0});
- stepTelepateProvocations([t,e],.99,{
-  random:()=>.5,onResolveConfusion:(u,result)=>results.push(result)
- });
- assert.equal(results.length,0);
- stepTelepateProvocations([t,e],.01,{
-  random:()=>.5,onResolveConfusion:(u,result)=>results.push(result)
- });
- assert.deepEqual(results,[1]);
+ let phantom=0;
+ stepTelepateProvocations([t,e],5);
+ stepTelepateProvocations([t,e],.99,{onResolveConfusion:()=>phantom++});
+ assert.equal(e.rokConfusion.remaining>0,true);
+ stepTelepateProvocations([t,e],.01,{onResolveConfusion:()=>phantom++});
+ assert.equal(phantom,0);
  assert.equal(e.rokConfusion,null);
  assert.equal(provocationSource(e),t);
+});
+
+test('20/40/40 uses exact cutoffs for the next eligible attack',()=>{
+ assert.deepEqual(TELEPATE_CONFUSION_TARGET_WEIGHTS,
+  {telepate:.20,self:.40,ally:.40});
+ for(const [n,result] of [
+  [0,'telepate'],[.199999,'telepate'],
+  [.20,'self'],[.599999,'self'],[.60,'ally'],[.99999,'ally']
+ ])assert.equal(rollTelepateConfusedAttack(()=>n),result);
 });
 
 test('provocation refreshes, expires and clears when its source is lost',()=>{
