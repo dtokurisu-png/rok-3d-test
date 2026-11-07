@@ -556,6 +556,16 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
     <button type="button" id="expand" aria-expanded="false" aria-controls="details" aria-label="Abrir opciones" title="Opciones">⚙</button>
   </div>
   <div id="details">
+    <section id="chiaraLearningPanel" aria-label="Aprendizaje de Chiara" style="padding:12px;margin:8px 0;border:1px solid #278e93;border-radius:9px;background:#0b2732">
+      <strong>🧠 Aprendizaje de Chiara y sus unidades</strong>
+      <p id="chiaraLearningStats" role="status">Cargando memoria local…</p>
+      <div class="buttons">
+        <button id="chiaraLearningExport" type="button">Exportar aprendizaje de Chiara</button>
+        <button id="chiaraLearningImport" type="button">Importar aprendizaje</button>
+        <input id="chiaraLearningFile" type="file" accept=".json,application/json" hidden>
+      </div>
+      <p style="font-size:11px;color:#a6ced0">Se guarda en este navegador. Exporta el JSON y súbelo a assets/ai/chiara-memory.json del repositorio para compartirlo.</p>
+    </section>
     <section id="testerSceneTools" aria-label="Escenario">
       <div class="sceneTesterButtons"><button id="testerSceneLocal" type="button">↻ Cargar escenario</button><span id="testerSceneCurrent" class="sceneTesterCurrent">Arena original</span></div>
       <p id="testerSceneStatus" class="sceneTesterStatus" role="status">Comprobando escenario…</p>
@@ -763,7 +773,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <script type="module">
 import * as THREE from 'three';
 import {stepTelepateProvocations,provocationSource,clearTelepateSource,createTelepateAuraVisuals} from './features/farolera/phase-1/telepate-provocation.js?v=20261107-confusion-two-outcomes-3';
-import {createFaroleraArenaIntegration} from './features/farolera/phase-1/phase-8-arena-bridge.js?v=20261106-directed-3';
+import {createFaroleraArenaIntegration} from './features/farolera/phase-1/phase-8-arena-bridge.js?v=20261107-tactical-1';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
@@ -779,10 +789,34 @@ import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-composite
 import {createArenaCastFlyer} from './arena-cast-flyer.js?v=phase2-20261107-1';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
-import {createRivalCasterAI} from './caster-rival-ai.js?v=20261105-strategy-1';
+import {createRivalCasterAI} from './caster-rival-ai.js?v=20261107-learning-1';
+import {createChiaraLearning} from './chiara-learning.js?v=20261107-1';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 
 const qs=s=>document.querySelector(s);
+const chiaraLearning=createChiaraLearning();
+const learningStats=()=>{
+ const s=chiaraLearning.stats();
+ qs('#chiaraLearningStats').textContent=
+  s.matches+' partidas · '+s.contexts+' situaciones · '+s.samples+
+  ' experiencias'+(s.stored?' · guardado local':' · almacenamiento bloqueado');
+};
+qs('#chiaraLearningExport').addEventListener('click',()=>{
+ const blob=new Blob([chiaraLearning.exportJSON()],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='chiara-memory.json';a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);learningStats();
+});
+qs('#chiaraLearningImport').addEventListener('click',()=>qs('#chiaraLearningFile').click());
+qs('#chiaraLearningFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{chiaraLearning.importJSON(await file.text());learningStats();}
+ catch(error){qs('#chiaraLearningStats').textContent='Error al importar: '+error.message;}
+ e.target.value='';
+});
+chiaraLearning.loadShared('./assets/ai/chiara-memory.json')
+ .then(()=>learningStats()).catch(()=>learningStats());
+learningStats();
 const mobileCombatMode=window.matchMedia('(pointer:coarse)').matches||
  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 // Full decorative studio scenery is opt-in on desktop; combat works with
@@ -948,7 +982,7 @@ const telepateAuraVisuals=createTelepateAuraVisuals({THREE,root});
 // No separate viewer, temporary selector or changes to existing summon cards.
 const faroleraAbilityBridge=createFaroleraArenaIntegration({
  THREE,root,combatants,casters,getClip:getCombatClip,setAnim,
- releaseDuel:releaseSummonDuel
+ releaseDuel:releaseSummonDuel,learning:chiaraLearning
 });
 // Scenery overlay is visual only: never modifies units, hitboxes, pathfinding or rules.
 let attachRealElementSources=null;
@@ -3180,7 +3214,6 @@ function resetCombatant(c){
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
    c.semilleraArrived=false;c.semilleraArrival=null;c.semilleraArrivalWait=0;
-   c.semilleraFacingBack=false;c.semilleraTurnBack=null;
    c.semilleraClipWarning=false;
    c.semilleraFailedSource22=null;c.semilleraFailedSource21=null;
   }
@@ -3300,31 +3333,7 @@ const semilleraCrystals=[];
 const SEMILLERA_PERIOD=10;
 const SEMILLERA_ARRIVAL_START=181/30,SEMILLERA_ARRIVAL_END=130/30;
 const SEMILLERA_ARRIVAL_DURATION=(181-130)/30;
-const SEMILLERA_TURN_BACK_DURATION=.32;
-function startSemilleraTurnBack(unit){
- if(unit.cardId!=='semillera'||unit.stage!=='active'||
-    unit.semilleraFacingBack||unit.semilleraTurnBack)return;
- // Her GLB defaults facing the opponent (-Z). Turn 180 degrees first
- // so the forward walking clip 40 advances toward her own +Z edge.
- unit.semilleraTurnBack={time:0,from:unit.outer.rotation.y};
- unit.stage='semilleraTurningBack';
- setAnim(unit,'idle',{fade:.1});
-}
-function stepSemilleraTurnBack(unit,dt){
- const turn=unit.semilleraTurnBack;
- if(!turn)return;
- turn.time=Math.min(SEMILLERA_TURN_BACK_DURATION,turn.time+dt);
- const progress=turn.time/SEMILLERA_TURN_BACK_DURATION;
- const smooth=progress*progress*(3-2*progress);
- unit.outer.rotation.y=THREE.MathUtils.lerp(turn.from,0,smooth);
- if(progress>=1){
-  unit.outer.rotation.y=0;
-  unit.semilleraFacingBack=true;
-  unit.semilleraTurnBack=null;
-  unit.stage='active';
-  setAnim(unit,summonWalkId(unit),{force:true,fade:.12});
- }
-}
+// Semillera locomotion is exclusively clip 40. No extra turn/backward mixer.
 function startSemilleraArrival(unit){
  if(unit.cardId!=='semillera'||unit.stage!=='active'||unit.semilleraArrived)return false;
  const clip=summonMoveClipMap.get('semillera:39');
@@ -3346,7 +3355,7 @@ function startSemilleraArrival(unit){
  action.play();action.paused=false;action.setEffectiveTimeScale(-1);
  if(previous&&previous!==action){previous.fadeOut(.14);action.fadeIn(.14);}
  unit.animAction=action;unit.animId=39;
- unit.semilleraArrival={action,time:0,fromYaw:unit.outer.rotation.y};
+ unit.semilleraArrival={action,time:0};
  unit.stage='semilleraArrival';
  unit.mixer.update(0);
  return true;
@@ -3356,10 +3365,7 @@ function stepSemilleraArrival(unit,dt){
  if(!arrival)return;
  arrival.time=Math.min(SEMILLERA_ARRIVAL_DURATION,arrival.time+dt);
  const progress=arrival.time/SEMILLERA_ARRIVAL_DURATION;
- // Keep world orientation synchronized with the reverse turn animation.
- // Facing the backline (0) -> facing the battlefield (PI).
- const eased=progress*progress*(3-2*progress);
- unit.outer.rotation.y=THREE.MathUtils.lerp(arrival.fromYaw,Math.PI,eased);
+ // The 39 clip owns the turning pose; do not mix a second scripted turn.
  arrival.action.time=Math.max(SEMILLERA_ARRIVAL_END,
   Math.min(SEMILLERA_ARRIVAL_START,arrival.action.time));
  if(arrival.time>=SEMILLERA_ARRIVAL_DURATION){
@@ -3501,7 +3507,8 @@ function resetDemoCombat(){
   faroleraAbilityBridge.reset();
   // A new match invalidates any in-progress manual attack/cooldown.
   casterMovement?.disable();
-  rivalAI?.reset();
+  if(rivalAI?.status?.elapsed>5)chiaraLearning.finishMatch();
+  rivalAI?.reset();learningStats();
   rivalAction.attackUntil=0;rivalAction.castingUntil=0;rivalAction.reserved=null;
   rivalAction.flyerToken=null;
   guardHoldSeconds.ally=0;guardHoldSeconds.enemy=0;
@@ -4881,9 +4888,7 @@ function updateDuel(dt){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
       updateTeleportation(c,dt);
-    }else if(c.stage==='semilleraTurningBack'){
-      stepSemilleraTurnBack(c,dt);
-    }else if(c.stage==='semilleraArrival'){
+    }    }else if(c.stage==='semilleraArrival'){
       stepSemilleraArrival(c,dt);
     }else if(c.stage==='semilleraElementCast'){
       stepSemilleraCrystalCast(c,dt);
@@ -4956,11 +4961,10 @@ function updateDuel(dt){
     if(c.cardId==='farolera'&&faroleraAbilityBridge.escort(c,dt))continue;
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
-    if(!target&&c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
-      if(!c.semilleraFacingBack){startSemilleraTurnBack(c);continue;}
+    if(c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
       c.outer.rotation.y=0;
       c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
-      setAnim(c,summonWalkId(c),{fade:.16});continue;
+      setAnim(c,40,{fade:.16});continue;
     }
     if(!target){setAnim(c,'idle',{fade:.15});continue;}
     // La Farolera aturdida sigue siendo un objetivo legal, incluso si el
@@ -4971,13 +4975,7 @@ function updateDuel(dt){
     const distance=Math.hypot(dx,dz);
     // Campeo: Semillera retreats to the far edge of her own half instead
     // of following enemies. She can attack once an enemy enters her range.
-    if(c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
-      if(!c.semilleraFacingBack){startSemilleraTurnBack(c);continue;}
-      c.outer.rotation.y=0;
-      c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
-      setAnim(c,summonWalkId(c),{fade:.16});
-      continue;
-    }
+
     // Offensive-only Telépate: keep advancing to caster, never kite or flee.
     if(c.cardId==='telepate'){
       if(distance>c.range+.005){
@@ -6081,6 +6079,7 @@ function chiaraCastPlan(caster,amount,resources={}){
  return model?.scene?{id,cost:def.cost,element:'water'}:null;
 }
 rivalAI=createRivalCasterAI({
+ learning:chiaraLearning,
  getCaster:()=>casters.find(c=>c.side==='enemy'&&c.stage==='active'&&
   !(casterMovement?.enabled&&casterMovement.caster===c)),
  getOrbs:()=>{
