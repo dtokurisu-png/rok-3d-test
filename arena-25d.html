@@ -822,12 +822,12 @@ import {createArenaSceneOverlay,mountArenaSceneControls} from './arena-scene-ove
 import {reduceModelTextureBudget} from './arena-asset-budget.js?v=2';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.100';
 import {createArenaMatchGate} from './arena-match-gate.js?v=20261105-dom-earth-water-1';
-import {createArenaCombatHud} from './arena-combat-hud.js?v=20261106-economy-3';
+import {createArenaCombatHud} from './arena-combat-hud.js?v=20261107-extraction-1';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semillera-one-orb-1';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-composite-22-21-2';
 import {createArenaCastFlyer} from './arena-cast-flyer.js?v=phase2-20261107-1';
-import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-armor-7';
+import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-extraction-8';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261107-position-4';
@@ -2454,7 +2454,9 @@ function selectCombatTarget(c){
   return enemyCaster;
 }
 let loaded=false,playing=false,tm=0,prevTime=performance.now();
-const combatHud=createArenaCombatHud();
+const combatHud=createArenaCombatHud({
+ onExtraction:transaction=>arenaFactors.extract(transaction)
+});
 const castFlyer=createArenaCastFlyer();
 const cardCastPreparationSeconds=(cost,multiplier=1)=>
  (cost<=1?.5:cost===2?1:cost===3?1.5:cost===4?2:2.5)*Math.max(1,Number(multiplier)||1);
@@ -3661,7 +3663,7 @@ function updateSemilleraCrystals(dt){
   const collected=crystal.landed&&at&&Math.hypot(
    at.x-crystal.visual.group.position.x,
    at.z-crystal.visual.group.position.z)<=1.4;
-  if(collected)combatHud.collectFragment('ally');
+  if(collected)combatHud.collectFragment('ally','semillera');
   if(collected||crystal.age>=30){
    crystal.visual.dispose();semilleraCrystals.splice(i,1);
   }
@@ -3892,7 +3894,7 @@ function updateDeathFragments(dt){
    if(caster.stage!=='active'||caster.hp<=0)continue;
    if(Math.hypot(caster.outer.position.x-f.fx.group.position.x,
     caster.outer.position.z-f.fx.group.position.z)<1.05){
-    if(combatHud.collectFragment(caster.side)){collected=true;break;}
+    if(combatHud.collectFragment(caster.side,'fallen-unit')){collected=true;break;}
    }
   }
   if(collected||f.age>=20){
