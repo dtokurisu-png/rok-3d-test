@@ -3090,6 +3090,7 @@ function resetCombatant(c){
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
    c.semilleraArrived=false;c.semilleraArrival=null;c.semilleraArrivalWait=0;
+   c.semilleraFacingBack=false;c.semilleraTurnBack=null;
    c.semilleraClipWarning=false;
    c.semilleraFailedSource22=null;c.semilleraFailedSource21=null;
   }
@@ -3209,6 +3210,31 @@ const semilleraCrystals=[];
 const SEMILLERA_PERIOD=10;
 const SEMILLERA_ARRIVAL_START=181/30,SEMILLERA_ARRIVAL_END=130/30;
 const SEMILLERA_ARRIVAL_DURATION=(181-130)/30;
+const SEMILLERA_TURN_BACK_DURATION=.32;
+function startSemilleraTurnBack(unit){
+ if(unit.cardId!=='semillera'||unit.stage!=='active'||
+    unit.semilleraFacingBack||unit.semilleraTurnBack)return;
+ // Her GLB defaults facing the opponent (-Z). Turn 180 degrees first
+ // so the forward walking clip 40 advances toward her own +Z edge.
+ unit.semilleraTurnBack={time:0,from:unit.outer.rotation.y};
+ unit.stage='semilleraTurningBack';
+ setAnim(unit,'idle',{fade:.1});
+}
+function stepSemilleraTurnBack(unit,dt){
+ const turn=unit.semilleraTurnBack;
+ if(!turn)return;
+ turn.time=Math.min(SEMILLERA_TURN_BACK_DURATION,turn.time+dt);
+ const progress=turn.time/SEMILLERA_TURN_BACK_DURATION;
+ const smooth=progress*progress*(3-2*progress);
+ unit.outer.rotation.y=THREE.MathUtils.lerp(turn.from,0,smooth);
+ if(progress>=1){
+  unit.outer.rotation.y=0;
+  unit.semilleraFacingBack=true;
+  unit.semilleraTurnBack=null;
+  unit.stage='active';
+  setAnim(unit,summonWalkId(unit),{force:true,fade:.12});
+ }
+}
 function startSemilleraArrival(unit){
  if(unit.cardId!=='semillera'||unit.stage!=='active'||unit.semilleraArrived)return false;
  const clip=summonMoveClipMap.get('semillera:39');
@@ -3222,12 +3248,16 @@ function startSemilleraArrival(unit){
   startSemilleraCrystalCast(unit);return false;
  }
  const action=unit.mixer.clipAction(clip),previous=unit.animAction;
- action.reset().setEffectiveWeight(1).setEffectiveTimeScale(0);
+ // Do not pause the action: Three.AnimationMixer must evaluate the
+ // reverse clip every frame. The full 181→130 window lasts 51/30 sec.
+ action.reset();action.enabled=true;action.setEffectiveWeight(1);
  action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
- action.time=SEMILLERA_ARRIVAL_START;action.play();action.paused=true;
+ action.time=SEMILLERA_ARRIVAL_START;
+ action.play();action.paused=false;action.setEffectiveTimeScale(-1);
  if(previous&&previous!==action){previous.fadeOut(.14);action.fadeIn(.14);}
  unit.animAction=action;unit.animId=39;
- unit.semilleraArrival={action,time:0};unit.stage='semilleraArrival';
+ unit.semilleraArrival={action,time:0,fromYaw:unit.outer.rotation.y};
+ unit.stage='semilleraArrival';
  unit.mixer.update(0);
  return true;
 }
@@ -3235,11 +3265,19 @@ function stepSemilleraArrival(unit,dt){
  const arrival=unit.semilleraArrival;
  if(!arrival)return;
  arrival.time=Math.min(SEMILLERA_ARRIVAL_DURATION,arrival.time+dt);
- arrival.action.time=THREE.MathUtils.lerp(SEMILLERA_ARRIVAL_START,
-  SEMILLERA_ARRIVAL_END,arrival.time/SEMILLERA_ARRIVAL_DURATION);
- unit.mixer.update(0);
+ const progress=arrival.time/SEMILLERA_ARRIVAL_DURATION;
+ // Keep world orientation synchronized with the reverse turn animation.
+ // Facing the backline (0) -> facing the battlefield (PI).
+ const eased=progress*progress*(3-2*progress);
+ unit.outer.rotation.y=THREE.MathUtils.lerp(arrival.fromYaw,Math.PI,eased);
+ arrival.action.time=Math.max(SEMILLERA_ARRIVAL_END,
+  Math.min(SEMILLERA_ARRIVAL_START,arrival.action.time));
  if(arrival.time>=SEMILLERA_ARRIVAL_DURATION){
-  arrival.action.paused=false;unit.semilleraArrival=null;
+  arrival.action.time=SEMILLERA_ARRIVAL_END;
+  unit.mixer.update(0);
+  arrival.action.paused=true;
+  unit.outer.rotation.y=Math.PI;
+  unit.semilleraArrival=null;
   unit.semilleraArrived=true;unit.stage='active';
   startSemilleraCrystalCast(unit);
  }
@@ -4726,6 +4764,8 @@ function updateDuel(dt){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
       updateTeleportation(c,dt);
+    }else if(c.stage==='semilleraTurningBack'){
+      stepSemilleraTurnBack(c,dt);
     }else if(c.stage==='semilleraArrival'){
       stepSemilleraArrival(c,dt);
     }else if(c.stage==='semilleraElementCast'){
@@ -4785,7 +4825,7 @@ function updateDuel(dt){
     }
     // Mantener el movimiento vertical de pies, rodillas y torso también
     // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
-    if(c.stage!=='casting'&&c.stage!=='semilleraArrival'&&c.stage!=='semilleraElementCast'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
+    if(c.stage!=='casting'&&c.stage!=='semilleraTurningBack'&&c.stage!=='semilleraArrival'&&c.stage!=='semilleraElementCast'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
     updateCastMarker(c);
     if(c.kind!=='archer'&&c.animId===12)liftWalkArm(c);
     if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!faroleraAbilityBridge.lanternDeployed(c)&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
@@ -4800,8 +4840,9 @@ function updateDuel(dt){
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
     if(!target&&c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
+      if(!c.semilleraFacingBack){startSemilleraTurnBack(c);continue;}
+      c.outer.rotation.y=0;
       c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
-      c.outer.rotation.y=0; // Face own backline (+Z), not backwards.
       setAnim(c,summonWalkId(c),{fade:.16});continue;
     }
     if(!target){setAnim(c,'idle',{fade:.15});continue;}
@@ -4814,8 +4855,9 @@ function updateDuel(dt){
     // Campeo: Semillera retreats to the far edge of her own half instead
     // of following enemies. She can attack once an enemy enters her range.
     if(c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
+      if(!c.semilleraFacingBack){startSemilleraTurnBack(c);continue;}
+      c.outer.rotation.y=0;
       c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
-      c.outer.rotation.y=0; // Face own backline (+Z), not backwards.
       setAnim(c,summonWalkId(c),{fade:.16});
       continue;
     }
