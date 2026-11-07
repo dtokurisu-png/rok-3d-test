@@ -3,13 +3,19 @@
  * Every five seconds, the pulse taunts hostile summons within ten units.
  * Taunted summons remain enemies and chase/attack the Telépate for up to eight seconds.
  * It NEVER changes their allegiance, controls them, or limits them to two.
- * Each affected unit independently has a 50% chance of one-second confusion.
+ * Every affected hostile receives one-second confusion on each pulse.
+ * Next eligible attack: 20% Telépate, 40% self, 40% own team.
  */
 export const TELEPATE_AURA_RADIUS=10;
 export const TELEPATE_AURA_INTERVAL=5;
 export const TELEPATE_PROVOKE_DURATION=8;
 export const TELEPATE_EXIT_LINGER=3;
-export const TELEPATE_CONFUSE_CHANCE=.5;
+export const TELEPATE_CONFUSE_CHANCE=1;
+export const TELEPATE_CONFUSION_TARGET_WEIGHTS=Object.freeze({telepate:.20,self:.40,ally:.40});
+export function rollTelepateConfusedAttack(random=Math.random){
+ const v=Math.max(0,Math.min(.999999999,Number(random())));
+ return v<.20?'telepate':v<.60?'self':'ally';
+}
 export const TELEPATE_CONFUSE_DURATION=1;
 const VALID_STAGE=u=>u&&Number(u.hp)>0&&
  !['dead','dying','vanishing','restoring'].includes(u.stage);
@@ -36,7 +42,7 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
   // Float-safe expiry: 0.99 + 0.01 must equal one full second.
   if(confusion.remaining<=1e-8){
    unit.rokConfusion=null;
-   if(VALID_STAGE(unit))onResolveConfusion?.(unit,Math.min(2,Math.floor(random()*3)));
+   // Only a real attack may roll confusion: expiry itself deals no damage.
   }
  }
  // Migration safety: old capture versions changed the enemy's side.
@@ -66,10 +72,8 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
     // Guaranteed provocation: every eligible hostile switches target, not side.
     enemy.rokProvocation={source,remaining:TELEPATE_PROVOKE_DURATION,outside:false};
     onSuccess?.(source,enemy);
-    if(!enemy.rokConfusion&&random()<TELEPATE_CONFUSE_CHANCE){
-      enemy.rokConfusion={remaining:TELEPATE_CONFUSE_DURATION};
-      onConfusion?.(source,enemy);
-    }
+    enemy.rokConfusion={remaining:TELEPATE_CONFUSE_DURATION};
+    onConfusion?.(source,enemy);
    }
   }
  }
