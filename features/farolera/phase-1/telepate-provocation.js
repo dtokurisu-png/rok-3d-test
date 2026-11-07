@@ -1,7 +1,7 @@
 /**
  * R.O.K. 3D — Telépate de Agua: pulse of confusion ONLY.
  * Every five seconds, ALL hostile summons within six units are confused
- * for one second. No taunt, forced target or allegiance change.
+ * until the compulsory attack resolves. No taunt or allegiance change.
  * The pulse immediately resolves one 50/50 self-hit or friendly-fire outcome.
  */
 export const TELEPATE_AURA_RADIUS=6;
@@ -15,7 +15,8 @@ export function rollTelepateConfusedAttack(random=Math.random){
  const v=Math.max(0,Math.min(.999999999,Number(random())));
  return v<.50?'self':'ally';
 }
-export const TELEPATE_CONFUSE_DURATION=1;
+// Legacy exported duration; action-gated confusion has no timed expiry.
+export const TELEPATE_CONFUSE_DURATION=0;
 const VALID_STAGE=u=>u&&Number(u.hp)>0&&
  !['dead','dying','vanishing','restoring'].includes(u.stage);
 const dist=(a,b)=>Math.hypot(a.outer.position.x-b.outer.position.x,
@@ -34,7 +35,8 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
  if(!Number.isFinite(dt)||dt<0)throw new RangeError('Invalid dt');
  for(const unit of units){
   const confusion=unit.rokConfusion;
-  if(!confusion||(managedConfusion&&!confusion.legacyFallback))continue;
+  if(!confusion||confusion.actionGated||
+   (managedConfusion&&!confusion.legacyFallback))continue;
   confusion.remaining-=dt;
   // Float-safe expiry: 0.99 + 0.01 must equal one full second.
   if(confusion.remaining<=1e-8){
@@ -66,8 +68,8 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
     const sharedApplied=managedConfusion&&applyConfusion?.(enemy,source,outcome);
     if(!sharedApplied)
      enemy.rokConfusion={category:'psiquico',negative:true,
-      factor:'confusion',remaining:TELEPATE_CONFUSE_DURATION,source,
-      outcome,resolved:false,legacyFallback:true};
+      factor:'confusion',remaining:null,source,
+      outcome,resolved:false,legacyFallback:true,actionGated:true};
     onConfusion?.(source,enemy,outcome);
    }
   }
