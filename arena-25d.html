@@ -1089,7 +1089,13 @@ let archerRigReference=null;
 // Clip adaptations are cached by card and animation ID. They use Farolera's
 // approved motion vocabulary but retarget onto the individual GLB skeleton.
 const sharedSummonClipCache=new Map();
+const summonMoveClipMap=new Map();
+const SUMMON_WALK_IDS=Object.freeze({kariona:38,semillera:40,telepate:41});
+const summonWalkId=c=>summonMoveClipMap.has(c?.cardId+':'+SUMMON_WALK_IDS[c?.cardId])?
+ SUMMON_WALK_IDS[c.cardId]:12;
 function getCombatClip(c,id){
+ if(c?.cardId&&summonMoveClipMap.has(c.cardId+':'+id))
+  return summonMoveClipMap.get(c.cardId+':'+id);
  if(id==='idle'){
   if(c.cardId&&c.cardId!=='farolera'&&!c.idleClip?.tracks?.length){
    const source=window.ROKSummonAssets?.farolera;
@@ -3072,6 +3078,7 @@ function resetCombatant(c){
   c.speed=shield?2.4:2.15;
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
+   c.semilleraArrived=false;c.semilleraArrival=null;
    c.semilleraClipWarning=false;
   }
   c.stage='intro';c.introT=0;
@@ -4665,6 +4672,8 @@ function updateDuel(dt){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
       updateTeleportation(c,dt);
+    }else if(c.stage==='semilleraArrival'){
+      stepSemilleraArrival(c,dt);
     }else if(c.stage==='semilleraElementCast'){
       stepSemilleraCrystalCast(c,dt);
     }else if(c.stage==='casting'){
@@ -4695,7 +4704,10 @@ function updateDuel(dt){
       if(c.cardId==='semillera'&&!c.crystalCast){
        // Production is the cast itself: 9 s in clip 22, then 1 s
        // in clip 21. Both the animation and its HUD start together.
-       if(c.outer.position.z>=MAX_Z-.03)startSemilleraCrystalCast(c);
+       if(c.outer.position.z>=MAX_Z-.03){
+        if(!c.semilleraArrived)startSemilleraArrival(c);
+        else startSemilleraCrystalCast(c);
+       }
       }
       c.cooldown=Math.max(0,c.cooldown-dt);
       c.specialCooldown=Math.max(0,c.specialCooldown-dt);
@@ -4728,7 +4740,7 @@ function updateDuel(dt){
     c.currentThreatTarget=target;
     if(!target&&c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
       c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
-      setAnim(c,12,{fade:.16});continue;
+      setAnim(c,summonWalkId(c),{fade:.16});continue;
     }
     if(!target){setAnim(c,'idle',{fade:.15});continue;}
     // La Farolera aturdida sigue siendo un objetivo legal, incluso si el
@@ -4741,7 +4753,7 @@ function updateDuel(dt){
     // of following enemies. She can attack once an enemy enters her range.
     if(c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
       c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
-      setAnim(c,12,{fade:.16});
+      setAnim(c,summonWalkId(c),{fade:.16});
       continue;
     }
     // Offensive-only Telépate: keep advancing to caster, never kite or flee.
@@ -4750,7 +4762,7 @@ function updateDuel(dt){
         const step=Math.min(c.speed*dt,distance-c.range);
         c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/distance*step,-MAX_X,MAX_X);
         c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-MAX_Z,MAX_Z);
-        setAnim(c,12,{fade:.16});
+        setAnim(c,summonWalkId(c),{fade:.16});
       }else if(canDamageTarget(target)&&c.cooldown<=0){
         startCast(c,target);c.cooldown=0;
       }else setAnim(c,'idle',{fade:.15});
@@ -4761,7 +4773,7 @@ function updateDuel(dt){
       const step=Math.min(c.speed*dt,distance-c.range);
       c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/distance*step,-MAX_X,MAX_X);
       c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-MAX_Z,MAX_Z);
-      setAnim(c,12,{fade:.16});
+      setAnim(c,summonWalkId(c),{fade:.16});
     }else if(canDamageTarget(target)&&c.cooldown<=0){
       startCast(c,target);
       c.cooldown=0; // Un solo reloj de preparación y remate, sin cooldown adicional.
