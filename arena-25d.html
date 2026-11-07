@@ -2648,6 +2648,8 @@ const summonWeaponIconTextures={
  archer:summonHudIconTexture('➶','#ff6767')
 };
 const summonShieldIconTexture=summonHudIconTexture('◆','#c3ccd6');
+// Placeholder until the user's final shield icon is supplied.
+const karionaMagicShieldIconTexture=summonHudIconTexture('◆','#ffe36d');
 const summonArmorSlotTexture=summonHudIconTexture('','#c3ccd6');
 const summonEnergyIconTexture=summonHudIconTexture('✦','#8b6bea');
 // The supplied armor SVG has a viewBox but no intrinsic pixel dimensions.
@@ -2682,9 +2684,9 @@ function createSummonGroundHud(c){
  const attack=summonHudArc(group,'right',.64,0xff4c50,1,.29);
  // Keep secondary arcs outside the thicker main bars; .90 would overlap.
  // Semillera uses the former shield slot for its ten-step growing charge.
- const shield=summonHudArc(group,'left',.99,c.cardId==='semillera'?0x6bff79:0xe0efff,1,.19);
- // Cariona uses the second LEFT arc for permanent armor, not a shield:
- // physical segments are white; magical segments are cyan.
+ const shield=summonHudArc(group,'left',.99,c.cardId==='semillera'?0x6bff79:c.cardId==='kariona'?0xffdf54:0xe0efff,1,.19);
+ // Independent defense meters: yellow magic shield and white fixed armor.
+ const armorArc=c.cardId==='kariona'?summonHudArc(group,'left',1.23,0xffffff,1,.14):null;
  const lifeTicks=summonHudTicks(group,'left',.945,0x35ff8e);
  const attackTicks=summonHudTicks(group,'right',.945,0xff444e);
  const shieldTicks=[]; // El escudo usa solamente una barra subdividida.
@@ -2702,22 +2704,27 @@ function createSummonGroundHud(c){
  const secondaryIcons=new THREE.Group();group.add(secondaryIcons);
  const shieldSlot=new THREE.Group();secondaryIcons.add(shieldSlot);
  const shieldIcon=new THREE.Sprite(new THREE.SpriteMaterial({
-  map:c.cardId==='kariona'?summonArmorSlotTexture:summonShieldIconTexture,
+  map:c.cardId==='kariona'?karionaMagicShieldIconTexture:summonShieldIconTexture,
   transparent:true,depthWrite:false,depthTest:false,toneMapped:false}));
  shieldIcon.scale.set(.19,.19,1);shieldIcon.renderOrder=20;shieldSlot.add(shieldIcon);
  const armorIcon=new THREE.Sprite(new THREE.SpriteMaterial({
   map:armorHudIconTexture,transparent:true,depthWrite:false,
   depthTest:false,toneMapped:false}));
+ const armorSlot=new THREE.Group();secondaryIcons.add(armorSlot);
+ const armorBackdrop=new THREE.Sprite(new THREE.SpriteMaterial({
+  map:summonArmorSlotTexture,transparent:true,depthWrite:false,
+  depthTest:false,toneMapped:false}));
+ armorBackdrop.scale.set(.19,.19,1);armorBackdrop.renderOrder=20;armorSlot.add(armorBackdrop);
  armorIcon.position.z=.015;armorIcon.scale.set(.135,.135,1);armorIcon.renderOrder=21;
- armorIcon.visible=c.cardId==='kariona';shieldSlot.add(armorIcon);
+ armorSlot.add(armorIcon);armorSlot.visible=c.cardId==='kariona';
  const manaSlot=new THREE.Group();secondaryIcons.add(manaSlot);
  const manaIcon=new THREE.Sprite(new THREE.SpriteMaterial({
   map:summonEnergyIconTexture,transparent:true,depthWrite:false,
   depthTest:false,toneMapped:false}));
  manaIcon.scale.set(.19,.19,1);manaIcon.renderOrder=20;manaSlot.add(manaIcon);
  manaSlot.visible=false;
- summonGroundHuds.set(c,{group,health,attack,shield,lifeTicks,attackTicks,
-  shieldTicks,shieldSlot,shieldIcon,armorIcon,manaSlot,secondaryIcons,values:''});
+ summonGroundHuds.set(c,{group,health,attack,shield,armorArc,lifeTicks,attackTicks,
+  shieldTicks,shieldSlot,shieldIcon,armorSlot,armorIcon,manaSlot,secondaryIcons,values:''});
 }
 function setSummonHudStat(arc,ticks,value,show=true,subdivide=false,maxValue=10){
  const points=Math.max(0,Math.floor(Number(value)||0));
@@ -2775,43 +2782,42 @@ function updateSummonGroundHuds(){
   const yaw=h.group.rotation.y;
   h.secondaryIcons.position.set(-Math.sin(yaw)*rearZ,.24,Math.cos(yaw)*rearZ);
   const hasArmor=c.cardId==='kariona';
-  const hasShield=!hasArmor&&Number(c.shieldMax)>0;
+  const hasShield=hasArmor||Number(c.shieldMax)>0;
   const hasMana=Number(c.maxMana)>0;
-  h.shieldSlot.visible=hasArmor||hasShield;
+  h.shieldSlot.visible=hasShield;
+  h.armorSlot.visible=hasArmor;
   h.manaSlot.visible=hasMana;
-  const both=h.shieldSlot.visible&&hasMana;
-  h.shieldSlot.position.x=both?-.12:0;
-  h.manaSlot.position.x=both?.12:0;
+  // Independent circles for white armor, yellow shield, cyan element.
+  if(hasArmor){
+   h.armorSlot.position.x=-.22;
+   h.shieldSlot.position.x=0;
+   h.manaSlot.position.x=.22;
+  }else{
+   const both=hasShield&&hasMana;
+   h.shieldSlot.position.x=both?-.12:0;
+   h.manaSlot.position.x=both?.12:0;
+  }
   const semillera=c.cardId==='semillera';
-  const warriorArmor=c.cardId==='kariona';
-  const physicalArmor=warriorArmor?Math.max(0,Math.floor(c.armorPhysical||0)):0;
-  const magicalArmor=warriorArmor?Math.max(0,Math.floor(c.armorMagical||0)):0;
-  const shieldMax=Math.max(0,Number(c.shieldMax)||0);
-  // Nine cells fill during the nine-second preparation. The tenth cell
-  // fills during the one-second release, then resets for the next cycle.
+  const physicalArmor=hasArmor?Math.max(0,Math.floor(c.armorPhysical||0)):0;
+  const shieldMax=hasArmor?Math.max(0,c.magicShieldMax||0):
+   Math.max(0,Number(c.shieldMax)||0);
+  const shieldValue=hasArmor?Math.max(0,c.magicShieldHits||0):c.shield;
   const seedProgress=semillera?
    (c.crystalHudFlash>0?10:Math.min(9,Math.floor(c.crystalClock||0))):0;
-  const snapshot=[c.hp,c.attackDamage,c.shield,shieldMax,
-   semillera?seedProgress:'',warriorArmor?physicalArmor:'',warriorArmor?magicalArmor:''].join(':');
+  const snapshot=[c.hp,c.attackDamage,shieldValue,shieldMax,
+   semillera?seedProgress:'',hasArmor?physicalArmor:''].join(':');
   if(snapshot!==h.values){
    setSummonHudStat(h.health,h.lifeTicks,c.hp);
    setSummonHudStat(h.attack,h.attackTicks,c.attackDamage);
    setSummonHudStat(h.shield,h.shieldTicks,
-    warriorArmor?physicalArmor+magicalArmor:(semillera?seedProgress:c.shield),
-    warriorArmor||semillera||shieldMax>0,true,
-    warriorArmor||semillera?10:shieldMax);
-   if(warriorArmor){
-    // Non-consumable defense: base 1 physical + 1 magical,
-    // oak equipment adds +2 physical and +1 magical.
-    // The FIRST physicalArmor cells are white; next magicalArmor cyan.
-    h.shield.segments.forEach((segment,i)=>{
-     segment.material.color.setHex(i<physicalArmor?0xffffff:0x66dcff);
-    });
+    semillera?seedProgress:shieldValue,hasShield||semillera,true,
+    semillera?10:shieldMax);
+   if(h.armorArc){
+    setSummonHudStat(h.armorArc,[],physicalArmor,true,true,10);
+    for(const cell of h.armorArc.segments)cell.material.color.setHex(0xffffff);
    }
-   // Keep the already-established lower HUD circle for both shield and armor.
-   // The armor factor SVG is only a foreground glyph inside that circle.
-   h.shieldIcon.visible=warriorArmor||(!semillera&&shieldMax>0);
-   h.armorIcon.visible=warriorArmor;
+   h.shieldIcon.visible=hasShield&&!semillera;
+   h.armorIcon.visible=hasArmor;
    h.values=snapshot;
   }
  }
@@ -2935,6 +2941,8 @@ function beginSummonEmergence(c){
   c.hp=winner?(c.restorationHp??c.hp):c.maxHp;
   c.restorationHp=null;
   c.shield=c.shieldMax;c.shieldPulse=0;
+  // A new summon restores its 3-hit shield; winning a duel does not recharge it.
+  if(!winner&&c.cardId==='kariona')c.magicShieldHits=c.magicShieldMax;
   c.mana=c.maxMana;c.manaTimer=0;c.dodgeCooldown=0;
   c.stunLeft=0;c.hitLeft=0;c.cooldown=.55;c.specialCooldown=0;
   c.castT=0;c.castTarget=null;c.castFired=false;
@@ -3096,7 +3104,7 @@ function resetCombatant(c){
   c.deathResourceDropped=false;
   c.currentThreatTarget=null;
   c.armorPhysical=c.cardId==='kariona'?1:0;
-  c.armorMagical=c.cardId==='kariona'?1:0;
+  c.armorMagical=0;
   c.equippedBody=null;
   clearEmbeddedArrows(c);
   c.pendingRestore=false;
@@ -3111,6 +3119,8 @@ function resetCombatant(c){
   c.hp=c.maxHp;
   c.shieldMax=shield?2:0;
   c.shield=c.shieldMax;
+  c.magicShieldMax=c.cardId==='kariona'?3:0;
+  c.magicShieldHits=c.magicShieldMax;
   c.range=c.cardId==='semillera'?3:(archer?ATTACK_PROFILES.archer.range:shield?3:5);
   c.attackDamage=c.cardId==='kariona'?2:(c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1)));
   c.speed=shield?2.4:2.15;
@@ -4147,6 +4157,14 @@ function damage(target,value,source,{committed=false,environment=false}={}){
         ' derrotado · '+(target.side==='enemy'?'victoria':'derrota');
     }
     return true;
+  }
+  // Cariona's magic shield is a consumable three-hit barrier. No HP
+  // or permanent-armor values are spent until these three hits are gone.
+  if(target.cardId==='kariona'&&target.magicShieldHits>0&&!environment&&value>0){
+   target.magicShieldHits--;
+   target.shieldPulse=.8;
+   makeFloatingWord(target,'ESCUDO '+target.magicShieldHits+'/3');
+   return true;
   }
   // Armor is permanent flat damage reduction; it is NOT a shield.
   // The existing shield still absorbs only the damage that passes armor.
@@ -5485,7 +5503,7 @@ function updateOakTargetMarkers(){
 function resetOakArmor(){
  if(oakArmor.holder){
   oakArmor.holder.armorPhysical=oakArmor.holder.cardId==='kariona'?1:0;
-  oakArmor.holder.armorMagical=oakArmor.holder.cardId==='kariona'?1:0;
+  oakArmor.holder.armorMagical=0;
   oakArmor.holder.speed=oakArmor.holder.oakOriginalSpeed??oakArmor.holder.speed;
   oakArmor.holder.equippedBody=null;
  }
@@ -5494,7 +5512,7 @@ function resetOakArmor(){
 function onOakArmorHolderDeath(c){
  if(oakArmor.holder!==c)return;
  c.armorPhysical=c.cardId==='kariona'?1:0;
- c.armorMagical=c.cardId==='kariona'?1:0;
+ c.armorMagical=0;
  c.speed=c.oakOriginalSpeed??c.speed;c.equippedBody=null;
  oakArmor.holder=null;oakArmor.state='broken';
  if(spellbook.page&&qs('#casterMoveSide').value==='ally')
