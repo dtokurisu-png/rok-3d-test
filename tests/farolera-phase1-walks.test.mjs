@@ -19,7 +19,10 @@ test('approved FBX originals 38, 39, 40, 41 all exist without renumbering',async
 
 test('Semillera walks toward home boundary and prepares arrival before crystals',async()=>{
  const html=await arena();
- assert.match(html,/c\.outer\.rotation\.y=0; \/\/ Face own backline/);
+ assert.match(html,/if\(!c\.semilleraFacingBack\)\{startSemilleraTurnBack\(c\);continue;\}/);
+ assert.match(html,/c\.outer\.rotation\.y=0;/);
+ assert.match(html,/unit\.stage='semilleraTurningBack'/);
+ assert.match(html,/unit\.stage='active';\s*setAnim\(unit,summonWalkId\(unit\)/);
  assert.match(html,/if\(!c\.semilleraArrived\)/);
  assert.match(html,/startSemilleraArrival\(c\)/);
  assert.match(html,/else startSemilleraCrystalCast\(c\)/);
@@ -31,7 +34,9 @@ test('animation 39 is sampled in reverse from 181 to 130 exactly once',async()=>
  assert.match(html,/SEMILLERA_ARRIVAL_START=181\/30,SEMILLERA_ARRIVAL_END=130\/30/);
  assert.match(html,/const SEMILLERA_ARRIVAL_DURATION=\(181-130\)\/30/);
  assert.match(html,/unit\.semilleraArrived=true;unit\.stage='active'/);
- assert.match(html,/arrival\.action\.time=THREE\.MathUtils\.lerp/);
+ assert.match(html,/action\.play\(\);action\.paused=false;action\.setEffectiveTimeScale\(-1\)/);
+ assert.match(html,/unit\.outer\.rotation\.y=THREE\.MathUtils\.lerp\(arrival\.fromYaw,Math\.PI,eased\)/);
+ assert.match(html,/arrival\.action\.time=SEMILLERA_ARRIVAL_END/);
 });
 
 test('new FBX loading is deferred and cannot block main arena readiness',async()=>{
