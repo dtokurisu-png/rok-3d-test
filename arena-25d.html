@@ -5019,6 +5019,9 @@ void (async()=>{
   playing=false;
   matchGate.setCoreReady();
   window.ROKBoot.ready();
+  // Retarget new walk clips only after the combat is interactive.
+  // Delay heavy FBX parsing until core GLBs and scenery are ready.
+  setTimeout(()=>{void preloadApprovedSummonWalks();},2500);
   // Avoid competing with caster, temple, animation and cost-one asset loads.
   // The spellbook can still demand-load either summon immediately when used.
   setTimeout(()=>{
@@ -5273,7 +5276,47 @@ function ensureLiorenSummonModel(id){
  liorenSummonLoading.set(id,task);
  return task;
 }
-const spellbook={page:0,rapid:new Map(),targetingEquipment:false};
+// Load each newly approved FBX once and retarget to the actual GLB.
+ // Only their intended units receive the clips; the original files and
+ // every other summon animation remain untouched.
+ const newSummonAnimations=[
+  {id:40,cardId:'semillera',path:'animations/Catwalk Walking.fbx'},
+  {id:39,cardId:'semillera',path:'animations/Catwalk Walk.fbx'},
+  {id:38,cardId:'kariona',path:'animations/Catwalk Walk Forward HighKnees.fbx'},
+  {id:41,cardId:'telepate',path:'animations/Walking.fbx'}
+ ];
+ let summonWalkLoadStarted=false;
+ async function preloadApprovedSummonWalks(){
+  if(summonWalkLoadStarted)return;
+  summonWalkLoadStarted=true;
+  for(const item of newSummonAnimations){
+   try{
+    const model=item.cardId==='telepate'?
+     await ensureChiaraSummonModel(item.cardId):
+     await ensureLiorenSummonModel(item.cardId);
+    const url='./'+item.path.split('/').map(encodeURIComponent).join('/');
+    const fbx=await new FBXLoader().loadAsync(url);
+    if(!fbx.animations?.length)throw Error('FBX sin animación');
+    const clip=adaptAnimationFBX(fbx,fbx.animations[0],model.scene,
+     'ROK_'+item.cardId+'_Animation_'+item.id);
+    if(!clip?.tracks?.length||clip.duration<=0)throw Error('Clip adaptado vacío');
+    if(item.id===39&&clip.duration<181/30-.04)
+     throw Error('La animación 39 no llega al fotograma 181');
+    summonMoveClipMap.set(item.cardId+':'+item.id,clip);
+    // Refresh currently walking units when the new clip is first ready.
+    for(const unit of combatants)if(unit.cardId===item.cardId&&
+      unit.stage==='active'&&unit.animId===12&&item.id!==39)
+      setAnim(unit,item.id,{fade:.18,force:true});
+    console.info('[R.O.K.] FBX '+item.id+' preparado para '+item.cardId);
+   }catch(error){
+    console.warn('[R.O.K.] No se pudo activar FBX '+item.id+
+      ' para '+item.cardId+':',error);
+   }
+   // Space out retargeting to avoid choking a crowded arena frame.
+   await new Promise(resolve=>setTimeout(resolve,950));
+  }
+ }
+ const spellbook={page:0,rapid:new Map(),targetingEquipment:false};
 const oakArmor={state:'ready',holder:null};
 const MELANIDE_CARDS=new Set(['semillera','kariona','astarium']);
 const availableMelanideTargets=()=>[...cardSummons].filter(c=>
