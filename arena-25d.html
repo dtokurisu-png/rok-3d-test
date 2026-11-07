@@ -5137,21 +5137,51 @@ function applyOakArmor(c){
  spellStatus('Armadura de Roble Antiguo equipada: +2 física, +1 mágica, -1 velocidad.');
  return true;
 }
-function equipOakArmor(c){
- if(oakArmor.state!=='ready'||!availableOakArmorTargets().includes(c))return false;
- const caster=casters.find(unit=>unit.side==='ally');
- if(!caster||caster.stage!=='active')return false;
- if(!caster.model?.userData?.rokCast22Clip||!caster.model?.userData?.rokCast21Clip){
-  casterMovement.prepareCardCast();
-  spellStatus('Preparando animaciones 22 y 21 para la armadura.');
+async function equipOakArmor(c){
+ if(oakArmor.state!=='ready')return false;
+ if(!availableOakArmorTargets().includes(c)){
+  spellStatus('Elige una Cariona guerrera viva, sin armadura equipada.');
   return false;
+ }
+ const caster=casters.find(unit=>unit.side==='ally');
+ if(!caster||caster.stage!=='active'){
+  spellStatus('Lioren debe estar activo para equipar la armadura.');return false;
+ }
+ if(combatHud.getResources('ally','earth').available<oakArmorCard.cost){
+  spellStatus('Necesitas 4 de Tierra para equipar la Armadura de Roble Antiguo.');
+  return false;
+ }
+ // The first selection must load the real 22/21 clips and then continue
+ // automatically, not require a second click or silently fail.
+ if(!caster.model?.userData?.rokCast22Clip||!caster.model?.userData?.rokCast21Clip){
+  oakArmor.state='loading';
+  spellStatus('Preparando animaciones 22 y 21 para equipar...');
+  try{await movementLoader.load(caster)}
+  catch(error){
+   if(oakArmor.state==='loading')oakArmor.state='ready';
+   spellStatus('No se pudieron cargar las animaciones de armadura.');
+   return false;
+  }
+  if(oakArmor.state!=='loading')return false;
+  oakArmor.state='ready';
+  if(!availableOakArmorTargets().includes(c)||caster.stage!=='active')return false;
+  if(!caster.model?.userData?.rokCast22Clip||!caster.model?.userData?.rokCast21Clip){
+   spellStatus('Faltan las animaciones 22 y 21 del caster.');
+   return false;
+  }
+ }
+ // Equipment belongs to Lioren. Align the manual cast controller with
+ // the caster that owns the spell before starting the existing animations.
+ if(qs('#casterMoveSide').value!=='ally'){
+  qs('#casterMoveSide').value='ally';
+  qs('#casterMoveSide').dispatchEvent(new Event('change'));
  }
  if(!combatHud.spend('ally','earth',oakArmorCard.cost)){
   spellStatus('Necesitas 4 de Tierra para equipar la Armadura de Roble Antiguo.');
   return false;
  }
  const started=casterMovement.startCardCast({
-  cost:oakArmorCard.cost,durationMultiplier:2,
+  cost:oakArmorCard.cost,durationMultiplier:1,
   onRelease:()=>{
    if(!applyOakArmor(c)){
     combatHud.refund('ally','earth',oakArmorCard.cost);
@@ -5174,7 +5204,7 @@ function equipOakArmor(c){
  oakArmor.state='casting';
  spellbook.targetingEquipment=false;spellbook.page=0;
  clearOakTargetMarkers();renderSpellbook();
- spellStatus('Casteando Armadura de Roble Antiguo · 2.0 s (equipo x2).');
+ spellStatus('Casteando Armadura de Roble Antiguo · 2.0 s.');
  return true;
 }
 function renderOakArmorTargets(){
@@ -5250,7 +5280,7 @@ function renderSpellbook(){
   if(card?.race==='melanide')button.classList.add('rokEarthCardArt');
   if(card?.id==='ancient-oak-armor')button.classList.add('rokEarthEquipmentCard');
   const oak=card?.id==='ancient-oak-armor';
-  button.disabled=!card||(oak&&(oakArmor.state==='equipped'||oakArmor.state==='casting'));
+  button.disabled=!card||(oak&&['equipped','casting','loading'].includes(oakArmor.state));
   const cardCost=oak&&oakArmor.state==='broken'?card.recraftCost:card?.cost;
   button.setAttribute('aria-label',card?'Casilla '+(i+1)+': '+card.name+
    ', costo '+cardCost+(oak?' · '+oakArmor.state:''):'Casilla '+(i+1)+': vacía');
@@ -5398,7 +5428,7 @@ function selectSpellCard(index){
  if(!caster||caster.stage!=='active'){spellStatus('Caster no disponible.');return;}
  if(card.id==='ancient-oak-armor'){
   if(caster.side!=='ally')return;
-  if(oakArmor.state==='equipped'||oakArmor.state==='casting'){
+  if(oakArmor.state==='equipped'||oakArmor.state==='casting'||oakArmor.state==='loading'){
    spellStatus('Armadura equipada o en proceso de casteo.');return;
   }
   if(oakArmor.state==='broken'){
