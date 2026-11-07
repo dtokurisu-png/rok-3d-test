@@ -2988,6 +2988,7 @@ function updateSummonGroundHuds(){
  for(const [c,h] of summonGroundHuds){
   h.group.visible=!!c.outer&&c.stage!=='dead'&&c.stage!=='vanishing'&&
    c.stage!=='summonCasting'&&c.stage!=='dying'&&c.stage!=='intro';
+  if(c.psychicShieldFx&&!h.group.visible)c.psychicShieldFx.visible=false;
   if(!h.group.visible)continue;
   h.group.position.set(c.outer.position.x,c.outer.position.y+.10,c.outer.position.z);
   // Camera-facing at all times, independent of the summon model's rotation.
