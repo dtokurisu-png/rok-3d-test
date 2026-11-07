@@ -4890,7 +4890,28 @@ void (async()=>{
    deferredCasterAnimations.push(async()=>{
     const model=caster.model;
     const clips=await movementLoader.load(caster);
-    if(caster.model===model)casterLayers.register(caster,clips);
+    if(caster.model!==model)return;
+    casterLayers.register(caster,clips);
+    if(spec.side!=='enemy')return;
+    // Chiara's approved idle #35 is actually published in the repository
+    // root as "Idle (1).fbx"; the catalog's shared/ path does not exist.
+    // Retarget once after normal clip installation, without delaying boot.
+    try{
+     const fbx=await new FBXLoader().loadAsync('./Idle%20(1).fbx');
+     if(caster.model!==model||!fbx.animations?.length)return;
+     const clip=adaptAnimationFBX(fbx,fbx.animations[0],model,'Chiara_Idle_35');
+     if(!clip?.tracks?.length)throw Error('Idle 35 no contiene pistas compatibles');
+     caster.idleClip=clip;
+     casterLayers.register(caster,{idle:clip});
+     if(!(casterMovement?.enabled&&casterMovement.caster===caster)){
+      caster.mixer.stopAllAction();
+      caster.mixer.clipAction(clip).reset().play();
+     }
+     model.userData.rokIdleAnimationId=35;
+     console.info('[R.O.K.] Chiara: Idle 35 instalado');
+    }catch(error){
+     console.warn('[R.O.K.] Chiara Idle 35 no disponible:',error);
+    }
    });
   }
   if(casters.length!==2||casters.some(c=>!c.model?.userData?.rokCasterAsset))
