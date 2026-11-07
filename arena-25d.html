@@ -6337,15 +6337,32 @@ let spellbookVisualClock=0;
 let sceneryOcclusionClock=0;
 let slowFrameWindow=0;
 let stableFrameWindow=0;
+let combatRuntimeFaults=0,combatLastFault='',frameSlowCount=0;
+const frameWarningThresholdMs=120;
+function reportCombatFault(error){
+  const description=String(error?.stack||error?.message||error).slice(0,1200);
+  if(description!==combatLastFault){
+    combatLastFault=description;
+    console.error('[R.O.K.] Error aislado del ciclo de combate:',error);
+  }
+  combatRuntimeFaults++;
+  playing=false;
+  const status=qs('#phase');
+  if(status)status.textContent='⚠ Combate pausado por error: '+String(error?.message||error).slice(0,160);
+  const pause=qs('#pause');
+  if(pause)pause.textContent='▶ Reanudar';
+}
 function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
   if(loaded&&playing&&matchGate.isRunning&&!casterReview.active){
-   updateGuardEconomy(dt);
-   updateDuel(dt);
-   combatHud.advance(dt,casters);
-   elementOrbs.tick(dt);
-   rivalAI?.step(dt);
+   try{
+    updateGuardEconomy(dt);
+    updateDuel(dt);
+    combatHud.advance(dt,casters);
+    elementOrbs.tick(dt);
+    rivalAI?.step(dt);
+   }catch(error){reportCombatFault(error);}
   }else if(loaded){
    elementOrbs.idle(dt);
   }
@@ -6387,7 +6404,8 @@ function loop(now){
   // Occlusion tests raycast multiple boxes of every decorative prop;
   // the existing 90 ms check is expensive on the 41-object mobile temple.
   sceneryOcclusionClock+=dt;
-  if(allyForVisibility?.outer&&(!mobileCombatMode||sceneryOcclusionClock>=.24)){
+  // Limit geometry, fade and material passes on complex scenes.
+  if(allyForVisibility?.outer&&sceneryOcclusionClock>=(mobileCombatMode?.24:.12)){
    sceneryOcclusionClock=0;
    sceneryOverlay.updateOcclusion(camera,allyForVisibility.outer.position,now/1000);
   }
@@ -6408,11 +6426,21 @@ function loop(now){
       summonGroundHuds.clear();
     }
   }
-  renderer.render(scene,camera);
+  const renderStart=performance.now();
+  try{renderer.render(scene,camera);}
+  catch(error){
+    reportCombatFault(error);
+    return;
+  }
+  const renderMs=performance.now()-renderStart;
+  if(renderMs>frameWarningThresholdMs)frameSlowCount++;
   fpsTime+=dt;fpsCount++;
   if(fpsTime>=1){
    const fps=Math.round(fpsCount/fpsTime);
-   qs('#fps').textContent='FPS: '+fps;
+   qs('#fps').textContent='FPS: '+fps+
+     (frameSlowCount?' · render lento: '+frameSlowCount+'/s':'')+
+     (combatRuntimeFaults?' · errores: '+combatRuntimeFaults:'');
+   frameSlowCount=0;
    // The high-quality mobile test should never silently unload props or
    // resize GLB textures. Adaptive canvas scaling is a reversible fallback
    // only after sustained performance loss, not an immediate downgrade.
