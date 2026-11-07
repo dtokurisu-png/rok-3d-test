@@ -743,6 +743,7 @@ import {createArenaMatchGate} from './arena-match-gate.js?v=20261105-dom-earth-w
 import {createArenaCombatHud} from './arena-combat-hud.js?v=20261106-economy-3';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semillera-one-orb-1';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
+import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-rebuild-1';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261105-strategy-1';
@@ -2058,6 +2059,31 @@ function createFighter(baseScene,clip,side,kind){
 }
 // Caster inmóvil: clon del mismo GLB, sin escudo, sin hechizos y sin recasteo.
 // Caster en columna central, segunda fila desde cada extremo (z=±13.5).
+// Dedicated Chiara model constructor. The original animation stack is
+// deliberately NOT initialized here: Idle 35 is installed by chiaraRig.
+function createChiaraCaster(baseScene){
+ const model=cloneSkinned(baseScene);
+ const outer=new THREE.Group();root.add(outer);outer.add(model);
+ outer.position.set(0,0,-CASTER_Z);outer.rotation.y=0;
+ const size=new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
+ const scale=1.65/Math.max(.2,size.y);
+ model.scale.setScalar(scale);model.userData.baseScale=scale;
+ model.traverse(node=>{
+  if(!node.isMesh)return;
+  node.frustumCulled=false;
+  const src=Array.isArray(node.material)?node.material:[node.material];
+  const copies=src.map(mat=>mat.clone());
+  node.material=Array.isArray(node.material)?copies:copies[0];
+ });
+ const mixer=new THREE.AnimationMixer(model);
+ const idle=new THREE.AnimationClip('Chiara_Neutral_Before_35',1,[]);
+ const c={role:'caster',side:'enemy',outer,model,mixer,idleClip:idle,
+  startZ:-CASTER_Z,hp:12,maxHp:12,stage:'active',
+  attackRange:3,moveSpeed:3.8,attackPeriod:1};
+ casters.push(c);chiaraRig.mount(c);
+ return c;
+}
+// Original factory used only by Lioren; never by Chiara again.
 function createCaster(baseScene,clip,side){
   const model=cloneSkinned(baseScene);
   const outer=new THREE.Group();root.add(outer);outer.add(model);
@@ -2085,7 +2111,7 @@ function createCaster(baseScene,clip,side){
 }
 function resetCaster(c){
   clearEmbeddedArrows(c);
-  casterLayers.reset(c);
+  casterPoseFor(c).reset(c);
   c.hp=12;c.maxHp=12;c.stage='active';c.deathAnimationActive=false;c.manualDefending=false;c.model.visible=true;
   c.hostileZoneSeconds=0;c.hostileZoneGlow=0;
   c.hostileDamageFlash=0;
@@ -2095,7 +2121,8 @@ function resetCaster(c){
   c.model.position.y=c.model.userData.baseY||0;
   c.model.scale.setScalar(c.model.userData.baseScale);
   c.mixer.timeScale=1;c.mixer.stopAllAction();
-  c.mixer.clipAction(c.idleClip).reset().play();
+  if(c.side==='ally')c.mixer.clipAction(c.idleClip).reset().play();
+  else chiaraRig.reset(c);
   const label=nameplates.get(c);
   if(label)label.classList.remove('defeated');
 }
@@ -3460,10 +3487,11 @@ function resetDemoCombat(){
   casters.forEach(resetCaster);
   // Crossfades and cast overlays must not survive into the next match.
   for(const caster of casters){
-   casterLayers.reset(caster);
+   casterPoseFor(caster).reset(caster);
    caster.mixer.timeScale=1;
    caster.mixer.stopAllAction();
-   caster.mixer.clipAction(caster.idleClip).reset().setEffectiveWeight(1).play();
+   if(caster.side==='ally')caster.mixer.clipAction(caster.idleClip).reset().setEffectiveWeight(1).play();
+   else chiaraRig.reset(caster);
   }
   combatHud.reset();
   elementOrbs.reset();
@@ -4078,8 +4106,8 @@ function resolvePendingVictories(){
 }
 
 function playCasterDeath(target){
- casterLayers.shield(target,false);
- casterLayers.cancelHit(target);
+ casterPoseFor(target).shield(target,false);
+ casterPoseFor(target).cancelHit(target);
  target.manualDefending=false;
  const clip=target.model?.userData?.rokDeathClip;
  if(!clip||!target.mixer){target.mixer.timeScale=0;return;}
@@ -4106,7 +4134,7 @@ function damage(target,value,source,{committed=false,environment=false}={}){
       }
     }
     target.hp=Math.max(0,target.hp-value);
-    if(target.hp>0)casterLayers.hit(target,target.model?.userData?.rokHitClip);
+    if(target.hp>0)casterPoseFor(target).hit(target,target.model?.userData?.rokHitClip);
     if(target.hp===0){
       target.stage='defeated';
       playCasterDeath(target);
@@ -5012,37 +5040,22 @@ void (async()=>{
   // Optional high-cost enemy models load only after the playable arena is ready.
   const deferredCasterAnimations=[];
   for(const {spec,gltf,idle,bounds} of realCasters){
-   const caster=createCaster(gltf.scene,idle,spec.side);
+   const caster=spec.side==='enemy'?
+    createChiaraCaster(gltf.scene):
+    createCaster(gltf.scene,idle,spec.side);
    caster.model.userData.rokCasterAsset=spec.label;
    caster.model.userData.baseY=-bounds.min.y*caster.model.scale.x;
    caster.model.position.y=caster.model.userData.baseY;
    makeNameplate(caster);
    resetCaster(caster);
-   deferredCasterAnimations.push(async()=>{
+   if(spec.side==='enemy'){
+    // Approved Idle 35 loads before combat, not in a later overwriting step.
+    await chiaraRig.loadIdle(caster);
+    deferredCasterAnimations.push(()=>chiaraRig.loadExtras(caster));
+   }else deferredCasterAnimations.push(async()=>{
     const model=caster.model;
     const clips=await movementLoader.load(caster);
-    if(caster.model!==model)return;
-    casterLayers.register(caster,clips);
-    if(spec.side!=='enemy')return;
-    // Chiara's approved idle #35 is actually published in the repository
-    // root as "Idle (1).fbx"; the catalog's shared/ path does not exist.
-    // Retarget once after normal clip installation, without delaying boot.
-    try{
-     const fbx=await new FBXLoader().loadAsync('./Idle%20(1).fbx');
-     if(caster.model!==model||!fbx.animations?.length)return;
-     const clip=adaptAnimationFBX(fbx,fbx.animations[0],model,'Chiara_Idle_35');
-     if(!clip?.tracks?.length)throw Error('Idle 35 no contiene pistas compatibles');
-     caster.idleClip=clip;
-     casterLayers.register(caster,{idle:clip});
-     if(!(casterMovement?.enabled&&casterMovement.caster===caster)){
-      caster.mixer.stopAllAction();
-      caster.mixer.clipAction(clip).reset().play();
-     }
-     model.userData.rokIdleAnimationId=35;
-     console.info('[R.O.K.] Chiara: Idle 35 instalado');
-    }catch(error){
-     console.warn('[R.O.K.] Chiara Idle 35 no disponible:',error);
-    }
+    if(caster.model===model)casterLayers.register(caster,clips);
    });
   }
   if(casters.length!==2||casters.some(c=>!c.model?.userData?.rokCasterAsset))
@@ -5179,6 +5192,9 @@ void (async()=>{
 
 // Both caster rigs share the same masked locomotion/upper-body system.
 const casterLayers=createCasterLayerSystem(THREE);
+const chiaraRig=createChiaraVisualRig({THREE,FBXLoader,
+ adaptClip:adaptAnimationFBX,shieldVisual:(c,on)=>casterLayers.shield(c,on)});
+function casterPoseFor(c){return c?.side==='enemy'?chiaraRig:casterLayers;}
 // Avoid constructing a new AnimationClip (and retained mixer action) for
 // every card cast. Scoped adapter: does not mutate Three.js globally.
 const castSubclips=new WeakMap();
@@ -5203,7 +5219,18 @@ const casterMobilityThree={
 const anchoredCastLower=new WeakMap();
 const casterCastLayers={
  ...casterLayers,
+ register:(c,clips)=>casterPoseFor(c).register(c,clips),
+ movement:(c,kind)=>casterPoseFor(c).movement(c,kind),
+ upper:(c,kind,clip,speed,opts)=>casterPoseFor(c).upper(c,kind,clip,speed,opts),
+ endUpper:(c,kind)=>casterPoseFor(c).endUpper(c,kind),
+ reset:c=>casterPoseFor(c).reset(c),
+ shield:(c,on)=>casterPoseFor(c).shield(c,on),
+ hit:(c,clip)=>casterPoseFor(c).hit(c,clip),
+ cancelHit:c=>casterPoseFor(c).cancelHit(c),
+ syncCastLower:(c,progress)=>{if(c?.side!=='enemy')casterLayers.syncCastLower(c,progress);},
+ clearCastLower:c=>{if(c?.side!=='enemy')casterLayers.clearCastLower(c);},
  setCastLower(c,clip,speed,progress){
+  if(c?.side==='enemy')return;
   let cleaned=anchoredCastLower.get(clip);
   if(!cleaned){
    const tracks=clip.tracks.filter(track=>
@@ -5230,11 +5257,14 @@ let casterMovement=null;
 let rivalAI=null;
 const movementLoader=createCasterMovementLoader({
  FBXLoader,adaptClip:adaptAnimationFBX,getManualController:()=>casterMovement,
- onClipReady:(caster,role,clip)=>casterLayers.register(caster,{[role]:clip})
+ onClipReady:(caster,role,clip)=>{
+  if(caster.side==='ally')casterLayers.register(caster,{[role]:clip});
+ }
 });
 casterMovement=createCasterMobility({
  THREE:casterMobilityThree,getCaster:side=>casters.find(c=>c.side===side),
- prepareClips:movementLoader.load,
+ prepareClips:c=>c.side==='enemy'?Promise.resolve(chiaraRig.getClips(c)):
+  movementLoader.load(c),
  layers:casterCastLayers,
  canControl:()=>loaded&&playing&&matchGate.isRunning,
  bounds:{x:MAX_X,z:MAX_Z},
@@ -5994,17 +6024,17 @@ rivalAI=createRivalCasterAI({
  animate:(c,kind)=>{
   // Keep the already-loaded caster's original locomotion layers.
   if(performance.now()<rivalAction.castingUntil)return;
-  casterLayers.movement(c,kind);
+  chiaraRig.movement(c,kind);
  },
  guard:active=>{
   const c=casters.find(c=>c.side==='enemy');
   if(!c||c.stage!=='active')return;
   c.manualDefending=active;
-  casterLayers.shield(c,active);
+  chiaraRig.shield(c,active);
   if(active){
    const clip=c.model?.userData?.rokDefenseClip;
-   if(clip)casterLayers.upper(c,'defense',clip,1.8);
-  }else casterLayers.endUpper(c,'defense');
+   if(clip)chiaraRig.upper(c,'defense',clip,1.8);
+  }else chiaraRig.endUpper(c,'defense');
  },
  canCast:(c,card)=>c.stage==='active'&&c.outer.position.z<0&&
   hasSummonRoom(c.side)&&!!card&&
@@ -6013,14 +6043,14 @@ rivalAI=createRivalCasterAI({
   if(!card||rivalAction.reserved||c.outer.position.z>=0||!hasSummonRoom(c.side)||
     !combatHud.spend(c.side,card.element,card.cost))return false;
   rivalAction.reserved=card;
-  casterLayers.shield(c,false);c.manualDefending=false;
-  casterLayers.endUpper(c,'defense');
+  chiaraRig.shield(c,false);c.manualDefending=false;
+  chiaraRig.endUpper(c,'defense');
   const clip=c.model?.userData?.rokCast22Clip;
   if(clip){
    let prep=rivalAction.cast22Cache.get(clip);
     if(!prep){prep=THREE.AnimationUtils.subclip(clip,'ROK_Rival_Cast22_0_48',0,48,30);
      rivalAction.cast22Cache.set(clip,prep);}
-   if(prep.tracks.length)casterLayers.upper(c,'card-cast',prep,
+   if(prep.tracks.length)chiaraRig.upper(c,'card-cast',prep,
     Math.max(.1,prep.duration/Math.max(.1,duration)));
   }
   rivalAction.castingUntil=performance.now()+duration*1000;
@@ -6034,15 +6064,15 @@ rivalAI=createRivalCasterAI({
    combatHud.refund(c.side,charged.element,charged.cost);
   const finish=c.model?.userData?.rokCast21Clip;
   if(finish&&finish.duration>20/30){
-   casterLayers.upper(c,'card-finish',finish,1,{startTime:20/30,transition:true});
-  }else casterLayers.endUpper(c,'card-cast');
+   chiaraRig.upper(c,'card-finish',finish,1,{startTime:20/30,transition:true});
+  }else chiaraRig.endUpper(c,'card-cast');
   rivalAction.castingUntil=performance.now()+250;
  },
  attack:(c,target)=>{
   if(!target||!canDamageTarget(target))return false;
   const clip=c.model?.userData?.rokAttackClip;
   if(!clip)return false;
-  casterLayers.upper(c,'attack',clip,1);
+  chiaraRig.upper(c,'attack',clip,1);
   c.kind='caster';c.attackDamage=1;
   launchSpell(c,target,{manualCasterShot:true});
   rivalAction.attackUntil=performance.now()+clip.duration*1000;
