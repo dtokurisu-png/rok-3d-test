@@ -3,7 +3,7 @@
    Passive quarter-unit fragments regenerate only unlocked reservoirs.
    Equipped elements share the maximum capacity equally. */
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
-export function createArenaCombatHud(){
+export function createArenaCombatHud({onExtraction=null}={}){
  const el=document.getElementById('rokCombatHud');
  if(!el)throw Error('Falta el HUD superior');
  const clock=el.querySelector('#rokHudClock');
@@ -235,6 +235,12 @@ export function createArenaCombatHud(){
  // obtained capacity and current energy. Passive generation never does.
  function collectOrb(side){
   const player=sides[side];if(!player)return 0;
+  return typeof onExtraction==='function'?
+   onExtraction({side,sourceId:'element-orb',kind:'unlock',potency:1,
+    commit:()=>collectOrbLegacy(side)}):collectOrbLegacy(side);
+ }
+ function collectOrbLegacy(side){
+  const player=sides[side];if(!player)return 0;
   const limit=TOTAL/player.levels.length;
   for(let n=0;n<player.levels.length;n++){
    const index=(player.unlockCursor+n)%player.levels.length;
@@ -252,9 +258,11 @@ export function createArenaCombatHud(){
  // A Melánide Semillera pickup restores exactly ONE quarter-unit.
  // Unlike a fountain orb, it never unlocks a new reservoir; unlike a
  // regeneration bonus, it does not change the rate of later ticks.
- function collectFragment(side){
+ function collectFragment(side,sourceId='element-fragment'){
   if(!sides[side])return false;
-  return regenerateFragment(side);
+  return typeof onExtraction==='function'?
+   onExtraction({side,sourceId,kind:'recharge',potency:.25,
+    commit:()=>regenerateFragment(side)}):regenerateFragment(side);
  }
  function addRegenSpeed(side,amount=1){
   const player=sides[side];if(!player)return 0;
@@ -281,7 +289,12 @@ export function createArenaCombatHud(){
    // 33% slower: one quarter fragment every 3 seconds (was 2).
    while(player.fragmentClock>=3){
     player.fragmentClock-=3;
-    for(let n=0;n<1+(player.regenBonus||0);n++)regenerateFragment(side);
+    for(let n=0;n<1+(player.regenBonus||0);n++){
+     if(typeof onExtraction==='function')
+      onExtraction({side,sourceId:'passive-regeneration',
+       kind:'recharge',potency:.25,commit:()=>regenerateFragment(side)});
+     else regenerateFragment(side);
+    }
    }
   }
   if(refreshLeft<=0){refreshLeft=.12;draw(casters);}
