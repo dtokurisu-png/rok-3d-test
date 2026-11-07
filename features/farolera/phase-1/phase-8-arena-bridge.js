@@ -88,11 +88,10 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
    rune.rotation.z=angle;
    rune.position.set(Math.cos(angle)*.375,.006,Math.sin(angle)*.375);
   }
-  const circleLight=new THREE.PointLight(halo,1.35,3,2);
-  circleLight.position.set(0,.55,0);group.add(circleLight);
-  group.userData.magicPulse={
-   phase:0,animated,light:circleLight,baseLight:1.35
-  };
+  // Do not add a live PointLight mid-battle: it changes the shader light
+  // count and can trigger expensive recompilation across the full temple.
+  // Existing additive surfaces retain the visible portal illumination.
+  group.userData.magicPulse={phase:0,animated};
   root.add(group);return group;
  }
  function makeLantern(c){
@@ -104,22 +103,27 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   const glow=new THREE.Mesh(new THREE.SphereGeometry(.11,12,8),
    new THREE.MeshBasicMaterial({color:0x77eaff}));
   group.add(glow);
-  const pointLight=new THREE.PointLight(0x27baff,3.4,5.5,1.5);
-  group.add(pointLight);
+  // Emissive cage and glow provide light without a new dynamic
+  // PointLight (and without forcing shader recompilation per cast).
+  const pointLight=null;
   const chainMat=new THREE.MeshStandardMaterial({color:0x9c9c91,metalness:.68,roughness:.4});
   const chain=new THREE.Mesh(new THREE.CylinderGeometry(.013,.013,1,8),chainMat);
   root.add(chain);
   return {group,chain,pointLight};
  }
+ const chainHand=new THREE.Vector3(),chainDelta=new THREE.Vector3();
+ const chainUp=new THREE.Vector3(0,1,0);
  function linkChain(c,v){
-  c.model.updateMatrixWorld(true);
-  const hand=(c.castHand||c.anchor||c.model).getWorldPosition(new THREE.Vector3());
+  // getWorldPosition refreshes only the relevant ancestor chain; traversing
+  // and recomputing the entire skinned GLB every frame was unnecessary.
+  (c.castHand||c.anchor||c.model).getWorldPosition(chainHand);
   const end=v.group.position;
-  const mid=hand.clone().add(end).multiplyScalar(.5);
-  const delta=end.clone().sub(hand);
-  v.chain.position.copy(mid);
-  v.chain.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.clone().normalize());
-  v.chain.scale.set(1,Math.max(.001,delta.length()),1);
+  chainDelta.subVectors(end,chainHand);
+  const length=chainDelta.length();
+  v.chain.position.copy(chainHand).add(end).multiplyScalar(.5);
+  if(length>1e-6)v.chain.quaternion.setFromUnitVectors(
+   chainUp,chainDelta.multiplyScalar(1/length));
+  v.chain.scale.set(1,Math.max(.001,length),1);
  }
  function active(c){return c.stage==='active'&&c.hp>0&&c.model?.visible}
  function restoreLantern(c,e){
@@ -182,7 +186,10 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
  function throwLantern(e){
   const c=e.unit;
   const current=snapshot(c);
-  if(distanceXZ(current,e.plan.lamp)>4+1e-8){e.step='idle';return}
+  if(distanceXZ(current,e.plan.lamp)>4+1e-8){
+   disposeVisual(e);e.plan=null;e.step='idle';
+   e.cooldown=DIRECTED_TELEPORT_COOLDOWN;return;
+  }
   e.lantern=makeLantern(c);
   if(c.lamp){c.lamp.visible=false;e.hiddenLamp=true}
   e.throwPlan=prepareLanternThrow(current,e.plan.lamp);
@@ -237,7 +244,10 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
    if(unit===c)e.finished=true;
   }
   clearNode(e.transitGlow);e.transitGlow=null;
-  clearNode(e.circle);e.circle=null;
+  // Completed teleportation does not need a permanent chain, PointLight,
+  // or lantern object. Restore the Farolera's real lantern immediately.
+  disposeVisual(e);
+  e.plan=null;e.throwPlan=null;
   e.target=null;e.castSnapshot=null;
   e.step='idle';e.cooldown=DIRECTED_TELEPORT_COOLDOWN;
   setAnim(c,'idle',{fade:.16});
@@ -288,10 +298,14 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
     linkChain(c,e.lantern);
     if(t>=1){e.step='target-wait';e.time=0;setAnim(c,'idle',{fade:.15})}
    }else if(e.step==='target-wait'){
-    // Combat stops initiation, but a fight is never broken just to cast.
+    // No eligible target must not retain a decorative portal/chain forever.
+    // Abort after two seconds and retry only after normal ability cooldown.
     e.time+=dt;
     if(canDirectedCast(snapshot(c),opponents,c.duelOpponent))beginTransport(e);
-    if(e.lantern)linkChain(c,e.lantern);
+    if(e.step==='target-wait'&&e.time>=2){
+     disposeVisual(e);e.plan=null;e.throwPlan=null;
+     e.step='idle';e.cooldown=DIRECTED_TELEPORT_COOLDOWN;
+    }else if(e.lantern)linkChain(c,e.lantern);
    }else if(e.step==='transport-cast'){
     e.time+=dt;
     if(e.target&&e.target.hp>0&&e.transitGlow){
@@ -311,7 +325,7 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
      const wave=Math.sin(fx.phase);
      e.circle.scale.set(1+.035*wave,1,1+.035*wave);
      for(const item of fx.animated)item.material.opacity=item.baseOpacity*(.91+.09*wave);
-     fx.light.intensity=fx.baseLight*(.90+.10*wave);
+     if(fx.light)fx.light.intensity=fx.baseLight*(.90+.10*wave);
     }
    }
    if(e.step==='idle'&&e.cooldown<=0&&active(c)&&
