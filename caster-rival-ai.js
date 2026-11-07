@@ -169,7 +169,8 @@ export function createRivalCasterAI({
   if(planned&&amount>=planned.cost&&pos.z<0){
    if((tactical?.danger||0)>.42){
     state.mode='retreat';
-    advanceToward(c,tactical?.target||{x:pos.x,z:-9},dt);
+    advanceToward(c,{x:tactical?.target?.x??pos.x,
+     z:-Math.min(bounds.z,Math.max(11,Math.abs(pos.z)+1.5))},dt);
     return;
    }
    const staging=getStagingPosition?.(c,planned)||null;
