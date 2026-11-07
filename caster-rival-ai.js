@@ -5,7 +5,7 @@
  */
 export function createRivalCasterAI({
  getCaster,getOrbs,getEnemies,getThreats,getResourceState,getCastPlan,getStagingPosition,
- move,face,guard,attack,cast,onCastResolve,animate,canCast,learning=null,
+ move,face,guard,attack,cast,onCastResolve,animate,canCast,learning=null,positioning=null,
  bounds={x:7.25,z:14.75},
  settings={}
 }){
@@ -51,7 +51,7 @@ export function createRivalCasterAI({
   state.castCooldown=0;state.attackCooldown=0;state.guardLeft=0;
   state.castLeft=0;state.castTarget=null;state.castCard=null;state.castDone=false;state.casting=false;
   state.castDefensive=false;state.incursion=false;
-  previous=null;learningClock=0;
+  previous=null;learningClock=0;positioning?.reset();
   guard?.(false);
  }
  function nearest(from,items){
@@ -154,7 +154,11 @@ export function createRivalCasterAI({
   const nearby=nearest(pos,opponents);
   const incoming=(getThreats?.(c)||[]).filter(t=>t?.position&&
    distance(pos,t.position)<=cfg.threatRange);
-  const atRisk=incoming.length>0||nearby.distance<cfg.interceptRange;
+  const tactical=positioning?.tick({caster:c,enemies:opponents,
+   resources:amount,casts:state.records.casts,allies:0,dt,
+   mission:amount>=1?'cast':'collect'});
+  const atRisk=incoming.length>0||nearby.distance<cfg.interceptRange||
+   (tactical?.danger||0)>.2;
   const context=bucket(c,atRisk,amount);
   learn(c,context,amount,dt);
   // The economic plan has priority when a card is affordable: do not
@@ -163,6 +167,11 @@ export function createRivalCasterAI({
   // Build the formation in the rearguard instead of casting a high-value
   // Telépate next to hostile summons. Escort units then have approach time.
   if(planned&&amount>=planned.cost&&pos.z<0){
+   if((tactical?.danger||0)>.42){
+    state.mode='retreat';
+    advanceToward(c,tactical?.target||{x:pos.x,z:-9},dt);
+    return;
+   }
    const staging=getStagingPosition?.(c,planned)||null;
    if(staging&&distance(pos,staging)>.35){
     state.mode='stage-summon';
@@ -173,7 +182,10 @@ export function createRivalCasterAI({
   }
   // Enter enemy territory ONLY for a feasible orb. Once magnetized or
   // collected, immediately return to the enemy half of the arena.
-  const canPursue=orbs.item&&(!(pos.z>0)||feasibleOrb(c,orbs.item));
+  const dangerousOrb=orbs.item&&
+   (positioning?.dangerAt(orbs.item.position,opponents)||0)>.38;
+  const canPursue=orbs.item&&!dangerousOrb&&
+   (!(pos.z>0)||feasibleOrb(c,orbs.item));
   if(pos.z>0&&!canPursue){
    state.mode='retreat';state.incursion=false;state.target=null;
    advanceToward(c,{x:Math.max(-bounds.x,Math.min(bounds.x,pos.x)),z:-.55},dt,1);
@@ -189,7 +201,7 @@ export function createRivalCasterAI({
    ['collect','retreat'],'collect')==='retreat';
   const exploreSafeRetreat=atRisk&&c.hp>cfg.minimumSurvivalHp&&
    Math.random()<.015*dt;
-  const unsafePickup=atRisk&&(c.hp<=cfg.minimumSurvivalHp||
+  const unsafePickup=(atRisk||dangerousOrb)&&(c.hp<=cfg.minimumSurvivalHp||
    learnedRetreat||exploreSafeRetreat);
   if(canPursue&&!unsafePickup){
    state.mode='collect';
@@ -209,11 +221,11 @@ export function createRivalCasterAI({
    return;
   }
   state.target=null;state.incursion=false;
-  if(unsafePickup&&nearby.item){
+  if((unsafePickup||dangerousOrb)&&nearby.item){
    state.mode='retreat';
    const away=pos.x-nearby.item.position.x;
-   advanceToward(c,{x:clamp(pos.x+(away>=0?2:-2),-bounds.x,bounds.x),
-    z:Math.min(-.6,pos.z-1.5)},dt);
+   advanceToward(c,tactical?.target||{x:clamp(pos.x+(away>=0?2:-2),-bounds.x,bounds.x),
+    z:Math.min(-6,pos.z-1.5)},dt);
    if(incoming.length&&state.guardLeft<=0){guard?.(true);state.guardLeft=cfg.guardDuration;}
    return;
   }
@@ -223,8 +235,9 @@ export function createRivalCasterAI({
   }
   // Offensive summon: approach the player half of the map, but never
   // enter hostile territory solely to reach the ideal cast point.
-  const objective={x:clamp(nearby.item?.position.x??0,-bounds.x,bounds.x),
-   z:Math.min(-.15,cfg.idealPressureZ)};
+  const objective=tactical?.target||
+   {x:clamp(nearby.item?.position.x??0,-bounds.x,bounds.x),
+    z:Math.min(-6,cfg.idealPressureZ)};
   if(planned&&amount>=planned.cost){
    if(pos.z<cfg.idealPressureZ-0.8&&!atRisk){
     state.mode='advance';advanceToward(c,objective,dt);return;
@@ -232,7 +245,7 @@ export function createRivalCasterAI({
    if(startCast(c,{x:pos.x,z:pos.z},false,planned))return;
   }
   // No resource available: position for pressure while scanning orbs.
-  if(!atRisk&&pos.z<cfg.idealPressureZ-1){
+  if(!atRisk&&pos.z<-9){
    state.mode='advance';advanceToward(c,objective,dt,.85);return;
   }
   // Attack only if there is no orb to collect or immediate cast ready.
@@ -243,8 +256,11 @@ export function createRivalCasterAI({
   }
   if(atRisk&&nearby.item){
    state.mode='defend';face?.(c,nearby.item.position);
-  }else state.mode='position';
-  animate?.(c,'idle');
+  }else {
+   state.mode=tactical?.action||'position';
+   if(tactical?.target)advanceToward(c,tactical.target,dt,.55);
+   else animate?.(c,'idle');
+  }
  }
  return {step,reset,get status(){return {...state,records:{...state.records}};}};
 }
