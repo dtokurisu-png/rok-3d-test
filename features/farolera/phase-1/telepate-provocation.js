@@ -34,7 +34,7 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
  if(!Number.isFinite(dt)||dt<0)throw new RangeError('Invalid dt');
  for(const unit of units){
   const confusion=unit.rokConfusion;
-  if(!confusion||managedConfusion)continue;
+  if(!confusion||(managedConfusion&&!confusion.legacyFallback))continue;
   confusion.remaining-=dt;
   // Float-safe expiry: 0.99 + 0.01 must equal one full second.
   if(confusion.remaining<=1e-8){
@@ -63,10 +63,11 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
     // The pulse ALWAYS confuses. Resolve one attack immediately, rather
     // than waiting for an attack cooldown that might exceed one second.
     const outcome=rollTelepateConfusedAttack(random);
-    if(!managedConfusion||!applyConfusion?.(enemy,source,outcome))
+    const sharedApplied=managedConfusion&&applyConfusion?.(enemy,source,outcome);
+    if(!sharedApplied)
      enemy.rokConfusion={category:'psiquico',negative:true,
       factor:'confusion',remaining:TELEPATE_CONFUSE_DURATION,source,
-      outcome,resolved:false};
+      outcome,resolved:false,legacyFallback:true};
     onConfusion?.(source,enemy,outcome);
    }
   }
