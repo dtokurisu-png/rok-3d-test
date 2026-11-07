@@ -19,7 +19,11 @@ export const newSources=[
  {id:34,name:'34 · Catwalk Walk Forward HighKnees',path:SHARED+'Catwalk Walk Forward HighKnees.fbx'},
  {id:35,name:'35 · Idle (1)',path:SHARED+'Idle (1).fbx'},
  {id:36,name:'36 · Male Dynamic Pose',path:SHARED+'Male Dynamic Pose.fbx'},
- {id:37,name:'37 · T-Pose',path:SHARED+'T-Pose.fbx'}
+ {id:37,name:'37 · T-Pose',path:SHARED+'T-Pose.fbx'},
+ {id:38,name:'★ 38 · Catwalk Walk Forward HighKnees',path:'animations/Catwalk Walk Forward HighKnees.fbx',newlyAdded:true},
+ {id:39,name:'★ 39 · Catwalk Walk',path:'animations/Catwalk Walk.fbx',newlyAdded:true},
+ {id:40,name:'★ 40 · Catwalk Walking',path:'animations/Catwalk Walking.fbx',newlyAdded:true},
+ {id:41,name:'★ 41 · Walking',path:'animations/Walking.fbx',newlyAdded:true}
 ];
 export const originalSources=[
  'Stable Sword Outward Slash.fbx','Magic Heal.fbx','Frisbee Throw.fbx',
