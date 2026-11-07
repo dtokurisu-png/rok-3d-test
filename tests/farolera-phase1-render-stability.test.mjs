@@ -11,9 +11,11 @@ test('Chiara Idle 35 uses the actual root FBX, never the missing shared path',as
  const file=await stat(new URL('Idle (1).fbx',root));
  assert.ok(file.size>0);
  assert.match(source,/id:35,name:'35 · Idle \(1\)'/);
- assert.match(arena,/spec\.side!=='enemy'/);
- assert.match(arena,/loadAsync\('\.\/Idle%20\(1\)\.fbx'\)/);
- assert.match(arena,/rokIdleAnimationId=35/);
+ const rig=await read('chiara-visual-rig.js');
+ assert.match(arena,/spec\.side==='enemy'\?\s*createChiaraCaster\(gltf\.scene\)/);
+ assert.match(arena,/await chiaraRig\.loadIdle\(caster\)/);
+ assert.match(rig,/idle:\{path:'Idle \(1\)\.fbx',id:35\}/);
+ assert.match(rig,/rokIdleAnimationId=35/);
 });
 
 test('Farolera live effects do not create new per-cast point lights',async()=>{
