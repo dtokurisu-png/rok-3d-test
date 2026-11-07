@@ -183,8 +183,14 @@ export function createRivalCasterAI({
   // would be lethal or would overrun the battlefield grace period.
   // A critical caster must not sacrifice its last HP for a resource orb.
   // Learned outcomes can also prefer retreat over repeated unsafe pickups.
+  // Small exploration rate produces comparable observations; never explore
+  // an obviously unsafe pickup when HP is critical.
+  const learnedRetreat=learning?.choose('chiara',context,
+   ['collect','retreat'],'collect')==='retreat';
+  const exploreSafeRetreat=atRisk&&c.hp>cfg.minimumSurvivalHp&&
+   Math.random()<.015*dt;
   const unsafePickup=atRisk&&(c.hp<=cfg.minimumSurvivalHp||
-   learning?.choose('chiara',context,['collect','retreat'],'collect')==='retreat');
+   learnedRetreat||exploreSafeRetreat);
   if(canPursue&&!unsafePickup){
    state.mode='collect';
    state.target=orbs.item.id??null;
