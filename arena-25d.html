@@ -2734,10 +2734,10 @@ const summonWeaponIconTextures={
  mana:summonHudIconTexture('✦','#ff6767'),
  archer:summonHudIconTexture('➶','#ff6767')
 };
-const summonShieldIconTexture=summonHudIconTexture('◆','#c3ccd6');
+const summonShieldIconTexture=summonHudIconTexture('◆','#ffffff');
 // Placeholder until the user's final shield icon is supplied.
-const karionaMagicShieldIconTexture=summonHudIconTexture('◆','#ffe36d');
-const summonArmorSlotTexture=summonHudIconTexture('','#c3ccd6');
+const karionaMagicShieldIconTexture=summonHudIconTexture('◆','#79e9ff');
+const summonArmorSlotTexture=summonHudIconTexture('','#ffffff');
 const summonEnergyIconTexture=summonHudIconTexture('✦','#8b6bea');
 // The supplied armor SVG has a viewBox but no intrinsic pixel dimensions.
 // Draw it in a sized canvas so its white silhouette is reliable in WebGL.
@@ -2771,8 +2771,8 @@ function createSummonGroundHud(c){
  const attack=summonHudArc(group,'right',.64,0xff4c50,1,.29);
  // Keep secondary arcs outside the thicker main bars; .90 would overlap.
  // Semillera uses the former shield slot for its ten-step growing charge.
- const shield=summonHudArc(group,'left',.99,c.cardId==='semillera'?0x6bff79:c.cardId==='kariona'?0xffdf54:0xe0efff,1,.19);
- // Independent defense meters: yellow magic shield and white fixed armor.
+ const shield=summonHudArc(group,'left',.99,c.cardId==='semillera'?0x6bff79:c.cardId==='kariona'?0x79e9ff:0xffffff,1,.19);
+ // Defense color convention: physical = white, magical = light cyan.
  const armorArc=c.cardId==='kariona'?summonHudArc(group,'left',1.23,0xffffff,1,.14):null;
  const lifeTicks=summonHudTicks(group,'left',.945,0x35ff8e);
  const attackTicks=summonHudTicks(group,'right',.945,0xff444e);
@@ -2863,27 +2863,21 @@ function updateSummonGroundHuds(){
   // Camera-facing at all times, independent of the summon model's rotation.
   h.group.rotation.y=Math.atan2(camera.position.x-c.outer.position.x,
    camera.position.z-c.outer.position.z);
-  // The secondary HUD follows the invocation, behind it on its own side
-  // of the battlefield. Convert that world-space offset to the camera-facing HUD.
-  const rearZ=c.side==='ally'?.88:-.88;
-  const yaw=h.group.rotation.y;
-  h.secondaryIcons.position.set(-Math.sin(yaw)*rearZ,.24,Math.cos(yaw)*rearZ);
+  // Secondary icons share the SAME camera-facing local coordinate space
+  // as the main life (-.19) and attack (+.19) icons. Never offset by side.
+  h.secondaryIcons.position.set(0,0,0);
   const hasArmor=c.cardId==='kariona';
   const hasShield=hasArmor||Number(c.shieldMax)>0;
   const hasMana=Number(c.maxMana)>0;
   h.shieldSlot.visible=hasShield;
   h.armorSlot.visible=hasArmor;
   h.manaSlot.visible=hasMana;
-  // Independent circles for white armor, yellow shield, cyan element.
-  if(hasArmor){
-   h.armorSlot.position.x=-.22;
-   h.shieldSlot.position.x=0;
-   h.manaSlot.position.x=.22;
-  }else{
-   const both=hasShield&&hasMana;
-   h.shieldSlot.position.x=both?-.12:0;
-   h.manaSlot.position.x=both?.12:0;
-  }
+  // Align at the START of each concentric arc: protection directly
+  // under LIFE, offensive/elemental effects directly under ATTACK.
+  // Cariona: magic shield at radius .99, physical armor at 1.23.
+  h.shieldSlot.position.set(-.19,.30,.99);
+  h.armorSlot.position.set(-.19,.30,1.23);
+  h.manaSlot.position.set(.19,.30,.99);
   const semillera=c.cardId==='semillera';
   const physicalArmor=hasArmor?Math.max(0,Math.floor(c.armorPhysical||0)):0;
   const shieldMax=hasArmor?Math.max(0,c.magicShieldMax||0):
