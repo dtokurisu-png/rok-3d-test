@@ -4,7 +4,7 @@
  * Resource capacity and accounting remain in the combat HUD; extraction
  * events originate from the canonical factor core, not a second counter.
  */
-const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@6a05aab7e904158419238562b37f3ea9832086d8/nueva-version/compartido/factores-core.js';
+const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@51dbd10b52e1f89ce405fdb5bcee543e86894eb3/nueva-version/compartido/factores-core.js';
 const own=(cardId,side)=>({
  kariona:[
   {factor:'escudo',semantic:{category:'magico'},application:{root:'factor',activation:'pasiva'},
@@ -38,7 +38,8 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
   if(loading)return loading;
   loading=import(/* @vite-ignore */CORE_URL).then(module=>{
    if(typeof module.createFactorInstance!=='function'||typeof module.stepFactor!=='function'||
-    typeof module.reduceFactorDamage!=='function')
+    typeof module.reduceFactorDamage!=='function'||
+    typeof module.resolveFactorHealing!=='function')
     throw Error('Motor compartido de factores incompatible');
    core=module;onLoad(module);return true;
   }).catch(error=>{onError(error);return false;});
@@ -95,6 +96,18 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
    shield.state.capacity=shield.config.capacity;shield.state.active=true;
   }
   unit.magicShieldHits=shield.state.capacity;
+  return true;
+ }
+ function refreshHealing(unit,{newLife=false}={}){
+  if(!core||!unit||unit.cardId!=='astarium')return false;
+  if(!seen.has(unit))register(unit);
+  const factor=seen.get(unit)?.find(f=>f.factor==='sanacion');
+  if(!factor)return false;
+  if(newLife){
+   factor.state.active=true;factor.state.elapsed=0;
+   factor.state.pulses=0;factor.state.remaining=factor.config.duration;
+  }
+  active.set(unit,factor);
   return true;
  }
  function refreshPsychicShield(unit,{newLife=false}={}){
@@ -238,10 +251,14 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
      if(ally.side!==unit.side||ally.hp<=0||ally.hp>=ally.maxHp||
       ally.role!=='summon'||['dead','dying','vanishing','restoring'].includes(ally.stage))
       continue;
-     const dx=ally.outer.position.x-unit.outer.position.x;
-     const dz=ally.outer.position.z-unit.outer.position.z;
-     if(Math.hypot(dx,dz)<=event.radius+1e-8)
-      onHeal(ally,event.potency,unit);
+     const sourcePos=unit.outer?.position,targetPos=ally.outer?.position;
+     if(!sourcePos||!targetPos)continue;
+     const dx=targetPos.x-sourcePos.x,dz=targetPos.z-sourcePos.z;
+     if(Math.hypot(dx,dz)>event.radius+1e-8)continue;
+     const resolution=core.resolveFactorHealing(event,{
+      current:ally.hp,max:ally.maxHp});
+     if(resolution.healed>0)onHeal(ally,resolution,unit);
+
     }
    }
   }
@@ -254,7 +271,8 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
   return !!(shield&&unit.rokPsychicShieldActive&&core.factorBlocks(shield,event));
  }
  return {load,register,attachEquipment,tick,blocks,applyConfusion,resolveConfusion,
-  absorbShieldDamage,refreshShield,refreshPsychicShield,mitigateArmorDamage,extract,
+  absorbShieldDamage,refreshShield,refreshPsychicShield,refreshHealing,
+  mitigateArmorDamage,extract,
   get managesConfusion(){return !!core;},
   get confusionCount(){return confusion.size;},
   get loaded(){return !!core;},
