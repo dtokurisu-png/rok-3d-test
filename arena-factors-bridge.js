@@ -1,7 +1,7 @@
 /* R.O.K. Arena 2.5D — adapter to the ONE canonical factor engine.
  * No local copy of factor mechanics. The canonical ES module lives in
  * rok-lirte-html/nueva-version/compartido/factores-core.js.
- * Existing shield/armor/confusion/extraction handlers remain authoritative
+ * Existing shield/armor/extraction handlers remain authoritative
  * until each one is migrated and equivalence-tested.
  */
 const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@5404064c7446565fcf45cef8819d2ca804160d06/nueva-version/compartido/factores-core.js';
@@ -29,6 +29,7 @@ const own=(cardId,side)=>({
 export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()=>{}}={}){
  let core=null,loading=null;
  const active=new Map();
+ const confusion=new Map();
  const seen=new WeakMap();
  function load(){
   if(loading)return loading;
@@ -56,11 +57,36 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
    config:{mode:'damage',capacity:2},sourceId:'ancient-oak-armor',
    targetId:unit.cardId});
  }
+ // Confusion's lifetime belongs to the shared factor engine; the card
+ // still chooses the 50/50 attack outcome and the arena renders it.
+ function applyConfusion(target,source,outcome){
+  if(!core||!target||!source)return false;
+  const spec=own(source.cardId,source.side).find(s=>s.factor==='confusion');
+  if(!spec)return false;
+  const instance=core.createFactorInstance({...spec,
+   sourceId:source.cardId,targetId:target.cardId||'summon'});
+  confusion.set(target,instance);
+  target.rokConfusion={factor:'confusion',category:'psiquico',
+   negative:true,remaining:instance.state.remaining,source,
+   outcome,resolved:false};
+  return true;
+ }
  function tick(dt,units=[]){
   if(!core||!Number.isFinite(dt)||dt<=0)return;
   // Update only the newly wired healing factor. Legacy factors must not be
   // stepped twice: their effects are already handled in existing combat code.
   const present=new Set(units);
+  for(const [target,factor] of confusion){
+   if(!present.has(target)||target.hp<=0||
+    ['dead','dying','vanishing','restoring'].includes(target.stage)){
+    confusion.delete(target);target.rokConfusion=null;continue;
+   }
+   core.stepFactor(factor,dt);
+   if(!factor.state.active){
+    confusion.delete(target);target.rokConfusion=null;
+   }else if(target.rokConfusion)
+    target.rokConfusion.remaining=factor.state.remaining;
+  }
   for(const unit of units){
    if(!unit?.cardId)continue;
    if(!seen.has(unit))register(unit);
@@ -93,7 +119,9 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
   // implemented; do not give Astarin an unearned permanent immunity.
   return !!(shield&&unit.rokPsychicShieldActive&&core.factorBlocks(shield,event));
  }
- return {load,register,attachEquipment,tick,blocks,
+ return {load,register,attachEquipment,tick,blocks,applyConfusion,
+  get managesConfusion(){return !!core;},
+  get confusionCount(){return confusion.size;},
   get loaded(){return !!core;},
   get canonicalUrl(){return CORE_URL;},
   get activeCount(){return active.size;}
