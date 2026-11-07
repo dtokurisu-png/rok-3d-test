@@ -4888,7 +4888,7 @@ function updateDuel(dt){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
       updateTeleportation(c,dt);
-    }    }else if(c.stage==='semilleraArrival'){
+    }else if(c.stage==='semilleraArrival'){
       stepSemilleraArrival(c,dt);
     }else if(c.stage==='semilleraElementCast'){
       stepSemilleraCrystalCast(c,dt);
@@ -4947,7 +4947,7 @@ function updateDuel(dt){
     }
     // Mantener el movimiento vertical de pies, rodillas y torso también
     // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
-    if(c.stage!=='casting'&&c.stage!=='semilleraTurningBack'&&c.stage!=='semilleraArrival'&&c.stage!=='semilleraElementCast'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
+    if(c.stage!=='casting'&&c.stage!=='semilleraArrival'&&c.stage!=='semilleraElementCast'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
     updateCastMarker(c);
     if(c.kind!=='archer'&&c.animId===12)liftWalkArm(c);
     if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!faroleraAbilityBridge.lanternDeployed(c)&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
