@@ -276,6 +276,48 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  padding:2px 5px;border-radius:50%;font-weight:900}
 .rokSpellSlot .rokSpellCost{position:absolute;top:3px;right:3px;color:#f6e6a1;background:#000b;
  padding:2px 4px;border-radius:4px;font-weight:900}
+/* Spellbook elemental fill. Visual layers never intercept taps or cover
+   the illustration permanently: the dark remainder recedes from top to bottom. */
+#rokSpellbookGrid .rokSpellSlot.rokSpellChargeCard{
+ --rok-charge:0%;
+ --rok-charge-time:.22s;
+}
+#rokSpellbookGrid .rokSpellChargeShade{
+ position:absolute;left:0;right:0;bottom:0;
+ height:calc(100% - var(--rok-charge));
+ z-index:6;pointer-events:none;
+ background:rgba(3,8,15,.82);
+ transition:height var(--rok-charge-time) linear;
+}
+#rokSpellbookGrid .rokSpellChargeFoil{
+ position:absolute;inset:0;z-index:7;pointer-events:none;
+ opacity:0;
+ background:linear-gradient(118deg,
+ transparent 12%,rgba(255,255,255,.04) 29%,
+ rgba(186,244,255,.38) 40%,rgba(255,255,255,.12) 46%,
+ rgba(217,187,255,.16) 53%,transparent 66%);
+ background-size:250% 250%;
+ mix-blend-mode:screen;
+ transition:opacity .28s ease;
+}
+#rokSpellbookGrid .rokSpellChargeCard.rokSpellReady{
+ box-shadow:inset 0 0 9px #e8ffff88,0 0 9px #c6faff77;
+ outline:2px solid rgba(249,255,255,.96);
+ outline-offset:-2px;
+}
+#rokSpellbookGrid .rokSpellChargeCard.rokSpellReady .rokSpellChargeFoil{
+ opacity:1;animation:rokSpellFoilSweep 3.6s ease-in-out infinite;
+}
+@keyframes rokSpellFoilSweep{
+ 0%,12%{background-position:110% 110%}
+ 55%,78%{background-position:-35% -35%}
+ 100%{background-position:-35% -35%}
+}
+@media(prefers-reduced-motion:reduce){
+ #rokSpellbookGrid .rokSpellChargeCard.rokSpellReady .rokSpellChargeFoil{
+  animation:none;background-position:40% 40%;
+ }
+}
 .rokOakTargetNumber{position:absolute;z-index:12;transform:translate(-50%,-100%);
  min-width:30px;height:30px;padding:3px 7px;border-radius:50%;
  background:#07221de8;border:2px solid #00ffdf;color:#fff;
@@ -5262,6 +5304,37 @@ function spellbookPageHasCards(page,side=qs('#casterMoveSide').value){
  const cards=spellDeckForSide(side)?.[page-1];
  return Array.isArray(cards)&&cards.some(card=>card!==null&&card!==undefined);
 }
+// No card captions or costs are painted over the artwork.
+function attachSpellbookCharge(button,card,cost){
+ if(!card||!Number.isFinite(cost)||cost<=0)return;
+ button.classList.add('rokSpellChargeCard');
+ button.dataset.element=card.element;
+ button.dataset.cost=String(cost);
+ const shade=document.createElement('span');
+ shade.className='rokSpellChargeShade';
+ shade.setAttribute('aria-hidden','true');
+ const foil=document.createElement('span');
+ foil.className='rokSpellChargeFoil';
+ foil.setAttribute('aria-hidden','true');
+ button.append(shade,foil);
+}
+function updateSpellbookCharge(){
+ if(!spellbook.page||spellbook.targetingEquipment||spellbookPanel.hidden)return;
+ const side=qs('#casterMoveSide').value;
+ const resource=combatHud.getResources(side,side==='ally'?'earth':'water');
+ for(const button of spellbookGrid.querySelectorAll('.rokSpellChargeCard')){
+  const cost=Number(button.dataset.cost);
+  if(!Number.isFinite(cost)||cost<=0)continue;
+  const available=button.dataset.element=== (side==='ally'?'earth':'water')?
+   Math.max(0,Number(resource.available)||0):0;
+  const proportion=THREE.MathUtils.clamp(available/cost,0,1);
+  const ready=proportion>=1-1e-7;
+  const percent=(proportion*100).toFixed(3)+'%';
+  if(button.style.getPropertyValue('--rok-charge')!==percent)
+   button.style.setProperty('--rok-charge',percent);
+  button.classList.toggle('rokSpellReady',ready&&!button.disabled);
+ }
+}
 function renderSpellbook(){
  // Reflect changes to the actual deck without introducing new page state.
  for(const button of document.querySelectorAll('.rokSpellbookPageKey')){
@@ -5341,9 +5414,11 @@ function renderSpellbook(){
     if(Date.now()-lastTouch<650)return;
     selectSpellCard(i);
    });
+   attachSpellbookCharge(button,card,cardCost);
   }
   spellbookGrid.append(button);
  }
+ updateSpellbookCharge();
 }
 qs('#casterMoveSide').addEventListener('change',()=>{
  if(spellbook.page)renderSpellbook();
@@ -6253,6 +6328,7 @@ function loop(now){
     for(const c of combatants)updateNameplate(c);
     for(const c of casters)updateNameplate(c);
     updateOakTargetMarkers();
+    updateSpellbookCharge();
     updateCasterThreatIndicators();
     updateCasterAttackReticle();
   }
