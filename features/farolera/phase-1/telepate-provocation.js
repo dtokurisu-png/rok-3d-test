@@ -59,7 +59,8 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
    onPulse?.(source);
    for(const enemy of units){
     if(enemy===source||enemy.role!=='summon'||enemy.side===source.side||
-       !VALID_STAGE(enemy)||dist(source,enemy)>TELEPATE_AURA_RADIUS+1e-8||
+       !VALID_STAGE(enemy)||enemy.rokConfusion||
+       dist(source,enemy)>TELEPATE_AURA_RADIUS+1e-8||
        !canAffect(enemy,{category:'psiquico',negative:true,factor:'confusion',
         sourceId:'telepate'}))continue;
     // The pulse ALWAYS confuses. Resolve one attack immediately, rather
