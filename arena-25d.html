@@ -4939,8 +4939,12 @@ function finishConfusedAttack(attacker){
   // A committed confusion attack is permitted to hit self or allies,
   // without changing allegiance or bypassing armor/shield.
   damage(victim,amount,attacker,{committed:true});
+  // Show a visible psychic impact even when a shield absorbs the strike.
+  spawnImpact(victim.outer.position.x,victim.outer.position.z,false,true);
   makeFloatingWord(victim,'¡GOLPE!');
-  // damage() already triggers its normal additive hit animation on survival.
+  // damage() supplies the normal additive hit pose when HP is reduced.
+  // If a shield intercepted it, still play a visible reaction once.
+  if(victim.hp>0&&!(victim.hitLeft>0))beginHit(victim);
  }
  makeFloatingWord(attacker,order.outcome==='self'?'CONFUSIÓN · AUTOATAQUE':
   'CONFUSIÓN · ALIADO');
