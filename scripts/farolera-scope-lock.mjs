@@ -9,6 +9,8 @@ const allowedNew=[
  // Owner-approved 2026-11-07 tactical learning and factor icon additions.
  // Owner-approved Lioren Earth training, independent from Chiara.
  // Shared threat-aware position learning for both casters.
+ // Owner-approved shared factor engine adapter (canonical engine remains in R.O.K.).
+ /^arena-factors-bridge\.js$/,
  /^caster-tactical-positioning\.js$/,
  /^lioren-training-ai\.js$/,
  /^assets\/ai\/lioren-memory\.json$/,
