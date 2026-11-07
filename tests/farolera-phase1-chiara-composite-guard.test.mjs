@@ -19,16 +19,16 @@ test('Chiara AI cast is the exact composite 22 frames 0-48 then 21 from frame 20
  const html=await read('arena-25d.html');
  assert.match(html,/subclip\(clip,'ROK_Rival_Cast22_0_48',0,48,30\)/);
  assert.match(html,/chiaraRig\.upper\(c,'card-cast',prep,speed\)/);
- assert.match(html,/chiaraRig\.setCastLower\(c,prep,speed,0\)/);
+ assert.match(html,/casterCastLayers\.setCastLower\(c,prep,speed,0\)/);
  assert.match(html,/chiaraRig\.upper\(c,'card-finish',finish,1,\{startTime:20\/30,transition:true\}\)/);
- assert.match(html,/chiaraRig\.setCastLower\(c,finish,1,\(20\/30\)\/finish\.duration\)/);
+ assert.match(html,/casterCastLayers\.setCastLower\(c,finish,1,\(20\/30\)\/finish\.duration\)/);
 });
 
 test('manual Chiara and Lioren both receive cast lower and progress callbacks',async()=>{
  const html=await read('arena-25d.html');
  assert.match(html,/syncCastLower:\(c,progress\)=>casterPoseFor\(c\)\.syncCastLower\(c,progress\)/);
  assert.match(html,/clearCastLower:c=>casterPoseFor\(c\)\.clearCastLower\(c\)/);
- assert.match(html,/if\(c\?\.side==='enemy'\)return chiaraRig\.setCastLower\(c,clip,speed,progress\)/);
+ assert.match(html,/typeof chiaraRig\.setCastLower==='function'\)return chiaraRig\.setCastLower\(c,clip,speed,progress\)/);
 });
 
 test('active caster guard blocks ceil half of hit, no fractional HP losses',async()=>{
@@ -40,4 +40,12 @@ test('active caster guard blocks ceil half of hit, no fractional HP losses',asyn
  for(const [hit,blocked] of [[1,1],[2,1],[3,2],[4,2],[5,3],[6,3],[7,4]])
   assert.equal(Math.ceil(hit/2),blocked);
  assert.match(damage,/if\(value>0&&target\.hp>0\)casterPoseFor\(target\)\.hit/);
+});
+
+test('fresh Chiara rig URL prevents reusing stale non-composite module',async()=>{
+ const html=await read('arena-25d.html');
+ assert.match(html,/chiara-visual-rig\.js\?v=20261107-composite-22-21-2/);
+ assert.doesNotMatch(html,/chiara-visual-rig\.js\?v=20261107-rebuild-1/);
+ const rig=await read('chiara-visual-rig.js');
+ assert.match(rig,/setCastLower,syncCastLower,clearCastLower/);
 });
