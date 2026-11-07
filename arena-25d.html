@@ -3091,6 +3091,7 @@ function resetCombatant(c){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
    c.semilleraArrived=false;c.semilleraArrival=null;c.semilleraArrivalWait=0;
    c.semilleraClipWarning=false;
+   c.semilleraFailedSource22=null;c.semilleraFailedSource21=null;
   }
   c.stage='intro';c.introT=0;
   c.hitLeft=0;c.castT=0;c.castDuration=0;c.castTarget=null;c.castFired=false;c.deathT=0;c.vanishT=0;c.deathParticlesT=0;c.standingPlayed=false;
@@ -3256,6 +3257,9 @@ function semilleraSourceClips(unit){
  if(!ally?.model||!clip22||!clip21||clip21.duration<=SEMILLERA_FINISH_START+.01)return null;
  if(!unit.semilleraClips||unit.semilleraClips.source22!==clip22||
     unit.semilleraClips.source21!==clip21){
+  // Never retry a failed heavy rig adaptation on every combat frame.
+  if(unit.semilleraFailedSource22===clip22&&
+     unit.semilleraFailedSource21===clip21)return null;
   try{
    // Never change the live caster skeleton while retargeting.
    const source=cloneSkinned(ally.model);
@@ -3266,6 +3270,8 @@ function semilleraSourceClips(unit){
    if(!prep.tracks.length||!finish.tracks.length)return null;
    unit.semilleraClips={source22:clip22,source21:clip21,prep,finish};
   }catch(error){
+   unit.semilleraFailedSource22=clip22;
+   unit.semilleraFailedSource21=clip21;
    if(!unit.semilleraClipWarning){
     console.warn('[R.O.K.] No se pudieron adaptar las animaciones 22/21 a Semillera:',error);
     unit.semilleraClipWarning=true;
@@ -6532,6 +6538,7 @@ let slowFrameWindow=0;
 let stableFrameWindow=0;
 let combatRuntimeFaults=0,combatLastFault='',frameSlowCount=0;
 const frameWarningThresholdMs=120;
+let frameStartMs=0,slowCompleteFrames=0,slowPhase='';
 function reportCombatFault(error){
   const description=String(error?.stack||error?.message||error).slice(0,1200);
   if(description!==combatLastFault){
@@ -6547,15 +6554,17 @@ function reportCombatFault(error){
 }
 function loop(now){
   requestAnimationFrame(loop);
+  frameStartMs=performance.now();
+  let framePhase='begin';
   try{
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
   if(loaded&&playing&&matchGate.isRunning&&!casterReview.active){
    try{
-    updateGuardEconomy(dt);
-    updateDuel(dt);
-    combatHud.advance(dt,casters);
-    elementOrbs.tick(dt);
-    rivalAI?.step(dt);
+    framePhase='guard-economy';updateGuardEconomy(dt);
+    framePhase='combat-update';updateDuel(dt);
+    framePhase='resource-hud';combatHud.advance(dt,casters);
+    framePhase='element-orbs';elementOrbs.tick(dt);
+    framePhase='chiara-ai';rivalAI?.step(dt);
    }catch(error){reportCombatFault(error);}
   }else if(loaded){
    elementOrbs.idle(dt);
@@ -6591,7 +6600,7 @@ function loop(now){
     updateCasterThreatIndicators();
     updateCasterAttackReticle();
   }
-  sceneryOverlay.update(now/1000);
+  framePhase='scenery';sceneryOverlay.update(now/1000);
   updateCameraTracking(dt);
   // Remove only nearby decorative obstacles between camera and allied caster.
   const allyForVisibility=casters.find(c=>c.side==='ally');
@@ -6609,7 +6618,7 @@ function loop(now){
   updateSummonEdgeIndicators();
   if(loaded){
     updateSummonNexuses(dt);
-    try{updateSummonGroundHuds();}
+    try{framePhase='summon-hud';updateSummonGroundHuds();}
     catch(error){
       console.error('[R.O.K.] HUD 3D desactivado por error:',error);
       for(const [c,h] of summonGroundHuds){
@@ -6620,6 +6629,7 @@ function loop(now){
       summonGroundHuds.clear();
     }
   }
+  framePhase='render';
   const renderStart=performance.now();
   try{renderer.render(scene,camera);}
   catch(error){
@@ -6628,13 +6638,21 @@ function loop(now){
   }
   const renderMs=performance.now()-renderStart;
   if(renderMs>frameWarningThresholdMs)frameSlowCount++;
+  const totalFrameMs=performance.now()-frameStartMs;
+  if(totalFrameMs>frameWarningThresholdMs){
+   slowCompleteFrames++;
+   slowPhase=renderMs>frameWarningThresholdMs?'render':'logic';
+   if(slowCompleteFrames===1)console.warn('[R.O.K.] Fotograma lento',
+    Math.round(totalFrameMs)+' ms',slowPhase);
+  }
   fpsTime+=dt;fpsCount++;
   if(fpsTime>=1){
    const fps=Math.round(fpsCount/fpsTime);
    qs('#fps').textContent='FPS: '+fps+
      (frameSlowCount?' · render lento: '+frameSlowCount+'/s':'')+
+     (slowCompleteFrames?' · tirones: '+slowCompleteFrames+'/s ('+slowPhase+')':'')+
      (combatRuntimeFaults?' · errores: '+combatRuntimeFaults:'');
-   frameSlowCount=0;
+   frameSlowCount=0;slowCompleteFrames=0;
    // The high-quality mobile test should never silently unload props or
    // resize GLB textures. Adaptive canvas scaling is a reversible fallback
    // only after sustained performance loss, not an immediate downgrade.
