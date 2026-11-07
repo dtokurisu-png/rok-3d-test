@@ -806,7 +806,7 @@ import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112'
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261107-position-3';
 import {createChiaraLearning} from './chiara-learning.js?v=20261107-3';
 import {createLiorenTrainingAI} from './lioren-training-ai.js?v=20261107-2';
-import {createCasterTacticalPositioning} from './caster-tactical-positioning.js?v=20261107-1';
+import {createCasterTacticalPositioning} from './caster-tactical-positioning.js?v=20261107-2';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 
 const qs=s=>document.querySelector(s);
@@ -3599,8 +3599,16 @@ function resetDemoCombat(){
   faroleraAbilityBridge.reset();
   // A new match invalidates any in-progress manual attack/cooldown.
   casterMovement?.disable();
-  if(rivalAI?.status?.elapsed>5)chiaraLearning.finishMatch();
-  if(liorenTrainingAI?.active&&liorenTrainingAI.status.elapsed>5)liorenLearning.finishMatch();
+  // A loss is recorded against the last tactic, allowing the next round
+  // to prefer a different opening position instead of repeating the rush.
+  if(rivalAI?.status?.elapsed>5){
+   chiaraPositioning.finishMatch(casters.find(c=>c.side==='enemy')?.stage!=='defeated');
+   chiaraLearning.finishMatch();
+  }
+  if(liorenTrainingAI?.active&&liorenTrainingAI.status.elapsed>5){
+   liorenPositioning.finishMatch(casters.find(c=>c.side==='ally')?.stage!=='defeated');
+   liorenLearning.finishMatch();
+  }
   liorenTrainingAI?.reset();
   // A canceled training summon must not reserve the next round's slot.
   liorenAiCast.reserved=null;liorenAiCast.token=null;
