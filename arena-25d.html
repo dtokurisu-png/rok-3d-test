@@ -327,6 +327,27 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  box-shadow:0 0 9px #00ffdfbb,0 2px 8px #000;
  font:900 21px/22px Roboto,system-ui,sans-serif;text-align:center;
  pointer-events:none}
+/* Armor targeting is the exception to the image-only spellbook:
+   target IDs must be legible on phones and consistent with battlefield IDs. */
+#rokSpellbookGrid .rokOakSelectCard .rokOakSelectNumber{
+ position:absolute;top:2px;left:3px;z-index:20!important;
+ display:grid!important;place-items:center;
+ width:25px;height:25px;border-radius:50%;
+ color:#fff;background:#092a25f2;border:2px solid #00ffdf;
+ font:900 16px/1 Roboto,system-ui,sans-serif;
+ text-shadow:0 1px 3px #000;box-shadow:0 1px 5px #000c;
+ pointer-events:none;
+}
+@media(pointer:coarse) and (max-width:950px){
+ #nameplateLayer:has(.rokOakTargetNumber){z-index:53}
+ .rokOakTargetNumber{
+  z-index:53;font-size:17px;min-width:28px;height:28px;
+  line-height:21px;box-shadow:0 0 12px #00ffdf,0 1px 5px #000;
+ }
+ #rokSpellbookGrid .rokOakSelectCard .rokOakSelectNumber{
+  width:24px;height:24px;font-size:16px;top:1px;left:1px;
+ }
+}
 /* Published Earth skin + ordinary forest. Special elemental backgrounds
    (fondo verde/celeste/amarillo) are reserved for equipment cards only. */
 .rokSpellSlot.rokEarthCardArt{
@@ -417,9 +438,10 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  #rokSpellbookCards{
   position:fixed!important;z-index:52!important;right:4px!important;left:auto!important;
   top:calc(env(safe-area-inset-top,0px) + 4px)!important;bottom:auto!important;
-  width:min(40vw,calc(80vh * 1086 / 1448),245px)!important;
+  /* 25% smaller than the former 40vw / 80vh / 245px page. */
+  width:min(30vw,calc(60vh * 1086 / 1448),184px)!important;
   height:auto!important;aspect-ratio:1086/1448!important;
-  max-height:80vh!important;box-sizing:border-box!important;
+  max-height:60vh!important;box-sizing:border-box!important;
   transform:translateY(calc(-100% - 24px))!important;
   visibility:hidden;pointer-events:none!important;
   transition:transform .24s ease,visibility .24s!important
@@ -436,6 +458,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
   min-height:0!important;padding:0!important;overflow:hidden!important;touch-action:none!important;
   -webkit-user-select:none!important;user-select:none!important}
  #rokSpellbookGrid .rokSpellNumber{display:none!important}
+ #rokSpellbookGrid .rokOakSelectCard .rokOakSelectNumber{display:grid!important}
  #rokSpellbookGrid .rokSpellSlot img{max-width:100%!important;max-height:100%!important;object-fit:cover!important}
  #rokSpellbookGrid .rokSpellName{font-size:clamp(6px,1.5vw,10px)!important;line-height:1.1!important}
  #rokSpellbookGrid .rokSpellNumber,#rokSpellbookGrid .rokSpellCost{font-size:clamp(7px,1.4vw,10px)!important;
@@ -5804,7 +5827,7 @@ function updateOakTargetMarkers(){
   renderOakArmorTargets();
  }
  for(const [c,label] of oakTargetMarkers){
-  const point=new THREE.Vector3(0,2.15,0);
+  const point=new THREE.Vector3(0,1.85,0);
   c.outer.localToWorld(point);
   point.project(camera);
   const visible=c.hp>0&&!['dead','dying','vanishing'].includes(c.stage)&&point.z>=-1&&point.z<=1&&
@@ -5935,7 +5958,14 @@ function renderOakArmorTargets(){
   button.setAttribute('aria-label',c?
    'Equipar a Cariona '+number:'Casilla '+number+': vacía');
   if(c){
-   button.classList.add('rokEarthCardArt');
+   button.classList.add('rokEarthCardArt','rokOakSelectCard');
+   // The target numbers are not ordinary card indexes. They must stay
+   // visible on touch screens when equipping the oak armor.
+   const numberBadge=document.createElement('span');
+   numberBadge.className='rokOakSelectNumber';
+   numberBadge.textContent=String(number);
+   numberBadge.setAttribute('aria-hidden','true');
+   button.append(numberBadge);
    const portrait=document.createElement('img');
    portrait.src=card.portrait;portrait.alt='';portrait.className='rokEarthCharacterArt';
    button.append(portrait);
