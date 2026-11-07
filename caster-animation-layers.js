@@ -18,9 +18,7 @@ export function createCasterLayerSystem(THREE){
  }
  function slice(clip,kind,tag){
   if(!clip)return null;
-  const tracks=clip.tracks.filter(t=>kind==='lower'||kind==='cast-lower'?
-    isLower(t)&&(kind!=='cast-lower'||!/(?:^|[.:])(?:Hips|mixamorigHips)\.position$/i.test(t.name)):
-    !isLower(t)&&/\.quaternion$/.test(t.name))
+  const tracks=clip.tracks.filter(t=>kind==='lower'?isLower(t):!isLower(t)&&/\.quaternion$/.test(t.name))
    .map(t=>t.clone());
   return tracks.length?new THREE.AnimationClip(clip.name+'_'+tag,clip.duration,tracks):null;
  }
@@ -70,13 +68,11 @@ export function createCasterLayerSystem(THREE){
   if(st.movement===null){
    c.mixer.stopAllAction();
   }
-  const lowerClip=st.castLower&&kind==='idle'?prepared(st,st.castLower,'cast-lower'):
+  const lowerClip=st.castLower&&kind==='idle'?prepared(st,st.castLower,'lower'):
    prepared(st,source,'lower');
   const upperClip=prepared(st,source,'upper');
   if(lowerClip){
-   // Cast pose is driven by the authoritative cast timer, not the
-   // mixer clock as well: otherwise it advances twice and snaps back.
-   const desired=st.castLower&&kind==='idle'?0:1;
+   const desired=st.castLower&&kind==='idle'?st.castLowerSpeed:1;
    if(st.lowerAction?._clip===lowerClip){
     st.lowerAction.setEffectiveTimeScale(desired);
    }else st.lowerAction=switchAction(c,st.lowerAction,lowerClip,false,desired);
