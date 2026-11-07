@@ -5553,7 +5553,7 @@ renderSpellbook();
 // Rival economy only: tactical orb collection, guarding, movement, attacks,
 // and defensive priorities remain owned by caster-rival-ai.js.
 const rivalAction={attackUntil:0,castingUntil:0,reserved:null};
-function chiaraCastPlan(caster,amount){
+function chiaraCastPlan(caster,amount,resources={}){
  const live=[...cardSummons].filter(u=>u.side==='enemy'&&u.hp>0&&
   !['dead','dying','vanishing'].includes(u.stage));
  const count=id=>live.filter(u=>u.cardId===id).length;
@@ -5562,21 +5562,28 @@ function chiaraCastPlan(caster,amount){
   Math.hypot(u.outer.position.x-caster.outer.position.x,
     u.outer.position.z-caster.outer.position.z)<=9).length;
  const f=count('farolera'),t=count('telepate'),boss=count('controladora');
- // Actual RESERVE determines priority, never only the unlocked tier.
- // 1-2 water: spend on Faroleras freely until the six-unit cap.
- // At 3+: favor tier-three troops. A wave of 2-3 enemies is an
- // emergency exception that permits additional Faroleras.
+ // Stop spending when two full reservoirs are charged and the source
+ // has passed half its interval to produce the third capacity orb.
+ // When three reservoirs are already unlocked, conserve every remaining
+ // quarter until a Telépate is affordable.
+ const unlocked=Number(resources.unlocked)||0;
+ const fountain=resources.nextOrb||null;
+ const saveForThird=unlocked>=2&&unlocked<3&&amount>=2-.001&&
+  !!fountain?.halfElapsed;
+ const saveToRefillThree=unlocked>=3&&amount<3-.001;
+ if(saveForThird||saveToRefillThree)return null;
  let id=null;
- if(amount>=1&&amount<3)id='farolera';
- else if(amount>=3){
+ if(amount>=3){
   if(t<2)id='telepate';
   else if(amount>=6&&boss<1)id='controladora';
+  else if(t<3)id='telepate';
   else if(enemyThreats>=2&&f<4)id='farolera';
   else if(amount>=6&&boss<2)id='controladora';
-  else if(t<3)id='telepate';
+ }else if(amount>=1){
+  // Keep two slots free for the cost-three Telépate phase.
+  // Overcrowding with cheap Faroleras previously blocked tier-three casts.
+  if(f<4&&live.length<4)id='farolera';
  }
- // Farolera is expendable, but cannot override tier-3 priority unless
- // the caller has only 1-2 elements or the caster faces a real swarm.
  const def=chiaraSummonDefinitions[id];
  if(!def||amount<def.cost||live.length>=MAX_ACTIVE_SUMMONS_PER_SIDE)return null;
  const model=id==='farolera'?window.ROKSummonAssets?.farolera:chiaraSummonModels.get(id);
@@ -5591,13 +5598,23 @@ rivalAI=createRivalCasterAI({
    if(orb.group?.visible&&!orb.target)
     available.push({id:index,position:orb.group.position});
   });
+  // The same death-fragment meshes are collectible by BOTH casters.
+  // Each restores 1/4 Water; unlike fountain orbs, they do not unlock
+  // additional reservoirs. Avoid tracking an already full resource bar.
+  for(let i=0;i<deathElementFragments.length;i++){
+   const item=deathElementFragments[i];
+   if(item.fx?.group?.parent&&item.age<20)
+    available.push({id:'death-'+i,kind:'fragment',
+     pickupRadius:1.05,position:item.fx.group.position});
+  }
   return available;
  },
  getEnemies:()=>[...combatants,...casters].filter(c=>c.side==='ally'&&canDamageTarget(c))
   .map(c=>({position:c.outer.position,target:c})),
  getThreats:c=>missiles.filter(m=>m.target===c&&m.attacker?.side!==c.side)
   .map(m=>({position:m.group.position})),
- getResourceState:c=>combatHud.getResources(c.side,'water'),
+ getResourceState:c=>({...combatHud.getResources(c.side,'water'),
+  nextOrb:elementOrbs.getNextOrbForecast(2)}),
  getCastPlan:chiaraCastPlan,
  bounds:{x:MAX_X,z:MAX_Z},
  settings:{idealPressureZ:-.85,attackRange:3,pickupRadius:3.65,
