@@ -2,21 +2,30 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 const arena=new URL('../arena-25d.html',import.meta.url);
-test('combat consumes confusion at a ready attack rather than skipping confused units',async()=>{
+
+test('pulse resolves guaranteed confusion immediately, with no attraction callback',async()=>{
  const html=await readFile(arena,'utf8');
- assert.doesNotMatch(html,/c\.stage!=='active'\|\|c\.rokConfusion\|\|/);
- assert.match(html,/function resolveTelConfusedAttack\(attacker\)/);
- assert.match(html,/if\(c\.rokConfusion&&resolveTelConfusedAttack\(c\)\)continue/);
- assert.match(html,/const result=rollTelepateConfusedAttack\(\)/);
+ assert.match(html,/onConfusion:\(source,target,outcome\)=>\s*resolveTelConfusedAttack\(target,source,outcome\)/);
+ assert.doesNotMatch(html,/onSuccess:\(source,target\)=>/);
+ assert.match(html,/function resolveTelConfusedAttack\(attacker,telepate,outcome\)/);
+ assert.match(html,/if\(c\.stage!=='active'\|\|c\.rokConfusion\|\|/);
 });
-test('confused self and ally damage consume one attack and obey reach and allegiance',async()=>{
+
+test('confused attackers hit self or in-range teammate once without changing teams',async()=>{
  const html=await readFile(arena,'utf8');
  const b=html.slice(html.indexOf('function resolveTelConfusedAttack('),
   html.indexOf('function updateDuel(',html.indexOf('function resolveTelConfusedAttack(')));
+ assert.match(b,/confusion\.resolved=true/);
+ assert.match(b,/else if\(outcome==='self'\)victim=attacker/);
  assert.match(b,/other\.side===attacker\.side&&canDamageTarget\(other\)/);
  assert.match(b,/<=attacker\.range\+\.005/);
  assert.match(b,/victim=allies\[0\]\|\|attacker/);
- assert.match(b,/damage\(victim,amount,attacker,\{committed:true\}\)/);
+ assert.match(b,/if\(victim\)damage\(victim,amount,attacker,\{committed:true\}\)/);
  assert.match(b,/attacker\.cooldown=Math\.max\(/);
- assert.match(b,/if\(result==='telepate'\)return false/);
+});
+
+test('outgoing attacks are interrupted by a confusion pulse',async()=>{
+ const html=await readFile(arena,'utf8');
+ assert.match(html,/if\(attacker\.stage==='casting'&&!attacker\.castFired\)/);
+ assert.match(html,/attacker\.stage='active';attacker\.castTarget=null;attacker\.castFired=true/);
 });
