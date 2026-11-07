@@ -8,6 +8,7 @@
 export const TELEPATE_AURA_RADIUS=8;
 export const TELEPATE_AURA_INTERVAL=3;
 export const TELEPATE_PROVOKE_CHANCE=.32;
+export const TELEPATE_GUARD_LIMIT=2;
 // R.O.K. Lite Provocación level 4 lasts 6 phases. A 3D phase is
 // approximated as one simulation second until a shared phase clock exists.
 export const TELEPATE_PROVOKE_DURATION=6;
@@ -15,22 +16,31 @@ const VALID_STAGE=u=>u&&Number(u.hp)>0&&
  !['dead','dying','vanishing','restoring'].includes(u.stage);
 const dist=(a,b)=>Math.hypot(a.outer.position.x-b.outer.position.x,
  a.outer.position.z-b.outer.position.z);
+// Captured units change allegiance temporarily, without replacing their card identity.
+function releaseGuard(unit){
+ const fx=unit?.rokProvocation;
+ if(!fx)return;
+ if(fx.originalSide!==undefined)unit.side=fx.originalSide;
+ unit.rokProvocation=null;
+}
 export function provocationSource(target){
  const effect=target?.rokProvocation;
  const src=effect?.source;
- if(!effect||effect.remaining<=0||!VALID_STAGE(src)||src.side===target.side)
+ if(!effect||effect.remaining<=0||!VALID_STAGE(src)||!VALID_STAGE(target))
   return null;
  return src;
+}
+export function telepateGuards(units,source){
+ return units.filter(u=>u.rokProvocation?.source===source&&provocationSource(u));
 }
 export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=null,onSuccess=null}={}){
  if(!Number.isFinite(dt)||dt<0)throw new RangeError('Invalid dt');
  const active=new Set(units);
- // Expiry and invalid sources must never leave enemies pursuing a phantom.
  for(const unit of units){
   const fx=unit.rokProvocation;
   if(!fx)continue;
   fx.remaining-=dt;
-  if(!active.has(fx.source)||!provocationSource(unit))unit.rokProvocation=null;
+  if(!active.has(fx.source)||!provocationSource(unit))releaseGuard(unit);
  }
  for(const source of units){
   if(source.cardId!=='telepate')continue;
@@ -39,11 +49,19 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
   while(source.rokAuraClock>=TELEPATE_AURA_INTERVAL){
    source.rokAuraClock-=TELEPATE_AURA_INTERVAL;
    onPulse?.(source);
+   let guards=telepateGuards(units,source).length;
+   if(guards>=TELEPATE_GUARD_LIMIT)continue;
    for(const enemy of units){
+    if(guards>=TELEPATE_GUARD_LIMIT)break;
     if(enemy===source||enemy.role!=='summon'||enemy.side===source.side||
-       !VALID_STAGE(enemy)||dist(source,enemy)>TELEPATE_AURA_RADIUS+1e-8)continue;
+       enemy.rokProvocation||!VALID_STAGE(enemy)||
+       dist(source,enemy)>TELEPATE_AURA_RADIUS+1e-8)continue;
     if(random()>=TELEPATE_PROVOKE_CHANCE)continue;
-    enemy.rokProvocation={source,remaining:TELEPATE_PROVOKE_DURATION};
+    enemy.rokProvocation={
+      source,remaining:TELEPATE_PROVOKE_DURATION,originalSide:enemy.side
+    };
+    enemy.side=source.side;
+    guards++;
     onSuccess?.(source,enemy);
    }
   }
@@ -51,7 +69,7 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
 }
 export function clearTelepateSource(units,source){
  for(const target of units)if(target.rokProvocation?.source===source)
-  target.rokProvocation=null;
+  releaseGuard(target);
 }
 
 /** Three.js-only visual layer; does not modify aura range or combat targets. */
