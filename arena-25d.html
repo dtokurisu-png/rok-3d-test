@@ -708,8 +708,11 @@ const mobileCombatMode=window.matchMedia('(pointer:coarse)').matches||
  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 // Full decorative studio scenery is opt-in on desktop; combat works with
 // background, floor and the two elemental fountains alone.
-const quickCombatScene=mobileCombatMode||
- new URLSearchParams(location.search).get('fullScene')!=='1';
+// Opt-in mobile quality experiment; normal gameplay remains unchanged.
+// ?visualTest=full loads the complete decorated scene and original texture sizes.
+const fullVisualTest=new URLSearchParams(location.search).get('visualTest')==='full';
+const quickCombatScene=!fullVisualTest&&(mobileCombatMode||
+ new URLSearchParams(location.search).get('fullScene')!=='1');
 // Preserve lightweight geometry loading on phones while rendering sharper pixels.
 const hud=qs('#top'), head=qs('#head');
 const expand=()=>{hud.classList.toggle('open');const open=hud.classList.contains('open');qs('#expand').textContent=open?'Cerrar ▴':'Opciones ▾';head.setAttribute('aria-expanded',String(open));};
@@ -721,6 +724,7 @@ const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-per
 // Landscape phones often report >700 CSS px, previously forcing 2x pixel ratio.
 // Keep their GPU workload bounded independently of screen orientation.
 const arenaPixelRatio=()=>Math.min(window.devicePixelRatio||1,
+ fullVisualTest?(window.devicePixelRatio||1):
  mobileCombatMode?Math.min(1.75,window.devicePixelRatio||1):
  window.innerWidth<700?1.5:2);
 renderer.setPixelRatio(arenaPixelRatio());
@@ -4755,7 +4759,7 @@ void (async()=>{
    try{gltf=await new GLTFLoader().loadAsync(url);}
    catch(error){throw Error('No se pudo cargar '+spec.label+' ('+String(error?.message||error)+')');}
    if(!gltf?.scene)throw Error('El GLB de '+spec.label+' no contiene un modelo válido');
-   if(mobileCombatMode)reduceModelTextureBudget(gltf.scene,{maxSize:1536});
+   if(mobileCombatMode&&!fullVisualTest)reduceModelTextureBudget(gltf.scene,{maxSize:1536});
    const bounds=new THREE.Box3().setFromObject(gltf.scene);
    const height=bounds.getSize(new THREE.Vector3()).y;
    if(!Number.isFinite(height)||height<=.001)
@@ -4774,7 +4778,7 @@ void (async()=>{
   const faroleraTask=new GLTFLoader().loadAsync('./assets/models/casters/farolera/chiara_idle.glb')
    .then(g=>{
     if(!g?.scene||!g.animations?.length)throw Error('Farolera sin Idle');
-    if(mobileCombatMode)reduceModelTextureBudget(g.scene,{maxSize:1024});
+    if(mobileCombatMode&&!fullVisualTest)reduceModelTextureBudget(g.scene,{maxSize:1024});
     window.ROKSummonAssets={farolera:{scene:g.scene,idle:g.animations[0]}};
     return g;
    }).catch(error=>{
@@ -5012,7 +5016,7 @@ function ensureChiaraSummonModel(id){
  const job=new GLTFLoader().loadAsync('./'+encodeURIComponent(file)).then(gltf=>{
   if(!gltf?.scene||new THREE.Box3().setFromObject(gltf.scene).isEmpty())
    throw Error('GLB vacío: '+file);
-  if(mobileCombatMode)reduceModelTextureBudget(gltf.scene,{maxSize:1024});
+  if(mobileCombatMode&&!fullVisualTest)reduceModelTextureBudget(gltf.scene,{maxSize:1024});
   const idle=gltf.animations?.find(a=>/idle|standing/i.test(a.name))||
    gltf.animations?.[0]||new THREE.AnimationClip('Reposo_'+id,1,[]);
   const model={scene:gltf.scene,idle};
@@ -5039,7 +5043,7 @@ function ensureLiorenSummonModel(id){
   if(!gltf?.scene)throw Error('Modelo GLB vacío: '+filename);
   const box=new THREE.Box3().setFromObject(gltf.scene);
   if(box.isEmpty())throw Error('Modelo sin geometría: '+filename);
-  if(mobileCombatMode)reduceModelTextureBudget(gltf.scene,{maxSize:1024});
+  if(mobileCombatMode&&!fullVisualTest)reduceModelTextureBudget(gltf.scene,{maxSize:1024});
   // Cariona must never loop an arbitrary imported pose or Standing clip.
   // Without a named Idle, the existing shared animation adapter supplies it.
   const idle=id==='kariona'
