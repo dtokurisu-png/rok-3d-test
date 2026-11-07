@@ -2,7 +2,7 @@
  * Opposite battlefield half from Chiara; no game engine ownership.
  */
 export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResources,
- getCards,canCast,cast,attack,guard,move,face,learning,bounds}){
+ getCards,canCast,cast,attack,guard,move,face,learning,bounds,positioning}){
  const state={active:false,elapsed:0,casts:0,attacks:0,collects:0,casting:0,
   cooldown:0,attackCooldown:0,guardClock:0,last:null,selected:null};
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -13,7 +13,7 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
   if(state.selected)state.selected=null;
   state.elapsed=0;state.casts=0;state.attacks=0;state.collects=0;
   state.casting=0;state.cooldown=0;state.attackCooldown=0;state.guardClock=0;
-  state.last=null;
+  state.last=null;positioning?.reset();
   guard(false);
  }
  function stop(){state.active=false;reset();}
@@ -62,8 +62,12 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
   const resources=getResources()||{},available=Number(resources.available)||0;
   const unlocked=Number(resources.unlocked)||0;
   const enemies=getEnemies(),near=nearest(c.outer.position,enemies);
-  const threat=near.d<4.4;
   const allies=getCards().live;
+  const suggested=positioning?.tick({caster:c,enemies,resources:available,
+   casts:state.casts,allies:allies.length,dt,
+   mission:available>=1?'cast':'collect'});
+  const threat=(suggested?.danger||0)>.2||near.d<5.5;
+  const urgent=(suggested?.danger||0)>.85;
   const ctx=context(c,threat,available,allies.length);
   let action='position';
   const healthRatio=c.hp/Math.max(1,c.maxHp||12);
@@ -71,16 +75,20 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
   if(c.outer.position.z<.45){
    action='retreat';
    advance(c,{x:c.outer.position.x,z:2.2},dt);
-  }else if(threat&&healthRatio<.4){
+  }else if((urgent&&healthRatio<.85)||(threat&&healthRatio<.4)){
    action='retreat';
    const p=c.outer.position,enemy=near.item?.position||{x:0,z:0};
-   advance(c,{x:clamp(p.x+(p.x>=enemy.x?2:-2),-bounds.x,bounds.x),
-    z:clamp(Math.max(2.5,p.z+2.0),.5,bounds.z)},dt);
+   const safe=suggested?.target;
+   advance(c,{x:safe?.x??clamp(p.x+(p.x>=enemy.x?2:-2),-bounds.x,bounds.x),
+    z:clamp(Math.max(6.5,safe?.z??p.z+2),.5,bounds.z)},dt);
    if(state.guardClock===0){guard(true);state.guardClock=.45;}
   }else{
    const plan=getCards().plan(available,unlocked,allies,near);
+   // Casting under immediate Farolera pressure repeats the old failure:
+   // reposition behind our summons first, then cast from a safe zone.
+   const safeToCast=(suggested?.danger||0)<.42;
    if(plan&&available>=plan.cost&&state.cooldown===0&&
-    c.outer.position.z>.5&&canCast(c,plan)){
+    c.outer.position.z>.5&&safeToCast&&canCast(c,plan)){
     if(cast(c,plan,'begin')){
      state.selected=plan;state.casting=.5;state.cooldown=1.1;
      state.casts++;action='cast';
@@ -92,13 +100,18 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
      orb.position.z>=-.2);
     const home=usableOrbs.filter(orb=>orb.position.z>=0);
     const candidate=nearest(c.outer.position,home.length?home:usableOrbs);
-    const retreat=threat&&learning.choose('lioren',ctx,
-     ['collect','retreat'],'collect')==='retreat';
-    if(candidate.item&&!retreat&&(available<unlocked-.02||unlocked<3)){
+    const retreat=threat&&(urgent||learning.choose('lioren',ctx,
+     ['collect','retreat'],'collect')==='retreat');
+    const exposed=candidate.item&&positioning?.dangerAt(
+     candidate.item.position,enemies)>.35;
+    if(candidate.item&&!retreat&&!exposed&&
+     (available<unlocked-.02||unlocked<3)){
      const p=candidate.item.position,pickup=candidate.item.pickupRadius||3.65;
      const destination={x:p.x,z:clamp(p.z+pickup-.25,.5,bounds.z)};
      if(candidate.d>pickup-.3)advance(c,destination,dt);
      state.collects++;action='collect';
+    }else if((urgent||exposed)&&suggested?.target){
+     advance(c,suggested.target,dt,.95);action=suggested.action;
     }else if(near.item&&near.d<=c.attackRange+.1&&state.attackCooldown===0){
      face(c,near.item.position);
      if(attack(c,near.item.target)){state.attacks++;state.attackCooldown=1.15;}
@@ -106,10 +119,10 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
     }else if(near.item&&threat){
      face(c,near.item.position);guard(true);state.guardClock=.45;action='guard';
     }else{
-     const destination={x:clamp(near.item?.position.x||0,-bounds.x,bounds.x),
-      z:Math.max(1.1,Math.min(bounds.z,c.outer.position.z))};
-     if(c.outer.position.z>5.5)advance(c,{x:destination.x,z:5.0},dt,.75);
-     action='position';
+     // No unprompted march to Z=5. Choose a defensible lane and learn
+     // whether holding or flanking worked in this tactical situation.
+     if(suggested?.target)advance(c,suggested.target,dt,.72);
+     action=suggested?.action||'position';
     }
    }
   }
