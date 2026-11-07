@@ -4,7 +4,7 @@
  * All distances measured in board world units.
  */
 export function createRivalCasterAI({
- getCaster,getOrbs,getEnemies,getThreats,getResourceState,getCastPlan,
+ getCaster,getOrbs,getEnemies,getThreats,getResourceState,getCastPlan,getStagingPosition,
  move,face,guard,attack,cast,onCastResolve,animate,canCast,
  bounds={x:7.25,z:14.75},
  settings={}
@@ -133,8 +133,17 @@ export function createRivalCasterAI({
   // The economic plan has priority when a card is affordable: do not
   // endlessly chase orbs while waiting to cast an already available unit.
   const planned=getCastPlan?.(c,amount,resources)||null;
-  if(planned&&amount>=planned.cost&&pos.z<0&&
-     startCast(c,{x:pos.x,z:pos.z},atRisk,planned))return;
+  // Build the formation in the rearguard instead of casting a high-value
+  // Telépate next to hostile summons. Escort units then have approach time.
+  if(planned&&amount>=planned.cost&&pos.z<0){
+   const staging=getStagingPosition?.(c,planned)||null;
+   if(staging&&distance(pos,staging)>.35){
+    state.mode='stage-summon';
+    advanceToward(c,staging,dt,1);
+    return;
+   }
+   if(startCast(c,{x:pos.x,z:pos.z},atRisk,planned))return;
+  }
   // Enter enemy territory ONLY for a feasible orb. Once magnetized or
   // collected, immediately return to the enemy half of the arena.
   const canPursue=orbs.item&&(!(pos.z>0)||feasibleOrb(c,orbs.item));
