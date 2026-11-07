@@ -4,7 +4,7 @@
  * Existing shield/armor/extraction handlers remain authoritative
  * until each one is migrated and equivalence-tested.
  */
-const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@5404064c7446565fcf45cef8819d2ca804160d06/nueva-version/compartido/factores-core.js';
+const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@5b2935e06a3ce238fbd3779118b707503502db2f/nueva-version/compartido/factores-core.js';
 const own=(cardId,side)=>({
  kariona:[
   {factor:'escudo',semantic:{category:'magico'},application:{root:'factor',activation:'pasiva'},
@@ -14,7 +14,7 @@ const own=(cardId,side)=>({
  ],
  telepate:[{factor:'confusion',semantic:{category:'psiquico'},
   application:{root:'habilidad',activation:'disparador'},
-  config:{mode:'time',duration:1,radius:6}}],
+  config:{mode:'action',radius:6}}],
  semillera:[{factor:'extraccion',semantic:{category:'elemental'},
   application:{root:'habilidad',activation:'disparador'},
   config:{mode:'time',interval:10,potency:1}}],
@@ -67,8 +67,16 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
    sourceId:source.cardId,targetId:target.cardId||'summon'});
   confusion.set(target,instance);
   target.rokConfusion={factor:'confusion',category:'psiquico',
-   negative:true,remaining:instance.state.remaining,source,
-   outcome,resolved:false};
+   negative:true,remaining:null,source,
+   outcome,resolved:false,actionGated:true};
+  return true;
+ }
+ function resolveConfusion(target,result='completed'){
+  const instance=confusion.get(target);
+  if(!instance||!core)return false;
+  core.completeFactorAction(instance,{result});
+  confusion.delete(target);
+  if(target?.rokConfusion)target.rokConfusion=null;
   return true;
  }
  function tick(dt,units=[]){
@@ -84,7 +92,7 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
    core.stepFactor(factor,dt);
    if(!factor.state.active){
     confusion.delete(target);target.rokConfusion=null;
-   }else if(target.rokConfusion)
+   }else if(target.rokConfusion&&!target.rokConfusion.actionGated)
     target.rokConfusion.remaining=factor.state.remaining;
   }
   for(const unit of units){
@@ -119,7 +127,7 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
   // implemented; do not give Astarin an unearned permanent immunity.
   return !!(shield&&unit.rokPsychicShieldActive&&core.factorBlocks(shield,event));
  }
- return {load,register,attachEquipment,tick,blocks,applyConfusion,
+ return {load,register,attachEquipment,tick,blocks,applyConfusion,resolveConfusion,
   get managesConfusion(){return !!core;},
   get confusionCount(){return confusion.size;},
   get loaded(){return !!core;},
