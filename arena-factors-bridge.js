@@ -1,10 +1,10 @@
 /* R.O.K. Arena 2.5D — adapter to the ONE canonical factor engine.
  * No local copy of factor mechanics. The canonical ES module lives in
  * rok-lirte-html/nueva-version/compartido/factores-core.js.
- * Existing extraction handlers remain authoritative
- * until each one is migrated and equivalence-tested.
+ * Resource capacity and accounting remain in the combat HUD; extraction
+ * events originate from the canonical factor core, not a second counter.
  */
-const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@f8ae4eef3a7cbd0ba819ee96f2eb6108415e0004/nueva-version/compartido/factores-core.js';
+const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@6a05aab7e904158419238562b37f3ea9832086d8/nueva-version/compartido/factores-core.js';
 const own=(cardId,side)=>({
  kariona:[
   {factor:'escudo',semantic:{category:'magico'},application:{root:'factor',activation:'pasiva'},
@@ -18,7 +18,7 @@ const own=(cardId,side)=>({
   config:{mode:'action',radius:6}}],
  semillera:[{factor:'extraccion',semantic:{category:'elemental'},
   application:{root:'habilidad',activation:'disparador'},
-  config:{mode:'time',interval:10,potency:1}}],
+  config:{mode:'instant',potency:.25,resourceOperation:'recharge'}}],
  astarium:[
   {factor:'sanacion',semantic:{category:'magico'},application:{root:'habilidad',activation:'pasiva'},
    config:{mode:'time',interval:1,potency:1,radius:6}},
@@ -112,6 +112,25 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
   unit.rokPsychicShieldActive=shield.state.active;
   unit.rokPsychicShieldRemaining=shield.state.remaining;
   return true;
+ }
+ // One extraction event per accepted pickup/tick. The card/orb supplies
+ // kind, potency, timing and the HUD commit operation. The factor itself
+ // authorizes the extraction event but does not own elemental reservoirs.
+ function extract({sourceId='element-source',side='ally',kind='recharge',
+  potency=1,commit}={}){
+  if(typeof commit!=='function')throw Error('Extracción requiere commit de economía');
+  if(!core)return commit(); // proven legacy economy fallback, exactly once
+  const instance=core.createFactorInstance({
+   factor:'extraccion',semantic:{category:'elemental'},
+   application:{root:'factor',activation:'disparador'},
+   config:{mode:'instant',potency,resourceOperation:kind},
+   sourceId,targetId:side
+  });
+  const events=core.stepFactor(instance,0);
+  if(events.length!==1||events[0].resourceOperation!==kind)
+   return false;
+  // The existing HUD still validates unlocked capacity and full resources.
+  return commit();
  }
  function attachEquipment(unit){
   if(!unit||!core)return null;
@@ -235,7 +254,7 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
   return !!(shield&&unit.rokPsychicShieldActive&&core.factorBlocks(shield,event));
  }
  return {load,register,attachEquipment,tick,blocks,applyConfusion,resolveConfusion,
-  absorbShieldDamage,refreshShield,refreshPsychicShield,mitigateArmorDamage,
+  absorbShieldDamage,refreshShield,refreshPsychicShield,mitigateArmorDamage,extract,
   get managesConfusion(){return !!core;},
   get confusionCount(){return confusion.size;},
   get loaded(){return !!core;},
