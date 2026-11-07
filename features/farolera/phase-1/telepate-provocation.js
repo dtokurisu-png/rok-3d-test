@@ -32,7 +32,8 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
   const confusion=unit.rokConfusion;
   if(!confusion)continue;
   confusion.remaining-=dt;
-  if(confusion.remaining<=0){
+  // Float-safe expiry: 0.99 + 0.01 must equal one full second.
+  if(confusion.remaining<=1e-8){
    unit.rokConfusion=null;
    if(VALID_STAGE(unit))onResolveConfusion?.(unit,Math.min(2,Math.floor(random()*3)));
   }
