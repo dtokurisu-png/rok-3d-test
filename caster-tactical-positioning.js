@@ -16,6 +16,12 @@ export function createCasterTacticalPositioning({id,side,learning,bounds}){
    e.target?.cardId==='telepate'?6.5:4.8;
   return total+Math.max(0,(reach-d)/reach)*(e.target?.cardId==='farolera'?2.2:1);
  },0);
+ function finishMatch(won){
+  // Outcome is attributed to the last positioning decision only; it must
+  // not override survival observations from earlier in the match.
+  if(last)learning?.observe(id,last.ctx,last.action,won?1.25:-2.5);
+  reset();
+ }
  function reset(){last=null;clock=0;decision=null;decisionAge=0;}
  function tick({caster,enemies=[],resources=0,casts=0,allies=0,dt=0,mission='idle'}){
   const p=caster.outer.position;clock+=dt;decisionAge+=dt;
@@ -72,5 +78,6 @@ export function createCasterTacticalPositioning({id,side,learning,bounds}){
   return {action:decision.action,target:decision.target,
    danger:currentDanger,context:ctx,imminent,nearby:enemiesNear(p,enemies)};
  }
- return {tick,reset,dangerAt};
+ return {tick,reset,finishMatch,dangerAt,
+  get status(){return {action:decision?.action||'hold',context:last?.ctx||'',age:decisionAge};}};
 }
