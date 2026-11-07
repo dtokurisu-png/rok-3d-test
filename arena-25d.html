@@ -889,8 +889,7 @@ const MAX_ACTIVE_SUMMONS_PER_SIDE=6;
 // Lightweight XZ circle colliders. No meshes, raycasts, or extra physics engine.
 // Summons steer around nearby bodies; occupied cells are resolved gently.
 const COLLIDER_RADIUS={caster:.52,summon:.43};
-const colliderUnits=()=>[...casters,...combatants].filter(u=>u?.outer&&u.hp>0&&
- u.role==='caster'?u?.outer&&u.hp>0&&u.stage==='active':
+const colliderUnits=()=>[...casters,...combatants].filter(u=>
  u?.outer&&u.hp>0&&u.stage==='active');
 const bodyRadius=u=>u.role==='caster'?COLLIDER_RADIUS.caster:COLLIDER_RADIUS.summon;
 function moveSummonAvoidingBodies(unit,dx,dz,step){
@@ -927,12 +926,12 @@ function resolveCombatantOverlaps(){
    let dx=pb.x-pa.x,dz=pb.z-pa.z,d=Math.hypot(dx,dz);
    const limit=bodyRadius(a)+bodyRadius(b);
    if(d>=limit)continue;
-   if(d<.0001){dx=(i%2?1:-1);dz=(j%2?1:-1);d=Math.SQRT2;}
+   if(d<.0001){dx=(i%2?1:-1)*.001;dz=(j%2?1:-1)*.001;d=Math.hypot(dx,dz);}
    const nx=dx/d,nz=dz/d,overlap=Math.min(.28,limit-d);
    const aCaster=a.role==='caster',bCaster=b.role==='caster';
    // Do not jolt a caster in a cast animation to accommodate a summon.
-   const aWeight=aCaster&&!bCaster?0:aCaster&&bCaster?.5:1;
-   const bWeight=bCaster&&!aCaster?0:aCaster&&bCaster?.5:1;
+   const aWeight=aCaster&&!bCaster?0:(aCaster&&bCaster?.5:1);
+   const bWeight=bCaster&&!aCaster?0:(aCaster&&bCaster?.5:1);
    const sum=aWeight+bWeight||1;
    pa.x=THREE.MathUtils.clamp(pa.x-nx*overlap*aWeight/sum,-MAX_X,MAX_X);
    pa.z=THREE.MathUtils.clamp(pa.z-nz*overlap*aWeight/sum,-MAX_Z,MAX_Z);
