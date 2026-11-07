@@ -566,6 +566,20 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
       </div>
       <p style="font-size:11px;color:#a6ced0">Se guarda en este navegador. Exporta el JSON y súbelo a assets/ai/chiara-memory.json del repositorio para compartirlo.</p>
     </section>
+
+    <section aria-label="Entrenamiento de Lioren" style="padding:12px;margin:8px 0;border:1px solid #88b85b;border-radius:9px;background:#122519">
+      <strong>🌿 Entrenamiento de Lioren (Tierra)</strong>
+      <label style="display:flex;align-items:center;gap:8px;margin:9px 0">
+       <input id="liorenTrainingToggle" type="checkbox"> Control autónomo y aprendizaje
+      </label>
+      <p id="liorenLearningStats" role="status">Memoria local independiente de Chiara</p>
+      <div class="buttons">
+       <button id="liorenLearningExport" type="button">Exportar aprendizaje de Lioren</button>
+       <button id="liorenLearningImport" type="button">Importar aprendizaje</button>
+       <input id="liorenLearningFile" type="file" accept=".json,application/json" hidden>
+      </div>
+      <p style="font-size:11px;color:#bbd3ba">Modo entrenamiento: Chiara y Lioren pueden combatir con IA. Desactívalo para volver al control manual. Memoria compartible en assets/ai/lioren-memory.json.</p>
+    </section>
     <section id="testerSceneTools" aria-label="Escenario">
       <div class="sceneTesterButtons"><button id="testerSceneLocal" type="button">↻ Cargar escenario</button><span id="testerSceneCurrent" class="sceneTesterCurrent">Arena original</span></div>
       <p id="testerSceneStatus" class="sceneTesterStatus" role="status">Comprobando escenario…</p>
@@ -790,11 +804,13 @@ import {createArenaCastFlyer} from './arena-cast-flyer.js?v=phase2-20261107-1';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261107-learning-2';
-import {createChiaraLearning} from './chiara-learning.js?v=20261107-1';
+import {createChiaraLearning} from './chiara-learning.js?v=20261107-2';
+import {createLiorenTrainingAI} from './lioren-training-ai.js?v=20261107-1';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 
 const qs=s=>document.querySelector(s);
 const chiaraLearning=createChiaraLearning();
+const liorenLearning=createChiaraLearning({storageKey:'rok.lioren.learning.v1'});
 const learningStats=()=>{
  const s=chiaraLearning.stats();
  qs('#chiaraLearningStats').textContent=
@@ -817,6 +833,27 @@ qs('#chiaraLearningFile').addEventListener('change',async e=>{
 chiaraLearning.loadShared('./assets/ai/chiara-memory.json')
  .then(()=>learningStats()).catch(()=>learningStats());
 learningStats();
+const liorenStats=()=>{
+ const s=liorenLearning.stats(),el=qs('#liorenLearningStats');
+ el.textContent=s.matches+' partidas · '+s.contexts+' situaciones · '+
+ s.samples+' experiencias'+(s.stored?' · guardado local':' · almacenamiento bloqueado');
+};
+qs('#liorenLearningExport').onclick=()=>{
+ const blob=new Blob([liorenLearning.exportJSON()],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='lioren-memory.json';a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);liorenStats();
+};
+qs('#liorenLearningImport').onclick=()=>qs('#liorenLearningFile').click();
+qs('#liorenLearningFile').onchange=async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{liorenLearning.importJSON(await file.text());liorenStats();}
+ catch(error){qs('#liorenLearningStats').textContent='Error al importar: '+error.message;}
+ e.target.value='';
+};
+liorenLearning.loadShared('./assets/ai/lioren-memory.json')
+ .then(liorenStats).catch(liorenStats);
+liorenStats();
 const mobileCombatMode=window.matchMedia('(pointer:coarse)').matches||
  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 // Full decorative studio scenery is opt-in on desktop; combat works with
@@ -3562,7 +3599,9 @@ function resetDemoCombat(){
   // A new match invalidates any in-progress manual attack/cooldown.
   casterMovement?.disable();
   if(rivalAI?.status?.elapsed>5)chiaraLearning.finishMatch();
-  rivalAI?.reset();learningStats();
+  if(liorenTrainingAI?.active&&liorenTrainingAI.status.elapsed>5)liorenLearning.finishMatch();
+  liorenTrainingAI?.reset();
+  rivalAI?.reset();learningStats();liorenStats();
   rivalAction.attackUntil=0;rivalAction.castingUntil=0;rivalAction.reserved=null;
   rivalAction.flyerToken=null;
   guardHoldSeconds.ally=0;guardHoldSeconds.enemy=0;
@@ -5384,6 +5423,7 @@ function casterAttackTarget(c){
 // Mode for manually controlling the real Chiara/Lioren models.
 let casterMovement=null;
 let rivalAI=null;
+let liorenTrainingAI=null;
 const movementLoader=createCasterMovementLoader({
  FBXLoader,adaptClip:adaptAnimationFBX,getManualController:()=>casterMovement,
  onClipReady:(caster,role,clip)=>{
@@ -5409,6 +5449,9 @@ casterMovement=createCasterMobility({
  onModeChange:(enabled)=>{
   // The selected caster is manual; the rest of the simulation remains live.
   if(enabled&&casterReview.active)finishCasterReview();
+  if(enabled&&casterMovement?.caster?.side==='ally'&&liorenTrainingAI?.active){
+   liorenTrainingAI.stop();qs('#liorenTrainingToggle').checked=false;
+  }
   return playing;
  }
 });
@@ -6234,6 +6277,108 @@ rivalAI=createRivalCasterAI({
  }
 });
 
+
+const liorenAiCast={reserved:null,token:null,castUntil:0,attackUntil:0};
+liorenTrainingAI=createLiorenTrainingAI({
+ learning:liorenLearning,bounds:{x:MAX_X,z:MAX_Z},
+ getCaster:()=>casters.find(c=>c.side==='ally'&&c.stage==='active'&&
+  !(casterMovement?.enabled&&casterMovement.caster===c)),
+ getOrbs:()=>{
+  const available=[];
+  elementOrbs.forEachActiveOrb((orb,index)=>{
+   if(orb.group?.visible&&!orb.target)
+    available.push({id:index,position:orb.group.position});
+  });
+  for(let i=0;i<deathElementFragments.length;i++){
+   const item=deathElementFragments[i];
+   if(item.fx?.group?.parent&&item.age<20)
+    available.push({id:'death-'+i,kind:'fragment',pickupRadius:1.05,
+     position:item.fx.group.position});
+  }
+  return available;
+ },
+ getEnemies:()=>[...combatants,...casters].filter(u=>u.side==='enemy'&&canDamageTarget(u))
+  .map(u=>({position:u.outer.position,target:u})),
+ getResources:()=>combatHud.getResources('ally','earth'),
+ getCards:()=>{
+  const live=[...cardSummons].filter(u=>u.side==='ally'&&u.hp>0&&
+   !['dead','dying','vanishing'].includes(u.stage));
+  const plan=(available,unlocked,units,near)=>{
+   if(units.length>=MAX_ACTIVE_SUMMONS_PER_SIDE)return null;
+   const count=id=>units.filter(u=>u.cardId===id).length;
+   const seed=count('semillera'),warrior=count('kariona'),support=count('astarium');
+   let id=null;
+   // Grow Earth economy, then defend with warriors and diversify the deck.
+   if(seed<1&&available>=1)id='semillera';
+   else if(warrior<2&&available>=2)id='kariona';
+   else if(support<1&&available>=3)id='astarium';
+   else if(warrior<4&&available>=2)id='kariona';
+   else if(seed<2&&available>=1)id='semillera';
+   const card=liorenSpellCards[0].find(c=>c?.id===id);
+   return card&&liorenSummonModels.get(card.id)?.scene?card:null;
+  };
+  return {live,plan};
+ },
+ canCast:(c,card)=>!!card&&c.stage==='active'&&c.outer.position.z>.5&&
+  hasSummonRoom('ally')&&!!liorenSummonModels.get(card.id)?.scene,
+ cast:(c,card,phase)=>{
+  if(phase==='begin'){
+   if(liorenAiCast.reserved||!combatHud.spend('ally',card.element,card.cost))
+    return false;
+   liorenAiCast.reserved=card;
+   liorenAiCast.token=castFlyer.begin('ally',
+    {name:card.name,element:card.element,duration:.5});
+   const clip=c.model?.userData?.rokCast22Clip;
+   if(clip){
+    const sub=THREE.AnimationUtils.subclip(clip,'ROK_Lioren_TrainingCast',0,48,30);
+    if(sub.tracks.length){
+     const speed=Math.max(.1,sub.duration/.5);
+     if(casterCastLayers.upper(c,'card-cast',sub,speed))
+      casterCastLayers.setCastLower(c,sub,speed,0);
+    }
+   }
+   liorenAiCast.castUntil=performance.now()+500;
+   return true;
+  }
+  const reserved=liorenAiCast.reserved;
+  liorenAiCast.reserved=null;
+  castFlyer.release('ally',liorenAiCast.token);liorenAiCast.token=null;
+  if(!reserved)return false;
+  const success=c.stage==='active'&&summonLiorenCard(c,reserved);
+  if(!success)combatHud.refund('ally',reserved.element,reserved.cost);
+  const finish=c.model?.userData?.rokCast21Clip;
+  if(finish&&finish.duration>20/30)
+   casterCastLayers.upper(c,'card-finish',finish,1,
+    {startTime:20/30,transition:true});
+  else casterCastLayers.endUpper(c,'card-cast');
+  liorenAiCast.castUntil=performance.now()+250;
+  return success;
+ },
+ move:(c,x,z)=>{c.outer.position.x=x;c.outer.position.z=z;
+  if(performance.now()>liorenAiCast.castUntil)
+   casterCastLayers.movement(c,'forward');},
+ face:(c,p)=>{const dx=p.x-c.outer.position.x,dz=p.z-c.outer.position.z;
+  if(Math.hypot(dx,dz)>.01)c.outer.rotation.y=Math.atan2(dx,dz);},
+ guard:on=>{
+  const c=casters.find(u=>u.side==='ally'&&u.stage==='active');
+  if(!c)return;
+  c.manualDefending=on;casterCastLayers.shield(c,on);
+ },
+ attack:(c,target)=>{
+  if(!canDamageTarget(target))return false;
+  const clip=c.model?.userData?.rokAttackClip;
+  if(!clip)return false;
+  casterCastLayers.upper(c,'attack',clip,1);
+  c.kind='caster';c.attackDamage=1;
+  launchSpell(c,target,{manualCasterShot:true});return true;
+ }
+});
+qs('#liorenTrainingToggle').onchange=e=>{
+ if(e.target.checked&&casterMovement?.enabled&&casterMovement.caster?.side==='ally')
+  casterMovement.disable();
+ liorenTrainingAI.setActive(e.target.checked);
+};
+
 /* Control táctil MOBA: no duplica ni reemplaza la lógica de combate.
    Los botones llaman a las mismas acciones que WASD/Espacio/Shift. */
 function setupMobileMobaControls(){
@@ -6805,6 +6950,7 @@ function loop(now){
     framePhase='resource-hud';combatHud.advance(dt,casters);
     framePhase='element-orbs';elementOrbs.tick(dt);
     framePhase='chiara-ai';rivalAI?.step(dt);
+    framePhase='lioren-ai';liorenTrainingAI?.step(dt);
    }catch(error){reportCombatFault(error);}
   }else if(loaded){
    elementOrbs.idle(dt);
