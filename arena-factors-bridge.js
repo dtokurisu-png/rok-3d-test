@@ -79,8 +79,10 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
  function refreshShield(unit,{newLife=false}={}){
   if(!core||!unit||unit.cardId!=='kariona')return false;
   if(!seen.has(unit))register(unit);
-  const shield=shields.get(unit);
+  const shield=shields.get(unit)||
+   seen.get(unit)?.find(f=>f.factor==='escudo'&&f.semantic.category==='magico');
   if(!shield)return false;
+  shields.set(unit,shield);
   if(newLife){
    shield.state.capacity=shield.config.capacity;shield.state.active=true;
   }
