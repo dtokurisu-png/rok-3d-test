@@ -4,11 +4,12 @@
  * Existing shield/armor/extraction handlers remain authoritative
  * until each one is migrated and equivalence-tested.
  */
-const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@5b2935e06a3ce238fbd3779118b707503502db2f/nueva-version/compartido/factores-core.js';
+const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@e8ddb82f8d595ce7e0692936293e419291eb825b/nueva-version/compartido/factores-core.js';
 const own=(cardId,side)=>({
  kariona:[
   {factor:'escudo',semantic:{category:'magico'},application:{root:'factor',activation:'pasiva'},
-   config:{mode:'hit',capacity:3}},
+   config:{mode:'hit',capacity:3,
+    protectsCategories:['fisico','magico','elemental','psiquico']}},
   {factor:'armadura',semantic:{category:'fisico'},application:{root:'factor',activation:'pasiva'},
    config:{mode:'damage',capacity:1}}
  ],
@@ -31,6 +32,7 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
  const active=new Map();
  const confusion=new Map();
  const seen=new WeakMap();
+ const shields=new Map();
  function load(){
   if(loading)return loading;
   loading=import(/* @vite-ignore */CORE_URL).then(module=>{
@@ -46,9 +48,44 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
   const items=specs.map(spec=>core.createFactorInstance({...spec,
    sourceId:unit.cardId,targetId:unit.cardId}));
   seen.set(unit,items);
+  if(unit.cardId==='kariona'){
+   const shield=items.find(f=>f.factor==='escudo');
+   // A returning victorious summon keeps its previous remaining shield.
+   shield.state.capacity=Math.min(shield.state.capacity,
+    Math.max(0,Number(unit.magicShieldHits??shield.state.capacity)));
+   shield.state.active=shield.state.capacity>0;
+   shields.set(unit,shield);
+  }
   if(unit.cardId==='astarium')
    active.set(unit,items.find(f=>f.factor==='sanacion'));
   return items;
+ }
+ function absorbShieldDamage(unit,damage,{category='fisico'}={}){
+  if(!core||!unit||unit.cardId!=='kariona')return null;
+  if(!seen.has(unit))register(unit);
+  const shield=shields.get(unit);
+  if(!shield)return null;
+  // The old HUD field is a projection of canonical factor state, not a
+  // second hit counter. Sync if an outside respawn refreshed the legacy HP.
+  if(Number(unit.magicShieldHits)>shield.state.capacity){
+   shield.state.capacity=Math.min(shield.config.capacity,
+    Math.floor(unit.magicShieldHits));
+   shield.state.active=shield.state.capacity>0;
+  }
+  const result=core.absorbFactorDamage(shield,damage,{category});
+  unit.magicShieldHits=shield.state.capacity;
+  return {...result,capacity:shield.state.capacity};
+ }
+ function refreshShield(unit,{newLife=false}={}){
+  if(!core||!unit||unit.cardId!=='kariona')return false;
+  if(!seen.has(unit))register(unit);
+  const shield=shields.get(unit);
+  if(!shield)return false;
+  if(newLife){
+   shield.state.capacity=shield.config.capacity;shield.state.active=true;
+  }
+  unit.magicShieldHits=shield.state.capacity;
+  return true;
  }
  function attachEquipment(unit){
   if(!unit||!core)return null;
@@ -95,6 +132,11 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
    }else if(target.rokConfusion&&!target.rokConfusion.actionGated)
     target.rokConfusion.remaining=factor.state.remaining;
   }
+  for(const [unit] of shields){
+   if(!present.has(unit)||unit.hp<=0||
+    ['dead','dying','vanishing'].includes(unit.stage))
+    shields.delete(unit);
+  }
   for(const unit of units){
    if(!unit?.cardId)continue;
    if(!seen.has(unit))register(unit);
@@ -128,6 +170,7 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
   return !!(shield&&unit.rokPsychicShieldActive&&core.factorBlocks(shield,event));
  }
  return {load,register,attachEquipment,tick,blocks,applyConfusion,resolveConfusion,
+  absorbShieldDamage,refreshShield,
   get managesConfusion(){return !!core;},
   get confusionCount(){return confusion.size;},
   get loaded(){return !!core;},
