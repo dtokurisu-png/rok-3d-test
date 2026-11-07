@@ -827,7 +827,7 @@ import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semille
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-composite-22-21-2';
 import {createArenaCastFlyer} from './arena-cast-flyer.js?v=phase2-20261107-1';
-import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-extraction-8';
+import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-healing-9';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261107-position-4';
@@ -952,10 +952,13 @@ const casters=[],combatants=[];
 const cardSummons=new Set();
 // One shared factor library; the adapter never duplicates shield/armor rules.
 const arenaFactors=createArenaFactorsBridge({
- onHeal:(unit,power)=>{
-  const before=unit.hp;
-  unit.hp=Math.min(unit.maxHp,unit.hp+power);
-  if(unit.hp>before)makeFloatingWord(unit,'SANACIÓN +'+(unit.hp-before));
+ onHeal:(unit,resolution,source)=>{
+  // The factor core authorizes precisely how much HP can be restored.
+  // The arena only commits the value and renders the healing pulse.
+  if(resolution.healed<=0)return;
+  unit.hp=resolution.next;
+  makeFloatingWord(unit,'SANACIÓN +'+resolution.healed);
+  spawnHealingPulseFx(unit,source);
  },
  onLoad:()=>{
   const status=qs('#factorCoreStatus');
@@ -2764,6 +2767,46 @@ function updateStunHalo(c,dt){
   }
 }
 // Rótulo flotante que sube y se desvanece encima de la cabeza.
+// Healing is a non-damaging luminous pulse. Independent from hit overlays,
+// casting mixers, shield shells and the target's combat action.
+const healingPulseFx=[];
+function spawnHealingPulseFx(unit,source){
+ if(!unit?.outer?.position)return;
+ const base=unit.outer.position;
+ const group=new THREE.Group();
+ group.position.set(base.x,.4,base.z);root.add(group);
+ const material=new THREE.SpriteMaterial({map:glowTexture,color:0x83ffad,
+  transparent:true,opacity:.85,depthWrite:false,blending:THREE.AdditiveBlending});
+ const particles=[];
+ for(let i=0;i<6;i++){
+  const spr=new THREE.Sprite(material);
+  const angle=i*Math.PI/3;
+  spr.position.set(.28*Math.cos(angle),.1+i*.07,.28*Math.sin(angle));
+  spr.scale.set(.18,.18,1);group.add(spr);
+  particles.push({spr,angle});
+ }
+ healingPulseFx.push({group,material,particles,age:0,life:.7});
+}
+function updateHealingPulseFx(dt){
+ for(let i=healingPulseFx.length-1;i>=0;i--){
+  const fx=healingPulseFx[i];fx.age+=dt;
+  const progress=Math.min(1,fx.age/fx.life);
+  fx.material.opacity=.85*(1-progress);
+  for(const p of fx.particles){
+   p.spr.position.y+=dt*.8;
+   p.spr.position.x+=dt*.25*Math.cos(p.angle);
+   p.spr.position.z+=dt*.25*Math.sin(p.angle);
+  }
+  if(progress>=1){
+   root.remove(fx.group);fx.material.dispose();
+   healingPulseFx.splice(i,1);
+  }
+ }
+}
+function clearHealingPulseFx(){
+ for(const fx of healingPulseFx){root.remove(fx.group);fx.material.dispose();}
+ healingPulseFx.length=0;
+}
 const floatingWords=[];
 function makeFloatingWord(c,word='ATURDIDO'){
   const canvas=document.createElement('canvas');canvas.width=512;canvas.height=128;
@@ -3196,8 +3239,10 @@ function beginSummonEmergence(c){
    c.magicShieldHits=c.magicShieldMax;
    arenaFactors.refreshShield(c,{newLife:true});
   }
-  if(!winner&&c.cardId==='astarium')
+  if(!winner&&c.cardId==='astarium'){
    arenaFactors.refreshPsychicShield(c,{newLife:true});
+   arenaFactors.refreshHealing(c,{newLife:true});
+  }
   c.mana=c.maxMana;c.manaTimer=0;c.dodgeCooldown=0;
   c.stunLeft=0;c.hitLeft=0;c.cooldown=.55;c.specialCooldown=0;
   c.castT=0;c.castTarget=null;c.castFired=false;
@@ -3671,6 +3716,7 @@ function updateSemilleraCrystals(dt){
 }
 function resetDemoCombat(){
    castFlyer.reset();
+  clearHealingPulseFx();
   telepateAuraVisuals.clear();
   for(const unit of combatants){
     unit.rokProvocation=null;unit.rokConfusion=null;unit.rokAuraClock=0;
@@ -5094,9 +5140,10 @@ function resolveTelConfusedAttack(attacker,telepate,outcome){
  makeFloatingWord(attacker,'¡CONFUSIÓN!');
 }
 function updateDuel(dt){
-  // The new engine owns only explicitly migrated healing pulses here.
-  // Never run duplicate shield, confusion, armor or extraction effects.
+  // Healing events come from the canonical factor. The arena updates
+  // visual effects independently, including in interrupted matches.
   arenaFactors.tick(dt,combatants);
+  updateHealingPulseFx(dt);
   if(matchRestartLeft!==null){
     // Un caster derrotado no anula proyectiles que YA habían salido.
     // Esperar su impacto antes de reiniciar permite también el empate.
