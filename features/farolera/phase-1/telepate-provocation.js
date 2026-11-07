@@ -1,13 +1,14 @@
 /**
  * R.O.K. 3D — Telépate de Agua: Aura de Provocación.
- * Every five seconds, the pulse taunts hostile summons within eight units.
- * Taunted summons remain enemies and chase/attack the Telépate for six seconds.
+ * Every five seconds, the pulse taunts hostile summons within ten units.
+ * Taunted summons remain enemies and chase/attack the Telépate for up to eight seconds.
  * It NEVER changes their allegiance, controls them, or limits them to two.
  * Each affected unit independently has a 50% chance of one-second confusion.
  */
-export const TELEPATE_AURA_RADIUS=8;
+export const TELEPATE_AURA_RADIUS=10;
 export const TELEPATE_AURA_INTERVAL=5;
-export const TELEPATE_PROVOKE_DURATION=6;
+export const TELEPATE_PROVOKE_DURATION=8;
+export const TELEPATE_EXIT_LINGER=3;
 export const TELEPATE_CONFUSE_CHANCE=.5;
 export const TELEPATE_CONFUSE_DURATION=1;
 const VALID_STAGE=u=>u&&Number(u.hp)>0&&
@@ -43,6 +44,12 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
   const fx=unit.rokProvocation;
   if(!fx)continue;
   if(fx.originalSide!==undefined)unit.side=fx.originalSide;
+  // A rescued Telépate can temporarily leave its own aura. Existing
+  // pursuers continue for precisely three seconds after crossing the edge.
+  if(!fx.outside&&VALID_STAGE(fx.source)&&
+     dist(unit,fx.source)>TELEPATE_AURA_RADIUS+1e-8){
+   fx.outside=true;fx.remaining=TELEPATE_EXIT_LINGER;
+  }
   fx.remaining=(Number.isFinite(fx.remaining)?fx.remaining:0)-dt;
   if(!present.has(fx.source)||!provocationSource(unit))unit.rokProvocation=null;
  }
@@ -57,7 +64,7 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
     if(enemy===source||enemy.role!=='summon'||enemy.side===source.side||
        !VALID_STAGE(enemy)||dist(source,enemy)>TELEPATE_AURA_RADIUS+1e-8)continue;
     // Guaranteed provocation: every eligible hostile switches target, not side.
-    enemy.rokProvocation={source,remaining:TELEPATE_PROVOKE_DURATION};
+    enemy.rokProvocation={source,remaining:TELEPATE_PROVOKE_DURATION,outside:false};
     onSuccess?.(source,enemy);
     if(!enemy.rokConfusion&&random()<TELEPATE_CONFUSE_CHANCE){
       enemy.rokConfusion={remaining:TELEPATE_CONFUSE_DURATION};
