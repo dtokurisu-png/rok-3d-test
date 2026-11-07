@@ -5024,6 +5024,42 @@ void (async()=>{
 
 // Both caster rigs share the same masked locomotion/upper-body system.
 const casterLayers=createCasterLayerSystem(THREE);
+// Avoid constructing a new AnimationClip (and retained mixer action) for
+// every card cast. Scoped adapter: does not mutate Three.js globally.
+const castSubclips=new WeakMap();
+const casterMobilityThree={
+ ...THREE,
+ AnimationUtils:{
+  ...THREE.AnimationUtils,
+  subclip(source,name,start,end,fps){
+   if(name!=='ROK_Cast22_0_48')
+    return THREE.AnimationUtils.subclip(source,name,start,end,fps);
+   let clip=castSubclips.get(source);
+   if(!clip){
+    clip=THREE.AnimationUtils.subclip(source,name,start,end,fps);
+    castSubclips.set(source,clip);
+   }
+   return clip;
+  }
+ }
+};
+// Filter out root-hip position tracks ONLY during the card cast, while
+// preserving all limb rotations and ordinary WASD locomotion tracks.
+const anchoredCastLower=new WeakMap();
+const casterCastLayers={
+ ...casterLayers,
+ setCastLower(c,clip,speed,progress){
+  let cleaned=anchoredCastLower.get(clip);
+  if(!cleaned){
+   const tracks=clip.tracks.filter(track=>
+    !/(?:^|[.:])(?:mixamorig[:_])?hips\.position$/i.test(track.name));
+   cleaned=tracks.length===clip.tracks.length?clip:
+    new THREE.AnimationClip(clip.name+'_anchored',clip.duration,tracks.map(t=>t.clone()));
+   anchoredCastLower.set(clip,cleaned);
+  }
+  casterLayers.setCastLower(c,cleaned,speed,progress);
+ }
+};
 const casterRangeIndicator=createCasterRangeIndicator({THREE,range:3,approach:5.5});
 function casterAttackTarget(c){
  if(!c||c.stage!=='active')return null;
@@ -5042,9 +5078,9 @@ const movementLoader=createCasterMovementLoader({
  onClipReady:(caster,role,clip)=>casterLayers.register(caster,{[role]:clip})
 });
 casterMovement=createCasterMobility({
- THREE,getCaster:side=>casters.find(c=>c.side===side),
+ THREE:casterMobilityThree,getCaster:side=>casters.find(c=>c.side===side),
  prepareClips:movementLoader.load,
- layers:casterLayers,
+ layers:casterCastLayers,
  canControl:()=>loaded&&playing&&matchGate.isRunning,
  bounds:{x:MAX_X,z:MAX_Z},
  reviveCaster:c=>{if(c&&c.stage!=='active')resetCaster(c);},
