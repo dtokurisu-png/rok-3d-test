@@ -4533,13 +4533,22 @@ function updateDuel(dt){
   }
   // R.O.K. Lite Provocación factor: timer, independent 32% rolls and
   // forced target priority on eligible rival summons within five cells.
-  telepateAuraVisuals.update(combatants,dt);
-  stepTelepateProvocations(combatants,dt,{
-   onPulse:source=>telepateAuraVisuals.pulse(source),
-   onSuccess:(source,target)=>{
-    if(target.stage==='active')releaseSummonDuel(target);
+  // The aura is a supplementary tactical system. A visual/FX failure
+  // must not interrupt the combat loop on memory-constrained devices.
+  try{
+   telepateAuraVisuals.update(combatants,dt);
+   stepTelepateProvocations(combatants,dt,{
+    onPulse:source=>telepateAuraVisuals.pulse(source),
+    onSuccess:(source,target)=>{
+     if(target.stage==='active')releaseSummonDuel(target);
+    }
+   });
+  }catch(error){
+   if(!updateDuel.telepateAuraWarningShown){
+    console.warn('[ROK] Aura del Telépate: error aislado del combate',error);
+    updateDuel.telepateAuraWarningShown=true;
    }
-  });
+  }
   for(const c of combatants){
     if(c.cardId==='semillera'&&c.crystalHudFlash>0)
       c.crystalHudFlash=Math.max(0,c.crystalHudFlash-dt);
