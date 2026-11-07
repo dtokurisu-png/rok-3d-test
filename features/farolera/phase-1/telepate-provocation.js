@@ -1,66 +1,54 @@
 /**
  * R.O.K. 3D — Telépate de Agua: Aura de Provocación.
- * Guaranteed capture of one eligible enemy summon per 5-second pulse.
- * At most two captured summons defend the Telépate without attacking.
- * Captures persist until a guard dies, the Telépate is lost or the match resets.
+ * Every five seconds, the pulse taunts hostile summons within eight units.
+ * Taunted summons remain enemies and chase/attack the Telépate for six seconds.
+ * It NEVER changes their allegiance, controls them, or limits them to two.
  */
 export const TELEPATE_AURA_RADIUS=8;
 export const TELEPATE_AURA_INTERVAL=5;
-export const TELEPATE_GUARD_LIMIT=2;
+export const TELEPATE_PROVOKE_DURATION=6;
 const VALID_STAGE=u=>u&&Number(u.hp)>0&&
  !['dead','dying','vanishing','restoring'].includes(u.stage);
 const dist=(a,b)=>Math.hypot(a.outer.position.x-b.outer.position.x,
  a.outer.position.z-b.outer.position.z);
-// Captured units change allegiance temporarily, without replacing their card identity.
-function releaseGuard(unit){
- const fx=unit?.rokProvocation;
- if(!fx)return;
- if(fx.originalSide!==undefined)unit.side=fx.originalSide;
- unit.rokProvocation=null;
-}
 export function provocationSource(target){
  const effect=target?.rokProvocation;
  const src=effect?.source;
- if(!effect||!VALID_STAGE(src)||!VALID_STAGE(target))
-  return null;
+ if(!effect||effect.remaining<=0||!VALID_STAGE(src)||!VALID_STAGE(target)||
+    src.side===target.side)return null;
  return src;
 }
-export function telepateGuards(units,source){
- return units.filter(u=>u.rokProvocation?.source===source&&provocationSource(u));
+export function clearTelepateSource(units,source){
+ for(const target of units)
+  if(target.rokProvocation?.source===source)target.rokProvocation=null;
 }
 export function stepTelepateProvocations(units,dt,{onPulse=null,onSuccess=null}={}){
  if(!Number.isFinite(dt)||dt<0)throw new RangeError('Invalid dt');
- const active=new Set(units);
+ const present=new Set(units);
+ // Migration safety: old capture versions changed the enemy's side.
  for(const unit of units){
   const fx=unit.rokProvocation;
   if(!fx)continue;
-  if(!active.has(fx.source)||!provocationSource(unit))releaseGuard(unit);
+  if(fx.originalSide!==undefined)unit.side=fx.originalSide;
+  fx.remaining=(Number.isFinite(fx.remaining)?fx.remaining:0)-dt;
+  if(!present.has(fx.source)||!provocationSource(unit))unit.rokProvocation=null;
  }
  for(const source of units){
   if(source.cardId!=='telepate')continue;
-  if(!VALID_STAGE(source)){source.rokAuraClock=0;continue}
+  if(!VALID_STAGE(source)){source.rokAuraClock=0;continue;}
   source.rokAuraClock=(source.rokAuraClock||0)+dt;
   while(source.rokAuraClock>=TELEPATE_AURA_INTERVAL){
    source.rokAuraClock-=TELEPATE_AURA_INTERVAL;
    onPulse?.(source);
-   if(telepateGuards(units,source).length>=TELEPATE_GUARD_LIMIT)continue;
-   // Exactly ONE guaranteed capture per pulse: the nearest eligible hostile.
-   const candidates=units.filter(enemy=>
-     enemy!==source&&enemy.role==='summon'&&enemy.side!==source.side&&
-     !enemy.rokProvocation&&VALID_STAGE(enemy)&&
-     dist(source,enemy)<=TELEPATE_AURA_RADIUS+1e-8
-   ).sort((a,b)=>dist(source,a)-dist(source,b));
-   const enemy=candidates[0];
-   if(!enemy)continue;
-   enemy.rokProvocation={source,originalSide:enemy.side};
-   enemy.side=source.side;
-   onSuccess?.(source,enemy);
+   for(const enemy of units){
+    if(enemy===source||enemy.role!=='summon'||enemy.side===source.side||
+       !VALID_STAGE(enemy)||dist(source,enemy)>TELEPATE_AURA_RADIUS+1e-8)continue;
+    // Guaranteed provocation: every eligible hostile switches target, not side.
+    enemy.rokProvocation={source,remaining:TELEPATE_PROVOKE_DURATION};
+    onSuccess?.(source,enemy);
+   }
   }
  }
-}
-export function clearTelepateSource(units,source){
- for(const target of units)if(target.rokProvocation?.source===source)
-  releaseGuard(target);
 }
 
 /** Three.js-only visual layer; does not modify aura range or combat targets. */
