@@ -6,6 +6,8 @@ import {execFileSync} from 'node:child_process';
 
 const BASELINE='dd215d6a0295bbe4033d60600f63cf6d27e6442b';
 const allowedNew=[
+ // Four owner-uploaded 2026-11-07 FBXs, explicitly approved for the catalog.
+ /^animations\/(?:Catwalk Walk Forward HighKnees|Catwalk Walk|Catwalk Walking|Walking)\.fbx$/,
  /^features\/farolera\/phase-1\/[a-zA-Z0-9_.\/-]+$/,
  /^tests\/farolera-phase1(?:-[a-zA-Z0-9_-]+)?\.test\.mjs$/,
  /^docs\/FAROLERA_PHASE1\.md$/,
