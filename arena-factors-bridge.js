@@ -33,6 +33,7 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
  const confusion=new Map();
  const seen=new WeakMap();
  const shields=new Map();
+ const timedShields=new Map();
  function load(){
   if(loading)return loading;
   loading=import(/* @vite-ignore */CORE_URL).then(module=>{
@@ -56,8 +57,14 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
    shield.state.active=shield.state.capacity>0;
    shields.set(unit,shield);
   }
-  if(unit.cardId==='astarium')
+  if(unit.cardId==='astarium'){
    active.set(unit,items.find(f=>f.factor==='sanacion'));
+   const psychic=items.find(f=>f.factor==='escudo'&&
+    f.semantic.category==='psiquico');
+   timedShields.set(unit,psychic);
+   unit.rokPsychicShieldActive=true;
+   unit.rokPsychicShieldRemaining=psychic.state.remaining;
+  }
   return items;
  }
  function absorbShieldDamage(unit,damage,{category='fisico'}={}){
@@ -87,6 +94,22 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
    shield.state.capacity=shield.config.capacity;shield.state.active=true;
   }
   unit.magicShieldHits=shield.state.capacity;
+  return true;
+ }
+ function refreshPsychicShield(unit,{newLife=false}={}){
+  if(!core||!unit||unit.cardId!=='astarium')return false;
+  if(!seen.has(unit))register(unit);
+  let shield=timedShields.get(unit)||seen.get(unit)?.find(f=>
+   f.factor==='escudo'&&f.semantic.category==='psiquico');
+  if(!shield)return false;
+  timedShields.set(unit,shield);
+  if(newLife){
+   shield.state.remaining=shield.config.duration;
+   shield.state.active=true;
+   shield.state.elapsed=0;
+  }
+  unit.rokPsychicShieldActive=shield.state.active;
+  unit.rokPsychicShieldRemaining=shield.state.remaining;
   return true;
  }
  function attachEquipment(unit){
@@ -134,6 +157,18 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
    }else if(target.rokConfusion&&!target.rokConfusion.actionGated)
     target.rokConfusion.remaining=factor.state.remaining;
   }
+  for(const [unit,shield] of timedShields){
+   if(!present.has(unit)||unit.hp<=0||
+    ['dead','dying','vanishing'].includes(unit.stage)){
+    timedShields.delete(unit);
+    unit.rokPsychicShieldActive=false;
+    continue;
+   }
+   if(unit.stage==='active'&&shield.state.active)
+    core.stepFactor(shield,dt);
+   unit.rokPsychicShieldActive=shield.state.active;
+   unit.rokPsychicShieldRemaining=shield.state.remaining;
+  }
   for(const [unit] of shields){
    if(!present.has(unit)||unit.hp<=0||
     ['dead','dying','vanishing'].includes(unit.stage))
@@ -165,14 +200,13 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
  }
  function blocks(unit,event){
   if(!core||!unit||!seen.has(unit))return false;
-  const shield=seen.get(unit).find(f=>f.factor==='escudo'&&
-   f.semantic.category==='psiquico');
+  const shield=timedShields.get(unit);
   // Status timer/cooldown isn't active until its ability is separately
   // implemented; do not give Astarin an unearned permanent immunity.
   return !!(shield&&unit.rokPsychicShieldActive&&core.factorBlocks(shield,event));
  }
  return {load,register,attachEquipment,tick,blocks,applyConfusion,resolveConfusion,
-  absorbShieldDamage,refreshShield,
+  absorbShieldDamage,refreshShield,refreshPsychicShield,
   get managesConfusion(){return !!core;},
   get confusionCount(){return confusion.size;},
   get loaded(){return !!core;},
