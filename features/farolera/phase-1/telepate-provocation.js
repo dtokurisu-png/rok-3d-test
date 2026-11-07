@@ -2,7 +2,7 @@
  * R.O.K. 3D — Telépate de Agua: pulse of confusion ONLY.
  * Every five seconds, ALL hostile summons within ten units are confused
  * for one second. No taunt, forced target or allegiance change.
- * The pulse immediately resolves one 20/40/40 confused attack outcome.
+ * The pulse immediately resolves one 50/50 self-hit or friendly-fire outcome.
  */
 export const TELEPATE_AURA_RADIUS=10;
 export const TELEPATE_AURA_INTERVAL=5;
@@ -10,10 +10,10 @@ export const TELEPATE_AURA_INTERVAL=5;
 export const TELEPATE_PROVOKE_DURATION=0;
 export const TELEPATE_EXIT_LINGER=0;
 export const TELEPATE_CONFUSE_CHANCE=1;
-export const TELEPATE_CONFUSION_TARGET_WEIGHTS=Object.freeze({telepate:.20,self:.40,ally:.40});
+export const TELEPATE_CONFUSION_TARGET_WEIGHTS=Object.freeze({self:.50,ally:.50});
 export function rollTelepateConfusedAttack(random=Math.random){
  const v=Math.max(0,Math.min(.999999999,Number(random())));
- return v<.20?'telepate':v<.60?'self':'ally';
+ return v<.50?'self':'ally';
 }
 export const TELEPATE_CONFUSE_DURATION=1;
 const VALID_STAGE=u=>u&&Number(u.hp)>0&&
