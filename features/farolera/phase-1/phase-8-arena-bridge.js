@@ -372,7 +372,13 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
     (rescue?'rescue':'normal')+':'+(friends.length?'group':'solo');
    // Preserve the cooldown and avoid wasting the lantern in empty combat.
    const useful=mode==='defensive'?threatenedAlly:nearbyHostiles;
-   if(e.step==='idle'&&e.cooldown<=0&&active(c)&&useful&&
+   // After repeated poor teleports, preserve the lantern until a better
+   // engagement, but always allow urgent Telépate rescue and occasional
+   // exploration so the unit can revise its learned policy.
+   const memoryAction=mode==='defensive'?'farolera-rescue':'farolera-offense';
+   const learnedValue=learning?.score('farolera',learningContext,memoryAction)||0;
+   const memoryAllows=rescue||learnedValue>=-.5||Math.random()<.1;
+   if(e.step==='idle'&&e.cooldown<=0&&active(c)&&useful&&memoryAllows&&
     canDirectedCast(own,opponents,c.duelOpponent)){
     // Launch forward on own half in offense, backward in defense.
     const lamp=directedLampPosition({farolera:own,mode});
