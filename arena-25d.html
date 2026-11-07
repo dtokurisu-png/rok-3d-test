@@ -3195,6 +3195,43 @@ function verifyCleanMatchBoundary(){
 // Exactly ONE miniature orb is released on the final frame of clip 21.
 const semilleraCrystals=[];
 const SEMILLERA_PERIOD=10;
+const SEMILLERA_ARRIVAL_START=181/30,SEMILLERA_ARRIVAL_END=130/30;
+const SEMILLERA_ARRIVAL_DURATION=(181-130)/30;
+function startSemilleraArrival(unit){
+ if(unit.cardId!=='semillera'||unit.stage!=='active'||unit.semilleraArrived)return false;
+ const clip=summonMoveClipMap.get('semillera:39');
+ // If 39 is unavailable or too short, production must never get stuck.
+ if(!clip||clip.duration<SEMILLERA_ARRIVAL_START-.04){
+  unit.semilleraArrived=true;
+  if(!unit.semilleraArrivalWarning){
+   console.warn('[R.O.K.] Semillera: 39 lacks frame 181; keeping crystal casting available');
+   unit.semilleraArrivalWarning=true;
+  }
+  startSemilleraCrystalCast(unit);return false;
+ }
+ const action=unit.mixer.clipAction(clip),previous=unit.animAction;
+ action.reset().setEffectiveWeight(1).setEffectiveTimeScale(0);
+ action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
+ action.time=SEMILLERA_ARRIVAL_START;action.play();action.paused=true;
+ if(previous&&previous!==action){previous.fadeOut(.14);action.fadeIn(.14);}
+ unit.animAction=action;unit.animId=39;
+ unit.semilleraArrival={action,time:0};unit.stage='semilleraArrival';
+ unit.mixer.update(0);
+ return true;
+}
+function stepSemilleraArrival(unit,dt){
+ const arrival=unit.semilleraArrival;
+ if(!arrival)return;
+ arrival.time=Math.min(SEMILLERA_ARRIVAL_DURATION,arrival.time+dt);
+ arrival.action.time=THREE.MathUtils.lerp(SEMILLERA_ARRIVAL_START,
+  SEMILLERA_ARRIVAL_END,arrival.time/SEMILLERA_ARRIVAL_DURATION);
+ unit.mixer.update(0);
+ if(arrival.time>=SEMILLERA_ARRIVAL_DURATION){
+  arrival.action.paused=false;unit.semilleraArrival=null;
+  unit.semilleraArrived=true;unit.stage='active';
+  startSemilleraCrystalCast(unit);
+ }
+}
 const SEMILLERA_FINISH_START=20/30;
 function clearSemilleraCrystals(){
  for(const crystal of semilleraCrystals)crystal.visual.dispose();
@@ -4724,7 +4761,7 @@ function updateDuel(dt){
     }
     // Mantener el movimiento vertical de pies, rodillas y torso también
     // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
-    if(c.stage!=='casting'&&c.stage!=='semilleraElementCast'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
+    if(c.stage!=='casting'&&c.stage!=='semilleraArrival'&&c.stage!=='semilleraElementCast'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
     updateCastMarker(c);
     if(c.kind!=='archer'&&c.animId===12)liftWalkArm(c);
     if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!faroleraAbilityBridge.lanternDeployed(c)&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
@@ -4740,6 +4777,7 @@ function updateDuel(dt){
     c.currentThreatTarget=target;
     if(!target&&c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
       c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
+      c.outer.rotation.y=0; // Face own backline (+Z), not backwards.
       setAnim(c,summonWalkId(c),{fade:.16});continue;
     }
     if(!target){setAnim(c,'idle',{fade:.15});continue;}
@@ -4753,6 +4791,7 @@ function updateDuel(dt){
     // of following enemies. She can attack once an enemy enters her range.
     if(c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
       c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
+      c.outer.rotation.y=0; // Face own backline (+Z), not backwards.
       setAnim(c,summonWalkId(c),{fade:.16});
       continue;
     }
