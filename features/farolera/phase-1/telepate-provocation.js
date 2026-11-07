@@ -3,10 +3,13 @@
  * Every five seconds, the pulse taunts hostile summons within eight units.
  * Taunted summons remain enemies and chase/attack the Telépate for six seconds.
  * It NEVER changes their allegiance, controls them, or limits them to two.
+ * Each affected unit independently has a 50% chance of one-second confusion.
  */
 export const TELEPATE_AURA_RADIUS=8;
 export const TELEPATE_AURA_INTERVAL=5;
 export const TELEPATE_PROVOKE_DURATION=6;
+export const TELEPATE_CONFUSE_CHANCE=.5;
+export const TELEPATE_CONFUSE_DURATION=1;
 const VALID_STAGE=u=>u&&Number(u.hp)>0&&
  !['dead','dying','vanishing','restoring'].includes(u.stage);
 const dist=(a,b)=>Math.hypot(a.outer.position.x-b.outer.position.x,
@@ -22,9 +25,18 @@ export function clearTelepateSource(units,source){
  for(const target of units)
   if(target.rokProvocation?.source===source)target.rokProvocation=null;
 }
-export function stepTelepateProvocations(units,dt,{onPulse=null,onSuccess=null}={}){
+export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=null,onSuccess=null,onConfusion=null,onResolveConfusion=null}={}){
  if(!Number.isFinite(dt)||dt<0)throw new RangeError('Invalid dt');
  const present=new Set(units);
+ for(const unit of units){
+  const confusion=unit.rokConfusion;
+  if(!confusion)continue;
+  confusion.remaining-=dt;
+  if(confusion.remaining<=0){
+   unit.rokConfusion=null;
+   if(VALID_STAGE(unit))onResolveConfusion?.(unit,Math.min(2,Math.floor(random()*3)));
+  }
+ }
  // Migration safety: old capture versions changed the enemy's side.
  for(const unit of units){
   const fx=unit.rokProvocation;
@@ -46,6 +58,10 @@ export function stepTelepateProvocations(units,dt,{onPulse=null,onSuccess=null}=
     // Guaranteed provocation: every eligible hostile switches target, not side.
     enemy.rokProvocation={source,remaining:TELEPATE_PROVOKE_DURATION};
     onSuccess?.(source,enemy);
+    if(!enemy.rokConfusion&&random()<TELEPATE_CONFUSE_CHANCE){
+      enemy.rokConfusion={remaining:TELEPATE_CONFUSE_DURATION};
+      onConfusion?.(source,enemy);
+    }
    }
   }
  }
