@@ -65,7 +65,7 @@
 .attackAxes input[type=range]{width:100%}
 </style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script><link rel="stylesheet" href="./studio.css"><link rel="stylesheet" href="./universal-frames.css"><link rel="stylesheet" href="./viewer-caster-movement.css"></head><body data-studio-page="animations"><div class="hud mobile-closed"><h2>R.O.K. · Visor de animaciones 3D <span style="font-size:12px;color:#ffdb76">v0.5.27</span></h2><button id="mobileToggle" type="button" aria-expanded="false">Mostrar controles</button><p class="meta" id="buildVersion">Compilación: v0.5.27 · 03/11/2026 · GitHub</p><p id="status">Inicializando visor…</p><p class="meta" id="details">Modelo: chiara_idle.glb</p><p class="meta"><strong>Notas de versión · Laboratorio 03/11/2026:</strong> visor 3D v0.5.27: cinco modelos GLB y cuatro FBX/poses nuevos desde GitHub; se conservan las animaciones existentes, el visor de Arquera y los ajustes de Farolera.</p><div class="characterPicker"><span class="characterLabel">Modelo 3D</span><button id="characterSelect" type="button" value="farolera" disabled style="display:none">Cambiar a Arquera del Desierto</button><select id="casterDropdown" disabled aria-label="Modelo 3D" style="background:#123b43;color:white;border:1px solid #00bdaa;border-radius:7px;padding:9px"><option value="farolera">Farolera</option><option value="archer">Arquera del Desierto</option><option value="chiara">Chiara · Kaster</option><option value="lioren">Lioren · Kaster</option><option value="astarium">Amor de Astarium</option><option value="controladora">Controladora de agua 1</option><option value="semillera">Dríada Semillera</option><option value="kariona">Kariona · Invocación</option><option value="telepate">Telépate de agua 1</option></select><button id="archerRestPose" type="button">Ver pose original</button><button id="archerReload" type="button" style="display:none">Recargar Arquera (GitHub)</button><span id="characterInfo">Farolera original · cargando animaciones…</span><span id="archerMaterialInfo" role="status"></span></div><div class="buttons"><a href="./arena-25d.html" style="display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #00ffe4;border-radius:7px;background:#064d52;color:#fff;font-size:13px;font-weight:bold;text-decoration:none">⚔ Arena 2.5D</a><button id="toggle" disabled>Pausar / Reproducir</button><button id="reset">Recentrar cámara</button><button id="wire">Ver estructura</button><button id="physics">Física lámpara: ACTIVADA</button><button id="lampReset">Estabilizar lámpara</button></div><section class="animLab" aria-label="Probador de animaciones de Mixamo">
 <h3>Animaciones</h3>
-<p>Las animaciones conservan su numeración original. Se retiraron 04, 05, 17, 18, 19 y 20 por decisión del usuario; los nuevos FBX ocupan 34–37. Se cargan automáticamente al seleccionar un modelo. «✓ GitHub» confirma que existe el archivo; «✓ Lista» confirma que su animación está preparada para reproducir; «⚠ Error» indica un problema de lectura o compatibilidad, no que falte el archivo. «Elegir» marca qué animaciones quieres conservar.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
+<p>Las animaciones conservan su numeración original. Se retiraron 04, 05, 17, 18, 19 y 20 por decisión del usuario; los FBX anteriores ocupan 34–37 y las cuatro animaciones nuevas ★ ocupan 38–41. Se cargan automáticamente al seleccionar un modelo. «✓ GitHub» confirma que existe el archivo; «✓ Lista» confirma que su animación está preparada para reproducir; «⚠ Error» indica un problema de lectura o compatibilidad, no que falte el archivo. «Elegir» marca qué animaciones quieres conservar.</p><p>El probador intenta cargar las animaciones automáticamente desde el repositorio; también recupera las ya guardadas en este navegador. La importación manual queda solo como alternativa.</p>
 <div class="animImport"><label for="animFiles">📁 Importar FBX adicional</label><input type="file" id="animFiles" accept=".zip,.fbx" multiple><button type="button" id="animIdle" disabled>↺ Idle original</button></div>
 <div id="rightArmTuning">
 <strong>Farolera · animación 12 original · ajuste manual</strong>
@@ -350,7 +350,7 @@ for(const preset of COMPOSITE_PRESETS){
   source:'composite',preset,review:'undecided',keep:false,
   role:preset.action==='attack'?'composite-attack':'composite-defense'});
 }
-// Las animaciones existentes conservan sus IDs; cuatro FBX nuevos ocupan 34–37.
+// Preserve all existing IDs 01–37. New uploads get starred IDs 38–41.
 const addedRepoAnimations=[
  'Catwalk Walk Forward HighKnees.fbx','Idle (1).fbx',
  'Male Dynamic Pose.fbx','T-Pose.fbx'
@@ -360,6 +360,16 @@ for(let i=0;i<addedRepoAnimations.length;i++){
  animationRows.push({index:34+i,name,clip:null,status:'available',details:'',
   source:'repository',assetPath:'./'+encodeURIComponent(name),review:'undecided',
   keep:false,role:'other'});
+}
+const latestAnimationFiles=[
+ 'Catwalk Walk Forward HighKnees.fbx','Catwalk Walk.fbx',
+ 'Catwalk Walking.fbx','Walking.fbx'
+];
+for(let i=0;i<latestAnimationFiles.length;i++){
+ const name=latestAnimationFiles[i];
+ animationRows.push({index:38+i,name,clip:null,status:'available',details:'',
+  source:'repository',assetPath:'./animations/'+encodeURIComponent(name),
+  newlyAdded:true,review:'undecided',keep:false,role:'other'});
 }
 const animList=document.querySelector('#animList');
 const animMessage=document.querySelector('#animMessage');
@@ -873,7 +883,7 @@ function renderAnimList(){
     // aunque todavia no se haya realizado su retarget en este modelo.
     play.disabled=!model||(row.source==='composite'&&!casterSelected)||
       (!row.clip&&!legacyCasterUnloaded&&row.source!=='repository'&&row.source!=='composite');
-    play.textContent=String(row.index).padStart(2,'0')+' · '+row.name.replace(/\.fbx$/i,'');
+    play.textContent=(row.newlyAdded?'★ ':'')+String(row.index).padStart(2,'0')+' · '+row.name.replace(/\.fbx$/i,'');
     if(faroleraRoles[row.index]||candidateRoles[row.index]||row.source==='composite'){
       const tag=document.createElement('small');tag.className='animRole';
       tag.textContent=row.source==='composite'?
