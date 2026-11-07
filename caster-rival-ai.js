@@ -5,7 +5,7 @@
  */
 export function createRivalCasterAI({
  getCaster,getOrbs,getEnemies,getThreats,getResourceState,getCastPlan,getStagingPosition,
- move,face,guard,attack,cast,onCastResolve,animate,canCast,
+ move,face,guard,attack,cast,onCastResolve,animate,canCast,learning=null,
  bounds={x:7.25,z:14.75},
  settings={}
 }){
@@ -19,7 +19,31 @@ export function createRivalCasterAI({
  const state={mode:'collect',target:null,elapsed:0,decision:0,
   castCooldown:0,attackCooldown:0,guardLeft:0,castLeft:0,castTarget:null,castCard:null,
   castDone:false,casting:false,castDefensive:false,incursion:false,records:{collectedAttempts:0,casts:0,attacks:0}};
+ let learningClock=0,previous=null;
  const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+ const bucket=(c,risk,amount)=>[
+  c.hp<=2?'critical':c.hp<=6?'hurt':'healthy',
+  risk?'threat':'clear',
+  amount>=3?'rich':amount>=1?'ready':'empty'
+ ].join(':');
+ function learn(c,context,amount,dt){
+  learningClock+=dt;
+  if(learningClock<1)return;
+  learningClock=0;
+  if(previous&&previous.action){
+   const hpDelta=(c.hp-previous.hp);
+   const resourceDelta=amount-previous.amount;
+   const reward=clamp(hpDelta*1.2+resourceDelta*.35+
+    ((state.records.casts-previous.casts)*.35)+
+    ((state.records.attacks-previous.attacks)*.18),-3,3);
+   learning?.observe('chiara',previous.context,previous.action,reward);
+  }
+  previous={context,action:state.mode==='collect'?'collect':
+   state.mode==='retreat'?'retreat':state.mode==='attack'?'attack':
+   state.mode==='defend'?'guard':
+   ['intercept','pressure','stage-summon'].includes(state.mode)?'cast':'position',
+   hp:c.hp,amount,casts:state.records.casts,attacks:state.records.attacks};
+ }
  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
  const current=()=>getCaster?.();
  function reset(){
@@ -27,6 +51,7 @@ export function createRivalCasterAI({
   state.castCooldown=0;state.attackCooldown=0;state.guardLeft=0;
   state.castLeft=0;state.castTarget=null;state.castCard=null;state.castDone=false;state.casting=false;
   state.castDefensive=false;state.incursion=false;
+  previous=null;learningClock=0;
   guard?.(false);
  }
  function nearest(from,items){
@@ -130,6 +155,8 @@ export function createRivalCasterAI({
   const incoming=(getThreats?.(c)||[]).filter(t=>t?.position&&
    distance(pos,t.position)<=cfg.threatRange);
   const atRisk=incoming.length>0||nearby.distance<cfg.interceptRange;
+  const context=bucket(c,atRisk,amount);
+  learn(c,context,amount,dt);
   // The economic plan has priority when a card is affordable: do not
   // endlessly chase orbs while waiting to cast an already available unit.
   const planned=getCastPlan?.(c,amount,resources)||null;
@@ -154,7 +181,11 @@ export function createRivalCasterAI({
   }
   // Pickup still outranks defense and offense, except when the incursion
   // would be lethal or would overrun the battlefield grace period.
-  if(canPursue){
+  // A critical caster must not sacrifice its last HP for a resource orb.
+  // Learned outcomes can also prefer retreat over repeated unsafe pickups.
+  const unsafePickup=atRisk&&(c.hp<=cfg.minimumSurvivalHp||
+   learning?.choose('chiara',context,['collect','retreat'],'collect')==='retreat');
+  if(canPursue&&!unsafePickup){
    state.mode='collect';
    state.target=orbs.item.id??null;
    if(incoming.length&&state.guardLeft<=0){
@@ -172,6 +203,14 @@ export function createRivalCasterAI({
    return;
   }
   state.target=null;state.incursion=false;
+  if(unsafePickup&&nearby.item){
+   state.mode='retreat';
+   const away=pos.x-nearby.item.position.x;
+   advanceToward(c,{x:clamp(pos.x+(away>=0?2:-2),-bounds.x,bounds.x),
+    z:Math.min(-.6,pos.z-1.5)},dt);
+   if(incoming.length&&state.guardLeft<=0){guard?.(true);state.guardLeft=cfg.guardDuration;}
+   return;
+  }
   // Survival and guard remain active while saving resources.
   if(incoming.length&&state.guardLeft<=0){
    guard?.(true);state.guardLeft=cfg.guardDuration;
