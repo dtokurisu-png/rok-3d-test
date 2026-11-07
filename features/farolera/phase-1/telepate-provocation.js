@@ -1,10 +1,10 @@
 /**
  * R.O.K. 3D — Telépate de Agua: pulse of confusion ONLY.
- * Every five seconds, ALL hostile summons within ten units are confused
+ * Every five seconds, ALL hostile summons within six units are confused
  * for one second. No taunt, forced target or allegiance change.
  * The pulse immediately resolves one 50/50 self-hit or friendly-fire outcome.
  */
-export const TELEPATE_AURA_RADIUS=10;
+export const TELEPATE_AURA_RADIUS=6;
 export const TELEPATE_AURA_INTERVAL=5;
 // Legacy exports kept for compatibility with older tests/consumers.
 export const TELEPATE_PROVOKE_DURATION=0;
@@ -28,7 +28,7 @@ export function clearTelepateSource(units,source){
  for(const target of units)
   if(target.rokProvocation?.source===source)target.rokProvocation=null;
 }
-export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=null,onConfusion=null}={}){
+export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=null,onConfusion=null,canAffect=()=>true}={}){
  if(!Number.isFinite(dt)||dt<0)throw new RangeError('Invalid dt');
  for(const unit of units){
   const confusion=unit.rokConfusion;
@@ -55,10 +55,13 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
    onPulse?.(source);
    for(const enemy of units){
     if(enemy===source||enemy.role!=='summon'||enemy.side===source.side||
-       !VALID_STAGE(enemy)||dist(source,enemy)>TELEPATE_AURA_RADIUS+1e-8)continue;
+       !VALID_STAGE(enemy)||dist(source,enemy)>TELEPATE_AURA_RADIUS+1e-8||
+       !canAffect(enemy,{category:'psiquico',negative:true,factor:'confusion',
+        sourceId:'telepate'}))continue;
     // The pulse ALWAYS confuses. Resolve one attack immediately, rather
     // than waiting for an attack cooldown that might exceed one second.
-    enemy.rokConfusion={remaining:TELEPATE_CONFUSE_DURATION,source,
+    enemy.rokConfusion={category:'psiquico',negative:true,
+     factor:'confusion',remaining:TELEPATE_CONFUSE_DURATION,source,
      outcome:rollTelepateConfusedAttack(random),resolved:false};
     onConfusion?.(source,enemy,enemy.rokConfusion.outcome);
    }
