@@ -2142,21 +2142,6 @@ function selectCombatTarget(c){
   const withinRange=other=>distanceTo(other)<=c.range+.005;
   // A controlled summon is a shield, not an autonomous combatant.
   if(provocationSource(c))return null;
-  const forced=null;
-  if(forced&&canDamageTarget(forced)){
-    const assigned=currentSummonDuel(c);
-    if(assigned&&assigned!==forced&&c.stage!=='casting')releaseSummonDuel(c);
-    if(distanceTo(forced)<=c.range+.005){
-      if(!currentSummonDuel(c)){
-        // A taunted unit may challenge this telepate but must not steal
-        // another unit's existing one-on-one duel.
-        if(!currentSummonDuel(forced))reserveSummonDuel(c,forced);
-      }
-    }
-    // Return as a navigation destination even outside weapon range.
-    // No movement teleport or speed alteration occurs.
-    if(!currentSummonDuel(c)||currentSummonDuel(c)===forced)return forced;
-  }
   const assigned=currentSummonDuel(c);
   // Preserve one-on-one combat while the two opponents are actually engaged.
   if(assigned&&withinRange(assigned))return assigned;
