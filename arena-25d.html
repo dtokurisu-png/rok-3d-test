@@ -730,7 +730,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <!-- JSZip is optional; never block the browser parser or first view. -->
 <script type="module">
 import * as THREE from 'three';
-import {stepTelepateProvocations,provocationSource,clearTelepateSource,createTelepateAuraVisuals} from './features/farolera/phase-1/telepate-provocation.js?v=20261106-confusion-1';
+import {stepTelepateProvocations,provocationSource,clearTelepateSource,createTelepateAuraVisuals,rollTelepateConfusedAttack} from './features/farolera/phase-1/telepate-provocation.js?v=20261107-confusion-204040';
 import {createFaroleraArenaIntegration} from './features/farolera/phase-1/phase-8-arena-bridge.js?v=20261106-directed-3';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
@@ -4676,6 +4676,32 @@ function updateHostileTerritories(dt){
  hostileZoneGlow.ally.material.opacity=active?(enemy?.hostileZoneGlow||0):0;
 }
 
+// Consume a 20/40/40 confusion roll at a real attack opportunity, never
+// when the one-second timer merely expires. Enemy allegiance stays intact.
+function resolveTelConfusedAttack(attacker){
+ if(!attacker.rokConfusion)return false;
+ attacker.rokConfusion=null;
+ const result=rollTelepateConfusedAttack();
+ if(result==='telepate')return false; // regular hostile attack proceeds
+ let victim=attacker;
+ if(result==='ally'){
+  const allies=[...combatants,...casters].filter(other=>other!==attacker&&
+   other.side===attacker.side&&canDamageTarget(other)&&
+   Math.hypot(other.outer.position.x-attacker.outer.position.x,
+    other.outer.position.z-attacker.outer.position.z)<=attacker.range+.005);
+  allies.sort((a,b)=>Math.hypot(a.outer.position.x-attacker.outer.position.x,
+   a.outer.position.z-attacker.outer.position.z)-
+   Math.hypot(b.outer.position.x-attacker.outer.position.x,
+    b.outer.position.z-attacker.outer.position.z));
+  victim=allies[0]||attacker; // no ally within reach: never hit one remotely
+ }
+ const amount=Math.max(1,Number(attacker.attackDamage??attacker.attack??1));
+ damage(victim,amount,attacker,{committed:true});
+ attacker.cooldown=Math.max(attacker.cooldown,ATTACK_PROFILES[attacker.kind]?.period||2);
+ if(attacker.stage==='active')setAnim(attacker,'idle',{fade:.12});
+ makeFloatingWord(attacker,result==='self'?'CONFUSIÓN · AUTOATAQUE':'CONFUSIÓN · ALIADO');
+ return true;
+}
 function updateDuel(dt){
   if(matchRestartLeft!==null){
     // Un caster derrotado no anula proyectiles que YA habían salido.
@@ -4691,32 +4717,14 @@ function updateDuel(dt){
       qs('#phase').textContent='★ EMPATE · ambos casters derrotados';
     return;
   }
-  // Telépate provocation: guaranteed five-second pulse in radius eight,
-  // forcing enemy summons to pursue and attack him for six seconds.
+  // Telépate: five-second guaranteed pulse at radius ten. One-second
+  // confusion rolls only when an eligible attack is executed.
   // The aura is a supplementary tactical system. A visual/FX failure
   // must not interrupt the combat loop on memory-constrained devices.
   try{
    telepateAuraVisuals.update(combatants,dt);
    stepTelepateProvocations(combatants,dt,{
     onPulse:source=>telepateAuraVisuals.pulse(source),
-    onResolveConfusion:(unit,outcome)=>{
-     if(outcome===2)return;
-     if(outcome===0){
-       damage(unit,Math.max(1,Math.ceil((unit.attackDamage??unit.attack??unit.damage??1)/2)),
-         unit,{committed:true,environment:true});
-       return;
-     }
-     // One mistaken hit against a friendly target; provocation resumes afterward.
-     const allies=[...combatants,...casters].filter(other=>other!==unit&&
-       other.side===unit.side&&canDamageTarget(other));
-     if(!allies.length)return;
-     allies.sort((a,b)=>Math.hypot(a.outer.position.x-unit.outer.position.x,
-       a.outer.position.z-unit.outer.position.z)-
-       Math.hypot(b.outer.position.x-unit.outer.position.x,
-       b.outer.position.z-unit.outer.position.z));
-     damage(allies[0],Math.max(1,unit.attackDamage??unit.attack??unit.damage??1),unit,
-       {committed:true});
-    },
     onSuccess:(source,target)=>{
      releaseSummonDuel(target);
      target.currentThreatTarget=source;
@@ -4835,7 +4843,7 @@ function updateDuel(dt){
   // Combat without summoned units is valid; the casters must still update.
   if(casters.length!==2)return;
   if(!casterLost())for(const c of combatants){
-    if(c.stage!=='active'||c.rokConfusion||faroleraAbilityBridge.immobilized(c))continue;
+    if(c.stage!=='active'||faroleraAbilityBridge.immobilized(c))continue;
     if(c.cardId==='farolera'&&faroleraAbilityBridge.escort(c,dt))continue;
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
@@ -4869,6 +4877,7 @@ function updateDuel(dt){
         c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-MAX_Z,MAX_Z);
         setAnim(c,summonWalkId(c),{fade:.16});
       }else if(canDamageTarget(target)&&c.cooldown<=0){
+        if(c.rokConfusion&&resolveTelConfusedAttack(c))continue;
         startCast(c,target);c.cooldown=0;
       }else setAnim(c,'idle',{fade:.15});
       continue;
@@ -4880,6 +4889,7 @@ function updateDuel(dt){
       c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-MAX_Z,MAX_Z);
       setAnim(c,summonWalkId(c),{fade:.16});
     }else if(canDamageTarget(target)&&c.cooldown<=0){
+      if(c.rokConfusion&&resolveTelConfusedAttack(c))continue;
       startCast(c,target);
       c.cooldown=0; // Un solo reloj de preparación y remate, sin cooldown adicional.
     }else{
