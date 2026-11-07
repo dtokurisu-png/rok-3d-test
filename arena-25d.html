@@ -556,6 +556,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
     <button type="button" id="expand" aria-expanded="false" aria-controls="details" aria-label="Abrir opciones" title="Opciones">⚙</button>
   </div>
   <div id="details">
+    <p id="factorCoreStatus" role="status" style="font-size:11px;color:#aac9c8;margin:4px 9px">Factores compartidos: conectando con R.O.K.…</p>
     <section id="chiaraLearningPanel" aria-label="Aprendizaje de Chiara" style="padding:12px;margin:8px 0;border:1px solid #278e93;border-radius:9px;background:#0b2732">
       <strong>🧠 Aprendizaje de Chiara y sus unidades</strong>
       <p id="chiaraLearningStats" role="status">Cargando memoria local…</p>
@@ -933,8 +934,15 @@ const arenaFactors=createArenaFactorsBridge({
   unit.hp=Math.min(unit.maxHp,unit.hp+power);
   if(unit.hp>before)makeFloatingWord(unit,'SANACIÓN +'+(unit.hp-before));
  },
- onLoad:()=>console.info('[R.O.K.] Motor canónico de factores conectado'),
- onError:error=>console.warn('[R.O.K.] Factores compartidos no disponibles; combate legado continúa',error)
+ onLoad:()=>{
+  const status=qs('#factorCoreStatus');
+  if(status)status.textContent='Factores compartidos: motor central de R.O.K. conectado';
+ },
+ onError:error=>{
+  const status=qs('#factorCoreStatus');
+  if(status)status.textContent='Factores compartidos: módulo externo inaccesible; reglas anteriores activas';
+  console.warn('[R.O.K.] Factores compartidos no disponibles; combate legado continúa',error);
+ }
 });
 void arenaFactors.load();
 const MAX_ACTIVE_SUMMONS_PER_SIDE=6;
