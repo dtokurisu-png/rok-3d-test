@@ -84,7 +84,8 @@ export function createChiaraVisualRig({THREE,FBXLoader,adaptClip,shieldVisual}){
   const st=findState(c);if(!st)return;
   for(const [key,clip] of Object.entries(clips||{}))
    if(clip?.tracks?.length)st.clips[key]=clip;
-  if(st.clips.idle){
+  // Only an actual Idle 35 replacement may restart the resting pose.
+  if(clips?.idle?.tracks?.length){
    c.idleClip=st.clips.idle;
    c.model.userData.rokIdleAnimationId=35;
    if(!st.overlayKind)play(c,'idle',st.clips.idle);
@@ -160,5 +161,5 @@ export function createChiaraVisualRig({THREE,FBXLoader,adaptClip,shieldVisual}){
   }
  }
  return {mount,loadIdle,loadExtras,register,reset,movement,upper,endUpper,
-  shield,hit,cancelHit};
+  shield,hit,cancelHit,getClips:c=>({...findState(c)?.clips})};
 }
