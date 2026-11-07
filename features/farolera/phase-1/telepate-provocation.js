@@ -15,8 +15,9 @@ export function rollTelepateConfusedAttack(random=Math.random){
  const v=Math.max(0,Math.min(.999999999,Number(random())));
  return v<.50?'self':'ally';
 }
-// Legacy exported duration; action-gated confusion has no timed expiry.
-export const TELEPATE_CONFUSE_DURATION=0;
+// Legacy numeric export retained for older clients/tests; the current
+// action-gated status does NOT use this value as its expiration clock.
+export const TELEPATE_CONFUSE_DURATION=1;
 const VALID_STAGE=u=>u&&Number(u.hp)>0&&
  !['dead','dying','vanishing','restoring'].includes(u.stage);
 const dist=(a,b)=>Math.hypot(a.outer.position.x-b.outer.position.x,
