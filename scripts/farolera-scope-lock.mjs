@@ -10,6 +10,8 @@ const allowedNew=[
  /^animations\/(?:Catwalk Walk Forward HighKnees|Catwalk Walk|Catwalk Walking|Walking)\.fbx$/,
  // Owner-authorized replacement of Chiara's visual rig only; AI stays intact.
  /^chiara-visual-rig\.js$/,
+ // Phase 2 owner-approved elemental casting flyer; no engine changes.
+ /^arena-cast-flyer\.(?:js|css)$/,
  /^features\/farolera\/phase-1\/[a-zA-Z0-9_.\/-]+$/,
  /^tests\/farolera-phase1(?:-[a-zA-Z0-9_-]+)?\.test\.mjs$/,
  /^docs\/FAROLERA_PHASE1\.md$/,
