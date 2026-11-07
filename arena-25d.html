@@ -497,7 +497,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 }
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-cast-flyer.css?v=phase2-20261107-1"><link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261105-mobile-113"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=20261106-instant-semiller-charge-1"></head>
+<link rel="stylesheet" href="./arena-cast-flyer.css?v=20261107-mobile-compact-2"><link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261105-mobile-113"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=20261106-instant-semiller-charge-1"></head>
 <body data-studio-page="tester" data-rok-boot="loading">
 <div id="gameLoadingOverlay" role="status" aria-live="polite">
  <div id="gameLoadingCard">
@@ -886,6 +886,61 @@ const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,350);
 const casters=[],combatants=[];
 const cardSummons=new Set();
 const MAX_ACTIVE_SUMMONS_PER_SIDE=6;
+// Lightweight XZ circle colliders. No meshes, raycasts, or extra physics engine.
+// Summons steer around nearby bodies; occupied cells are resolved gently.
+const COLLIDER_RADIUS={caster:.52,summon:.43};
+const colliderUnits=()=>[...casters,...combatants].filter(u=>u?.outer&&u.hp>0&&
+ u.role==='caster'?u?.outer&&u.hp>0&&u.stage==='active':
+ u?.outer&&u.hp>0&&u.stage==='active');
+const bodyRadius=u=>u.role==='caster'?COLLIDER_RADIUS.caster:COLLIDER_RADIUS.summon;
+function moveSummonAvoidingBodies(unit,dx,dz,step){
+ const p=unit.outer.position,dist=Math.hypot(dx,dz);
+ if(!dist||step<=0)return;
+ let vx=dx/dist,vz=dz/dist;
+ let pushX=0,pushZ=0;
+ for(const other of colliderUnits()){
+  if(other===unit)continue;
+  const ox=other.outer.position.x-p.x,oz=other.outer.position.z-p.z;
+  const ahead=ox*vx+oz*vz;
+  const side=ox*vz-oz*vx;
+  const radius=bodyRadius(unit)+bodyRadius(other)+.12;
+  if(ahead<-.1||ahead>radius+step+.5||Math.abs(side)>radius)continue;
+  const strength=(1-Math.min(1,Math.abs(side)/radius))*
+   (1-Math.min(1,Math.max(0,ahead)/(radius+step+.5)));
+  // Choose the clearer lateral side; deterministic on the centerline.
+  const sign=Math.abs(side)>.02?(side>0?-1:1):
+   (p.x<=other.outer.position.x?-1:1);
+  pushX+=vz*sign*strength*1.8;
+  pushZ+=-vx*sign*strength*1.8;
+ }
+ const norm=Math.hypot(vx+pushX,vz+pushZ)||1;
+ p.x=THREE.MathUtils.clamp(p.x+(vx+pushX)/norm*step,-MAX_X,MAX_X);
+ p.z=THREE.MathUtils.clamp(p.z+(vz+pushZ)/norm*step,-MAX_Z,MAX_Z);
+}
+function resolveCombatantOverlaps(){
+ const units=colliderUnits();
+ // A small pairwise correction removes residual overlap, including units
+ // whose movement is driven by WASD or rival AI rather than summon steering.
+ for(let iteration=0;iteration<2;iteration++)for(let i=0;i<units.length;i++)
+  for(let j=i+1;j<units.length;j++){
+   const a=units[i],b=units[j],pa=a.outer.position,pb=b.outer.position;
+   let dx=pb.x-pa.x,dz=pb.z-pa.z,d=Math.hypot(dx,dz);
+   const limit=bodyRadius(a)+bodyRadius(b);
+   if(d>=limit)continue;
+   if(d<.0001){dx=(i%2?1:-1);dz=(j%2?1:-1);d=Math.SQRT2;}
+   const nx=dx/d,nz=dz/d,overlap=Math.min(.28,limit-d);
+   const aCaster=a.role==='caster',bCaster=b.role==='caster';
+   // Do not jolt a caster in a cast animation to accommodate a summon.
+   const aWeight=aCaster&&!bCaster?0:aCaster&&bCaster?.5:1;
+   const bWeight=bCaster&&!aCaster?0:aCaster&&bCaster?.5:1;
+   const sum=aWeight+bWeight||1;
+   pa.x=THREE.MathUtils.clamp(pa.x-nx*overlap*aWeight/sum,-MAX_X,MAX_X);
+   pa.z=THREE.MathUtils.clamp(pa.z-nz*overlap*aWeight/sum,-MAX_Z,MAX_Z);
+   pb.x=THREE.MathUtils.clamp(pb.x+nx*overlap*bWeight/sum,-MAX_X,MAX_X);
+   pb.z=THREE.MathUtils.clamp(pb.z+nz*overlap*bWeight/sum,-MAX_Z,MAX_Z);
+  }
+}
+
 const occupiedSummonSlots=side=>combatants.filter(c=>c.side===side&&c.role==='summon'&&
  c.hp>0&&!['dead','vanishing','dying'].includes(c.stage)).length;
 const hasSummonRoom=side=>occupiedSummonSlots(side)<MAX_ACTIVE_SUMMONS_PER_SIDE;
@@ -4974,8 +5029,7 @@ function updateDuel(dt){
     if(c.cardId==='telepate'){
       if(distance>c.range+.005){
         const step=Math.min(c.speed*dt,distance-c.range);
-        c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/distance*step,-MAX_X,MAX_X);
-        c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-MAX_Z,MAX_Z);
+        moveSummonAvoidingBodies(c,dx,dz,step);
         setAnim(c,summonWalkId(c),{fade:.16});
       }else if(canDamageTarget(target)&&c.cooldown<=0){
         startCast(c,target);c.cooldown=0;
@@ -4985,8 +5039,7 @@ function updateDuel(dt){
     if(distance>c.range+.005){
       if(c.cardId==='semillera'){setAnim(c,'idle',{fade:.15});continue;}
       const step=Math.min(c.speed*dt,distance-c.range);
-      c.outer.position.x=THREE.MathUtils.clamp(c.outer.position.x+dx/distance*step,-MAX_X,MAX_X);
-      c.outer.position.z=THREE.MathUtils.clamp(c.outer.position.z+dz/distance*step,-MAX_Z,MAX_Z);
+      moveSummonAvoidingBodies(c,dx,dz,step);
       setAnim(c,summonWalkId(c),{fade:.16});
     }else if(canDamageTarget(target)&&c.cooldown<=0){
       startCast(c,target);
@@ -6753,6 +6806,8 @@ function loop(now){
   }
   // WASD is additive to the live battle, not a global pause.
   if(loaded&&playing&&matchGate.isRunning&&!mobileMobaControls.paused&&casterMovement?.enabled)casterMovement.step(dt);
+  if(loaded&&playing&&matchGate.isRunning&&!casterReview.active)
+   resolveCombatantOverlaps();
   // Range must be visible for the SELECTED caster even before WASD begins.
   // Previously this indicator required casterMovement.enabled, making the
   // proximity system appear broken while the player stood still.
