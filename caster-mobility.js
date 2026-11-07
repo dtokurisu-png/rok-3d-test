@@ -18,6 +18,9 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
  let priorPlaying=false,attackElapsed=0,attackDuration=0,attackReleased=false,attackCooldown=0;
  let committedAttackTarget=null;
  let defending=false,shown='';
+ // Reuse the trimmed original FBX instead of allocating a new AnimationClip
+ // and mixer action every time a card is cast.
+ const trimmedCastClips=new WeakMap();
  let cardCast=null;
  const notify=message=>{
   status.textContent=message;status.title=message;
@@ -179,7 +182,11 @@ export function createCasterMobility({THREE,getCaster,prepareClips,onStatus,
    return false;
   }
   const fps=30;
-  const clip22=THREE.AnimationUtils.subclip(source22,'ROK_Cast22_0_48',0,48,fps);
+  let clip22=trimmedCastClips.get(source22);
+  if(!clip22){
+   clip22=THREE.AnimationUtils.subclip(source22,'ROK_Cast22_0_48',0,48,fps);
+   trimmedCastClips.set(source22,clip22);
+  }
   if(!clip22.tracks.length||clip22.duration<=.01||source21.duration<=.01){
    notify('La animación 22 (0–48) o la 21 está incompleta');
    return false;
