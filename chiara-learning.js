@@ -24,11 +24,11 @@ function sanitize(input){
  data.updatedAt=typeof input.updatedAt==='string'?input.updatedAt:null;
  return data;
 }
-export function createChiaraLearning(){
+export function createChiaraLearning({storageKey=KEY}={}){
  let data=empty();
- try{const raw=localStorage.getItem(KEY);if(raw)data=sanitize(JSON.parse(raw));}catch(_){}
+ try{const raw=localStorage.getItem(storageKey);if(raw)data=sanitize(JSON.parse(raw));}catch(_){}
  let dirty=0,available=true;
- const persist=()=>{try{data.updatedAt=new Date().toISOString();localStorage.setItem(KEY,JSON.stringify(data));available=true;dirty=0;}catch(_){available=false;}};
+ const persist=()=>{try{data.updatedAt=new Date().toISOString();localStorage.setItem(storageKey,JSON.stringify(data));available=true;dirty=0;}catch(_){available=false;}};
  const key=(unit,context)=>String(unit||'chiara')+'|'+String(context||'normal').slice(0,150);
  const get=(unit,context,action)=>data.decisions[key(unit,context)]?.[action]||null;
  const score=(unit,context,action)=>get(unit,context,action)?.q||0;
@@ -60,7 +60,7 @@ export function createChiaraLearning(){
  }
  function finishMatch(){data.matches++;persist();}
  async function loadShared(url){
-  if(localStorage.getItem(KEY))return false;
+  if(localStorage.getItem(storageKey))return false;
   const r=await fetch(url,{cache:'no-store'});
   if(!r.ok)return false;
   importJSON(await r.json());return true;
