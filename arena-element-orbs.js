@@ -232,7 +232,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
    root.add(visual);
    sources.push({player:item.player,instance:item.instance,visual,water,ripple1,ripple2,
     beam,halo,light,sparks,radius,elapsed:0,next:0,pending:false,cast:0,
-    emitted:0,phase:item.player*.7});
+    emitted:0,lastEmissionAt:0,phase:item.player*.7});
   }
   return sources.length;
  }
@@ -247,13 +247,14 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   orb.group.position.set(x,.55,z);orb.group.visible=true;
   orb.phase=Math.random()*Math.PI*2;orb.target=null;orb.source=source;orb.age=0;
   updateAtom(orb,0);
-  orbs.push(orb);source.emitted++;
+  orbs.push(orb);source.emitted++;source.lastEmissionAt=source.elapsed;
   return true;
  }
  function reset(){
   clearOrbs();
   for(const source of sources){
    source.elapsed=0;source.next=0;source.pending=false;source.cast=0;source.emitted=0;
+   source.lastEmissionAt=0;
    source.light.intensity=0;source.beam.material.opacity=0;source.halo.material.opacity=0;
   }
  }
@@ -382,7 +383,20 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   waterGeo.dispose();waterRingGeo.dispose();beamGeo.dispose();sparkGeo.dispose();
   rainbowTexture.dispose();
  }
- return {bindSources,reset,tick,idle,dispose,createFragmentVisual,
+ function getNextOrbForecast(player){
+  const source=sources.find(item=>item.player===player);
+  if(!source)return null;
+  const intervals=[5,10,20,35];
+  const period=intervals[Math.min(Math.max(0,source.emitted-1),3)];
+  const remaining=source.pending?Math.max(0,EMIT_DURATION-source.cast):
+   Math.max(0,source.next-source.elapsed)+EMIT_DURATION;
+  // The first orb follows the initial emission immediately. Later orbs
+  // use the real fountain timer; no separate AI-only countdown.
+  const elapsed=source.pending?period:Math.max(0,source.elapsed-source.lastEmissionAt);
+  return {remaining,period,halfElapsed:source.emitted>0&&(source.pending||elapsed>=period*.5),
+   emitted:source.emitted};
+ }
+ return {bindSources,reset,tick,idle,dispose,createFragmentVisual,getNextOrbForecast,
   forEachActiveOrb(callback){for(let i=0;i<orbs.length;i++)callback(orbs[i],i);},
   get sourceCount(){return sources.length;}};
 }
