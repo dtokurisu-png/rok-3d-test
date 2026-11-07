@@ -69,7 +69,44 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
 
 /** Three.js-only visual layer; does not modify aura range or combat targets. */
 export function createTelepateAuraVisuals({THREE,root}){
- const live=new Map();
+ const live=new Map(),heads=new Map();
+ const bubbleGeometry=new THREE.SphereGeometry(.37,16,12);
+ const qCanvas=document.createElement('canvas');
+ qCanvas.width=128;qCanvas.height=128;
+ const qctx=qCanvas.getContext('2d');
+ qctx.clearRect(0,0,128,128);
+ qctx.font='bold 110px Arial';qctx.textAlign='center';
+ qctx.textBaseline='middle';qctx.lineWidth=8;
+ qctx.strokeStyle='#21335a';qctx.strokeText('?',64,65);
+ qctx.fillStyle='#ffffff';qctx.fillText('?',64,65);
+ const qTexture=new THREE.CanvasTexture(qCanvas);
+ function makeHead(unit){
+  const group=new THREE.Group();
+  group.name='ROK_Telepate_Mental_Status';
+  const bubble=new THREE.Mesh(bubbleGeometry,new THREE.MeshBasicMaterial({
+   color:0x35d9ff,transparent:true,opacity:.21,depthWrite:false,
+   blending:THREE.AdditiveBlending
+  }));
+  const wire=new THREE.Mesh(bubbleGeometry,new THREE.MeshBasicMaterial({
+   color:0x9c76f4,transparent:true,opacity:.14,wireframe:true,
+   depthWrite:false
+  }));
+  const question=new THREE.Sprite(new THREE.SpriteMaterial({
+   map:qTexture,transparent:true,depthTest:false,depthWrite:false
+  }));
+  question.scale.set(.55,.55,1);question.position.y=.68;
+  group.add(bubble,wire,question);
+  root.add(group);
+  const visual={group,bubble,wire,question};
+  heads.set(unit,visual);return visual;
+ }
+ function removeHead(unit){
+  const visual=heads.get(unit);if(!visual)return;
+  root.remove(visual.group);
+  visual.bubble.material.dispose();visual.wire.material.dispose();
+  visual.question.material.dispose();
+  heads.delete(unit);
+ }
  const make=source=>{
   const group=new THREE.Group();
   group.name='ROK_Telepate_Provocation_Aura';
@@ -109,11 +146,32 @@ export function createTelepateAuraVisuals({THREE,root}){
   }
   for(const source of [...live.keys()])
    if(!present.has(source)||!VALID_STAGE(source))remove(source);
+  for(const unit of units){
+   const taunted=!!provocationSource(unit);
+   const confused=!!unit.rokConfusion;
+   if(!VALID_STAGE(unit)||(!taunted&&!confused)){
+    removeHead(unit);continue;
+   }
+   const v=heads.get(unit)||makeHead(unit);
+   v.group.position.set(unit.outer.position.x,1.5,unit.outer.position.z);
+   v.bubble.visible=taunted;
+   v.wire.visible=taunted;
+   v.question.visible=confused;
+   if(taunted){
+    const t=(unit.rokProvocation?.remaining||0);
+    v.bubble.material.opacity=.16+.06*Math.sin(t*8);
+    v.wire.rotation.y+=dt*1.8;
+   }
+  }
+  for(const unit of [...heads.keys()])
+   if(!present.has(unit))removeHead(unit);
+
  }
  function pulse(source){
   const v=live.get(source)|| (VALID_STAGE(source)?make(source):null);
   if(v)v.age=0;
  }
- function clear(){for(const source of [...live.keys()])remove(source)}
- return {update,pulse,remove,clear};
+ function clear(){for(const source of [...live.keys()])remove(source);
+  for(const unit of [...heads.keys()])removeHead(unit);}
+ return {update,pulse,remove(source){remove(source);removeHead(source)},clear};
 }
