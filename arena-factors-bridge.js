@@ -27,7 +27,7 @@ const own=(cardId,side)=>({
  controladora:[] // Factor 'control' reserved; behavior not yet defined by its card.
 })[cardId]||[];
 export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()=>{}}={}){
- let core=null,loading=null,elapsed=0;
+ let core=null,loading=null;
  const active=new Map();
  const seen=new WeakMap();
  function load(){
@@ -58,7 +58,6 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
  }
  function tick(dt,units=[]){
   if(!core||!Number.isFinite(dt)||dt<=0)return;
-  elapsed+=dt;
   // Update only the newly wired healing factor. Legacy factors must not be
   // stepped twice: their effects are already handled in existing combat code.
   const present=new Set(units);
@@ -67,9 +66,10 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
    if(!seen.has(unit))register(unit);
   }
   for(const [unit,factor] of active){
-   if(!present.has(unit)||unit.hp<=0||['dead','dying','vanishing','restoring'].includes(unit.stage)){
+   if(!present.has(unit)||unit.hp<=0||['dead','dying','vanishing'].includes(unit.stage)){
     active.delete(unit);continue;
    }
+   // Restoration pauses the aura without deleting the persistent instance.
    if(unit.stage!=='active')continue;
    const events=core.stepFactor(factor,dt);
    for(const event of events){
