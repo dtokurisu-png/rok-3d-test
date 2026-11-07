@@ -930,7 +930,8 @@ function resolveCombatantOverlaps(){
    corrected=true;
    if(dist<.00001){
     const angle=(i*2.399963+j*1.570796);
-    dx=Math.cos(angle);dz=Math.sin(angle);dist=1;
+    dx=Math.cos(angle)*.00001;dz=Math.sin(angle)*.00001;
+    dist=.00001;
    }
    const nx=dx/dist,nz=dz/dist;
    const wa=a.role==='caster'&&b.role!=='caster'?0:1;
