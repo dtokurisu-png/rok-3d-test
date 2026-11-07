@@ -3078,7 +3078,7 @@ function resetCombatant(c){
   c.speed=shield?2.4:2.15;
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
-   c.semilleraArrived=false;c.semilleraArrival=null;
+   c.semilleraArrived=false;c.semilleraArrival=null;c.semilleraArrivalWait=0;
    c.semilleraClipWarning=false;
   }
   c.stage='intro';c.introT=0;
@@ -4742,8 +4742,15 @@ function updateDuel(dt){
        // Production is the cast itself: 9 s in clip 22, then 1 s
        // in clip 21. Both the animation and its HUD start together.
        if(c.outer.position.z>=MAX_Z-.03){
-        if(!c.semilleraArrived)startSemilleraArrival(c);
-        else startSemilleraCrystalCast(c);
+        if(!c.semilleraArrived){
+          // Late downloads must not silently skip the approved arrival.
+          // Give #39 time to finish retargeting before the first crystal cycle.
+          if(!summonMoveClipMap.has('semillera:39')&&
+             c.semilleraArrivalWait<8){
+           c.semilleraArrivalWait+=dt;
+           setAnim(c,'idle',{fade:.15});
+          }else startSemilleraArrival(c);
+         }else startSemilleraCrystalCast(c);
        }
       }
       c.cooldown=Math.max(0,c.cooldown-dt);
