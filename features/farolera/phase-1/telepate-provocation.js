@@ -1,15 +1,14 @@
 /**
- * R.O.K. 3D — Telépate de Agua: Aura de Provocación.
- * Every five seconds, the pulse taunts hostile summons within ten units.
- * Taunted summons remain enemies and chase/attack the Telépate for up to eight seconds.
- * It NEVER changes their allegiance, controls them, or limits them to two.
- * Every affected hostile receives one-second confusion on each pulse.
- * Next eligible attack: 20% Telépate, 40% self, 40% own team.
+ * R.O.K. 3D — Telépate de Agua: pulse of confusion ONLY.
+ * Every five seconds, ALL hostile summons within ten units are confused
+ * for one second. No taunt, forced target or allegiance change.
+ * The pulse immediately resolves one 20/40/40 confused attack outcome.
  */
 export const TELEPATE_AURA_RADIUS=10;
 export const TELEPATE_AURA_INTERVAL=5;
-export const TELEPATE_PROVOKE_DURATION=8;
-export const TELEPATE_EXIT_LINGER=3;
+// Legacy exports kept for compatibility with older tests/consumers.
+export const TELEPATE_PROVOKE_DURATION=0;
+export const TELEPATE_EXIT_LINGER=0;
 export const TELEPATE_CONFUSE_CHANCE=1;
 export const TELEPATE_CONFUSION_TARGET_WEIGHTS=Object.freeze({telepate:.20,self:.40,ally:.40});
 export function rollTelepateConfusedAttack(random=Math.random){
@@ -21,20 +20,16 @@ const VALID_STAGE=u=>u&&Number(u.hp)>0&&
  !['dead','dying','vanishing','restoring'].includes(u.stage);
 const dist=(a,b)=>Math.hypot(a.outer.position.x-b.outer.position.x,
  a.outer.position.z-b.outer.position.z);
-export function provocationSource(target){
- const effect=target?.rokProvocation;
- const src=effect?.source;
- if(!effect||effect.remaining<=0||!VALID_STAGE(src)||!VALID_STAGE(target)||
-    src.side===target.side)return null;
- return src;
+export function provocationSource(_target){
+ // Retained compatibility API for the arena; the Telépate no longer taunts.
+ return null;
 }
 export function clearTelepateSource(units,source){
  for(const target of units)
   if(target.rokProvocation?.source===source)target.rokProvocation=null;
 }
-export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=null,onSuccess=null,onConfusion=null,onResolveConfusion=null}={}){
+export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=null,onConfusion=null}={}){
  if(!Number.isFinite(dt)||dt<0)throw new RangeError('Invalid dt');
- const present=new Set(units);
  for(const unit of units){
   const confusion=unit.rokConfusion;
   if(!confusion)continue;
@@ -45,19 +40,11 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
    // Only a real attack may roll confusion: expiry itself deals no damage.
   }
  }
- // Migration safety: old capture versions changed the enemy's side.
+ // Remove legacy taunts immediately, including those made by older builds.
  for(const unit of units){
-  const fx=unit.rokProvocation;
-  if(!fx)continue;
-  if(fx.originalSide!==undefined)unit.side=fx.originalSide;
-  // A rescued Telépate can temporarily leave its own aura. Existing
-  // pursuers continue for precisely three seconds after crossing the edge.
-  if(!fx.outside&&VALID_STAGE(fx.source)&&
-     dist(unit,fx.source)>TELEPATE_AURA_RADIUS+1e-8){
-   fx.outside=true;fx.remaining=TELEPATE_EXIT_LINGER;
-  }
-  fx.remaining=(Number.isFinite(fx.remaining)?fx.remaining:0)-dt;
-  if(!present.has(fx.source)||!provocationSource(unit))unit.rokProvocation=null;
+  const previous=unit.rokProvocation;
+  if(previous?.originalSide!==undefined)unit.side=previous.originalSide;
+  unit.rokProvocation=null;
  }
  for(const source of units){
   if(source.cardId!=='telepate')continue;
@@ -69,11 +56,11 @@ export function stepTelepateProvocations(units,dt,{random=Math.random,onPulse=nu
    for(const enemy of units){
     if(enemy===source||enemy.role!=='summon'||enemy.side===source.side||
        !VALID_STAGE(enemy)||dist(source,enemy)>TELEPATE_AURA_RADIUS+1e-8)continue;
-    // Guaranteed provocation: every eligible hostile switches target, not side.
-    enemy.rokProvocation={source,remaining:TELEPATE_PROVOKE_DURATION,outside:false};
-    onSuccess?.(source,enemy);
-    enemy.rokConfusion={remaining:TELEPATE_CONFUSE_DURATION};
-    onConfusion?.(source,enemy);
+    // The pulse ALWAYS confuses. Resolve one attack immediately, rather
+    // than waiting for an attack cooldown that might exceed one second.
+    enemy.rokConfusion={remaining:TELEPATE_CONFUSE_DURATION,source,
+     outcome:rollTelepateConfusedAttack(random),resolved:false};
+    onConfusion?.(source,enemy,enemy.rokConfusion.outcome);
    }
   }
  }
@@ -121,7 +108,7 @@ export function createTelepateAuraVisuals({THREE,root}){
  }
  const make=source=>{
   const group=new THREE.Group();
-  group.name='ROK_Telepate_Provocation_Aura';
+  group.name='ROK_Telepate_Confusion_Aura';
   const material=new THREE.MeshBasicMaterial({color:0x21c5ff,
    transparent:true,opacity:.25,depthWrite:false,
    side:THREE.DoubleSide,blending:THREE.AdditiveBlending});
@@ -159,21 +146,17 @@ export function createTelepateAuraVisuals({THREE,root}){
   for(const source of [...live.keys()])
    if(!present.has(source)||!VALID_STAGE(source))remove(source);
   for(const unit of units){
-   const taunted=!!provocationSource(unit);
    const confused=!!unit.rokConfusion;
-   if(!VALID_STAGE(unit)||(!taunted&&!confused)){
+   if(!VALID_STAGE(unit)||!confused){
     removeHead(unit);continue;
    }
    const v=heads.get(unit)||makeHead(unit);
    v.group.position.set(unit.outer.position.x,1.5,unit.outer.position.z);
-   v.bubble.visible=taunted;
-   v.wire.visible=taunted;
+   v.bubble.visible=confused;
+   v.wire.visible=confused;
    v.question.visible=confused;
-   if(taunted){
-    const t=(unit.rokProvocation?.remaining||0);
-    v.bubble.material.opacity=.16+.06*Math.sin(t*8);
-    v.wire.rotation.y+=dt*1.8;
-   }
+   v.bubble.material.opacity=.16+.06*Math.sin(unit.rokConfusion.remaining*8);
+   v.wire.rotation.y+=dt*1.8;
   }
   for(const unit of [...heads.keys()])
    if(!present.has(unit))removeHead(unit);
