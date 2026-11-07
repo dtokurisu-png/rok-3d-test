@@ -80,7 +80,8 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
    const p=c.outer.position,enemy=near.item?.position||{x:0,z:0};
    const safe=suggested?.target;
    advance(c,{x:safe?.x??clamp(p.x+(p.x>=enemy.x?2:-2),-bounds.x,bounds.x),
-    z:clamp(Math.max(6.5,safe?.z??p.z+2),.5,bounds.z)},dt);
+    // Under sustained pressure NEVER walk toward the enemy to retreat.
+    z:clamp(Math.max(11,p.z+1.5,safe?.z??0),.5,bounds.z)},dt);
    if(state.guardClock===0){guard(true);state.guardClock=.45;}
   }else{
    const plan=getCards().plan(available,unlocked,allies,near);
