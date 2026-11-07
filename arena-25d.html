@@ -6375,6 +6375,7 @@ function reportCombatFault(error){
 }
 function loop(now){
   requestAnimationFrame(loop);
+  try{
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
   if(loaded&&playing&&matchGate.isRunning&&!casterReview.active){
    try{
@@ -6481,6 +6482,7 @@ function loop(now){
    }
    fpsTime=0;fpsCount=0;
   }
+  }catch(error){reportCombatFault(error);}
 }
 requestAnimationFrame(loop);
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();reframeCamera();renderer.setPixelRatio(arenaPixelRatio());renderer.setSize(innerWidth,innerHeight);});
