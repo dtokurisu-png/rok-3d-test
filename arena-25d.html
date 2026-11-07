@@ -3851,6 +3851,7 @@ function beginDeath(c){
   if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
   c.pendingRestore=false;
   c.restorationHp=null;
+  if(c.rokConfusedAction)endConfusedAction(c,'death');
   onOakArmorHolderDeath(c);
   releaseDeathFragments(c);
   stopHitOverlay(c);
@@ -4006,6 +4007,7 @@ const RESTORE_TRAVEL_SECONDS=.96;
 function startRestoration(c){
   if(!c||c.hp<=0||c.stage==='restoring'||c.stage==='intro'||
      c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead')return false;
+  if(c.rokConfusedAction)endConfusedAction(c,'restoring');
   stopHitOverlay(c);
   releaseSummonDuel(c);
   // Guardar la vida EXACTA en el momento de restaurar, sin curación.
