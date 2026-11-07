@@ -5315,6 +5315,14 @@ function renderSpellbook(){
      button.title=card.name+' · Raza Melánide';
     }
    }
+   // Water summons still need a visible card image while their unique
+   // illustrations are pending. Use the existing water card artwork,
+   // never a text-only placeholder or a newly invented portrait.
+   if(!card.portrait&&card.element==='water'){
+    const background=document.createElement('img');
+    background.src='./assets/fondo%20celeste.png';
+    background.alt='';button.append(background);
+   }
    // Names and prices stay in card data/accessible labels, not over art.
    // Secondary touch must work even with a separate joystick touch held.
    // Pointerdown is handled immediately instead of depending on a synthesized click.
