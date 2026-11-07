@@ -497,7 +497,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 }
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
-<link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261105-mobile-113"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=20261106-instant-semiller-charge-1"></head>
+<link rel="stylesheet" href="./arena-cast-flyer.css?v=phase2-20261107-1"><link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261105-mobile-113"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=20261106-instant-semiller-charge-1"></head>
 <body data-studio-page="tester" data-rok-boot="loading">
 <div id="gameLoadingOverlay" role="status" aria-live="polite">
  <div id="gameLoadingCard">
@@ -776,6 +776,7 @@ import {createArenaCombatHud} from './arena-combat-hud.js?v=20261106-economy-3';
 import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semillera-one-orb-1';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-composite-22-21-2';
+import {createArenaCastFlyer} from './arena-cast-flyer.js?v=phase2-20261107-1';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261105-strategy-1';
@@ -2276,6 +2277,9 @@ function selectCombatTarget(c){
 }
 let loaded=false,playing=false,tm=0,prevTime=performance.now();
 const combatHud=createArenaCombatHud();
+const castFlyer=createArenaCastFlyer();
+const cardCastPreparationSeconds=(cost,multiplier=1)=>
+ (cost<=1?.5:cost===2?1:cost===3?1.5:cost===4?2:2.5)*Math.max(1,Number(multiplier)||1);
 const guardHoldSeconds={ally:0,enemy:0};
 const guardPowered={ally:false,enemy:false};
 const guardDepleted={ally:false,enemy:false};
@@ -3489,6 +3493,7 @@ function updateSemilleraCrystals(dt){
  }
 }
 function resetDemoCombat(){
+   castFlyer.reset();
   telepateAuraVisuals.clear();
   for(const unit of combatants){
     unit.rokProvocation=null;unit.rokConfusion=null;unit.rokAuraClock=0;
@@ -3498,6 +3503,7 @@ function resetDemoCombat(){
   casterMovement?.disable();
   rivalAI?.reset();
   rivalAction.attackUntil=0;rivalAction.castingUntil=0;rivalAction.reserved=null;
+  rivalAction.flyerToken=null;
   guardHoldSeconds.ally=0;guardHoldSeconds.enemy=0;
   guardPowered.ally=false;guardPowered.enemy=false;
   guardDepleted.ally=false;guardDepleted.enemy=false;
@@ -5364,10 +5370,16 @@ qs('#casterCastTestRun').addEventListener('click',()=>{
   status.textContent='Inicia el combate antes de probar el casteo.';return;
  }
  const cost=Number(qs('#casterCastTestCost').value)||0;
+ const side=qs('#casterMoveSide').value;let testToken=null;
  const started=casterMovement.startCardCast({cost,onRelease:caster=>{
+  castFlyer.release(side,testToken);
   status.textContent='✓ Fotograma 48 alcanzado: acción de casteo ejecutada. Ahora se reproduce la animación 21.';
- }});
- if(started)status.textContent='Preparación: animación 22 (fotogramas 0–48), costo '+cost+'.';
+ },onCancel:()=>castFlyer.cancel(side,testToken)});
+ if(started){
+  testToken=castFlyer.begin(side,{name:'Prueba de casteo 22 → 21',
+   element:side==='ally'?'earth':'water',duration:cardCastPreparationSeconds(cost)});
+  status.textContent='Preparación: animación 22 (fotogramas 0–48), costo '+cost+'.';
+ }
  else status.textContent='Casteo no iniciado: revisa que los clips 22 y 21 estén cargados, que el caster esté activo y que no haya otra acción en curso.';
 });
 // Spellbook: each page has 9 slots. Unfilled slots remain disabled until
@@ -5629,9 +5641,11 @@ async function equipOakArmor(c){
   spellStatus('Necesitas 4 de Tierra para equipar la Armadura de Roble Antiguo.');
   return false;
  }
+ let oakToken=null;
  const started=casterMovement.startCardCast({
   cost:oakArmorCard.cost,durationMultiplier:1,
   onRelease:()=>{
+   castFlyer.release('ally',oakToken);
    if(!applyOakArmor(c)){
     combatHud.refund('ally','earth',oakArmorCard.cost);
     oakArmor.state='ready';renderSpellbook();
@@ -5639,6 +5653,7 @@ async function equipOakArmor(c){
    }
   },
   onCancel:()=>{
+   castFlyer.cancel('ally',oakToken);
    if(oakArmor.state!=='casting')return;
    combatHud.refund('ally','earth',oakArmorCard.cost);
    oakArmor.state='ready';renderSpellbook();
@@ -5650,6 +5665,8 @@ async function equipOakArmor(c){
   spellStatus('No se pudo iniciar el casteo de la armadura; coste devuelto.');
   return false;
  }
+ oakToken=castFlyer.begin('ally',{name:oakArmorCard.name||'Armadura de Roble Antiguo',
+  element:'earth',duration:cardCastPreparationSeconds(oakArmorCard.cost)});
  oakArmor.state='casting';
  spellbook.targetingEquipment=false;spellbook.page=0;
  clearOakTargetMarkers();renderSpellbook();
@@ -5959,18 +5976,23 @@ function selectSpellCard(index){
  if(!combatHud.spend(caster.side,card.element,card.cost)){
   spellStatus('Recursos insuficientes para '+card.name);return;
  }
+ let cardToken=null;
  const started=casterMovement.startCardCast({
   cost:card.cost,
   onRelease:activeCaster=>{
+   castFlyer.release(caster.side,cardToken);
    const okay=card.id==='farolera'?summonCardFarolera(activeCaster):
     summonLiorenCard(activeCaster,card);
    if(!okay)combatHud.refund(caster.side,card.element,card.cost);
-  }
+  },
+  onCancel:()=>castFlyer.cancel(caster.side,cardToken)
  });
  if(!started){
   combatHud.refund(caster.side,card.element,card.cost);
   spellStatus('No se pudo iniciar el casteo; recurso devuelto.');return;
  }
+ cardToken=castFlyer.begin(caster.side,{name:card.name,element:card.element,
+  duration:cardCastPreparationSeconds(card.cost)});
  spellbook.page=0;renderSpellbook();
  spellStatus('Casteando '+card.name+' · '+(card.cost<=1?.5:Math.min(2.5,card.cost*.5)).toFixed(1)+' s');
 }
@@ -6116,6 +6138,8 @@ rivalAI=createRivalCasterAI({
   if(!card||rivalAction.reserved||c.outer.position.z>=0||!hasSummonRoom(c.side)||
     !combatHud.spend(c.side,card.element,card.cost))return false;
   rivalAction.reserved=card;
+  rivalAction.flyerToken=castFlyer.begin('enemy',{name:card.name,element:card.element,
+   duration:Math.max(.01,duration)});
   chiaraRig.shield(c,false);c.manualDefending=false;
   chiaraRig.endUpper(c,'defense');
   const clip=c.model?.userData?.rokCast22Clip;
@@ -6135,6 +6159,8 @@ rivalAI=createRivalCasterAI({
  onCastResolve:(c,{card})=>{
   const charged=rivalAction.reserved;
   rivalAction.reserved=null;
+  castFlyer.release('enemy',rivalAction.flyerToken);
+  rivalAction.flyerToken=null;
   if(!charged)return;
   if(c.stage!=='active'||!summonChiaraCard(c,charged))
    combatHud.refund(c.side,charged.element,charged.cost);
@@ -6763,7 +6789,8 @@ function loop(now){
     updateCasterThreatIndicators();
     updateCasterAttackReticle();
   }
-  framePhase='scenery';sceneryOverlay.update(now/1000);
+  if(loaded&&playing&&matchGate.isRunning&&!mobileMobaControls.paused)castFlyer.tick(dt);
+   framePhase='scenery';sceneryOverlay.update(now/1000);
   updateCameraTracking(dt);
   // Remove only nearby decorative obstacles between camera and allied caster.
   const allyForVisibility=casters.find(c=>c.side==='ally');
