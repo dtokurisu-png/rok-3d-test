@@ -53,74 +53,134 @@ export function createChiaraVisualRig({THREE,FBXLoader,adaptClip,shieldVisual}){
   if(!file)throw Error('Missing FBX '+spec.id);
   return loader.parse(await file.async('arraybuffer'),'');
  }
- function mount(c){
-  // The previous idle and all mixer actions are discarded, not layered.
-  c.mixer.stopAllAction();
-  const state={clips:Object.create(null),action:null,kind:null,
-   overlayKind:null,overlayUntil:0};
-  states.set(c,state);
-  return state;
+ // A single Chiara-owned mixer, with independently masked lower/upper
+ // actions. This is the approved composite casting behavior used by Lioren,
+ // without restoring any competing legacy Chiara pose controller.
+ const lowerBones=new Set(['hips','leftupleg','rightupleg','leftleg',
+  'rightleg','leftfoot','rightfoot','lefttoebase','righttoebase',
+  'lefttoe','righttoe','lefttoes','righttoes','leftfootend','rightfootend']);
+ const boneKey=name=>String(name).replace(/^.*?mixamorig[:_]?/i,'')
+  .replace(/[^a-z0-9]/gi,'').toLowerCase();
+ function masked(st,clip,part){
+  if(!clip?.tracks?.length)return null;
+  let cached=st.cache.get(clip);
+  if(!cached){cached={};st.cache.set(clip,cached);}
+  if(cached[part])return cached[part];
+  const tracks=clip.tracks.filter(track=>{
+   const m=/^(.+)\.(quaternion|position|scale)$/.exec(track.name);
+   if(!m)return false;
+   const key=boneKey(m[1].replace(/^\.bones\[(.*)\]$/,'$1'));
+   if(part==='lower')return lowerBones.has(key)&&
+    !(key==='hips'&&m[2]==='position');
+   return !lowerBones.has(key)&&m[2]==='quaternion';
+  }).map(t=>t.clone());
+  return cached[part]=tracks.length?
+   new THREE.AnimationClip(clip.name+'_Chiara_'+part,clip.duration,tracks):null;
  }
- function play(c,kind,source,{speed=1,startTime=0,once=false}={}){
-  const st=findState(c);
-  if(!st||!source?.tracks?.length)return false;
-  const next=c.mixer.clipAction(source);
-  if(st.action===next&&st.kind===kind&&!once&&next.isRunning())return true;
-  // An explicit full-body pose replaces the previous pose. Never mix
-  // torso tracks from an old Idle/attack with an unrelated new clip.
-  if(st.action)st.action.stop();
-  next.reset();
-  next.enabled=true;
-  next.setEffectiveWeight(1).setEffectiveTimeScale(speed);
-  next.setLoop(once?THREE.LoopOnce:THREE.LoopRepeat,once?1:Infinity);
-  next.clampWhenFinished=once;
-  next.time=Math.max(0,Math.min(Math.max(0,source.duration-.0001),startTime));
-  next.play();
-  st.action=next;st.kind=kind;
-  c.mixer.update(0);
-  return true;
+ function mount(c){
+  c.mixer.stopAllAction();
+  const st={clips:Object.create(null),cache:new WeakMap(),movement:null,
+   lowerAction:null,upperAction:null,overlay:null,overlayKind:null,
+   overlayUntil:0,castLower:null,castLowerSpeed:1,castLowerProgress:0};
+  states.set(c,st);return st;
+ }
+ function startAction(c,clip,{once=false,speed=1,startTime=0}={}){
+  if(!clip)return null;
+  const action=c.mixer.clipAction(clip).reset();
+  action.enabled=true;action.setEffectiveWeight(1);
+  action.setEffectiveTimeScale(speed);
+  action.setLoop(once?THREE.LoopOnce:THREE.LoopRepeat,once?1:Infinity);
+  action.clampWhenFinished=once;
+  action.time=Math.max(0,Math.min(Math.max(0,clip.duration-.0001),startTime));
+  action.play();return action;
+ }
+ function swapAction(c,old,clip,opts={}){
+  if(!clip)return old;
+  const existing=c.mixer.clipAction(clip);
+  if(old===existing&&existing.isRunning())return old;
+  if(old)old.stop();
+  return startAction(c,clip,opts);
  }
  function register(c,clips){
   const st=findState(c);if(!st)return;
   for(const [key,clip] of Object.entries(clips||{}))
    if(clip?.tracks?.length)st.clips[key]=clip;
-  // Only an actual Idle 35 replacement may restart the resting pose.
+  // Installing optional clips never restarts or replaces Idle 35.
   if(clips?.idle?.tracks?.length){
    c.idleClip=st.clips.idle;
    c.model.userData.rokIdleAnimationId=35;
-   if(!st.overlayKind)play(c,'idle',st.clips.idle);
+   if(!st.overlayKind)movement(c,'idle');
   }
  }
  function reset(c){
   const st=findState(c);if(!st)return;
   c.mixer.stopAllAction();
-  st.action=null;st.kind=null;st.overlayKind=null;st.overlayUntil=0;
-  if(st.clips.idle)play(c,'idle',st.clips.idle);
+  st.movement=null;st.lowerAction=null;st.upperAction=null;
+  st.overlay=null;st.overlayKind=null;st.overlayUntil=0;
+  st.castLower=null;st.castLowerProgress=0;
+  movement(c,'idle');
  }
  function movement(c,kind='idle'){
   const st=findState(c);if(!st)return;
-  if(st.overlayKind){
-   if(performance.now()<st.overlayUntil)return;
-   st.overlayKind=null;
-  }
-  const motion=st.clips[kind]||st.clips.idle;
-  if(!motion)return;
-  if(st.kind===kind&&st.action?.isRunning())return;
-  play(c,kind,motion);
+  if(st.overlayKind&&performance.now()>=st.overlayUntil)
+   endUpper(c,st.overlayKind);
+  const normal=st.clips[kind]||st.clips.idle;
+  const base=st.castLower&&kind==='idle'?st.castLower:normal;
+  const lower=masked(st,base,'lower');
+  const upper=masked(st,normal,'upper');
+  const speed=st.castLower&&kind==='idle'?st.castLowerSpeed:1;
+  if(lower&&(!st.lowerAction||st.lowerAction.getClip()!==lower||
+    !st.lowerAction.isRunning())){
+   st.lowerAction=swapAction(c,st.lowerAction,lower,{speed});
+  }else if(st.lowerAction)st.lowerAction.setEffectiveTimeScale(speed);
+  if(st.castLower&&kind==='idle'&&st.lowerAction)
+   st.lowerAction.time=Math.min(Math.max(0,lower.duration-.00001),
+    st.castLowerProgress*lower.duration);
+  if(!st.overlayKind&&upper&&(!st.upperAction||
+    st.upperAction.getClip()!==upper||!st.upperAction.isRunning()))
+   st.upperAction=swapAction(c,st.upperAction,upper);
+  st.movement=kind;
  }
- function upper(c,kind,source,speed=1,{startTime=0}={}){
-  const st=findState(c);if(!st||!source?.tracks?.length)return false;
-  if(!play(c,kind,source,{speed,startTime,once:true}))return false;
-  st.overlayKind=kind;
-  st.overlayUntil=performance.now()+
-   Math.max(100,1000*Math.max(0,source.duration-startTime)/Math.max(.1,Math.abs(speed)));
+ function upper(c,kind,source,speed=1,{startTime=0,transition=false}={}){
+  const st=findState(c);if(!st)return false;
+  const clip=masked(st,source,'upper');
+  if(!clip)return false;
+  const previous=st.overlay;
+  // The composited upper cast uses the original 22->21 source and keeps
+  // legs/hips independently animated. It does NOT play a full-body clip.
+  if(previous&&previous!==c.mixer.clipAction(clip))previous.stop();
+  if(st.upperAction){st.upperAction.stop();st.upperAction=null;}
+  const action=startAction(c,clip,{once:true,speed,startTime});
+  if(!action)return false;
+  st.overlay=action;st.overlayKind=kind;
+  st.overlayUntil=performance.now()+1000*
+   Math.max(0,clip.duration-startTime)/Math.max(.1,Math.abs(speed));
+  movement(c,st.movement||'idle');
   return true;
  }
  function endUpper(c,kind){
-  const st=findState(c);
-  if(!st||kind&&st.overlayKind!==kind)return;
-  st.overlayKind=null;st.overlayUntil=0;
-  play(c,'idle',st.clips.idle);
+  const st=findState(c);if(!st||kind&&st.overlayKind!==kind)return;
+  if(st.overlay)st.overlay.stop();
+  st.overlay=null;st.overlayKind=null;st.overlayUntil=0;
+  st.castLower=null;st.castLowerProgress=0;
+  st.upperAction=null;
+  movement(c,st.movement||'idle');
+ }
+ function setCastLower(c,clip,speed=1,progress=0){
+  const st=findState(c);if(!st)return;
+  st.castLower=clip;st.castLowerSpeed=speed;
+  st.castLowerProgress=Math.max(0,Math.min(1,progress));
+  movement(c,'idle');
+ }
+ function syncCastLower(c,progress){
+  const st=findState(c);if(!st||!st.castLower)return;
+  st.castLowerProgress=Math.max(0,Math.min(1,progress));
+  if(st.movement==='idle')movement(c,'idle');
+ }
+ function clearCastLower(c){
+  const st=findState(c);if(!st)return;
+  st.castLower=null;st.castLowerProgress=0;
+  movement(c,st.movement||'idle');
  }
  function shield(c,on){shieldVisual?.(c,on);}
  function cancelHit(){}
@@ -161,5 +221,6 @@ export function createChiaraVisualRig({THREE,FBXLoader,adaptClip,shieldVisual}){
   }
  }
  return {mount,loadIdle,loadExtras,register,reset,movement,upper,endUpper,
+  setCastLower,syncCastLower,clearCastLower,
   shield,hit,cancelHit,getClips:c=>({...findState(c)?.clips})};
 }
