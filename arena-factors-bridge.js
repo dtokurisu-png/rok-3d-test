@@ -4,7 +4,7 @@
  * Existing shield/armor/confusion/extraction handlers remain authoritative
  * until each one is migrated and equivalence-tested.
  */
-const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@dbb2b49cf1332cdacfb2d3c23855e18e7b587abb/nueva-version/compartido/factores-core.js';
+const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@5404064c7446565fcf45cef8819d2ca804160d06/nueva-version/compartido/factores-core.js';
 const own=(cardId,side)=>({
  kariona:[
   {factor:'escudo',semantic:{category:'magico'},application:{root:'factor',activation:'pasiva'},
