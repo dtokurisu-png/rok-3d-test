@@ -8,6 +8,8 @@ const BASELINE='dd215d6a0295bbe4033d60600f63cf6d27e6442b';
 const allowedNew=[
  // Owner-approved 2026-11-07 tactical learning and factor icon additions.
  // Owner-approved Lioren Earth training, independent from Chiara.
+ // Shared threat-aware position learning for both casters.
+ /^caster-tactical-positioning\.js$/,
  /^lioren-training-ai\.js$/,
  /^assets\/ai\/lioren-memory\.json$/,
  /^assets\/ai\/chiara-memory\.json$/,
