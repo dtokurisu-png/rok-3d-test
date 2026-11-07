@@ -765,8 +765,11 @@ qs('#expand').addEventListener('click',expand);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
 // Landscape phones often report >700 CSS px, previously forcing 2x pixel ratio.
 // Keep their GPU workload bounded independently of screen orientation.
+// Keep every full-scene object and the source textures. When sustained
+// low FPS is detected, only the GPU canvas resolution is temporarily reduced.
+let mobileAdaptiveRatio=1;
 const arenaPixelRatio=()=>Math.min(window.devicePixelRatio||1,
- fullVisualTest?(window.devicePixelRatio||1):
+ fullVisualTest?(window.devicePixelRatio||1)*mobileAdaptiveRatio:
  mobileCombatMode?Math.min(1.75,window.devicePixelRatio||1):
  window.innerWidth<700?1.5:2);
 renderer.setPixelRatio(arenaPixelRatio());
@@ -6294,6 +6297,10 @@ qs('#pause').onclick=()=>{
  playing=!playing;qs('#pause').textContent=playing?'Ⅱ Pausar':'▶ Reanudar';
 };
 let fpsTime=0,fpsCount=0;
+let spellbookVisualClock=0;
+let sceneryOcclusionClock=0;
+let slowFrameWindow=0;
+let stableFrameWindow=0;
 function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(.033,Math.max(.001,(now-prevTime)/1000));prevTime=now;
@@ -6328,7 +6335,12 @@ function loop(now){
     for(const c of combatants)updateNameplate(c);
     for(const c of casters)updateNameplate(c);
     updateOakTargetMarkers();
-    updateSpellbookCharge();
+    // Charge indicators depend on 1/4-element changes, not a 60 FPS DOM
+    // scan. Preserve smooth CSS transitions while avoiding repeated queries.
+    spellbookVisualClock+=dt;
+    if(spellbookVisualClock>=.12){
+     spellbookVisualClock=0;updateSpellbookCharge();
+    }
     updateCasterThreatIndicators();
     updateCasterAttackReticle();
   }
@@ -6336,7 +6348,13 @@ function loop(now){
   updateCameraTracking(dt);
   // Remove only nearby decorative obstacles between camera and allied caster.
   const allyForVisibility=casters.find(c=>c.side==='ally');
-  if(allyForVisibility?.outer)sceneryOverlay.updateOcclusion(camera,allyForVisibility.outer.position,now/1000);
+  // Occlusion tests raycast multiple boxes of every decorative prop;
+  // the existing 90 ms check is expensive on the 41-object mobile temple.
+  sceneryOcclusionClock+=dt;
+  if(allyForVisibility?.outer&&(!mobileCombatMode||sceneryOcclusionClock>=.24)){
+   sceneryOcclusionClock=0;
+   sceneryOverlay.updateOcclusion(camera,allyForVisibility.outer.position,now/1000);
+  }
   updateCameraMarker();
   if(loaded&&playing&&matchGate.isRunning&&!casterReview.active)updateTerritoryDamageVisuals(dt);
   updateOrbEdgeIndicators();
@@ -6355,7 +6373,29 @@ function loop(now){
     }
   }
   renderer.render(scene,camera);
-  fpsTime+=dt;fpsCount++;if(fpsTime>=1){qs('#fps').textContent='FPS: '+Math.round(fpsCount/fpsTime);fpsTime=0;fpsCount=0;}
+  fpsTime+=dt;fpsCount++;
+  if(fpsTime>=1){
+   const fps=Math.round(fpsCount/fpsTime);
+   qs('#fps').textContent='FPS: '+fps;
+   // The high-quality mobile test should never silently unload props or
+   // resize GLB textures. Adaptive canvas scaling is a reversible fallback
+   // only after sustained performance loss, not an immediate downgrade.
+   if(fullVisualTest&&mobileCombatMode&&loaded&&playing){
+    if(fps<25){slowFrameWindow++;stableFrameWindow=0;}
+    else if(fps>46){stableFrameWindow++;slowFrameWindow=0;}
+    else{slowFrameWindow=0;stableFrameWindow=0;}
+    if(slowFrameWindow>=3&&mobileAdaptiveRatio>.64){
+     mobileAdaptiveRatio=Math.max(.64,Math.round((mobileAdaptiveRatio-.12)*100)/100);
+     renderer.setPixelRatio(arenaPixelRatio());renderer.setSize(innerWidth,innerHeight);
+     slowFrameWindow=0;
+    }else if(stableFrameWindow>=12&&mobileAdaptiveRatio<1){
+     mobileAdaptiveRatio=Math.min(1,Math.round((mobileAdaptiveRatio+.08)*100)/100);
+     renderer.setPixelRatio(arenaPixelRatio());renderer.setSize(innerWidth,innerHeight);
+     stableFrameWindow=0;
+    }
+   }
+   fpsTime=0;fpsCount=0;
+  }
 }
 requestAnimationFrame(loop);
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();reframeCamera();renderer.setPixelRatio(arenaPixelRatio());renderer.setSize(innerWidth,innerHeight);});
