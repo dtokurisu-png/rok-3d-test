@@ -1,17 +1,17 @@
 /* R.O.K. Arena 2.5D — adapter to the ONE canonical factor engine.
  * No local copy of factor mechanics. The canonical ES module lives in
  * rok-lirte-html/nueva-version/compartido/factores-core.js.
- * Existing shield/armor/extraction handlers remain authoritative
+ * Existing extraction handlers remain authoritative
  * until each one is migrated and equivalence-tested.
  */
-const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@e8ddb82f8d595ce7e0692936293e419291eb825b/nueva-version/compartido/factores-core.js';
+const CORE_URL='https://cdn.jsdelivr.net/gh/dtokurisu-png/rok-lirte-html@f8ae4eef3a7cbd0ba819ee96f2eb6108415e0004/nueva-version/compartido/factores-core.js';
 const own=(cardId,side)=>({
  kariona:[
   {factor:'escudo',semantic:{category:'magico'},application:{root:'factor',activation:'pasiva'},
    config:{mode:'hit',capacity:3,
     protectsCategories:['fisico','magico','elemental','psiquico']}},
   {factor:'armadura',semantic:{category:'fisico'},application:{root:'factor',activation:'pasiva'},
-   config:{mode:'damage',capacity:1}}
+   config:{mode:'flat',potency:1,protectsCategories:['fisico']}}
  ],
  telepate:[{factor:'confusion',semantic:{category:'psiquico'},
   application:{root:'habilidad',activation:'disparador'},
@@ -37,7 +37,8 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
  function load(){
   if(loading)return loading;
   loading=import(/* @vite-ignore */CORE_URL).then(module=>{
-   if(typeof module.createFactorInstance!=='function'||typeof module.stepFactor!=='function')
+   if(typeof module.createFactorInstance!=='function'||typeof module.stepFactor!=='function'||
+    typeof module.reduceFactorDamage!=='function')
     throw Error('Motor compartido de factores incompatible');
    core=module;onLoad(module);return true;
   }).catch(error=>{onError(error);return false;});
@@ -116,8 +117,36 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
   if(!unit||!core)return null;
   return core.createFactorInstance({factor:'armadura',
    semantic:{category:'fisico'},application:{root:'habilidad',activation:'activa'},
-   config:{mode:'damage',capacity:2},sourceId:'ancient-oak-armor',
-   targetId:unit.cardId});
+   config:{mode:'flat',potency:2,protectsCategories:['fisico']},
+   sourceId:'ancient-oak-armor',targetId:unit.cardId});
+ }
+ // Base armor and equipped armor are distinct sources of the SAME factor.
+ // Cache by equipment identity; the game continues owning item lifetime.
+ const armorCache=new WeakMap();
+ function mitigateArmorDamage(unit,damage,{category='fisico'}={}){
+  if(!core||!unit)return null; // offline: caller uses legacy flat totals
+  const equipped=unit.equippedBody==='ancient-oak-armor';
+  const signature=unit.cardId+'|'+(equipped?'oak':'base');
+  let cached=armorCache.get(unit);
+  if(!cached||cached.signature!==signature){
+   const specs=[];
+   if(unit.cardId==='kariona')specs.push({
+    factor:'armadura',semantic:{category:'fisico'},
+    application:{root:'factor',activation:'pasiva'},
+    config:{mode:'flat',potency:1,protectsCategories:['fisico']},
+    sourceId:'kariona-base',targetId:unit.cardId
+   });
+   if(equipped){
+    for(const [nature,potency] of [['fisico',2],['magico',1]])
+     specs.push({factor:'armadura',semantic:{category:nature},
+      application:{root:'habilidad',activation:'activa'},
+      config:{mode:'flat',potency,protectsCategories:[nature]},
+      sourceId:'ancient-oak-armor',targetId:unit.cardId});
+   }
+   cached={signature,instances:specs.map(spec=>core.createFactorInstance(spec))};
+   armorCache.set(unit,cached);
+  }
+  return core.reduceFactorDamage(cached.instances,damage,{category});
  }
  // Confusion's lifetime belongs to the shared factor engine; the card
  // still chooses the 50/50 attack outcome and the arena renders it.
@@ -206,7 +235,7 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
   return !!(shield&&unit.rokPsychicShieldActive&&core.factorBlocks(shield,event));
  }
  return {load,register,attachEquipment,tick,blocks,applyConfusion,resolveConfusion,
-  absorbShieldDamage,refreshShield,refreshPsychicShield,
+  absorbShieldDamage,refreshShield,refreshPsychicShield,mitigateArmorDamage,
   get managesConfusion(){return !!core;},
   get confusionCount(){return confusion.size;},
   get loaded(){return !!core;},
