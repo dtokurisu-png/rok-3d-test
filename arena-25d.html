@@ -3175,7 +3175,7 @@ function resetCombatant(c){
   c.magicShieldMax=c.cardId==='kariona'?3:0;
   c.magicShieldHits=c.magicShieldMax;
   c.range=c.cardId==='semillera'?3:(archer?ATTACK_PROFILES.archer.range:shield?3:5);
-  c.attackDamage=c.cardId==='kariona'?2:(c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1)));
+  c.attackDamage=c.cardId==='kariona'?1:(c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1)));
   c.speed=shield?2.4:2.15;
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
