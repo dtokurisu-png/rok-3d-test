@@ -14,7 +14,7 @@ import {directedLampPosition,directedTarget,canDirectedCast,DIRECTED_TELEPORT_CO
  from './phase-9-directed-teleport.js';
 import {lerpLanternPosition,prepareLanternThrow,distanceXZ} from './phase-3-lantern.js';
 
-export function createFaroleraArenaIntegration({THREE,root,combatants,casters,getClip,setAnim,releaseDuel}){
+export function createFaroleraArenaIntegration({THREE,root,combatants,casters,getClip,setAnim,releaseDuel,learning=null}){
  const entries=new Map();
  let uid=0;
  const unitIds=new WeakMap();
@@ -180,6 +180,7 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   if(!canDirectedCast(snapshot(c),e.opponents||[],c.duelOpponent))return false;
   disposeVisual(e);
   e.plan=plan;e.target=null;e.time=0;
+  e.learningContext=plan.learningContext||null;
   e.rescueFor=plan.rescueFor||null;
   e.step='throw-animation';
   setClipSegment(e,2);
@@ -221,6 +222,7 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   const actual=chosen.outer?chosen:combatants.find(u=>getId(u)===chosen.id);
   if(!actual||actual.hp<=0)return false;
   e.target=actual;e.castSnapshot=chosen;
+  e.targetBefore={x:actual.outer.position.x,z:actual.outer.position.z,hp:actual.hp};
   clearNode(e.circle);
   e.circle=makeCircle(chosen,c.side);
   e.step='transport-cast';e.time=0;
@@ -251,6 +253,18 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   // Completed teleportation does not need a permanent chain, PointLight,
   // or lantern object. Restore the Farolera's real lantern immediately.
   disposeVisual(e);
+  if(e.learningContext){
+   const enemyPositions=e.opponents||[];
+   const nearest=p=>Math.min(20,...enemyPositions.map(enemy=>
+    Math.hypot(enemy.x-p.x,enemy.z-p.z)));
+   const before=e.targetBefore,after=unit?.outer?.position;
+   const safety=before&&after?Math.max(-2,Math.min(2,
+    (nearest(after)-nearest(before))*.25)):0;
+   learning?.observe('farolera',e.learningContext,
+    e.plan?.mode==='defensive'?'farolera-rescue':'farolera-offense',
+    (unit?.hp>0?.5:-1)+safety);
+  }
+  e.learningContext=null;e.targetBefore=null;
   e.plan=null;e.throwPlan=null;e.rescueFor=null;
   e.target=null;e.castSnapshot=null;
   e.step='idle';e.cooldown=DIRECTED_TELEPORT_COOLDOWN;
@@ -350,7 +364,15 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
      if(fx.light)fx.light.intensity=fx.baseLight*(.90+.10*wave);
     }
    }
-   if(e.step==='idle'&&e.cooldown<=0&&active(c)&&
+   const nearbyHostiles=opponents.some(enemy=>
+    distanceXZ(own,enemy)<=8||friends.some(friend=>distanceXZ(friend,enemy)<=7.5));
+   const threatenedAlly=!!rescue||[own,...friends].some(friend=>
+    opponents.some(enemy=>distanceXZ(friend,enemy)<=5.5));
+   const learningContext=(threatenedAlly?'danger':'safe')+':'+
+    (rescue?'rescue':'normal')+':'+(friends.length?'group':'solo');
+   // Preserve the cooldown and avoid wasting the lantern in empty combat.
+   const useful=mode==='defensive'?threatenedAlly:nearbyHostiles;
+   if(e.step==='idle'&&e.cooldown<=0&&active(c)&&useful&&
     canDirectedCast(own,opponents,c.duelOpponent)){
     // Launch forward on own half in offense, backward in defense.
     const lamp=directedLampPosition({farolera:own,mode});
@@ -359,7 +381,7 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
     // A defensive Farolera may relocate its Telépate specifically.
     // Other modes retain their original ally selection and effects.
     if(lamp&&(mode==='defensive'||target)&&distanceXZ(lamp,own)>.3)
-     begin(e,{mode,lamp,rescueFor:mode==='defensive'?rescue:null});
+     begin(e,{mode,lamp,rescueFor:mode==='defensive'?rescue:null,learningContext});
    }
   }
  }
