@@ -30,7 +30,9 @@ try{
   // files remain protected, and no authorization secrets belong in Git.
   const approvedArenaIntegration=status==='M'&&
    ['arena-25d.html','arena-combat-hud.js',
-    'arena-element-orbs.js','caster-rival-ai.js'].includes(path);
+    'arena-element-orbs.js','caster-rival-ai.js',
+    // Owner requested addition of four FBXs to the existing viewer catalogs.
+    'animation-creator-sources.js','index.html'].includes(path);
   if(!approvedArenaIntegration&&(status!=='A'||!allowedNew.some(pattern=>pattern.test(path)))){
    violations.push(status+' '+fields.join(' -> '));
   }
