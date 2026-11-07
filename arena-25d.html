@@ -467,6 +467,11 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
    Diagnostics remain mounted for scripts and accessible from Options when needed. */
 @media (min-width:760px) and (pointer:fine){
  #phase,#hint,#cameraLiveMarker{display:none!important}
+ /* Keep WASD and mouse buttons available INSIDE the settings drawer. */
+ #top #casterMobilityPanel{position:static!important;display:block!important;
+  width:100%!important;margin:10px 0!important;box-shadow:none!important;
+  padding:9px!important;background:#0b2630!important}
+ #top #casterMobilityPanel .casterMovePad{max-width:180px}
  #top{left:10px;top:10px;width:46px;min-width:0;transform:none;
   overflow:visible;background:transparent;border:none;box-shadow:none}
  #top #head{height:42px;min-height:42px;padding:0;display:block;cursor:default}
@@ -796,6 +801,19 @@ const expand=()=>{
  menuButton.title=open?'Cerrar opciones':'Opciones';
 };
 menuButton.addEventListener('click',expand);
+// On desktop, move the controller UI into the options drawer rather than
+// leaving a second text-heavy overlay in the bottom-right corner.
+// On touchscreen layouts it returns to its original DOM location.
+const desktopSettingsQuery=window.matchMedia('(min-width:760px) and (pointer:fine)');
+const movePanel=qs('#casterMobilityPanel');
+const moveAnchor=document.createComment('Original caster controls location');
+movePanel.parentNode.insertBefore(moveAnchor,movePanel);
+function placeDesktopControls(){
+ if(desktopSettingsQuery.matches)qs('#details').appendChild(movePanel);
+ else moveAnchor.parentNode.insertBefore(movePanel,moveAnchor.nextSibling);
+}
+placeDesktopControls();
+desktopSettingsQuery.addEventListener('change',placeDesktopControls);
 
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
 // Landscape phones often report >700 CSS px, previously forcing 2x pixel ratio.
