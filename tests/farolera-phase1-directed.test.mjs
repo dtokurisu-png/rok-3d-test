@@ -49,3 +49,33 @@ test('Farolera cannot cast while locked in combat nor interrupt her fight',()=>{
  assert.equal(canDirectedCast(farolera,[],null),true);
  assert.equal(DIRECTED_TELEPORT_COOLDOWN,10);
 });
+
+test('Farolera near either lateral arena edge never throws for diagonal lamp',()=>{
+ for(const x of [-7.25,7.25]){
+  for(const z of [-14.5,-11,-8,-.5]){
+   for(const mode of ['offensive','defensive']){
+    const caster={...farolera,x,z};
+    let lamp;
+    assert.doesNotThrow(()=>{lamp=directedLampPosition({farolera:caster,mode});});
+    if(lamp){
+     assert.ok(distanceXZ(lamp,caster)<=4+1e-8,`${mode} x=${x}, z=${z}`);
+     assert.ok(lamp.x>=-7&&lamp.x<=7);
+     assert.ok(lamp.z>=-14.5&&lamp.z<=-.5);
+    }
+   }
+  }
+ }
+});
+test('diagonal cast shares one radial four-cell budget across X and Z',()=>{
+ const caster={...farolera,x:7.25,z:-7};
+ const lamp=directedLampPosition({farolera:caster,mode:'offensive'});
+ assert.ok(lamp);
+ assert.ok(lamp.z< -3);
+ assert.ok(distanceXZ(caster,lamp)<=4+1e-8);
+});
+test('invalid or unreachable Farolera origin disables casting without pausing combat',()=>{
+ for(const x of [16,-16,NaN]){
+  assert.doesNotThrow(()=>directedLampPosition({farolera:{...farolera,x},mode:'defensive'}));
+  assert.equal(directedLampPosition({farolera:{...farolera,x},mode:'defensive'}),null);
+ }
+});
