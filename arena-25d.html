@@ -2333,7 +2333,8 @@ function resetCaster(c){
 const canDamageTarget=c=>(c?.role==='caster'?
   c.hp>0&&c.stage==='active':
   !!c&&c.hp>0&&(c.stage==='active'||c.stage==='stunned'||
-   c.stage==='casting'||c.stage==='semilleraElementCast'));
+   c.stage==='casting'||c.stage==='semilleraElementCast'||
+   c.stage==='confusedAction'));
 const casterLost=()=>casters.some(c=>c.stage==='defeated');
 // Enfrentamientos 1 contra 1: una invocación solo puede reservar una
 // invocación enemiga y ninguna otra puede atacarla mientras dure el duelo.
@@ -3302,6 +3303,7 @@ function finishNewSummon(c,winner=false){
 
 function resetCombatant(c){
   c.rokProvocation=null;c.rokConfusion=null;c.rokAuraClock=0;
+  c.rokConfusedAction=null;
   c.deathResourceDropped=false;
   c.currentThreatTarget=null;
   c.armorPhysical=c.cardId==='kariona'?1:0;
@@ -3617,6 +3619,7 @@ function resetDemoCombat(){
   telepateAuraVisuals.clear();
   for(const unit of combatants){
     unit.rokProvocation=null;unit.rokConfusion=null;unit.rokAuraClock=0;
+    unit.rokConfusedAction=null;
   }
   faroleraAbilityBridge.reset();
   // A new match invalidates any in-progress manual attack/cooldown.
@@ -4915,41 +4918,108 @@ function updateHostileTerritories(dt){
 
 // Resolve the 50/50 confusion outcome on each aura pulse, never
 // when the one-second timer merely expires. Enemy allegiance stays intact.
-function resolveTelConfusedAttack(attacker,telepate,outcome){
- const confusion=attacker.rokConfusion;
- if(!confusion||confusion.resolved)return;
- confusion.resolved=true;
- // Cancel an unfinished outgoing cast so its original hostile shot
- // cannot override the confusion pulse.
- if(attacker.stage==='casting'&&!attacker.castFired){
-  attacker.stage='active';attacker.castTarget=null;attacker.castFired=true;
-  if(attacker.animAction)attacker.animAction.paused=false;
-  setAnim(attacker,'idle',{force:true,fade:.12});
- }
+// Confusion is an action-gated factor: never expire while a compulsory
+// self-hit or ally attack is still being performed.
+function endConfusedAction(attacker,result='completed'){
+ if(!attacker)return;
+ attacker.rokConfusedAction=null;
+ arenaFactors.resolveConfusion(attacker,result);
+ // If canonical module was offline, also clear its legacy fallback status.
+ attacker.rokConfusion=null;
+}
+function finishConfusedAttack(attacker){
+ const order=attacker?.rokConfusedAction;
+ if(!order||order.phase!=='impact')return;
+ const victim=order.victim;
+ order.phase='recover';order.time=0;
  const amount=Math.max(1,Number(attacker.attackDamage??attacker.attack??1));
- let victim=null;
- if(outcome==='telepate'){
-  if(canDamageTarget(telepate)&&Math.hypot(
-   telepate.outer.position.x-attacker.outer.position.x,
-   telepate.outer.position.z-attacker.outer.position.z)<=attacker.range+.005)
-    victim=telepate;
- }else if(outcome==='self')victim=attacker;
- else{
-  const allies=[...combatants,...casters].filter(other=>other!==attacker&&
-   other.side===attacker.side&&canDamageTarget(other)&&
-   Math.hypot(other.outer.position.x-attacker.outer.position.x,
-    other.outer.position.z-attacker.outer.position.z)<=attacker.range+.005);
-  allies.sort((a,b)=>Math.hypot(a.outer.position.x-attacker.outer.position.x,
-   a.outer.position.z-attacker.outer.position.z)-
-   Math.hypot(b.outer.position.x-attacker.outer.position.x,
-    b.outer.position.z-attacker.outer.position.z));
-  victim=allies[0]||attacker;
+ if(victim&&canDamageTarget(victim)){
+  // A committed confusion attack is permitted to hit self or allies,
+  // without changing allegiance or bypassing armor/shield.
+  damage(victim,amount,attacker,{committed:true});
+  makeFloatingWord(victim,'¡GOLPE!');
+  if(victim.hp>0)beginHit(victim);
  }
- if(victim)damage(victim,amount,attacker,{committed:true});
- attacker.cooldown=Math.max(attacker.cooldown,ATTACK_PROFILES[attacker.kind]?.period||2);
- if(attacker.stage==='active')setAnim(attacker,'idle',{fade:.12});
- makeFloatingWord(attacker,outcome==='self'?'CONFUSIÓN · AUTOATAQUE':
-  outcome==='ally'?'CONFUSIÓN · ALIADO':'CONFUSIÓN');
+ makeFloatingWord(attacker,order.outcome==='self'?'CONFUSIÓN · AUTOATAQUE':
+  'CONFUSIÓN · ALIADO');
+}
+function stepConfusedAction(attacker,dt){
+ const order=attacker.rokConfusedAction;
+ if(!order)return;
+ if(attacker.hp<=0||['dying','vanishing','dead','restoring'].includes(attacker.stage)){
+  endConfusedAction(attacker,'interrupted');return;
+ }
+ order.age+=dt;
+ if(order.phase==='approach'){
+  let victim=order.victim;
+  if(!victim||victim===attacker||victim.hp<=0||
+   !canDamageTarget(victim)||victim.side!==attacker.side){
+   const allies=combatants.filter(unit=>unit!==attacker&&
+    unit.side===attacker.side&&canDamageTarget(unit));
+   allies.sort((a,b)=>Math.hypot(a.outer.position.x-attacker.outer.position.x,
+    a.outer.position.z-attacker.outer.position.z)-
+    Math.hypot(b.outer.position.x-attacker.outer.position.x,
+    b.outer.position.z-attacker.outer.position.z));
+   victim=allies[0]||attacker;order.victim=victim;
+  }
+  // If all companions died or the path is impassable, execute a self-hit
+  // instead of leaving a permanent, non-resolving confusion state.
+  if(victim===attacker||order.age>12){
+   order.victim=attacker;order.outcome='self';
+  }else{
+   faceTarget(attacker,victim);
+   const dx=victim.outer.position.x-attacker.outer.position.x;
+   const dz=victim.outer.position.z-attacker.outer.position.z;
+   const distance=Math.hypot(dx,dz);
+   if(distance>1.15){
+    moveSummonAvoidingBodies(attacker,dx,dz,
+     Math.min(Math.max(1.5,attacker.speed||2.15)*dt,distance-1.1));
+    setAnim(attacker,summonWalkId(attacker),{fade:.13});
+    return;
+   }
+  }
+  order.phase='windup';order.time=0;
+  faceTarget(attacker,order.victim===attacker?order.source:order.victim);
+  setAnim(attacker,2,{once:true,fade:.1,force:true});
+  makeFloatingWord(attacker,order.outcome==='self'?'¡AUTOATAQUE!':'¡ALIADO!');
+ }else if(order.phase==='windup'){
+  order.time+=dt;
+  if(order.time>=.45){order.phase='impact';finishConfusedAttack(attacker);}
+ }else if(order.phase==='recover'){
+  order.time+=dt;
+  if(order.time>=.4){
+   endConfusedAction(attacker,'attack-resolved');
+   if(attacker.hp>0){
+    attacker.stage='active';
+    attacker.cooldown=Math.max(attacker.cooldown,.55);
+    requestVictoriousRestoration(attacker);
+   }
+  }
+ }
+}
+function resolveTelConfusedAttack(attacker,telepate,outcome){
+ if(!attacker?.rokConfusion||attacker.rokConfusedAction||
+  attacker.hp<=0)return;
+ // Cancel an unfinished outgoing cast; its original target must not fire
+ // after the psychic factor has taken control of the invocation.
+ if(attacker.stage==='casting'&&!attacker.castFired){
+  attacker.castTarget=null;attacker.castFired=true;attacker.castT=0;
+  if(attacker.castMarker)attacker.castMarker.marker.visible=false;
+  if(attacker.animAction)attacker.animAction.paused=false;
+ }
+ releaseSummonDuel(attacker);
+ const companions=combatants.filter(u=>u!==attacker&&
+  u.side===attacker.side&&canDamageTarget(u));
+ companions.sort((a,b)=>Math.hypot(a.outer.position.x-attacker.outer.position.x,
+  a.outer.position.z-attacker.outer.position.z)-
+  Math.hypot(b.outer.position.x-attacker.outer.position.x,
+  b.outer.position.z-attacker.outer.position.z));
+ const target=outcome==='ally'?(companions[0]||attacker):attacker;
+ attacker.rokConfusion.resolved=false;
+ attacker.rokConfusedAction={source:telepate,victim:target,
+  outcome:target===attacker?'self':'ally',phase:'approach',time:0,age:0};
+ attacker.stage='confusedAction';
+ makeFloatingWord(attacker,'¡CONFUSIÓN!');
 }
 function updateDuel(dt){
   // The new engine owns only explicitly migrated healing pulses here.
@@ -4996,6 +5066,7 @@ function updateDuel(dt){
     if(c.stage==='active'&&c.animAction?.paused&&c.animId!=='idle')
       c.animAction.paused=false;
     c.mixer.update(dt);
+    if(c.stage==='confusedAction')stepConfusedAction(c,dt);
     if(c.stage==='intro'){
       c.introT=Math.min(1.4,c.introT+dt);
       animateFighter(c,c.introT);
@@ -5156,7 +5227,8 @@ function updateDuel(dt){
   for(const c of combatants){
     const opponent=c.stage==='casting'&&canDamageTarget(c.castTarget)?
       c.castTarget:selectCombatTarget(c);
-    if(c.stage!=='restoring'&&c.stage!=='intro'&&c.stage!=='dying')faceTarget(c,opponent);
+    if(c.stage!=='restoring'&&c.stage!=='intro'&&c.stage!=='dying'&&
+     c.stage!=='confusedAction')faceTarget(c,opponent);
   }
   for(const c of combatants)updateStunHalo(c,dt);
   updateFloatingWords(dt);
