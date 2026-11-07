@@ -167,7 +167,9 @@ export function createTelepateAuraVisuals({THREE,root}){
    v.bubble.visible=confused;
    v.wire.visible=confused;
    v.question.visible=confused;
-   v.bubble.material.opacity=.16+.06*Math.sin(unit.rokConfusion.remaining*8);
+   const phase=unit.rokConfusion.actionGated?
+    performance.now()*.008:(unit.rokConfusion.remaining||0)*8;
+   v.bubble.material.opacity=.16+.06*Math.sin(phase);
    v.wire.rotation.y+=dt*1.8;
   }
   for(const unit of [...heads.keys()])
