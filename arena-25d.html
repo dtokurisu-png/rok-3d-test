@@ -463,6 +463,33 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
   bottom:calc(2px + env(safe-area-inset-bottom,0px))!important;
  }
 }
+/* Clean PC combat view: no corner debug/keyboard hints, no live camera readout.
+   Diagnostics remain mounted for scripts and accessible from Options when needed. */
+@media (min-width:760px) and (pointer:fine){
+ #phase,#hint,#cameraLiveMarker{display:none!important}
+ #top{left:10px;top:10px;width:46px;min-width:0;transform:none;
+  overflow:visible;background:transparent;border:none;box-shadow:none}
+ #top #head{height:42px;min-height:42px;padding:0;display:block;cursor:default}
+ #top #head .rokTopHeading{display:none}
+ #top #expand{display:grid;place-items:center;width:42px;height:42px;
+  padding:0;font:700 24px/1 Roboto,system-ui,sans-serif;
+  border:1px solid #3c8d8d;border-radius:11px;
+  background:rgba(8,20,30,.88);color:#eaffff;cursor:pointer}
+ #top #expand:hover,#top #expand:focus-visible{
+  color:#00ffe4;border-color:#00ffe4;outline-offset:2px}
+ #top.open{width:min(410px,94vw);background:var(--panel);
+  border:1px solid #278d85;border-radius:12px;
+  box-shadow:0 6px 18px #0008;overflow:hidden}
+ #top.open #head{display:flex;justify-content:flex-start;
+  padding:5px 10px;min-height:52px}
+ #top.open #head .rokTopHeading{display:block}
+ #top.open #expand{width:40px;height:40px;flex:none}
+ #versionProof{position:fixed;top:12px;left:auto;right:14px;
+  transform:none;width:auto;max-width:calc(100vw - 85px);
+  padding:0;text-align:right;font:800 12px/1.25 Roboto,system-ui,sans-serif;
+  color:#e2ffff;text-shadow:0 1px 3px #000e;letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="./arena-scene-overlay.css"><link rel="stylesheet" href="./caster-mobility.css?v=20261105-mobile-113"><link rel="stylesheet" href="./arena-match-gate.css?v=0.9.65"><link rel="stylesheet" href="./arena-combat-hud.css?v=20261106-instant-semiller-charge-1"></head>
@@ -519,9 +546,9 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <div id="cameraLiveMarker" aria-live="off"><strong>Distancia: <span id="cameraLiveDistance">—</span> u</strong> · <strong>Inclinación: <span id="cameraLivePitch">—</span>°</strong><span id="cameraMarkerMode" class="cameraMarkerMode">Cámara automática</span></div>
 
 <section id="top">
-  <div id="head" role="button" tabindex="0" aria-expanded="false" aria-controls="details">
-    <div><strong>R.O.K. · Arena 2.5D</strong></div>
-    <button type="button" id="expand">Opciones ▾</button>
+  <div id="head">
+    <div class="rokTopHeading"><strong>R.O.K. · Arena 2.5D</strong></div>
+    <button type="button" id="expand" aria-expanded="false" aria-controls="details" aria-label="Abrir opciones" title="Opciones">⚙</button>
   </div>
   <div id="details">
     <section id="testerSceneTools" aria-label="Escenario">
@@ -760,11 +787,15 @@ const fullVisualTest=new URLSearchParams(location.search).get('visualTest')==='f
 const quickCombatScene=!fullVisualTest&&(mobileCombatMode||
  new URLSearchParams(location.search).get('fullScene')!=='1');
 // Preserve lightweight geometry loading on phones while rendering sharper pixels.
-const hud=qs('#top'), head=qs('#head');
-const expand=()=>{hud.classList.toggle('open');const open=hud.classList.contains('open');qs('#expand').textContent=open?'Cerrar ▴':'Opciones ▾';head.setAttribute('aria-expanded',String(open));};
-head.addEventListener('click',expand);head.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();expand();}});
-qs('#expand').addEventListener('click',e=>e.stopPropagation());
-qs('#expand').addEventListener('click',expand);
+const hud=qs('#top'), menuButton=qs('#expand');
+const expand=()=>{
+ hud.classList.toggle('open');
+ const open=hud.classList.contains('open');
+ menuButton.setAttribute('aria-expanded',String(open));
+ menuButton.setAttribute('aria-label',open?'Cerrar opciones':'Abrir opciones');
+ menuButton.title=open?'Cerrar opciones':'Opciones';
+};
+menuButton.addEventListener('click',expand);
 
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
 // Landscape phones often report >700 CSS px, previously forcing 2x pixel ratio.
