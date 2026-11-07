@@ -6,6 +6,11 @@ import {execFileSync} from 'node:child_process';
 
 const BASELINE='dd215d6a0295bbe4033d60600f63cf6d27e6442b';
 const allowedNew=[
+ // Owner-approved 2026-11-07 tactical learning and factor icon additions.
+ /^assets\/ai\/chiara-memory\.json$/,
+ /^chiara-learning\.js$/,
+ /^assets\/factores\/factor confusion\.svg$/,
+ /^assets\/factores\/factor escudo\.svg$/,
  // Four owner-uploaded 2026-11-07 FBXs, explicitly approved for the catalog.
  /^animations\/(?:Catwalk Walk Forward HighKnees|Catwalk Walk|Catwalk Walking|Walking)\.fbx$/,
  // Owner-authorized replacement of Chiara's visual rig only; AI stays intact.
