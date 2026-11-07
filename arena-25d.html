@@ -803,6 +803,7 @@ import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semille
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-composite-22-21-2';
 import {createArenaCastFlyer} from './arena-cast-flyer.js?v=phase2-20261107-1';
+import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-core-1';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261107-position-4';
@@ -925,6 +926,17 @@ const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.08,350);
 // camera-object collision raycast, dolly collision or animated field of view.
 const casters=[],combatants=[];
 const cardSummons=new Set();
+// One shared factor library; the adapter never duplicates shield/armor rules.
+const arenaFactors=createArenaFactorsBridge({
+ onHeal:(unit,power)=>{
+  const before=unit.hp;
+  unit.hp=Math.min(unit.maxHp,unit.hp+power);
+  if(unit.hp>before)makeFloatingWord(unit,'SANACIÓN +'+(unit.hp-before));
+ },
+ onLoad:()=>console.info('[R.O.K.] Motor canónico de factores conectado'),
+ onError:error=>console.warn('[R.O.K.] Factores compartidos no disponibles; combate legado continúa',error)
+});
+void arenaFactors.load();
 const MAX_ACTIVE_SUMMONS_PER_SIDE=6;
 // Lightweight XZ circle colliders. No meshes, raycasts, or extra physics engine.
 // Summons steer around nearby bodies; occupied cells are resolved gently.
@@ -3296,14 +3308,14 @@ function resetCombatant(c){
   c.maxHp=archer?ATTACK_PROFILES.archer.hp:shield?12:5;
   if(chiaraSummonDefinitions[c.cardId])c.maxHp=chiaraSummonDefinitions[c.cardId].hp;
   if(c.cardId==='semillera')c.maxHp=1;
-  if(c.cardId==='kariona')c.maxHp=2;
+  if(c.cardId==='kariona'||c.cardId==='astarium')c.maxHp=2;
   c.hp=c.maxHp;
   c.shieldMax=shield?2:0;
   c.shield=c.shieldMax;
   c.magicShieldMax=c.cardId==='kariona'?3:0;
   c.magicShieldHits=c.magicShieldMax;
   c.range=c.cardId==='semillera'?3:(archer?ATTACK_PROFILES.archer.range:shield?3:5);
-  c.attackDamage=c.cardId==='kariona'?1:(c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1)));
+  c.attackDamage=(c.cardId==='kariona'||c.cardId==='astarium')?1:(c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1)));
   c.speed=shield?2.4:2.15;
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
@@ -4932,6 +4944,9 @@ function resolveTelConfusedAttack(attacker,telepate,outcome){
   outcome==='ally'?'CONFUSIÓN · ALIADO':'CONFUSIÓN');
 }
 function updateDuel(dt){
+  // The new engine owns only explicitly migrated healing pulses here.
+  // Never run duplicate shield, confusion, armor or extraction effects.
+  arenaFactors.tick(dt,combatants);
   if(matchRestartLeft!==null){
     // Un caster derrotado no anula proyectiles que YA habían salido.
     // Esperar su impacto antes de reiniciar permite también el empate.
