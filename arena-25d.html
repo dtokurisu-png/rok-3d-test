@@ -730,7 +730,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <!-- JSZip is optional; never block the browser parser or first view. -->
 <script type="module">
 import * as THREE from 'three';
-import {stepTelepateProvocations,provocationSource,telepateGuards,clearTelepateSource,createTelepateAuraVisuals} from './features/farolera/phase-1/telepate-provocation.js?v=20261106-guaranteed-5s';
+import {stepTelepateProvocations,provocationSource,clearTelepateSource,createTelepateAuraVisuals} from './features/farolera/phase-1/telepate-provocation.js?v=20261106-provocation-kite-1';
 import {createFaroleraArenaIntegration} from './features/farolera/phase-1/phase-8-arena-bridge.js?v=20261106-directed-3';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
@@ -2140,8 +2140,13 @@ function selectCombatTarget(c){
     other.outer.position.x-c.outer.position.x,
     other.outer.position.z-c.outer.position.z);
   const withinRange=other=>distanceTo(other)<=c.range+.005;
-  // A controlled summon is a shield, not an autonomous combatant.
-  if(provocationSource(c))return null;
+  // Provocation overrides normal targeting without changing allegiance.
+  const forced=provocationSource(c);
+  if(forced&&canDamageTarget(forced)){
+    if(currentSummonDuel(c)&&currentSummonDuel(c)!==forced&&c.stage!=='casting')releaseSummonDuel(c);
+    // The Telépate is the chase destination even outside attack range.
+    return forced;
+  }
   const assigned=currentSummonDuel(c);
   // Preserve one-on-one combat while the two opponents are actually engaged.
   if(assigned&&withinRange(assigned))return assigned;
@@ -3028,7 +3033,6 @@ function finishNewSummon(c,winner=false){
 }
 
 function resetCombatant(c){
-  if(c.rokProvocation?.originalSide!==undefined)c.side=c.rokProvocation.originalSide;
   c.rokProvocation=null;c.rokAuraClock=0;
   c.deathResourceDropped=false;
   c.currentThreatTarget=null;
@@ -3287,7 +3291,6 @@ function updateSemilleraCrystals(dt){
 function resetDemoCombat(){
   telepateAuraVisuals.clear();
   for(const unit of combatants){
-    if(unit.rokProvocation?.originalSide!==undefined)unit.side=unit.rokProvocation.originalSide;
     unit.rokProvocation=null;unit.rokAuraClock=0;
   }
   faroleraAbilityBridge.reset();
@@ -4574,8 +4577,8 @@ function updateDuel(dt){
       qs('#phase').textContent='★ EMPATE · ambos casters derrotados';
     return;
   }
-  // R.O.K. Lite Provocación factor: timer, independent 32% rolls and
-  // forced target priority on eligible rival summons within five cells.
+  // Telépate provocation: guaranteed five-second pulse in radius eight,
+  // forcing enemy summons to pursue and attack him for six seconds.
   // The aura is a supplementary tactical system. A visual/FX failure
   // must not interrupt the combat loop on memory-constrained devices.
   try{
@@ -4584,7 +4587,7 @@ function updateDuel(dt){
     onPulse:source=>telepateAuraVisuals.pulse(source),
     onSuccess:(source,target)=>{
      releaseSummonDuel(target);
-     target.currentThreatTarget=null;
+     target.currentThreatTarget=source;
      if(target.stage==='casting'){
        target.stage='active';target.castTarget=null;target.castFired=true;
        setAnim(target,'idle',{fade:.12});
@@ -4687,33 +4690,6 @@ function updateDuel(dt){
   if(casters.length!==2)return;
   if(!casterLost())for(const c of combatants){
     if(c.stage!=='active'||faroleraAbilityBridge.immobilized(c))continue;
-    const guardSource=provocationSource(c);
-    if(guardSource){
-      // Hold one of two forward shield positions between the Telépate
-      // and the opposing caster; guards never seek targets or cast.
-      const guards=telepateGuards(combatants,guardSource);
-      const slot=Math.max(0,guards.indexOf(c));
-      const enemyCaster=casters.find(other=>other.side!==guardSource.side&&canDamageTarget(other));
-      const tx=(enemyCaster?.outer.position.x??guardSource.outer.position.x);
-      const tz=(enemyCaster?.outer.position.z??(guardSource.outer.position.z+1));
-      const vx=tx-guardSource.outer.position.x,vz=tz-guardSource.outer.position.z;
-      const len=Math.max(.001,Math.hypot(vx,vz));
-      const nx=vx/len,nz=vz/len;
-      const flank=guards.length===1?0:(slot===0?-0.85:0.85);
-      const px=THREE.MathUtils.clamp(guardSource.outer.position.x+nx*1.4-nz*flank,-MAX_X,MAX_X);
-      const pz=THREE.MathUtils.clamp(guardSource.outer.position.z+nz*1.4+nx*flank,-MAX_Z,MAX_Z);
-      const dx=px-c.outer.position.x,dz=pz-c.outer.position.z;
-      const distance=Math.hypot(dx,dz);
-      c.currentThreatTarget=null;
-      if(distance>.08){
-        const step=Math.min(c.speed*dt,distance);
-        c.outer.position.x+=dx/distance*step;
-        c.outer.position.z+=dz/distance*step;
-        setAnim(c,12,{fade:.16});
-      }else setAnim(c,'idle',{fade:.15});
-      faceTarget(c,enemyCaster||guardSource);
-      continue;
-    }
     if(c.cardId==='farolera'&&faroleraAbilityBridge.escort(c,dt))continue;
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
@@ -4733,6 +4709,52 @@ function updateDuel(dt){
     if(c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
       c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
       setAnim(c,12,{fade:.16});
+      continue;
+    }
+    // The Telépate is a mobile decoy: head toward the rival caster while
+    // remaining outside hostile summon attack ranges whenever space permits.
+    // This is steering only; no teleporting, immunity or speed bonus.
+    if(c.cardId==='telepate'){
+      const hostile=combatants.filter(u=>u!==c&&u.side!==c.side&&
+        u.role==='summon'&&canDamageTarget(u));
+      const ex=c.outer.position.x,ez=c.outer.position.z;
+      const caster=casters.find(u=>u.side!==c.side&&canDamageTarget(u));
+      const goalX=caster?.outer.position.x??ex;
+      const goalZ=caster?.outer.position.z??ez;
+      const goalDist=Math.hypot(goalX-ex,goalZ-ez);
+      const safeDistance=u=>Math.max(2.5,(Number(u.range)||1)+1.8);
+      const clearance=(x,z)=>hostile.reduce((sum,u)=>{
+        const d=Math.hypot(x-u.outer.position.x,z-u.outer.position.z);
+        const margin=safeDistance(u);
+        return sum+Math.pow(Math.max(0,margin-d),2);
+      },0);
+      const danger=clearance(ex,ez);
+      // Candidate steering tests eight headings; strong clearance priority
+      // prevents marching straight into summoned attackers.
+      let best=null,score=-Infinity;
+      const step=Math.max(0,c.speed*dt);
+      if(step>.0001){
+        for(let i=0;i<16;i++){
+          const angle=2*Math.PI*i/16;
+          const nx=Math.cos(angle),nz=Math.sin(angle);
+          const px=THREE.MathUtils.clamp(ex+nx*step,-MAX_X,MAX_X);
+          const pz=THREE.MathUtils.clamp(ez+nz*step,-MAX_Z,MAX_Z);
+          if(Math.hypot(px-ex,pz-ez)<step*.3)continue;
+          const risk=clearance(px,pz);
+          const toward=goalDist-Math.hypot(goalX-px,goalZ-pz);
+          // When already endangered, escaping is more important than
+          // closing distance to the caster.
+          const value=toward-(risk-danger)*8-risk*.15;
+          if(value>score){score=value;best=[px,pz];}
+        }
+      }
+      const enemyCasterInRange=target===caster&&distance<=c.range+.005;
+      if(best&&(score>0||danger>0)){
+        c.outer.position.set(best[0],c.outer.position.y,best[1]);
+        setAnim(c,12,{fade:.16});
+      }else if(enemyCasterInRange&&c.cooldown<=0){
+        startCast(c,target);c.cooldown=0;
+      }else setAnim(c,'idle',{fade:.15});
       continue;
     }
     if(distance>c.range+.005){
