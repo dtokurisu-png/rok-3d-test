@@ -2120,6 +2120,8 @@ function reserveSummonDuel(c,target){
 // Una onda 3x3 conserva su efecto sobre unidades libres, pero no puede
 // golpear una invocación bloqueada por una compañera de la atacante.
 function canAttackSummonTarget(attacker,target){
+  // A provoked attacker must always be allowed to hit its Telépate.
+  if(provocationSource(attacker)===target)return true;
   if(target?.role!=='summon')return true;
   if(attacker?.role==='caster')return true; // Caster range shots may hit summons.
   if(!attacker||attacker.role!=='summon')return false;
