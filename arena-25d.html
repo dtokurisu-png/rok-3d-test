@@ -3601,6 +3601,9 @@ function resetDemoCombat(){
   if(rivalAI?.status?.elapsed>5)chiaraLearning.finishMatch();
   if(liorenTrainingAI?.active&&liorenTrainingAI.status.elapsed>5)liorenLearning.finishMatch();
   liorenTrainingAI?.reset();
+  // A canceled training summon must not reserve the next round's slot.
+  liorenAiCast.reserved=null;liorenAiCast.token=null;
+  liorenAiCast.castUntil=0;liorenAiCast.attackUntil=0;
   rivalAI?.reset();learningStats();liorenStats();
   rivalAction.attackUntil=0;rivalAction.castingUntil=0;rivalAction.reserved=null;
   rivalAction.flyerToken=null;
