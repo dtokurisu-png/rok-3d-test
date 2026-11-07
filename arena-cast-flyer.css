@@ -51,18 +51,16 @@
  .rokCastFlyerName{font-size:8px}
  .rokCastFlyerProgress{height:6px}
 }
-/* On touch devices, keep casting notices in compact screen corners
-   instead of expanding the central health/resource HUD. */
+/* Mobile casting feedback belongs to the elemental HUD itself:
+   the flyer sits in .rokHudBars directly after the element reservoir.
+   Do not fix it to a distant screen coordinate. */
 @media (pointer:coarse) and (max-width:950px){
- .rokHudSide .rokCastFlyer{
-  position:fixed;top:calc(env(safe-area-inset-top,0px) + 105px);
-  left:6px;right:auto;z-index:27;
-  width:min(128px,32vw);min-width:0;height:25px;
-  box-sizing:border-box;margin:0;padding:2px 4px;
-  gap:4px;border-radius:5px;
- }
+ .rokHudSide .rokCastFlyer,
  .rokHudSide[data-hud-side="enemy"] .rokCastFlyer{
-  left:auto;right:6px;padding:2px 4px;
+  position:relative;top:auto;left:auto;right:auto;bottom:auto;
+  z-index:2;width:100%;max-width:100%;min-width:0;height:25px;
+  box-sizing:border-box;margin:1px 0 0;padding:2px 4px;
+  gap:4px;border-radius:5px;
  }
  .rokCastFlyerPortrait{width:18px;height:18px;flex:0 0 18px}
  .rokCastFlyerContents{gap:2px}
