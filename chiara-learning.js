@@ -3,7 +3,7 @@
  * Local storage remains the source of truth; exported snapshots are portable.
  */
 const KEY='rok.chiara.learning.v1';
-const ACTIONS=new Set(['collect','retreat','guard','attack','cast','position','farolera-rescue','farolera-offense','farolera-hold']);
+const ACTIONS=new Set(['collect','retreat','guard','attack','cast','position','farolera-rescue','farolera-offense','farolera-hold','hold','flank-left','flank-right','advance']);
 const empty=()=>({schema:1,updatedAt:null,decisions:{},matches:0});
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 function sanitize(input){
