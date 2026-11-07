@@ -777,6 +777,17 @@ const arenaPixelRatio=()=>Math.min(window.devicePixelRatio||1,
  window.innerWidth<700?1.5:2);
 renderer.setPixelRatio(arenaPixelRatio());
 renderer.setSize(innerWidth,innerHeight);
+renderer.domElement.addEventListener('webglcontextlost',event=>{
+  event.preventDefault();
+  playing=false;
+  const status=document.querySelector('#phase');
+  if(status)status.textContent='⚠ Contexto gráfico perdido · recarga la arena';
+  console.warn('[R.O.K.] WebGL perdió el contexto; se ha pausado el combate');
+});
+renderer.domElement.addEventListener('webglcontextrestored',()=>{
+  const status=document.querySelector('#phase');
+  if(status)status.textContent='Contexto gráfico restaurado · reinicia la partida para verificar recursos';
+});
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.28;
@@ -4867,8 +4878,7 @@ void (async()=>{
     return null;
    });
 
-  for(const id of ['telepate','controladora'])
-   void ensureChiaraSummonModel(id).catch(()=>{});
+  // Optional high-cost enemy models load only after the playable arena is ready.
   const deferredCasterAnimations=[];
   for(const {spec,gltf,idle,bounds} of realCasters){
    const caster=createCaster(gltf.scene,idle,spec.side);
@@ -4937,6 +4947,17 @@ void (async()=>{
   playing=false;
   matchGate.setCoreReady();
   window.ROKBoot.ready();
+  // Avoid competing with caster, temple, animation and cost-one asset loads.
+  // The spellbook can still demand-load either summon immediately when used.
+  setTimeout(()=>{
+    void (async()=>{
+      for(const id of ['telepate','controladora']){
+        try{await ensureChiaraSummonModel(id);}
+        catch(error){console.warn('[R.O.K.] Modelo opcional '+id+':',error);}
+        await new Promise(resolve=>setTimeout(resolve,800));
+      }
+    })();
+  },mobileCombatMode?4500:1800);
   // First cost-one Earth card, then heavier cards while the game runs.
   setTimeout(()=>{
    void ensureLiorenSummonModel('semillera').catch(error=>
