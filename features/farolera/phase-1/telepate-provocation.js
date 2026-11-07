@@ -1,9 +1,8 @@
 /**
  * R.O.K. 3D — Telépate de Agua: Aura de Provocación.
- * Port of Nael's factor behavior in R.O.K. Lite:
- * independent rolls per hostile summon, forced target pursuit,
- * timed debuff that refreshes, cleanup on source death/restoration.
- * Tuned for 3D: radius 8, pulse every 3 s, independent 32% rolls.
+ * Independent 32% capture rolls within an eight-unit aura every 3s.
+ * At most two captured summons defend the Telépate without attacking.
+ * Their original allegiance returns after six seconds or on source loss.
  */
 export const TELEPATE_AURA_RADIUS=8;
 export const TELEPATE_AURA_INTERVAL=3;
