@@ -5197,8 +5197,7 @@ function renderOakArmorTargets(){
    const race=document.createElement('img');
    race.src=MELANIDE_RACE_ICON;race.alt='';
    race.className='rokMelanideRaceIcon';button.append(race);
-   const name=document.createElement('span');
-   name.className='rokSpellName';name.textContent=card.name;button.append(name);
+   // Equipment target card is image-only too.
    button.addEventListener('pointerdown',event=>{
     if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;
     event.preventDefault();event.stopPropagation();button.dataset.touchTime=String(Date.now());
@@ -5209,9 +5208,6 @@ function renderOakArmorTargets(){
     equipOakArmor(c);
    });
   }
-  const num=document.createElement('span');
-  num.className='rokSpellNumber';num.textContent=String(number);
-  button.append(num);
   spellbookGrid.append(button);
  }
 }
@@ -5258,9 +5254,7 @@ function renderSpellbook(){
   const cardCost=oak&&oakArmor.state==='broken'?card.recraftCost:card?.cost;
   button.setAttribute('aria-label',card?'Casilla '+(i+1)+': '+card.name+
    ', costo '+cardCost+(oak?' · '+oakArmor.state:''):'Casilla '+(i+1)+': vacía');
-  const number=document.createElement('span');
-  number.className='rokSpellNumber';number.textContent=String(i+1);
-  button.append(number);
+  // Visual slots contain ONLY the card art; keypad mapping remains accessible.
   if(card){
    if(card.portrait){
     const img=document.createElement('img');
@@ -5281,17 +5275,8 @@ function renderSpellbook(){
      button.append(insignia);
      button.title=card.name+' · Raza Melánide';
     }
-   }else{
-    const symbol=document.createElement('span');
-    symbol.className='rokSpellPortraitPlaceholder';
-    symbol.textContent='✧';button.append(symbol);
    }
-   const name=document.createElement('span');name.className='rokSpellName';
-   name.textContent=card.name;button.append(name);
-   const cost=document.createElement('span');cost.className='rokSpellCost';
-   cost.textContent=oak?(oakArmor.state==='broken'?'Recraftear · 2 Tierra':
-    oakArmor.state==='equipped'?'Equipada':oakArmor.state==='casting'?'Casteando':'✦ '+card.cost+' Tierra · Equipar'):'✦ '+card.cost;
-   button.append(cost);
+   // Names and prices stay in card data/accessible labels, not over art.
    // Secondary touch must work even with a separate joystick touch held.
    // Pointerdown is handled immediately instead of depending on a synthesized click.
    let lastTouch=0;
@@ -5305,9 +5290,6 @@ function renderSpellbook(){
     if(Date.now()-lastTouch<650)return;
     selectSpellCard(i);
    });
-  }else{
-   const empty=document.createElement('span');empty.textContent='Vacío';
-   button.append(empty);
   }
   spellbookGrid.append(button);
  }
