@@ -15,9 +15,10 @@ test('Chiara is constructed through her own clean GLB factory, not old createCas
 test('Chiara uses only one pose owner and approved Idle 35',async()=>{
  const file=await get('chiara-visual-rig.js');
  assert.match(file,/idle:\{path:'Idle \(1\)\.fbx',id:35\}/);
- assert.match(file,/if\(st\.action\)st\.action\.stop\(\)/);
+ assert.match(file,/if\(old\)old\.stop\(\)/);
  assert.match(file,/c\.model\.userData\.rokIdleAnimationId=35/);
  assert.match(file,/c\.mixer\.stopAllAction\(\)/);
+ assert.match(file,/function masked\(st,clip,part\)/);
  assert.doesNotMatch(file,/AnimationUtils\.makeClipAdditive/);
 });
 
