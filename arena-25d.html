@@ -5865,7 +5865,6 @@ function chiaraCastPlan(caster,amount,resources={}){
  if(live.length>=MAX_ACTIVE_SUMMONS_PER_SIDE)return null;
  const unlocked=Number(resources.unlocked)||0;
  const telepates=live.filter(u=>u.cardId==='telepate');
- const faroleras=live.filter(u=>u.cardId==='farolera');
  const threatened=telepates.some(u=>u.hp/u.maxHp<=.75||
   [...combatants,...casters].some(enemy=>enemy.side!==u.side&&
    canDamageTarget(enemy)&&Math.hypot(enemy.outer.position.x-u.outer.position.x,
@@ -5873,16 +5872,21 @@ function chiaraCastPlan(caster,amount,resources={}){
  const storageFull=unlocked>0&&amount>=unlocked-.05;
  let id=null;
  if(!t){
-  // Save the first three units for the offensive decoy, not cheap cards.
+  // RESTORED: keep Chiara's approved pre-Telépate economy intact.
+  // Deploy Faroleras while opening the first reservoirs, then save to
+  // summon the first Telépate. Do not apply the NEW support policy yet.
+  const fountain=resources.nextOrb||null;
+  const saveForThird=unlocked>=2&&unlocked<3&&amount>=2-.001&&
+   !!fountain?.halfElapsed;
+  const saveToRefillThree=unlocked>=3&&amount<3-.001;
+  if(saveForThird||saveToRefillThree)return null;
   if(amount>=3)id='telepate';
+  else if(amount>=1&&f<4&&live.length<4)id='farolera';
  }else if(boss<1&&amount>=5){
   id='controladora';
- }else if(f<2&&amount>=1&&(threatened||storageFull||f===0&&t>0)){
-  // At least one Farolera supports the first Telépate. A second
-  // joins when a rescue is needed or storage would otherwise overflow.
+ }else if(f<2&&amount>=1&&(threatened||storageFull||f===0)){
   id='farolera';
- }else if(!boss&&t>0&&f>=1&&amount>=5)id='controladora';
- else if(t<2&&boss&&amount>=3&&f>=1)id='telepate';
+ }else if(t<2&&boss&&amount>=3&&f>=1)id='telepate';
  else if(storageFull&&f<3&&amount>=1)id='farolera';
  const def=chiaraSummonDefinitions[id];
  if(!def||amount<def.cost)return null;
@@ -5916,9 +5920,9 @@ rivalAI=createRivalCasterAI({
  getResourceState:c=>({...combatHud.getResources(c.side,'water'),
   nextOrb:elementOrbs.getNextOrbForecast(2)}),
  getCastPlan:chiaraCastPlan,
- getStagingPosition:(c,card)=>card?.id==='telepate'||card?.id==='farolera'||card?.id==='controladora'?{x:THREE.MathUtils.clamp(c.outer.position.x,-MAX_X+.5,MAX_X-.5),z:-Math.min(MAX_Z-2,10.5)}:null,
+ getStagingPosition:(c,card)=>card?.id==='telepate'||card?.id==='controladora'?{x:THREE.MathUtils.clamp(c.outer.position.x,-MAX_X+.5,MAX_X-.5),z:-Math.min(MAX_Z-2,10.5)}:null,
  bounds:{x:MAX_X,z:MAX_Z},
- settings:{idealPressureZ:-10.5,attackRange:3,pickupRadius:3.65,
+ settings:{idealPressureZ:-.85,attackRange:3,pickupRadius:3.65,
   territorialGrace:2.65,minimumSurvivalHp:2},
  move:(c,x,z)=>{c.outer.position.x=x;c.outer.position.z=z;},
  face:(c,p)=>{
