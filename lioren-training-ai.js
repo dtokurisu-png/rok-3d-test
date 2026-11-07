@@ -84,17 +84,29 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
    if(state.guardClock===0){guard(true);state.guardClock=.45;}
   }else{
    const plan=getCards().plan(available,unlocked,allies,near);
+   // Spawn roles need different safe territory depth. Semillera stays in
+   // rear support; combat summons can be deployed a little farther forward.
+   // Never walk toward a staging point if that lane is under enemy pressure.
+   const stagingDepth=plan?.id==='semillera'?10:
+    plan?.id==='astarium'?8.5:7.5;
+   const staging={x:c.outer.position.x,z:stagingDepth};
+   const shouldStage=!!plan&&c.outer.position.z<stagingDepth-.3&&
+    (positioning?.dangerAt(staging,enemies)||0)<.3;
+   if(shouldStage){
+    advance(c,staging,dt,.85);
+    action='position';
+   }
    // Casting under immediate Farolera pressure repeats the old failure:
    // reposition behind our summons first, then cast from a safe zone.
    const safeToCast=(suggested?.danger||0)<.42;
-   if(plan&&available>=plan.cost&&state.cooldown===0&&
+   if(plan&&!shouldStage&&available>=plan.cost&&state.cooldown===0&&
     c.outer.position.z>.5&&safeToCast&&canCast(c,plan)){
     if(cast(c,plan,'begin')){
      state.selected=plan;state.casting=.5;state.cooldown=1.1;
      state.casts++;action='cast';
     }
    }
-   if(action!=='cast'){
+   if(action!=='cast'&&!shouldStage){
     const usableOrbs=getOrbs().filter(orb=>orb.position&&
      (orb.kind!=='fragment'||available<unlocked-.01)&&
      orb.position.z>=-.2);
