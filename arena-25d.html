@@ -730,7 +730,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <!-- JSZip is optional; never block the browser parser or first view. -->
 <script type="module">
 import * as THREE from 'three';
-import {stepTelepateProvocations,provocationSource,clearTelepateSource,createTelepateAuraVisuals} from './features/farolera/phase-1/telepate-provocation.js?v=20261106-taunt-1';
+import {stepTelepateProvocations,provocationSource,telepateGuards,clearTelepateSource,createTelepateAuraVisuals} from './features/farolera/phase-1/telepate-provocation.js?v=20261106-guard-2';
 import {createFaroleraArenaIntegration} from './features/farolera/phase-1/phase-8-arena-bridge.js?v=20261106-directed-3';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
@@ -2140,7 +2140,9 @@ function selectCombatTarget(c){
     other.outer.position.x-c.outer.position.x,
     other.outer.position.z-c.outer.position.z);
   const withinRange=other=>distanceTo(other)<=c.range+.005;
-  const forced=provocationSource(c);
+  // A controlled summon is a shield, not an autonomous combatant.
+  if(provocationSource(c))return null;
+  const forced=null;
   if(forced&&canDamageTarget(forced)){
     const assigned=currentSummonDuel(c);
     if(assigned&&assigned!==forced&&c.stage!=='casting')releaseSummonDuel(c);
@@ -3041,6 +3043,7 @@ function finishNewSummon(c,winner=false){
 }
 
 function resetCombatant(c){
+  if(c.rokProvocation?.originalSide!==undefined)c.side=c.rokProvocation.originalSide;
   c.rokProvocation=null;c.rokAuraClock=0;
   c.deathResourceDropped=false;
   c.currentThreatTarget=null;
@@ -3298,7 +3301,10 @@ function updateSemilleraCrystals(dt){
 }
 function resetDemoCombat(){
   telepateAuraVisuals.clear();
-  for(const unit of combatants){unit.rokProvocation=null;unit.rokAuraClock=0;}
+  for(const unit of combatants){
+    if(unit.rokProvocation?.originalSide!==undefined)unit.side=unit.rokProvocation.originalSide;
+    unit.rokProvocation=null;unit.rokAuraClock=0;
+  }
   faroleraAbilityBridge.reset();
   // A new match invalidates any in-progress manual attack/cooldown.
   casterMovement?.disable();
@@ -4592,7 +4598,12 @@ function updateDuel(dt){
    stepTelepateProvocations(combatants,dt,{
     onPulse:source=>telepateAuraVisuals.pulse(source),
     onSuccess:(source,target)=>{
-     if(target.stage==='active')releaseSummonDuel(target);
+     releaseSummonDuel(target);
+     target.currentThreatTarget=null;
+     if(target.stage==='casting'){
+       target.stage='active';target.castTarget=null;target.castFired=true;
+       setAnim(target,'idle',{fade:.12});
+     }
     }
    });
   }catch(error){
@@ -4691,6 +4702,33 @@ function updateDuel(dt){
   if(casters.length!==2)return;
   if(!casterLost())for(const c of combatants){
     if(c.stage!=='active'||faroleraAbilityBridge.immobilized(c))continue;
+    const guardSource=provocationSource(c);
+    if(guardSource){
+      // Hold one of two forward shield positions between the Telépate
+      // and the opposing caster; guards never seek targets or cast.
+      const guards=telepateGuards(combatants,guardSource);
+      const slot=Math.max(0,guards.indexOf(c));
+      const enemyCaster=casters.find(other=>other.side!==guardSource.side&&canDamageTarget(other));
+      const tx=(enemyCaster?.outer.position.x??guardSource.outer.position.x);
+      const tz=(enemyCaster?.outer.position.z??(guardSource.outer.position.z+1));
+      const vx=tx-guardSource.outer.position.x,vz=tz-guardSource.outer.position.z;
+      const len=Math.max(.001,Math.hypot(vx,vz));
+      const nx=vx/len,nz=vz/len;
+      const flank=guards.length===1?0:(slot===0?-0.85:0.85);
+      const px=THREE.MathUtils.clamp(guardSource.outer.position.x+nx*1.4-nz*flank,-MAX_X,MAX_X);
+      const pz=THREE.MathUtils.clamp(guardSource.outer.position.z+nz*1.4+nx*flank,-MAX_Z,MAX_Z);
+      const dx=px-c.outer.position.x,dz=pz-c.outer.position.z;
+      const distance=Math.hypot(dx,dz);
+      c.currentThreatTarget=null;
+      if(distance>.08){
+        const step=Math.min(c.speed*dt,distance);
+        c.outer.position.x+=dx/distance*step;
+        c.outer.position.z+=dz/distance*step;
+        setAnim(c,12,{fade:.16});
+      }else setAnim(c,'idle',{fade:.15});
+      faceTarget(c,enemyCaster||guardSource);
+      continue;
+    }
     if(c.cardId==='farolera'&&faroleraAbilityBridge.escort(c,dt))continue;
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
