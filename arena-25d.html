@@ -282,15 +282,18 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
  --rok-charge:0%;
  --rok-charge-time:.22s;
 }
-#rokSpellbookGrid .rokSpellChargeShade{
- position:absolute;left:0;right:0;bottom:0;
- height:calc(100% - var(--rok-charge));
- z-index:6;pointer-events:none;
- background:rgba(3,8,15,.82);
- transition:height var(--rok-charge-time) linear;
+/* The dark charge mask is owned by the actual card button, not by a
+   child that can be placed behind a card skin or transformed on mobile. */
+#rokSpellbookGrid .rokSpellSlot.rokSpellChargeCard::before{
+ content:"";position:absolute;inset:0;z-index:8;pointer-events:none;
+ background:rgba(2,5,12,.88);
+ clip-path:inset(0 0 var(--rok-charge,0%) 0);
+ -webkit-clip-path:inset(0 0 var(--rok-charge,0%) 0);
+ transition:clip-path var(--rok-charge-time) linear,
+  -webkit-clip-path var(--rok-charge-time) linear;
 }
 #rokSpellbookGrid .rokSpellChargeFoil{
- position:absolute;inset:0;z-index:7;pointer-events:none;
+ position:absolute;inset:0;z-index:9;pointer-events:none;
  opacity:0;
  background:linear-gradient(118deg,
  transparent 12%,rgba(255,255,255,.04) 29%,
@@ -5313,13 +5316,11 @@ function attachSpellbookCharge(button,card,cost){
  button.classList.add('rokSpellChargeCard');
  button.dataset.element=card.element;
  button.dataset.cost=String(cost);
- const shade=document.createElement('span');
- shade.className='rokSpellChargeShade';
- shade.setAttribute('aria-hidden','true');
+ // ::before is the charge mask; only the foil needs a child node.
  const foil=document.createElement('span');
  foil.className='rokSpellChargeFoil';
  foil.setAttribute('aria-hidden','true');
- button.append(shade,foil);
+ button.append(foil);
 }
 function updateSpellbookCharge(){
  if(!spellbook.page||spellbook.targetingEquipment||spellbookPanel.hidden)return;
@@ -5336,6 +5337,8 @@ function updateSpellbookCharge(){
   if(button.style.getPropertyValue('--rok-charge')!==percent)
    button.style.setProperty('--rok-charge',percent);
   button.classList.toggle('rokSpellReady',ready&&!button.disabled);
+  button.dataset.chargePercent=String(Math.round(proportion*100));
+  button.setAttribute('aria-disabled',String(!ready||button.disabled));
  }
 }
 function renderSpellbook(){
