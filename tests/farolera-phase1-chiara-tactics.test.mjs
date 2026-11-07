@@ -35,3 +35,22 @@ test('multiple Faroleras reserve rescue for the endangered Telépate rather than
  assert.match(bridge,/rescueFor:mode==='defensive'\?rescue:null/);
  assert.match(bridge,/chosen=e\.rescueFor&&e\.rescueFor\.hp>0/);
 });
+
+test('pre-Telépate opening preserves original Farolera casting and resource policy',async()=>{
+ const html=await read('arena-25d.html');
+ const plan=html.slice(html.indexOf('function chiaraCastPlan('),html.indexOf('rivalAI=createRivalCasterAI('));
+ assert.match(plan,/if\(!t\)\{/);
+ assert.match(plan,/if\(amount>=3\)id='telepate'/);
+ assert.match(plan,/else if\(amount>=1&&f<4&&live\.length<4\)id='farolera'/);
+ assert.match(plan,/saveForThird/);
+ assert.match(plan,/saveToRefillThree/);
+ assert.match(html,/settings:\{idealPressureZ:-\.85/);
+ assert.doesNotMatch(html,/card\?\.id==='telepate'\|\|card\?\.id==='farolera'\|\|/);
+});
+test('Semillera incompatible cast clips are not retargeted in every combat frame',async()=>{
+ const html=await read('arena-25d.html');
+ assert.match(html,/unit\.semilleraFailedSource22===clip22&&/);
+ assert.match(html,/unit\.semilleraFailedSource21===clip21\)return null/);
+ assert.match(html,/unit\.semilleraFailedSource22=clip22;/);
+ assert.match(html,/slowCompleteFrames\?' · tirones:/);
+});
