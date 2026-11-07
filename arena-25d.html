@@ -2161,6 +2161,17 @@ function selectCombatTarget(c){
   const withinRange=other=>distanceTo(other)<=c.range+.005;
   // Offensive-only: ignore all summoned opponents and aim at caster.
   if(c.cardId==='telepate')return enemyCaster;
+  // Faroleras attack the summons distracted by their allied Telépate.
+  // They only take targets physically in reach, so no distant free hits.
+  if(c.cardId==='farolera'){
+   const exposed=combatants.filter(other=>other.side!==c.side&&
+    canDamageTarget(other)&&provocationSource(other)?.side===c.side&&
+    distanceTo(other)<=c.range+.005&&
+    (!currentSummonDuel(other)||currentSummonDuel(other)===c));
+   exposed.sort((a,b)=>distanceTo(a)-distanceTo(b));
+   for(const victim of exposed)
+    if(reserveSummonDuel(c,victim))return victim;
+  }
   // Provocation overrides normal targeting without changing allegiance.
   const forced=provocationSource(c);
   if(forced&&canDamageTarget(forced)){
