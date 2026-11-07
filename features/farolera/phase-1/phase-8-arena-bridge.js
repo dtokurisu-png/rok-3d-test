@@ -25,7 +25,7 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
  };
  const snapshot=c=>{
   const p=c.outer.position;
-  const q={id:getId(c),side:c.side,role:c.role,
+  const q={id:getId(c),side:c.side,role:c.role,cardId:c.cardId,
    stage:c.stage,hp:c.hp,x:p.x,z:p.z,
    attackDamage:c.attackDamage??0,range:c.range??1.5};
   const target=c.currentThreatTarget;
@@ -144,12 +144,13 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   });
   const e={unit:c,controller,step:'idle',time:0,circle:null,lantern:null,
    plan:null,hiddenLamp:false,lastMode:null,finished:false,
-   cooldown:0,target:null,castSnapshot:null,transitGlow:null};
+   cooldown:0,target:null,castSnapshot:null,transitGlow:null,rescueFor:null};
   entries.set(c,e);
   return e;
  }
  function remove(c){
   const e=entries.get(c);if(!e)return;
+  e.rescueFor=null;
   chiaraFaroleraDeath(e.controller);
   clearNode(e.transitGlow);e.transitGlow=null;
   disposeVisual(e);entries.delete(c);
@@ -179,6 +180,7 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   if(!canDirectedCast(snapshot(c),e.opponents||[],c.duelOpponent))return false;
   disposeVisual(e);
   e.plan=plan;e.target=null;e.time=0;
+  e.rescueFor=plan.rescueFor||null;
   e.step='throw-animation';
   setClipSegment(e,2);
   return true;
@@ -187,7 +189,7 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   const c=e.unit;
   const current=snapshot(c);
   if(distanceXZ(current,e.plan.lamp)>4+1e-8){
-   disposeVisual(e);e.plan=null;e.step='idle';
+   disposeVisual(e);e.plan=null;e.rescueFor=null;e.step='idle';
    e.cooldown=DIRECTED_TELEPORT_COOLDOWN;return;
   }
   e.lantern=makeLantern(c);
@@ -212,9 +214,11 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   if(!e.lantern||!e.plan)return false;
   const c=e.unit;
   if(!canDirectedCast(snapshot(c),e.opponents||[],c.duelOpponent))return false;
-  const chosen=findTarget(e);
+  // Keep the original defensive mission even after the target moves:
+  // the farol is placed first, then the vulnerable Telépate is rescued.
+  const chosen=e.rescueFor&&e.rescueFor.hp>0?e.rescueFor:findTarget(e);
   if(!chosen)return false;
-  const actual=combatants.find(u=>getId(u)===chosen.id);
+  const actual=chosen.outer?chosen:combatants.find(u=>getId(u)===chosen.id);
   if(!actual||actual.hp<=0)return false;
   e.target=actual;e.castSnapshot=chosen;
   clearNode(e.circle);
@@ -247,7 +251,7 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   // Completed teleportation does not need a permanent chain, PointLight,
   // or lantern object. Restore the Farolera's real lantern immediately.
   disposeVisual(e);
-  e.plan=null;e.throwPlan=null;
+  e.plan=null;e.throwPlan=null;e.rescueFor=null;
   e.target=null;e.castSnapshot=null;
   e.step='idle';e.cooldown=DIRECTED_TELEPORT_COOLDOWN;
   setAnim(c,'idle',{fade:.16});
@@ -260,6 +264,9 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
  function chooseChiaraMode(c,friendlies,opponents){
   // Chiara chooses the stance, not the Farolera: critical rescue beats offense.
   const self=snapshot(c);
+  const tel=friendlies.find(u=>u.cardId==='telepate');
+  if(tel&&tel.hp>0&&opponents.some(enemy=>enemy.side!==tel.side&&
+    distanceXZ(tel,enemy)<=9))return 'defensive';
   const risky=[self,...friendlies].some(u=>{
    const t=assessFaroleraThreat(u,opponents);
    return t.lethal||t.danger>=1.3;
@@ -268,6 +275,20 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
   const approaching=[self,...friendlies].some(ally=>
    opponents.some(enemy=>enemy.side!==ally.side&&distanceXZ(ally,enemy)<=5.5));
   return risky||approaching?'defensive':'offensive';
+ }
+ function findTelRescue(e,opponents){
+  // Avoid using both Faroleras on the same rescue at the same time.
+  const candidates=combatants.filter(u=>u.cardId==='telepate'&&
+   u.side===e.unit.side&&u.hp>0&&u.stage==='active');
+  candidates.sort((a,b)=>a.hp/Math.max(1,a.maxHp)-b.hp/Math.max(1,b.maxHp));
+  for(const unit of candidates){
+   if([...entries.values()].some(other=>other!==e&&other.rescueFor===unit&&
+      other.step!=='idle'))continue;
+   const imminent=opponents.some(enemy=>enemy.side!==unit.side&&
+    enemy.hp>0&&distanceXZ(snapshot(unit),enemy)<=7.5);
+   if(imminent||unit.hp/Math.max(1,unit.maxHp)<=.75)return unit;
+  }
+  return null;
  }
  function tick(dt){
   for(const unit of combatants)if(unit.cardId==='farolera'&&!entries.has(unit))attach(unit);
@@ -284,7 +305,8 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
    const opponents=[...combatants,...casters].filter(u=>u.side!==c.side&&u.hp>0)
     .map(snapshot);
    e.opponents=opponents;
-   const mode=chooseChiaraMode(c,friends,opponents);
+   const rescue=findTelRescue(e,opponents);
+   const mode=rescue?'defensive':chooseChiaraMode(c,friends,opponents);
    if(e.step==='idle'&&e.controller.order!==mode)
     orderFaroleraMode(e.controller,{issuerId:e.controller.chiaraId,mode});
    if(e.step==='throw-animation'){
@@ -303,7 +325,7 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
     e.time+=dt;
     if(canDirectedCast(snapshot(c),opponents,c.duelOpponent))beginTransport(e);
     if(e.step==='target-wait'&&e.time>=2){
-     disposeVisual(e);e.plan=null;e.throwPlan=null;
+     disposeVisual(e);e.plan=null;e.throwPlan=null;e.rescueFor=null;
      e.step='idle';e.cooldown=DIRECTED_TELEPORT_COOLDOWN;
     }else if(e.lantern)linkChain(c,e.lantern);
    }else if(e.step==='transport-cast'){
@@ -334,8 +356,10 @@ export function createFaroleraArenaIntegration({THREE,root,combatants,casters,ge
     const lamp=directedLampPosition({farolera:own,mode});
     const target=directedTarget({farolera:own,allies:friends,
      enemies:opponents,mode,inCombat:u=>!!combatants.find(x=>getId(x)===u.id)?.duelOpponent});
+    // A defensive Farolera may relocate its Telépate specifically.
+    // Other modes retain their original ally selection and effects.
     if(lamp&&(mode==='defensive'||target)&&distanceXZ(lamp,own)>.3)
-     begin(e,{mode,lamp});
+     begin(e,{mode,lamp,rescueFor:mode==='defensive'?rescue:null});
    }
   }
  }
