@@ -827,7 +827,7 @@ import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semille
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-composite-22-21-2';
 import {createArenaCastFlyer} from './arena-cast-flyer.js?v=phase2-20261107-1';
-import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-shield-6';
+import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-armor-7';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261107-position-4';
@@ -4423,11 +4423,14 @@ function damage(target,value,source,{committed=false,environment=false}={}){
     return true;
    }
   }
-  // Armor is permanent flat damage reduction; it is NOT a shield.
-  // The existing shield still absorbs only the damage that passes armor.
+  // Shield resolves first. Armor is persistent flat reduction applied
+  // once AFTER the shield; equipment modifiers live on the source card.
   const magic=source?.kind==='mana'||source?.role==='caster';
+  const category=magic?'magico':'fisico';
+  const mitigation=environment?null:
+   arenaFactors.mitigateArmorDamage(target,value,{category});
   const armor=environment?0:magic?(target.armorMagical||0):(target.armorPhysical||0);
-  const effective=Math.max(0,value-armor);
+  const effective=mitigation===null?Math.max(0,value-armor):mitigation.remaining;
   const absorbed=Math.min(target.shield,effective);
   target.shield-=absorbed;
   if(absorbed>0)target.shieldPulse=.8;
