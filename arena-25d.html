@@ -4377,7 +4377,7 @@ function damage(target,value,source,{committed=false,environment=false}={}){
     beginDeath(target);
     // Antes de restaurar al vencedor, resolver los ataques enemigos que
     // habían sido disparados: los dos combatientes pueden morir.
-    if(source&&source!==target&&source.hp>0)
+    if(source&&source!==target&&source.hp>0&&!source.rokConfusedAction)
       requestVictoriousRestoration(source);
   }else {
     beginHit(target);
@@ -4938,7 +4938,7 @@ function finishConfusedAttack(attacker){
   // without changing allegiance or bypassing armor/shield.
   damage(victim,amount,attacker,{committed:true});
   makeFloatingWord(victim,'¡GOLPE!');
-  if(victim.hp>0)beginHit(victim);
+  // damage() already triggers its normal additive hit animation on survival.
  }
  makeFloatingWord(attacker,order.outcome==='self'?'CONFUSIÓN · AUTOATAQUE':
   'CONFUSIÓN · ALIADO');
