@@ -804,7 +804,7 @@ import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semille
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-composite-22-21-2';
 import {createArenaCastFlyer} from './arena-cast-flyer.js?v=phase2-20261107-1';
-import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-shield-5';
+import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-shield-6';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261107-position-4';
@@ -2892,7 +2892,8 @@ function createSummonGroundHud(c){
  const attack=summonHudArc(group,'right',.64,0xff4c50,1,.29);
  // Keep secondary arcs outside the thicker main bars; .90 would overlap.
  // Semillera uses the former shield slot for its ten-step growing charge.
- const shield=summonHudArc(group,'left',.99,c.cardId==='semillera'?0x6bff79:c.cardId==='kariona'?0x79e9ff:0xffffff,1,.19);
+ const shield=summonHudArc(group,'left',.99,c.cardId==='semillera'?0x6bff79:
+  c.cardId==='kariona'?0x79e9ff:c.cardId==='astarium'?0xf2ce31:0xffffff,1,.19);
  // Defense color convention: physical = white, magical = light cyan.
  const armorArc=c.cardId==='kariona'?summonHudArc(group,'left',1.23,0xffffff,1,.14):null;
  const lifeTicks=summonHudTicks(group,'left',.945,0x35ff8e);
@@ -2931,6 +2932,14 @@ function createSummonGroundHud(c){
   depthTest:false,toneMapped:false}));
  manaIcon.scale.set(.19,.19,1);manaIcon.renderOrder=20;manaSlot.add(manaIcon);
  manaSlot.visible=false;
+ // Astarin's shield is psychic (yellow); its 10 marks are seconds, not HP.
+ if(c.cardId==='astarium'){
+  shieldIcon.material.color.setHex(0xf2ce31);
+  const bubble=new THREE.Mesh(new THREE.SphereGeometry(.95,22,16),
+   new THREE.MeshBasicMaterial({color:0xffdb4e,transparent:true,opacity:.14,
+    depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.BackSide}));
+  bubble.position.y=.9;c.outer.add(bubble);c.psychicShieldFx=bubble;
+ }
  summonGroundHuds.set(c,{group,health,attack,shield,armorArc,lifeTicks,attackTicks,
   shieldTicks,shieldSlot,shieldIcon,armorSlot,armorIcon,manaSlot,secondaryIcons,values:''});
 }
@@ -2988,7 +2997,8 @@ function updateSummonGroundHuds(){
   // as the main life (-.19) and attack (+.19) icons. Never offset by side.
   h.secondaryIcons.position.set(0,0,0);
   const hasArmor=c.cardId==='kariona';
-  const hasShield=hasArmor||Number(c.shieldMax)>0;
+  const psychic=c.cardId==='astarium';
+  const hasShield=psychic||hasArmor||Number(c.shieldMax)>0;
   const hasMana=Number(c.maxMana)>0;
   h.shieldSlot.visible=hasShield;
   h.armorSlot.visible=hasArmor;
@@ -3001,9 +3011,21 @@ function updateSummonGroundHuds(){
   h.manaSlot.position.set(.19,.30,.99);
   const semillera=c.cardId==='semillera';
   const physicalArmor=hasArmor?Math.max(0,Math.floor(c.armorPhysical||0)):0;
-  const shieldMax=hasArmor?Math.max(0,c.magicShieldMax||0):
+  const shieldMax=psychic?10:hasArmor?Math.max(0,c.magicShieldMax||0):
    Math.max(0,Number(c.shieldMax)||0);
-  const shieldValue=hasArmor?Math.max(0,c.magicShieldHits||0):c.shield;
+  const shieldValue=psychic?(c.rokPsychicShieldActive?
+   Math.max(0,Math.ceil((c.rokPsychicShieldRemaining||0)-1e-6)):0):
+   hasArmor?Math.max(0,c.magicShieldHits||0):c.shield;
+  if(c.psychicShieldFx){
+   const remaining=Number(c.rokPsychicShieldRemaining)||0;
+   c.psychicShieldFx.visible=!!c.rokPsychicShieldActive&&
+    c.stage==='active';
+   if(c.psychicShieldFx.visible){
+    const fade=remaining<=3?
+     (remaining/3)*(.35+.65*(Math.sin(performance.now()*.035)>0?1:.16)):1;
+    c.psychicShieldFx.material.opacity=.13*fade;
+   }
+  }
   const seedProgress=semillera?
    (c.crystalHudFlash>0?10:Math.min(9,Math.floor(c.crystalClock||0))):0;
   const snapshot=[c.hp,c.attackDamage,shieldValue,shieldMax,
@@ -3148,6 +3170,8 @@ function beginSummonEmergence(c){
    c.magicShieldHits=c.magicShieldMax;
    arenaFactors.refreshShield(c,{newLife:true});
   }
+  if(!winner&&c.cardId==='astarium')
+   arenaFactors.refreshPsychicShield(c,{newLife:true});
   c.mana=c.maxMana;c.manaTimer=0;c.dodgeCooldown=0;
   c.stunLeft=0;c.hitLeft=0;c.cooldown=.55;c.specialCooldown=0;
   c.castT=0;c.castTarget=null;c.castFired=false;
@@ -3307,6 +3331,7 @@ function finishNewSummon(c,winner=false){
 function resetCombatant(c){
   c.rokProvocation=null;c.rokConfusion=null;c.rokAuraClock=0;
   c.rokConfusedAction=null;
+  c.rokPsychicShieldActive=false;c.rokPsychicShieldRemaining=0;
   c.deathResourceDropped=false;
   c.currentThreatTarget=null;
   c.armorPhysical=c.cardId==='kariona'?1:0;
@@ -3418,6 +3443,7 @@ function disposeCardSummon(c){
  }
  c.stunHalo?.group?.traverse(node=>node.material?.dispose?.());
  if(c.shieldShell){c.shieldShell.geometry?.dispose?.();c.shieldShell.material?.dispose?.();}
+ if(c.psychicShieldFx){c.psychicShieldFx.geometry?.dispose?.();c.psychicShieldFx.material?.dispose?.();}
  const indicator=summonEdgeMarkers.get(c);
  indicator?.node.remove();summonEdgeMarkers.delete(c);
  // Do not destroy cached/shared source geometries or textures.
