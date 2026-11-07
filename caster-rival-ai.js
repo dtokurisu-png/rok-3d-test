@@ -69,7 +69,7 @@ export function createRivalCasterAI({
  function feasibleOrb(c,orb){
   const pos=c.outer.position,point=orb.position;
   if(point.z<=0)return true;
-  const magnet=Math.max(.5,cfg.pickupRadius);
+  const magnet=Math.max(.5,Number(orb.pickupRadius)||cfg.pickupRadius);
   const requiredZ=Math.max(0,point.z-magnet);
   if(requiredZ<=.02)return true; // Collectible at the border.
   const speed=Math.max(.1,c.moveSpeed||3.8);
@@ -108,9 +108,23 @@ export function createRivalCasterAI({
   }
   const pos=c.outer.position;
   // Home-side pickups beat invading the player's half, even if farther.
-  const visibleOrbs=(getOrbs?.()||[]).filter(orb=>orb?.position&&feasibleOrb(c,orb));
+  const resources=getResourceState?.(c)||{};
+  const amount=Math.max(0,Number(resources.available)||0);
+  const unlocked=Math.max(0,Number(resources.unlocked)||0);
+  // Small fragments restore a quarter of a previously unlocked unit.
+  // Never pursue a fragment when the reservoir is already full.
+  const visibleOrbs=(getOrbs?.()||[]).filter(orb=>orb?.position&&
+   (orb.kind!=='fragment'||amount<unlocked-.01)&&feasibleOrb(c,orb));
   const homeOrbs=visibleOrbs.filter(orb=>orb.position.z<=0);
-  const orbs=nearest(pos,homeOrbs.length?homeOrbs:visibleOrbs);
+  const pool=homeOrbs.length?homeOrbs:visibleOrbs;
+  // Save mode makes neutral death fragments a primary resource target.
+  // A full reservoir orb still takes precedence while capacity is < 3.
+  const preferFragment=unlocked>=3&&amount<3;
+  const shardCandidates=pool.filter(orb=>orb.kind==='fragment');
+  const largeCandidates=pool.filter(orb=>orb.kind!=='fragment');
+  const selected=unlocked<3&&largeCandidates.length?largeCandidates:
+   preferFragment&&shardCandidates.length?shardCandidates:pool;
+  const orbs=nearest(pos,selected);
   const opponents=getEnemies?.()||[];
   const nearby=nearest(pos,opponents);
   const incoming=(getThreats?.(c)||[]).filter(t=>t?.position&&
@@ -118,8 +132,7 @@ export function createRivalCasterAI({
   const atRisk=incoming.length>0||nearby.distance<cfg.interceptRange;
   // The economic plan has priority when a card is affordable: do not
   // endlessly chase orbs while waiting to cast an already available unit.
-  const amount=Math.max(0,Number(getResourceState?.(c)?.available)||0);
-  const planned=getCastPlan?.(c,amount)||null;
+  const planned=getCastPlan?.(c,amount,resources)||null;
   if(planned&&amount>=planned.cost&&pos.z<0&&
      startCast(c,{x:pos.x,z:pos.z},atRisk,planned))return;
   // Enter enemy territory ONLY for a feasible orb. Once magnetized or
@@ -139,10 +152,11 @@ export function createRivalCasterAI({
     guard?.(true);state.guardLeft=cfg.guardDuration;
    }
    const target=orbs.item.position;
+   const pickup=Math.max(.5,Number(orbs.item.pickupRadius)||cfg.pickupRadius);
    const safeCollectPosition={x:target.x,z:Math.min(target.z,
-    Math.max(-bounds.z,target.z-cfg.pickupRadius+.25))};
+    Math.max(-bounds.z,target.z-pickup+.25))};
    state.incursion=safeCollectPosition.z>0;
-   if(distance(pos,target)>cfg.pickupRadius-.3)
+   if(distance(pos,target)>pickup-.3)
     advanceToward(c,safeCollectPosition,dt,1);
    else animate?.(c,'idle');
    state.records.collectedAttempts++;
