@@ -4954,8 +4954,8 @@ function stepConfusedAction(attacker,dt){
  order.age+=dt;
  if(order.phase==='approach'){
   let victim=order.victim;
-  if(!victim||victim===attacker||victim.hp<=0||
-   !canDamageTarget(victim)||victim.side!==attacker.side){
+  if(order.outcome==='ally'&&(!victim||victim===attacker||victim.hp<=0||
+   !canDamageTarget(victim)||victim.side!==attacker.side)){
    const allies=combatants.filter(unit=>unit!==attacker&&
     unit.side===attacker.side&&canDamageTarget(unit));
    allies.sort((a,b)=>Math.hypot(a.outer.position.x-attacker.outer.position.x,
