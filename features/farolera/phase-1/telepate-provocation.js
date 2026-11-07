@@ -3,9 +3,9 @@
  * Port of Nael's factor behavior in R.O.K. Lite:
  * independent rolls per hostile summon, forced target pursuit,
  * timed debuff that refreshes, cleanup on source death/restoration.
- * Tuned for 3D: radius 5, pulse every 3 s, independent 32% rolls.
+ * Tuned for 3D: radius 8, pulse every 3 s, independent 32% rolls.
  */
-export const TELEPATE_AURA_RADIUS=5;
+export const TELEPATE_AURA_RADIUS=8;
 export const TELEPATE_AURA_INTERVAL=3;
 export const TELEPATE_PROVOKE_CHANCE=.32;
 // R.O.K. Lite Provocación level 4 lasts 6 phases. A 3D phase is
@@ -63,7 +63,7 @@ export function createTelepateAuraVisuals({THREE,root}){
   const material=new THREE.MeshBasicMaterial({color:0x21c5ff,
    transparent:true,opacity:.25,depthWrite:false,
    side:THREE.DoubleSide,blending:THREE.AdditiveBlending});
-  const persistent=new THREE.Mesh(new THREE.RingGeometry(4.93,5.02,96),material);
+  const persistent=new THREE.Mesh(new THREE.RingGeometry(TELEPATE_AURA_RADIUS-.07,TELEPATE_AURA_RADIUS+.02,96),material);
   persistent.rotation.x=-Math.PI/2;group.add(persistent);
   const pulseMat=material.clone();pulseMat.opacity=0;
   const pulse=new THREE.Mesh(new THREE.RingGeometry(.95,1.03,96),pulseMat);
