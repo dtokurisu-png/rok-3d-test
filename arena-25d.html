@@ -7648,6 +7648,8 @@ liorenTrainingAI=createLiorenTrainingAI({
    if(liorenAiCast.reserved||!combatHud.spend('ally',card.element,card.cost))
     return false;
    liorenAiCast.reserved=card;
+   if(card.id==='ancient-oak-armor'&&!card.aiRecraft)oakArmor.state='casting';
+   if(card.id==='elemental-synthesis')synthesisSpell.pending=true;
    if(card.experimentContext)
     card.experimentBefore=experimentSnapshot('ally');
    liorenAiCast.token=castFlyer.begin('ally',
@@ -7668,12 +7670,35 @@ liorenTrainingAI=createLiorenTrainingAI({
   liorenAiCast.reserved=null;
   castFlyer.release('ally',liorenAiCast.token);liorenAiCast.token=null;
   if(!reserved)return false;
-  const success=c.stage==='active'&&summonLiorenCard(c,reserved);
+  let success=false;
+  if(c.stage==='active'){
+   if(reserved.id==='ancient-oak-armor'){
+    if(reserved.aiRecraft&&oakArmor.state==='broken'){
+     oakArmor.state='ready';renderSpellbook();success=true;
+    }else if(!reserved.aiRecraft){
+     success=applyOakArmor(reserved.aiTarget);
+    }
+   }else if(reserved.id==='vitality-boost'){
+    const target=reserved.aiTarget;
+    if(availableVitalityTargets().includes(target)){
+     target.maxHp=Math.max(1,Number(target.maxHp)||1)+1;
+     makeFloatingWord(target,'VIDA MÁX. +1');
+     success=true;
+    }
+   }else if(reserved.id==='elemental-synthesis'){
+    success=emitSynthesisOrb(c);
+    if(success)synthesisSpell.used++;
+   }else success=summonLiorenCard(c,reserved);
+  }
+  if(reserved.id==='elemental-synthesis')synthesisSpell.pending=false;
+  if(reserved.id==='ancient-oak-armor'&&!reserved.aiRecraft&&!success&&
+     oakArmor.state==='casting')oakArmor.state='ready';
   if(!success)combatHud.refund('ally',reserved.element,reserved.cost);
   else if(reserved.experimentContext)liorenExperiments.begin({
    context:reserved.experimentContext,card:reserved,
-   role:reserved.tacticalRole||'defense',
+   role:reserved.tacticalRole||'support',
    snapshot:reserved.experimentBefore});
+  if(reserved.type==='equipment'||reserved.type==='spell')renderSpellbook();
   const finish=c.model?.userData?.rokCast21Clip;
   if(finish&&finish.duration>20/30)
    casterCastLayers.upper(c,'card-finish',finish,1,
