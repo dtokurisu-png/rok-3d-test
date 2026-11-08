@@ -2447,8 +2447,26 @@ function selectCombatTarget(c){
     other.outer.position.x-c.outer.position.x,
     other.outer.position.z-c.outer.position.z);
   const withinRange=other=>distanceTo(other)<=c.range+.005;
-  // Offensive-only: ignore all summoned opponents and aim at caster.
-  if(c.cardId==='telepate')return enemyCaster;
+  // Telépate prioritizes enemy summons that are NOT currently controlled
+  // by this Telépate's confusion pulse. Do not permanently exclude them:
+  // once confusion resolves, they become valid targets again.
+  if(c.cardId==='telepate'){
+   const freeSummons=combatants.filter(other=>
+    other!==c&&other.role==='summon'&&other.side!==c.side&&
+    canDamageTarget(other)&&other.rokConfusion?.source!==c&&
+    (!currentSummonDuel(other)||currentSummonDuel(other)===c));
+   const assigned=currentSummonDuel(c);
+   if(assigned&&freeSummons.includes(assigned)&&withinRange(assigned))
+    return assigned;
+   if(assigned&&c.stage!=='casting')releaseSummonDuel(c);
+   freeSummons.sort((a,b)=>distanceTo(a)-distanceTo(b));
+   const reachable=freeSummons.find(other=>withinRange(other));
+   if(reachable&&reserveSummonDuel(c,reachable))return reachable;
+   // A caster already inside the Telépate's weapon range is exposed.
+   // Otherwise do not bypass an uncontrolled summon to hunt the caster.
+   if(withinRange(enemyCaster))return enemyCaster;
+   return freeSummons[0]||enemyCaster;
+  }
   // Faroleras attack the summons distracted by their allied Telépate.
   // They only take targets physically in reach, so no distant free hits.
   if(c.cardId==='farolera'){
@@ -6022,7 +6040,8 @@ function updateDuel(dt){
     // Campeo: Semillera retreats to the far edge of her own half instead
     // of following enemies. She can attack once an enemy enters her range.
 
-    // Offensive-only Telépate: keep advancing to caster, never kite or flee.
+    // Telépate advances toward its selected uncontrolled summon first,
+    // and attacks the caster only when exposed or no free summon remains.
     if(c.cardId==='telepate'){
       if(distance>c.range+.005){
         const step=Math.min(c.speed*dt,distance-c.range);
