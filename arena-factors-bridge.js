@@ -21,7 +21,7 @@ const own=(cardId,side)=>({
   config:{mode:'instant',potency:.25,resourceOperation:'recharge'}}],
  astarium:[
   {factor:'sanacion',semantic:{category:'magico'},application:{root:'habilidad',activation:'pasiva'},
-   config:{mode:'time',interval:1,potency:1,radius:6}},
+   config:{mode:'time',interval:1,potency:1,radius:5}},
   {factor:'escudo',semantic:{category:'psiquico'},application:{root:'habilidad',activation:'disparador'},
    config:{mode:'time',duration:10,blocksCategories:['psiquico']}}
  ],
