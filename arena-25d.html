@@ -6567,7 +6567,8 @@ function experimentSnapshot(side){
   allyMaxHp:allies.reduce((n,u)=>n+(Number(u.maxHp)||0),0),
   allyArmor:allies.reduce((n,u)=>n+(Number(u.armorPhysical)||0)+
    (Number(u.armorMagical)||0),0),
-  resource:combatHud.getResources(side,side==='enemy'?'water':'earth').available};
+  resource:combatHud.getResources(side,side==='enemy'?'water':'earth').available,
+  capacity:combatHud.getResources(side,side==='enemy'?'water':'earth').unlocked};
 }
 function chooseExperimentSummon(side,caster,available){
  if(!caster)return null;
