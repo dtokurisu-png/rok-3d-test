@@ -3594,8 +3594,12 @@ function resetCombatant(c){
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
    c.semilleraLocomotion='out';c.semilleraTurn=null;
-   // Store the GLB's native facing; only walk #40 uses the opposite yaw.
-   c.semilleraModelYaw=c.model.rotation.y;
+   // Persist the GLB's native yaw across match resets. Walking #40
+   // temporarily turns the model, never the stored reference.
+   if(c.model.userData.semilleraNativeYaw===undefined)
+    c.model.userData.semilleraNativeYaw=c.model.rotation.y;
+   c.semilleraModelYaw=c.model.userData.semilleraNativeYaw;
+   c.model.rotation.y=c.semilleraModelYaw;
    c.semilleraClipWarning=false;
    c.semilleraFailedSource22=null;c.semilleraFailedSource21=null;
   }
