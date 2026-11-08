@@ -3594,7 +3594,6 @@ function resetCombatant(c){
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
    c.semilleraLocomotion='out';c.semilleraTurn=null;
-   c.semilleraWalkFacing=null;
    c.semilleraClipWarning=false;
    c.semilleraFailedSource22=null;c.semilleraFailedSource21=null;
   }
@@ -3872,19 +3871,13 @@ function stepSemilleraTurn(unit,dt){
  unit.semilleraTurn=null;
  unit.stage='active';
  if(turn.returning){
-  unit.semilleraWalkFacing=null;
   unit.semilleraLocomotion='done';
   startSemilleraCrystalCast(unit);
  }else{
-  // Same contract as Chiara mobility: finish the turn, then let the
-  // walk animation change the pose only. Never steer outer yaw in walk.
-  unit.semilleraWalkFacing=unit.outer.rotation.y;
   unit.semilleraLocomotion='walk';
-  // FBX 40's gait direction is opposite to the arena's retreat motion.
-  // Reverse its timeline without flipping the model or moving the wrong way.
-  setAnim(unit,40,{fade:.08,force:true,speed:-1});
-  if(unit.animId===40&&unit.animAction)
-   unit.animAction.time=Math.max(0,unit.animAction.getClip().duration-.001);
+  // Same principle as rival-caster mobility: clip controls only pose.
+  // Keep the completed turn's world orientation and play normal gait.
+  setAnim(unit,40,{fade:.08,force:true});
  }
 }
 const SEMILLERA_FINISH_START=20/30;
@@ -5928,12 +5921,8 @@ function updateDuel(dt){
        }
        // Production is the cast itself: 5 s in clip 22, then 1 s
        // in clip 21. Both the animation and its HUD start together.
-       if(c.semilleraLocomotion==='walk'&&
-          Math.abs(c.outer.position.z-semilleraRetreatZ(c))<=.03){
-        startSemilleraTurn(c,true);
-       }else if(c.semilleraLocomotion==='done'){
+       if(c.semilleraLocomotion==='done')
         startSemilleraCrystalCast(c);
-       }
       }
       c.cooldown=Math.max(0,c.cooldown-dt);
       c.specialCooldown=Math.max(0,c.specialCooldown-dt);
@@ -6021,13 +6010,12 @@ function updateDuel(dt){
        const destination=semilleraRetreatZ(c);
        const direction=c.side==='ally'?1:-1;
        if(Math.abs(c.outer.position.z-destination)>.03){
-        // Identical positional contract to Chiara's caster mobility:
-        // clamp movement time and position; the visual pose is separate.
-        // In particular, NEVER touch outer.rotation during locomotion.
+        // Move like the rival caster: position and gait are independent.
+        // Heading was established by animation 39 and stays unchanged.
         const delta=Math.min(.05,Math.max(0,dt));
         c.outer.position.z=THREE.MathUtils.clamp(
          c.outer.position.z+direction*c.speed*delta,-MAX_Z,MAX_Z);
-        setAnim(c,40,{fade:.08,speed:-1});continue;
+        setAnim(c,40,{fade:.08});continue;
        }
        c.outer.position.z=destination;
        startSemilleraTurn(c,true);continue;
@@ -6557,31 +6545,6 @@ function ensureLiorenSummonModel(id){
   {id:38,cardId:'kariona',path:'animations/Catwalk Walk Forward HighKnees.fbx'},
   {id:41,cardId:'telepate',path:'animations/Walking.fbx'}
  ];
- // The imported FBX clips may animate the Hips quaternion into a
- // different heading at the boundary between turn #39 and walk #40.
- // For Semillera only, heading belongs exclusively to unit.outer:
- // freeze Hips quaternion to the GLB rig's bind orientation in BOTH
- // locomotion clips. All other bone tracks, including leg and arm gait,
- // remain unchanged. Do not modify the shared FBX or GLB assets.
- function normalizeSemilleraLocomotionYaw(model){
-  const turn=summonMoveClipMap.get('semillera:39');
-  const walk=summonMoveClipMap.get('semillera:40');
-  if(!turn||!walk)return false;
-  const hipsTrack=clip=>clip.tracks.find(track=>
-   track.name.endsWith('.quaternion')&&
-   boneKey(track.name.slice(0,-'.quaternion'.length))==='hips');
-  const turnHips=hipsTrack(turn),walkHips=hipsTrack(walk);
-  const skeleton=findSkeletonForAnimation(model);
-  const hips=skeleton?.bones.find(b=>boneKey(b.name)==='hips');
-  if(!hips||!turnHips||!walkHips)
-   throw Error('Semillera 39/40: Hips o su rotación no disponibles');
-  const neutral=hips.quaternion.clone().normalize();
-  for(const track of [turnHips,walkHips]){
-   for(let i=0;i<track.times.length;i++)
-    neutral.toArray(track.values,i*4);
-  }
-  return true;
- }
  let summonWalkLoadStarted=false;
  async function preloadApprovedSummonWalks(){
   if(summonWalkLoadStarted)return;
@@ -6600,14 +6563,6 @@ function ensureLiorenSummonModel(id){
     if(item.id===39&&clip.duration<181/30-.04)
      throw Error('La animación 39 no llega al fotograma 181');
     summonMoveClipMap.set(item.cardId+':'+item.id,clip);
-    if(item.cardId==='semillera'&&item.id===39){
-     try{normalizeSemilleraLocomotionYaw(model.scene);}
-     catch(error){
-      // An unnormalized turn would visually undo the walking direction.
-      summonMoveClipMap.delete('semillera:39');
-      throw error;
-     }
-    }
     // Refresh currently walking units when the new clip is first ready.
     for(const unit of combatants)if(unit.cardId===item.cardId&&
       unit.stage==='active'&&unit.animId===12&&item.id!==39)
