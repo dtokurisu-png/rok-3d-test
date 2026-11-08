@@ -27,7 +27,8 @@ const own=(cardId,side)=>({
  ],
  controladora:[] // Factor 'control' reserved; behavior not yet defined by its card.
 })[cardId]||[];
-export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()=>{}}={}){
+export function createArenaFactorsBridge({onHeal=()=>{},onHealingPulse=()=>{},
+ onLoad=()=>{},onError=()=>{}}={}){
  let core=null,loading=null;
  const active=new Map();
  const confusion=new Map();
@@ -247,6 +248,9 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
    if(unit.stage!=='active')continue;
    const events=core.stepFactor(factor,dt);
    for(const event of events){
+    // Notify the arena on EVERY healing pulse, even at full HP.
+    // This visual notification must not be tied to successful healing.
+    onHealingPulse(unit,event);
     for(const ally of units){
      if(ally.side!==unit.side||ally.hp<=0||ally.hp>=ally.maxHp||
       ally.role!=='summon'||['dead','dying','vanishing','restoring'].includes(ally.stage))
@@ -277,6 +281,11 @@ export function createArenaFactorsBridge({onHeal=()=>{},onLoad=()=>{},onError=()
   get confusionCount(){return confusion.size;},
   get loaded(){return !!core;},
   get canonicalUrl(){return CORE_URL;},
-  get activeCount(){return active.size;}
+  get activeCount(){return active.size;},
+  get healingDiagnostics(){return [...active].map(([unit,factor])=>({
+   cardId:unit.cardId,stage:unit.stage,pulses:factor.state.pulses,
+   elapsed:factor.state.elapsed,active:factor.state.active,
+   position:unit.outer?.position?{x:unit.outer.position.x,z:unit.outer.position.z}:null
+  }));}
  };
 }
