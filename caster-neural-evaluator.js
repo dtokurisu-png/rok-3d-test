@@ -13,16 +13,16 @@ export function createCasterNeuralEvaluator(seed='caster'){
   w2:init(HID,(hash(seed)+5)%97),b2:0,examples:0};
  function features(context,card,role){
   const chunks=String(context||'').split('|');
-  const [side,hp,threat,enemy,enemyHp,allies,mana]=chunks;
+  const [side,hp,threat,enemy,enemyHp,allies,mana,enemyDamage,enemyProtection,rivalMana]=chunks;
   return [1,hp==='critical'?1:0,hp==='hurt'?1:0,
    threat==='close'?1:0,threat==='near'?1:0,
    enemyHp==='fragile'?1:0,enemyHp==='durable'?1:0,
    allies==='some'?1:0,allies==='many'?1:0,
    mana==='one'?1:0,Number(card?.cost||0)/5,
    role==='defense'?1:0,role==='offense'?1:0,
-   threat==='clear'?1:0,
-   (hash(card?.id||card||'none')%997)/997,
-   (hash(enemy||'none')%991)/991];
+   enemyDamage==='high'?1:0,
+   enemyProtection==='protected'?1:0,
+   rivalMana==='rich'?1:0];
  }
  function forward(x){
   const hidden=Array.from({length:HID},(_,j)=>{
