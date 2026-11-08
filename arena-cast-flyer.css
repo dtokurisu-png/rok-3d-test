@@ -58,7 +58,7 @@
  .rokHudSide .rokCastFlyer,
  .rokHudSide[data-hud-side="enemy"] .rokCastFlyer{
   position:relative;top:auto;left:auto;right:auto;bottom:auto;
-  z-index:2;width:100%;max-width:100%;min-width:0;height:25px;
+  z-index:2;width:min(128px,100%);max-width:128px;min-width:0;height:25px;
   box-sizing:border-box;margin:1px 0 0;padding:2px 4px;
   gap:4px;border-radius:5px;
  }
