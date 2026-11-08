@@ -185,7 +185,14 @@ export function createRivalCasterAI({
     distance(pos,a.position)-distance(pos,b.position);
   });
   const dangerTarget=inRange[0];
-  if(dangerTarget&&state.attackCooldown<=0){
+  // When an allied summon is already holding the enemy, casting another
+  // useful card may be better than spending the cover window on a shot.
+  // A one-shot kill remains higher priority than another cast.
+  const planned=getCastPlan?.(c,amount,resources)||null;
+  const protectedByAlly=dangerTarget?.target?.duelOpponent?.side===c.side;
+  const exploitCover=protectedByAlly&&planned&&amount>=planned.cost&&
+   (Number(dangerTarget.target.hp)||99)>1&&c.outer.position.z<0;
+  if(dangerTarget&&state.attackCooldown<=0&&!exploitCover){
    if(state.guardLeft>0){state.guardLeft=0;guard?.(false);}
    face?.(c,dangerTarget.position);
    if(attack?.(c,dangerTarget.target)){
@@ -203,11 +210,10 @@ export function createRivalCasterAI({
 
   // The economic plan has priority when a card is affordable: do not
   // endlessly chase orbs while waiting to cast an already available unit.
-  const planned=getCastPlan?.(c,amount,resources)||null;
   // Build the formation in the rearguard instead of casting a high-value
   // Telépate next to hostile summons. Escort units then have approach time.
   if(planned&&amount>=planned.cost&&pos.z<0){
-   if((tactical?.danger||0)>.42){
+   if((tactical?.danger||0)>.42&&!protectedByAlly){
     state.mode='retreat';
     advanceToward(c,{x:tactical?.target?.x??pos.x,
      z:-Math.min(bounds.z,Math.max(11,Math.abs(pos.z)+1.5))},dt);
