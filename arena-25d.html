@@ -6637,7 +6637,7 @@ function openSpellbook(page){
   spellStatus('Inicia un combate para abrir el grimorio.');return;
  }
  spellbook.page=spellbook.page===page?0:page;
- spellbook.targetingEquipment=false;
+ spellbook.targetingEquipment=false;spellbook.targetingVitality=false;
  clearOakTargetMarkers();
  renderSpellbook();
 }
@@ -6877,7 +6877,7 @@ for(const button of document.querySelectorAll('.rokSpellbookPageKey')){
  });
 }
 function closeSpellbook(){
- spellbook.page=0;spellbook.targetingEquipment=false;
+ spellbook.page=0;spellbook.targetingEquipment=false;spellbook.targetingVitality=false;
  clearOakTargetMarkers();renderSpellbook();
 }
 
