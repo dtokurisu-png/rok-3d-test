@@ -3970,7 +3970,7 @@ function resetDemoCombat(){
   }
   magicImpacts.length=0;
   // Card equipment is a per-match consumable; the next match starts fresh.
-  resetOakArmor();
+  resetOakArmor();spellbook.targetingVitality=false;
   clearSemilleraCrystals();
   clearSynthesisOrbs();synthesisSpell.used=0;synthesisSpell.pending=false;
   clearDeathFragments();
@@ -6038,7 +6038,9 @@ const liorenSpellCards=[
    portrait:'./assets/ui/armadura-roble-antiguo.webp'},
   {id:'elemental-synthesis',name:'Síntesis Elemental',type:'spell',
    element:'earth',cost:3,consumable:true,maxUses:3,portrait:null},
-  null,null,null,null],
+  {id:'vitality-boost',name:'Vigor Vital',type:'spell',element:'earth',
+   cost:1,portrait:null,effect:'max-hp-plus-one'},
+  null,null,null],
  Array(9).fill(null),Array(9).fill(null)
 ];
 const spellDeckForSide=side=>side==='enemy'?spellCards:liorenSpellCards;
@@ -6143,7 +6145,7 @@ function ensureLiorenSummonModel(id){
    await new Promise(resolve=>setTimeout(resolve,950));
   }
  }
- const spellbook={page:0,rapid:new Map(),targetingEquipment:false};
+ const spellbook={page:0,rapid:new Map(),targetingEquipment:false,targetingVitality:false};
 const synthesisSpell={used:0,pending:false,max:3};
 const synthesisOrbs=[];
 function emitSynthesisOrb(caster){
@@ -6201,6 +6203,10 @@ const availableMelanideTargets=()=>[...cardSummons].filter(c=>
 // Never replace this rule with a hard-coded card name in the equip validator.
 const oakArmorCard=liorenSpellCards[0].find(card=>card?.id==='ancient-oak-armor');
 const summonQualities=c=>liorenSpellCards.flat().find(card=>card?.id===c.cardId)?.qualities||[];
+const availableVitalityTargets=()=>[...cardSummons].filter(c=>
+ c.side==='ally'&&c.role==='summon'&&c.hp>0&&
+ !['dead','dying','vanishing','restoring','summonCasting'].includes(c.stage));
+const vitalityCard=liorenSpellCards[0].find(card=>card?.id==='vitality-boost');
 const availableOakArmorTargets=()=>availableMelanideTargets().filter(c=>
  summonQualities(c).includes(oakArmorCard.requiredQuality)&&!c.equippedBody);
 const oakTargetNumbers=new Map();
@@ -6212,12 +6218,14 @@ function clearOakTargetMarkers(){
  oakTargetMarkers.clear();oakTargetNumbers.clear();oakTargetSignature='';
 }
 function updateOakTargetMarkers(){
- if(!spellbook.targetingEquipment||!spellbook.page){
+ if((!spellbook.targetingEquipment&&!spellbook.targetingVitality)||!spellbook.page){
   if(oakTargetMarkers.size)clearOakTargetMarkers();
   return;
  }
- const targets=availableOakArmorTargets().slice(0,9);
- const signature=targets.map(c=>c.uuid||c.outer?.uuid).join('|');
+ const targets=(spellbook.targetingVitality?
+  availableVitalityTargets():availableOakArmorTargets()).slice(0,9);
+ const signature=(spellbook.targetingVitality?'vitality:':'oak:')+
+  targets.map(c=>c.uuid||c.outer?.uuid).join('|');
  if(signature!==oakTargetSignature){
   clearOakTargetMarkers();
   oakTargetSignature=signature;
@@ -6230,7 +6238,8 @@ function updateOakTargetMarkers(){
    oakMarkerLayer.append(label);
    oakTargetMarkers.set(c,label);
   });
-  renderOakArmorTargets();
+  if(spellbook.targetingVitality)renderVitalityTargets();
+  else renderOakArmorTargets();
  }
  for(const [c,label] of oakTargetMarkers){
   const point=new THREE.Vector3(0,1.85,0);
@@ -6351,6 +6360,91 @@ async function equipOakArmor(c){
  spellStatus('Casteando Armadura de Roble Antiguo · 2.0 s.');
  return true;
 }
+// Reuse the oak armor's exact numbered target selection and markers.
+async function castVitalityOn(c){
+ if(!spellbook.targetingVitality||!availableVitalityTargets().includes(c)){
+  spellStatus('Selecciona una invocación aliada viva.');return false;
+ }
+ const caster=casters.find(unit=>unit.side==='ally');
+ if(!caster||caster.stage!=='active'){
+  spellStatus('Lioren no está disponible para castear.');return false;
+ }
+ if(!caster.model?.userData?.rokCast22Clip||!caster.model?.userData?.rokCast21Clip){
+  spellStatus('Cargando animaciones 22 y 21 para Vigor Vital.');
+  try{await movementLoader.load(caster)}
+  catch(error){spellStatus('No se pudieron preparar las animaciones.');return false;}
+  if(!spellbook.targetingVitality||!availableVitalityTargets().includes(c))return false;
+  if(!caster.model?.userData?.rokCast22Clip||!caster.model?.userData?.rokCast21Clip)return false;
+ }
+ if(!combatHud.spend('ally','earth',vitalityCard.cost)){
+  spellStatus('Necesitas 1 elemento de Tierra.');return false;
+ }
+ // Reserve the target and remove the picker before starting the cast.
+ spellbook.targetingVitality=false;spellbook.page=0;
+ clearOakTargetMarkers();renderSpellbook();
+ let token=null;
+ const started=casterMovement.startCardCast({
+  cost:vitalityCard.cost,
+  onRelease:()=>{
+   castFlyer.release('ally',token);
+   if(c.hp<=0||!cardSummons.has(c)||
+      ['dead','dying','vanishing','restoring'].includes(c.stage)){
+    combatHud.refund('ally','earth',vitalityCard.cost);
+    spellStatus('Objetivo no disponible: coste devuelto.');return;
+   }
+   c.maxHp=Math.max(1,Number(c.maxHp)||1)+1;
+   // Increase capacity only; healing remains the job of healing effects.
+   makeFloatingWord(c,'VIDA MÁX. +1');
+   spellStatus('Vigor Vital: '+c.cardId+' tiene '+c.maxHp+' de vida máxima.');
+  },
+  onCancel:()=>{
+   castFlyer.cancel('ally',token);
+   combatHud.refund('ally','earth',vitalityCard.cost);
+   spellStatus('Vigor Vital cancelado: coste devuelto.');
+  }
+ });
+ if(!started){
+  combatHud.refund('ally','earth',vitalityCard.cost);
+  spellStatus('No se pudo iniciar el casteo; coste devuelto.');return false;
+ }
+ token=castFlyer.begin('ally',{name:vitalityCard.name,element:'earth',
+  duration:cardCastPreparationSeconds(vitalityCard.cost)});
+ spellStatus('Casteando Vigor Vital · +1 vida máxima.');
+ return true;
+}
+function renderVitalityTargets(){
+ spellbookGrid.replaceChildren();
+ const targets=availableVitalityTargets().slice(0,9);
+ for(const number of [7,8,9,4,5,6,1,2,3]){
+  const c=targets[number-1];
+  const button=document.createElement('button');
+  button.type='button';button.className='rokSpellSlot';button.disabled=!c;
+  button.setAttribute('aria-label',c?'Aplicar Vigor Vital a invocación '+number:
+   'Casilla '+number+': vacía');
+  if(c){
+   button.classList.add('rokEarthCardArt','rokOakSelectCard');
+   const numberBadge=document.createElement('span');
+   numberBadge.className='rokOakSelectNumber';
+   numberBadge.textContent=String(number);button.append(numberBadge);
+   const card=liorenSpellCards.flat().find(item=>item?.id===c.cardId);
+   if(card?.portrait){
+    const portrait=document.createElement('img');portrait.src=card.portrait;
+    portrait.alt='';portrait.className='rokEarthCharacterArt';button.append(portrait);
+   }
+   button.title=(card?.name||c.cardId)+' · Vida '+c.hp+'/'+c.maxHp;
+   button.addEventListener('pointerdown',event=>{
+    if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;
+    event.preventDefault();event.stopPropagation();
+    button.dataset.touchTime=String(Date.now());void castVitalityOn(c);
+   });
+   button.addEventListener('click',()=>{
+    if(Date.now()-Number(button.dataset.touchTime||0)<650)return;
+    void castVitalityOn(c);
+   });
+  }
+  spellbookGrid.append(button);
+ }
+}
 function renderOakArmorTargets(){
  spellbookGrid.replaceChildren();
  const targets=availableOakArmorTargets().slice(0,9);
@@ -6443,14 +6537,16 @@ function renderSpellbook(){
  if(spellbook.page&&!spellbookPageHasCards(spellbook.page))
   spellbook.page=0;
  spellbookPanel.hidden=spellbook.page===0;
- spellbookPanel.setAttribute('aria-label',spellbook.targetingEquipment?
-  'Seleccionar Cariona para Armadura de Roble Antiguo':
+ spellbookPanel.setAttribute('aria-label',spellbook.targetingVitality?
+  'Seleccionar una invocación aliada para Vigor Vital':
+  spellbook.targetingEquipment?'Seleccionar Cariona para Armadura de Roble Antiguo':
   'Página '+spellbook.page+' del grimorio, nueve cartas');
  for(const button of document.querySelectorAll('.rokSpellbookPageKey'))
   button.setAttribute('aria-pressed',String(Number(button.dataset.page)===spellbook.page));
  spellbookGrid.replaceChildren();
  if(spellbook.page===0){clearOakTargetMarkers();return;}
  if(spellbook.targetingEquipment){renderOakArmorTargets();return;}
+ if(spellbook.targetingVitality){renderVitalityTargets();return;}
  clearOakTargetMarkers();
  const cards=spellDeckForSide(qs('#casterMoveSide').value)[spellbook.page-1];
  // Numpad order (visual top to bottom): 7 8 9 / 4 5 6 / 1 2 3.
@@ -6492,11 +6588,13 @@ function renderSpellbook(){
      button.title=card.name+' · Raza Melánide';
     }
    }
-   if(synthesis&&!card.portrait){
+   if((synthesis||card.id==='vitality-boost')&&!card.portrait){
     // Clearly marked temporary text art, not an invented illustration.
     const pending=document.createElement('span');
     pending.className='rokSpellName';pending.textContent=card.name;
-    pending.title='Ilustración pendiente · '+(synthesisSpell.max-synthesisSpell.used)+' usos disponibles';
+    pending.title=synthesis?'Ilustración pendiente · '+
+     (synthesisSpell.max-synthesisSpell.used)+' usos disponibles':
+     'Ilustración pendiente · +1 vida máxima';
     button.append(pending);
    }
    // Water summons still need a visible card image while their unique
@@ -6621,6 +6719,11 @@ function summonLiorenCard(caster,card){
 }
 function selectSpellCard(index){
  if(!spellbook.page||index<0||index>=9)return;
+ if(spellbook.targetingVitality){
+  const target=availableVitalityTargets().slice(0,9)[index];
+  if(target)void castVitalityOn(target);
+  return;
+ }
  if(spellbook.targetingEquipment){
   const target=availableOakArmorTargets().slice(0,9)[index];
   if(target)equipOakArmor(target);
@@ -6633,6 +6736,16 @@ function selectSpellCard(index){
  }
  const caster=casters.find(c=>c.side===qs('#casterMoveSide').value);
  if(!caster||caster.stage!=='active'){spellStatus('Caster no disponible.');return;}
+ if(card.id==='vitality-boost'){
+  if(caster.side!=='ally')return;
+  if(!availableVitalityTargets().length){
+   spellStatus('No tienes invocaciones aliadas disponibles.');return;
+  }
+  spellbook.targetingVitality=true;renderSpellbook();
+  updateOakTargetMarkers();
+  spellStatus('Elige la invocación numerada que recibirá +1 de vida máxima.');
+  return;
+ }
  if(card.id==='ancient-oak-armor'){
   if(caster.side!=='ally')return;
   if(oakArmor.state==='equipped'||oakArmor.state==='casting'||oakArmor.state==='loading'){
