@@ -127,8 +127,10 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
    // Spawn roles need different safe territory depth. Semillera stays in
    // rear support; combat summons can be deployed a little farther forward.
    // Never walk toward a staging point if that lane is under enemy pressure.
+   // Defensive experiments deploy in the rearguard; offensive ones
+   // test a forward position while remaining on our own half.
    const stagingDepth=plan?.id==='semillera'?10:
-    plan?.id==='astarium'?8.5:7.5;
+    plan?.tacticalRole==='defense'?11:6;
    const staging={x:c.outer.position.x,z:stagingDepth};
    const shouldStage=!!plan&&c.outer.position.z<stagingDepth-.3&&
     (positioning?.dangerAt(staging,enemies)||0)<.3;
