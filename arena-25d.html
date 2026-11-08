@@ -3910,7 +3910,7 @@ function updateSemilleraCrystals(dt){
 }
 function resetDemoCombat(){
    castFlyer.reset();
-  clearHealingPulseFx();
+  clearHealingPulseFx();clearConfusionSelfSlashFx();
   telepateAuraVisuals.clear();
   for(const unit of combatants){
     unit.rokProvocation=null;unit.rokConfusion=null;unit.rokAuraClock=0;
@@ -5246,6 +5246,44 @@ function endConfusedAction(attacker,result='completed'){
  // If canonical module was offline, also clear its legacy fallback status.
  attacker.rokConfusion=null;
 }
+// Short, elevated slash flashes make psychic self-damage readable on mobile.
+const confusionSlashFx=[];
+function spawnConfusionSelfSlash(unit,ordinal){
+ const group=new THREE.Group();
+ group.position.set(unit.outer.position.x,1.12+ordinal*.14,
+  unit.outer.position.z);
+ root.add(group);
+ const material=new THREE.MeshBasicMaterial({
+  color:ordinal===3?0xffd7ff:0xd88cff,transparent:true,opacity:.95,
+  depthWrite:false,depthTest:false,side:THREE.DoubleSide,
+  blending:THREE.AdditiveBlending});
+ const slash=new THREE.Mesh(new THREE.PlaneGeometry(.65,.075),material);
+ slash.rotation.z=(ordinal%2?-.58:.58);
+ slash.rotation.y=Math.atan2(camera.position.x-group.position.x,
+  camera.position.z-group.position.z);
+ group.add(slash);
+ confusionSlashFx.push({group,slash,age:0,life:.42});
+}
+function updateConfusionSelfSlashFx(dt){
+ for(let i=confusionSlashFx.length-1;i>=0;i--){
+  const fx=confusionSlashFx[i];
+  fx.age+=dt;
+  const t=Math.min(1,fx.age/fx.life);
+  fx.slash.material.opacity=.95*(1-t);
+  fx.slash.scale.setScalar(1+.5*t);
+  fx.group.position.y+=dt*.35;
+  if(t>=1){
+   root.remove(fx.group);fx.slash.geometry.dispose();
+   fx.slash.material.dispose();confusionSlashFx.splice(i,1);
+  }
+ }
+}
+function clearConfusionSelfSlashFx(){
+ for(const fx of confusionSlashFx){
+  root.remove(fx.group);fx.slash.geometry.dispose();fx.slash.material.dispose();
+ }
+ confusionSlashFx.length=0;
+}
 function finishConfusedAttack(attacker){
  const order=attacker?.rokConfusedAction;
  if(!order||order.phase!=='impact')return;
@@ -5315,7 +5353,7 @@ function stepConfusedAction(attacker,dt){
   // damage, so the unit's normal attack value is applied exactly once.
   while(order.hits<3&&order.time>=.28*(order.hits+1)){
    order.hits++;
-   spawnImpact(attacker.outer.position.x,attacker.outer.position.z,false,true);
+   spawnConfusionSelfSlash(attacker,order.hits);
    if(order.hits===3){
     order.phase='impact';
     finishConfusedAttack(attacker);
@@ -5363,6 +5401,7 @@ function updateDuel(dt){
   // visual effects independently, including in interrupted matches.
   arenaFactors.tick(dt,combatants);
   updateHealingPulseFx(dt);
+  updateConfusionSelfSlashFx(dt);
   if(matchRestartLeft!==null){
     // Un caster derrotado no anula proyectiles que YA habían salido.
     // Esperar su impacto antes de reiniciar permite también el empate.
