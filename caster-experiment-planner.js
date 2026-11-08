@@ -148,7 +148,7 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
    const target=options.find(c=>identifier(c)===saving.id||c.id===saving.id);
    if(!target){saving=null;saveCooldown=6;return false;}
    if(available>=number(target.cost)){
-    readyGoal={id:saving.id};
+    readyGoal={id:saving.id,elapsed:0};
     saving=null;
     return false;
    }
@@ -181,7 +181,10 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  }
  function begin({context:ctx,card,role='defense',snapshot}){
   if(!card?.id)return false;
-  if(readyGoal&&(readyGoal.id===card.id||readyGoal.id===identifier(card)))readyGoal=null;
+  if(readyGoal){
+   if(readyGoal.id!==card.id&&readyGoal.id!==identifier(card))saveCooldown=8;
+   readyGoal=null;
+  }
   // One confirmed cast is one economic decision, regardless of the number
   // of score observations or network updates it later produces.
   recentCastCount++;
@@ -198,6 +201,10 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  function evaluate(dt,snapshot){
   saveCooldown=Math.max(0,saveCooldown-Math.max(0,number(dt)));
   if(saving)saving.elapsed+=Math.max(0,number(dt));
+  if(readyGoal){
+   readyGoal.elapsed+=Math.max(0,number(dt));
+   if(readyGoal.elapsed>=6){readyGoal=null;saveCooldown=8;}
+  }
   for(let i=pending.length-1;i>=0;i--){
    const p=pending[i];p.elapsed+=Math.max(0,number(dt));
    if(p.elapsed<5)continue;
