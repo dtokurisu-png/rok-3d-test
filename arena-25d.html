@@ -827,7 +827,7 @@ import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semille
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-composite-22-21-2';
 import {createArenaCastFlyer} from './arena-cast-flyer.js?v=phase2-20261107-1';
-import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-healing-green-11';
+import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-psychic-cycle-12';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261107-position-4';
@@ -959,6 +959,17 @@ const arenaFactors=createArenaFactorsBridge({
   unit.hp=resolution.next;
   makeFloatingWord(unit,'SANACIÓN +'+resolution.healed);
   spawnHealingPulseFx(unit,source);
+ },
+ onPsychicCastStart:unit=>{
+  // Two-second defensive chant; guardian remains stationary and non-offensive.
+  const clip=getCombatClip(unit,2);
+  setAnim(unit,2,{once:true,speed:clip?.duration?clip.duration/2:1,fade:.16,force:true});
+ },
+ onPsychicRecharge:unit=>{
+  makeFloatingWord(unit,'ESCUDO PSÍQUICO');
+ },
+ onPsychicBlock:unit=>{
+  makeFloatingWord(unit,'BLOQUEO');
  },
  onHealingPulse:(source,event)=>{
   // Astarin's passive aura must be visible even if all nearby allies
@@ -3531,6 +3542,7 @@ function resetCombatant(c){
   c.rokProvocation=null;c.rokConfusion=null;c.rokAuraClock=0;
   c.rokConfusedAction=null;
   c.rokPsychicShieldActive=false;c.rokPsychicShieldRemaining=0;
+  c.rokPsychicCasting=false;c.rokPsychicCooldown=0;
   c.deathResourceDropped=false;
   c.guardianSeenZ=null;c.guardianIntercepted=null;
   c.guardianGoalX=undefined;c.guardianPause=0;
@@ -5417,6 +5429,10 @@ function updateDuel(dt){
     // approaching the lane once, rather than continuously following it.
     if(c.cardId==='astarium'){
       c.outer.position.z=c.startZ;
+      if(c.rokPsychicCasting){
+        c.currentThreatTarget=null;
+        continue;
+      }
       if(!c.guardianSeenZ)c.guardianSeenZ=new WeakMap();
       if(!c.guardianIntercepted)c.guardianIntercepted=new WeakSet();
       c.guardianPause=Math.max(0,(c.guardianPause||0)-dt);
