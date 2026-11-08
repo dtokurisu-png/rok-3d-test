@@ -3549,7 +3549,8 @@ function resetCombatant(c){
   // A summoned Semillera owns its own five-fragment reserve for this life.
   if(c.semilleraPassive)clearSemilleraPassive(c);
   c.semilleraPassive=c.cardId==='semillera'?
-   {pending:[],orbit:[],retrieving:null,cast:null,elapsed:0}:null;
+   {pending:[],orbit:[],retrieving:null,cast:null,elapsed:0,
+    healCharge:null,healFx:null}:null;
   c.currentThreatTarget=null;
   c.armorPhysical=c.cardId==='kariona'?1:0;
   c.armorMagical=0;
@@ -3698,9 +3699,68 @@ const semilleraCrystals=[];
 // A unit owns its own queue. No healing or five-fragment trigger yet.
 const SEMILLERA_PASSIVE_TARGET=5;
 const SEMILLERA_RECALL_DURATION=.85;
+const SEMILLERA_HEAL_CHARGE_DURATION=2.5;
+// Reuse the arena's green additive glow texture; allocate FX only when
+// a particular Semillera finishes collecting five of her own fragments.
+function createSemilleraHealChargeFx(unit){
+ const group=new THREE.Group();
+ group.position.set(0,1.15,0);
+ unit.outer.add(group);
+ const halo=new THREE.Mesh(new THREE.SphereGeometry(.69,12,10),
+  new THREE.MeshBasicMaterial({color:0x39ff7f,transparent:true,opacity:0,
+   depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending}));
+ group.add(halo);
+ const particles=[];
+ for(let i=0;i<20;i++){
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({
+   map:glowTexture,color:i%4===0?0xcaffd6:0x36ff84,transparent:true,
+   opacity:0,depthWrite:false,depthTest:false,
+   blending:THREE.AdditiveBlending}));
+  sprite.scale.setScalar(.12+(i%4)*.032);
+  group.add(sprite);
+  particles.push(sprite);
+ }
+ return {group,halo,particles,time:0};
+}
+function updateSemilleraHealChargeFx(unit,dt){
+ const state=unit.semilleraPassive,charge=state?.healCharge,fx=state?.healFx;
+ if(!charge||!fx)return;
+ fx.time+=dt;
+ const progress=THREE.MathUtils.clamp(charge.elapsed/
+  SEMILLERA_HEAL_CHARGE_DURATION,0,1);
+ const intensity=charge.ready?.85:.24+.66*progress;
+ fx.halo.material.opacity=(.06+.16*intensity)*
+  (1+.19*Math.sin(fx.time*(4+progress*13)));
+ fx.halo.scale.setScalar(.82+.23*intensity+
+  .055*Math.sin(fx.time*(3+progress*10)));
+ // Every particle is reusable; the flow, flicker and upward acceleration
+ // increase continuously rather than spawning geometries per frame.
+ const speed=charge.ready?2.5:.65+5.0*progress*progress;
+ for(let i=0;i<fx.particles.length;i++){
+  const particle=fx.particles[i];
+  const phase=(fx.time*speed*(.48+(i%5)*.14)+i*.177)%1;
+  const angle=i*2.39996+fx.time*(.24+progress*1.4);
+  const radius=.24+.47*(1-phase);
+  particle.position.set(Math.cos(angle)*radius,
+   -.72+phase*1.63,Math.sin(angle)*radius);
+  particle.material.opacity=(.12+.69*intensity)*
+   Math.min(1,phase*7)*Math.min(1,(1-phase)*7);
+  particle.scale.setScalar((.08+.045*(i%4))*(.9+.5*intensity));
+ }
+}
+function disposeSemilleraHealChargeFx(unit){
+ const state=unit?.semilleraPassive,fx=state?.healFx;
+ if(!fx)return;
+ fx.group.parent?.remove(fx.group);
+ fx.halo.geometry.dispose();fx.halo.material.dispose();
+ for(const particle of fx.particles)particle.material.dispose();
+ state.healFx=null;
+}
 function clearSemilleraPassive(unit){
  const state=unit?.semilleraPassive;
  if(!state)return;
+ disposeSemilleraHealChargeFx(unit);
+ state.healCharge=null;
  for(const item of [...state.pending,...state.orbit]){
   item.visual?.dispose();
  }
@@ -3956,6 +4016,40 @@ function stepSemilleraRecall(unit,dt){
  }
  unit.stage='active';setAnim(unit,'idle',{fade:.16,force:true});
 }
+// Phase 3: all five recovered crystals are present before charging.
+// Only clip 22 (the 0-48 frame preparation segment) is played. Its complete
+// frame range is stretched to the existing maximum card-cast duration.
+function startSemilleraHealCharge(unit){
+ const state=unit?.semilleraPassive;
+ if(!state||state.orbit.length!==SEMILLERA_PASSIVE_TARGET||
+    state.pending.length||state.retrieving||state.cast||
+    state.healCharge||unit.stage!=='active')return false;
+ const clips=semilleraSourceClips(unit);
+ if(!clips?.prep||clips.prep.duration<=0)return false;
+ state.healCharge={elapsed:0,ready:false};
+ state.healFx=createSemilleraHealChargeFx(unit);
+ unit.stage='semilleraHealCharge';
+ playSemilleraAction(unit,clips.prep,
+  clips.prep.duration/SEMILLERA_HEAL_CHARGE_DURATION);
+ unit.animId='semillera-heal-charge';
+ return true;
+}
+function stepSemilleraHealCharge(unit,dt){
+ const charge=unit.semilleraPassive?.healCharge;
+ if(!charge||charge.ready)return;
+ charge.elapsed=Math.min(SEMILLERA_HEAL_CHARGE_DURATION,
+  charge.elapsed+dt);
+ if(charge.elapsed<SEMILLERA_HEAL_CHARGE_DURATION)return;
+ // Hold the last exact preparation frame for phase 4's heal launch.
+ // No projectile, healing or crystal consumption takes place in phase 3.
+ const action=unit.animAction;
+ if(action){
+  action.time=Math.max(0,action.getClip().duration-.0001);
+  unit.mixer.update(0);action.paused=true;
+ }
+ charge.ready=true;
+ unit.stage='semilleraHealReady';
+}
 function updateSemilleraPassive(dt){
  for(const unit of combatants){
   if(unit.cardId!=='semillera'||!unit.semilleraPassive)continue;
@@ -3964,6 +4058,7 @@ function updateSemilleraPassive(dt){
    clearSemilleraPassive(unit);continue;
   }
   state.elapsed+=dt;
+  if(state.healCharge)updateSemilleraHealChargeFx(unit,dt);
   const item=state.retrieving;
   if(item){
    item.flight=Math.min(1,item.flight+dt/SEMILLERA_RECALL_DURATION);
@@ -5603,6 +5698,10 @@ function updateDuel(dt){
       stepSemilleraCrystalCast(c,dt);
     }else if(c.stage==='semilleraRecallCast'){
       stepSemilleraRecall(c,dt);
+    }else if(c.stage==='semilleraHealCharge'){
+      stepSemilleraHealCharge(c,dt);
+    }else if(c.stage==='semilleraHealReady'){
+      // Phase 4 will consume this completed charge and launch the heal.
     }else if(c.stage==='casting'){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
@@ -5629,6 +5728,8 @@ function updateDuel(dt){
     }
     if(c.stage==='active'){
       if(c.cardId==='semillera'&&!c.crystalCast){
+       // Once five crystals arrive, their healing charge takes priority.
+       if(startSemilleraHealCharge(c))continue;
        // Recovery has priority between completed production cycles.
        if(c.semilleraPassive?.pending.length&&
           startSemilleraRecall(c))continue;
@@ -5661,7 +5762,7 @@ function updateDuel(dt){
     }
     // Mantener el movimiento vertical de pies, rodillas y torso también
     // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
-    if(c.stage!=='casting'&&c.stage!=='semilleraArrival'&&c.stage!=='semilleraElementCast'&&c.stage!=='semilleraRecallCast'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
+    if(c.stage!=='casting'&&c.stage!=='semilleraArrival'&&c.stage!=='semilleraElementCast'&&c.stage!=='semilleraRecallCast'&&c.stage!=='semilleraHealCharge'&&c.stage!=='semilleraHealReady'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
     updateCastMarker(c);
     if(c.kind!=='archer'&&c.animId===12)liftWalkArm(c);
     if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!faroleraAbilityBridge.lanternDeployed(c)&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
