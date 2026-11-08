@@ -4143,6 +4143,28 @@ function releaseSemilleraHealCharge(unit){
  unit.crystalClock=0;
  setAnim(unit,'idle',{fade:.16,force:true});
 }
+// Each recovered fragment travels on its own inclined orbital plane
+// around the Semillera's torso, rather than hovering above her head.
+// The plane is rotated around Y, so the five paths cross in front of,
+// behind and beside her like electrons revolving around an atom.
+function semilleraOrbitPosition(unit,slot,elapsed){
+ const index=slot%5;
+ const radii=[.78,.91,.83,.96,.86];
+ const inclinations=[.58,-.73,.84,-.49,.67];
+ const nodes=[0,1.17,2.41,3.66,4.88];
+ const speeds=[1.58,-1.24,1.91,-1.46,1.73];
+ const angle=elapsed*speeds[index]+index*2.399963229728653;
+ const c=Math.cos(angle),d=Math.sin(angle);
+ const inc=inclinations[index],node=nodes[index],radius=radii[index];
+ // True 3D circular orbit in a tilted plane (not an elevated XY halo).
+ const x=radius*(c*Math.cos(node)-d*Math.cos(inc)*Math.sin(node));
+ const z=radius*(c*Math.sin(node)+d*Math.cos(inc)*Math.cos(node));
+ const y=radius*d*Math.sin(inc);
+ return new THREE.Vector3(
+  unit.outer.position.x+x,
+  unit.outer.position.y+.87+y,
+  unit.outer.position.z+z);
+}
 function updateSemilleraPassive(dt){
  for(const unit of combatants){
   if(unit.cardId!=='semillera'||!unit.semilleraPassive)continue;
@@ -4156,11 +4178,13 @@ function updateSemilleraPassive(dt){
   if(item){
    item.flight=Math.min(1,item.flight+dt/SEMILLERA_RECALL_DURATION);
    const t=item.flight;
-   const target=new THREE.Vector3(unit.outer.position.x,1.32,
-    unit.outer.position.z);
+   // Meet the actual orbital path at the end of retrieval, avoiding
+   // the previous jump from a fixed position above the character.
+   const target=semilleraOrbitPosition(unit,state.orbit.length,
+    state.elapsed+(1-t)*SEMILLERA_RECALL_DURATION);
    const smooth=t*t*(3-2*t);
    item.visual.group.position.lerpVectors(item.start,target,smooth);
-   item.visual.group.position.y+=.30*Math.sin(Math.PI*t);
+   item.visual.group.position.y+=.16*Math.sin(Math.PI*t);
    item.visual.update(dt,0);
    if(t>=1){
     item.seed=state.elapsed+state.orbit.length*1.41;
@@ -4171,25 +4195,8 @@ function updateSemilleraPassive(dt){
   }
   for(let i=0;i<state.orbit.length;i++){
    const orb=state.orbit[i];
-   // Each recovered fragment revolves around the Semillera like a
-   // satellite around a planet. Unlike the old fixed anchors, the angle
-   // keeps advancing through 2π so every fragment completes full orbits.
-   // Give each slot a distinct speed, radius and inclined orbital plane.
-   const slot=orb.slot??i;
-   const phase=slot*2.399963229728653+orb.seed*.37;
-   const speed=[1.15,.87,1.34,1.02,1.49][slot%5];
-   const angle=state.elapsed*speed+phase;
-   const radius=[.72,.86,.66,.94,.79][slot%5]+
-    .065*Math.sin(state.elapsed*.67+phase);
-   const tilt=[.30,-.25,.41,-.36,.22][slot%5];
-   const orbitX=Math.cos(angle)*radius;
-   const orbitZ=Math.sin(angle)*radius*.88;
-   const orbitY=1.53+tilt*Math.sin(angle+phase*.41)+
-    .095*Math.sin(state.elapsed*1.83+phase);
-   orb.visual.group.position.set(
-    unit.outer.position.x+orbitX,
-    unit.outer.position.y+orbitY,
-    unit.outer.position.z+orbitZ);
+   orb.visual.group.position.copy(
+    semilleraOrbitPosition(unit,orb.slot??i,state.elapsed));
    orb.visual.update(dt,0);
   }
  }
