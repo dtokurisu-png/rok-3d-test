@@ -62,6 +62,10 @@
   box-sizing:border-box;margin:1px 0 0;padding:2px 4px;
   gap:4px;border-radius:5px;
  }
+ /* Mirror the allied cast declaration beneath the rival HUD on phones.
+    Keep the same width, height and vertical position on both sides. */
+ .rokHudSide[data-hud-side="ally"] .rokCastFlyer{align-self:flex-start}
+ .rokHudSide[data-hud-side="enemy"] .rokCastFlyer{align-self:flex-end}
  .rokCastFlyerPortrait{width:18px;height:18px;flex:0 0 18px}
  .rokCastFlyerContents{gap:2px}
  .rokCastFlyerName{font-size:7px;line-height:8px}
