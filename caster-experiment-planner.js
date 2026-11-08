@@ -12,6 +12,7 @@ const safeKey=s=>String(s||'none').replace(/[^\w:|.-]/g,'_').slice(0,210);
 export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  const key='rok.'+id+'.experiments.v1';
  let data=empty(),pending=[],chosen=null,saving=null,readyGoal=null,recent=[],dirty=0;
+ let usedCards=new Map();
  const neural=createCasterNeuralEvaluator(id);
  data.mode=initialMode;
  function load(input){
@@ -25,6 +26,13 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
     score:clamp(number(v.score),-10,10),last:v.last||null};
   }
   data=clean;
+  usedCards=new Map();
+  for(const [name,trial] of Object.entries(data.trials)){
+   const parts=name.split('|'),role=parts[parts.length-1];
+   if(role==='economy')continue;
+   const card=parts[parts.length-2].split(/[@_]/)[0];
+   usedCards.set(card,(usedCards.get(card)||0)+number(trial.n));
+  }
   if(input.network)neural.restore(input.network);
   return true;
  }
@@ -80,17 +88,7 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  function row(ctx,card,role){return data.trials[trialKey(ctx,card,role)]||null;}
  // Count completed, actual card uses across ALL contexts. A new HP,
  // position or elemental amount must not reset exploration to cost-one.
- function completed(cardId){
-  let total=0;
-  for(const [key,row] of Object.entries(data.trials)){
-   const parts=key.split('|'),role=parts[parts.length-1];
-   if(role==='economy')continue; // A saving intention is NOT a cast.
-   const action=parts[parts.length-2];
-   if(action===cardId||action.startsWith(cardId+'@')||
-      action.startsWith(cardId+'_'))total+=number(row.n);
-  }
-  return total;
- }
+ function completed(cardId){return usedCards.get(cardId)||0;}
  const identifier=c=>c.experimentId||c.id;
  function select({context:ctx,cards=[],available=0,threat=false,preferred=null}){
   const possible=cards.filter(c=>c&&c.id&&number(c.cost)<=available&&c.legal!==false);
@@ -207,6 +205,10 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
    Math.min(30,r.n),-10,10);
   if(reward>0)r.wins++;
   neural.train(ctx,{id:card,cost},role,reward);
+  if(role!=='economy'){
+   const family=String(card).split(/[@_]/)[0];
+   usedCards.set(family,(usedCards.get(family)||0)+1);
+  }
   recent.push({context:ctx,card,role,cost});
   if(recent.length>16)recent.shift();
   r.last={reward:clamp(number(reward),-5,5),at:new Date().toISOString()};
@@ -239,6 +241,8 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   experiments:Object.keys(data.trials).length,
   samples:Object.values(data.trials).reduce((n,r)=>n+r.n,0),
   pending:pending.length,savingFor:saving?.id||readyGoal?.id||null,
+  cardsUsed:Object.fromEntries(usedCards),
+  distinctCards:[...usedCards].filter(([,n])=>n>0).length,
   neuralExamples:neural.examples};}
  return {mode,setMode,context,select,considerSaving,begin,evaluate,observe,
   finishMatch,loadShared,exportJSON,importJSON,stats};
