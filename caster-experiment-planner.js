@@ -4,7 +4,7 @@
  * normal mode exploits observed results, keeping a safe fallback.
  * Each caster retains its own independent local training memory.
  */
-import {createCasterNeuralEvaluator} from './caster-neural-evaluator.js?v=20261108-1';
+import {createCasterNeuralEvaluator} from './caster-neural-evaluator.js?v=20261108-experiments-2';
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const empty=()=>({schema:1,updatedAt:null,mode:'test',trials:{},matches:0});
 const number=x=>Number.isFinite(Number(x))?Number(x):0;
