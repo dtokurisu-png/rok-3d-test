@@ -180,7 +180,8 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
   updateAtom(visual,0);
   return {
    group,
-   update(dt){visual.age=0;updateAtom(visual,dt);},
+   // Small fragments share the fountain orb's age-based fade and flicker.
+   update(dt,age=0){visual.age=Math.max(0,age);updateAtom(visual,dt);},
    dispose(){
     root.remove(group);geometry.dispose();
     core.material.dispose();glow.material.dispose();points.material.dispose();
@@ -397,6 +398,7 @@ export function createArenaElementOrbs({THREE,root,casters,onCollect}){
    emitted:source.emitted};
  }
  return {bindSources,reset,tick,idle,dispose,createFragmentVisual,getNextOrbForecast,
+  fragmentLifetime:ORB_LIFETIME,fragmentFadeStart:ORB_FADE_START,
   forEachActiveOrb(callback){for(let i=0;i<orbs.length;i++)callback(orbs[i],i);},
   get sourceCount(){return sources.length;}};
 }
