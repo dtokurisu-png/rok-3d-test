@@ -1015,16 +1015,17 @@ function moveSummonAvoidingBodies(unit,dx,dz,step){
 }
 function resolveCombatantOverlaps(){
  const units=colliderUnits();
- for(let iteration=0;iteration<7;iteration++){
-  let corrected=false;
+ // Gentle contact correction: at most 0.006 units per body each frame.
+ // Do not accumulate a full radius of displacement over seven passes.
+ const remaining=new Map(units.map(unit=>[unit,.006]));
+ for(let iteration=0;iteration<2;iteration++){
   for(let i=0;i<units.length;i++)for(let j=i+1;j<units.length;j++){
    const a=units[i],b=units[j],pa=a.outer.position,pb=b.outer.position;
    let dx=pb.x-pa.x,dz=pb.z-pa.z,dist=Math.hypot(dx,dz);
-   const minimum=bodyRadius(a)+bodyRadius(b)+.035;
-   if(dist>=minimum-.003)continue;
-   corrected=true;
+   const minimum=bodyRadius(a)+bodyRadius(b);
+   if(dist>=minimum)continue;
    if(dist<.00001){
-    const angle=(i*2.399963+j*1.570796);
+    const angle=i*2.399963+j*1.570796;
     dx=Math.cos(angle)*.00001;dz=Math.sin(angle)*.00001;
     dist=.00001;
    }
@@ -1032,13 +1033,23 @@ function resolveCombatantOverlaps(){
    const wa=a.role==='caster'&&b.role!=='caster'?0:1;
    const wb=b.role==='caster'&&a.role!=='caster'?0:1;
    const total=wa+wb||1;
-   const shift=Math.min(.5,minimum-dist+.003);
-   if(a.cardId!=='astarium')pa.x=THREE.MathUtils.clamp(pa.x-nx*shift*wa/total,-MAX_X,MAX_X);
-   pa.z=THREE.MathUtils.clamp(pa.z-nz*shift*wa/total,-MAX_Z,MAX_Z);
-   if(b.cardId!=='astarium')pb.x=THREE.MathUtils.clamp(pb.x+nx*shift*wb/total,-MAX_X,MAX_X);
-   pb.z=THREE.MathUtils.clamp(pb.z+nz*shift*wb/total,-MAX_Z,MAX_Z);
+   const shift=Math.min(.006,minimum-dist);
+   const pushA=Math.min(remaining.get(a),shift*wa/total);
+   const pushB=Math.min(remaining.get(b),shift*wb/total);
+   // Guardian keeps its deployment Z lane, including when pushed.
+   if(a.cardId==='astarium')pa.x=THREE.MathUtils.clamp(pa.x-nx*pushA,-MAX_X,MAX_X);
+   else{
+    pa.x=THREE.MathUtils.clamp(pa.x-nx*pushA,-MAX_X,MAX_X);
+    pa.z=THREE.MathUtils.clamp(pa.z-nz*pushA,-MAX_Z,MAX_Z);
+   }
+   if(b.cardId==='astarium')pb.x=THREE.MathUtils.clamp(pb.x+nx*pushB,-MAX_X,MAX_X);
+   else{
+    pb.x=THREE.MathUtils.clamp(pb.x+nx*pushB,-MAX_X,MAX_X);
+    pb.z=THREE.MathUtils.clamp(pb.z+nz*pushB,-MAX_Z,MAX_Z);
+   }
+   remaining.set(a,remaining.get(a)-pushA);
+   remaining.set(b,remaining.get(b)-pushB);
   }
-  if(!corrected)break;
  }
 }
 const occupiedSummonSlots=side=>combatants.filter(c=>c.side===side&&c.role==='summon'&&
@@ -3521,6 +3532,8 @@ function resetCombatant(c){
   c.rokConfusedAction=null;
   c.rokPsychicShieldActive=false;c.rokPsychicShieldRemaining=0;
   c.deathResourceDropped=false;
+  c.guardianSeenZ=null;c.guardianIntercepted=null;
+  c.guardianGoalX=undefined;c.guardianPause=0;
   c.currentThreatTarget=null;
   c.armorPhysical=c.cardId==='kariona'?1:0;
   c.armorMagical=0;
@@ -5400,27 +5413,44 @@ function updateDuel(dt){
   if(!casterLost())for(const c of combatants){
     if(c.stage!=='active'||c.rokConfusion||faroleraAbilityBridge.immobilized(c))continue;
     if(c.cardId==='farolera'&&faroleraAbilityBridge.escort(c,dt))continue;
-    // Guardian: fixed deployment X, Z movement exclusively for nearby allies.
+    // Guardian: lateral X only; fixed deployment Z. Intercept an ally
+    // approaching the lane once, rather than continuously following it.
     if(c.cardId==='astarium'){
-      c.outer.position.x=c.startX;
-      const nearAllies=combatants.filter(other=>other!==c&&
-        other.side===c.side&&other.hp>0&&other.role==='summon'&&
-        !['dead','dying','vanishing','restoring'].includes(other.stage)&&
-        Math.hypot(other.outer.position.x-c.startX,
-          other.outer.position.z-c.outer.position.z)<=6);
-      nearAllies.sort((a,b)=>
-        Math.hypot(a.outer.position.x-c.startX,a.outer.position.z-c.outer.position.z)-
-        Math.hypot(b.outer.position.x-c.startX,b.outer.position.z-c.outer.position.z));
-      const ally=nearAllies[0];
+      c.outer.position.z=c.startZ;
+      if(!c.guardianSeenZ)c.guardianSeenZ=new WeakMap();
+      if(!c.guardianIntercepted)c.guardianIntercepted=new WeakSet();
+      c.guardianPause=Math.max(0,(c.guardianPause||0)-dt);
+      const approaching=[];
+      for(const ally of combatants){
+        if(ally===c||ally.side!==c.side||ally.role!=='summon'||
+          ally.hp<=0||['dead','dying','vanishing','restoring'].includes(ally.stage))continue;
+        const dz=Math.abs(ally.outer.position.z-c.startZ);
+        const previous=c.guardianSeenZ.get(ally);
+        c.guardianSeenZ.set(ally,dz);
+        if(dz>4.5){c.guardianIntercepted.delete(ally);continue;}
+        if(dz<=3.5&&previous!==undefined&&dz<previous-.002&&
+          Math.abs(ally.outer.position.x-c.outer.position.x)<=6&&
+          !c.guardianIntercepted.has(ally))approaching.push(ally);
+      }
+      if(c.guardianPause<=0&&approaching.length){
+        approaching.sort((a,b)=>
+          Math.abs(a.outer.position.z-c.startZ)-Math.abs(b.outer.position.z-c.startZ));
+        const ally=approaching[0];
+        c.guardianIntercepted.add(ally);
+        c.guardianGoalX=THREE.MathUtils.clamp(ally.outer.position.x,
+          Math.max(-MAX_X,c.startX-3),Math.min(MAX_X,c.startX+3));
+        c.guardianPause=2.0;
+      }
+      // After intercepting, hold position briefly and return to deployment.
+      if(c.guardianGoalX===undefined)c.guardianGoalX=c.startX;
+      if(c.guardianPause<=0)c.guardianGoalX=c.startX;
+      const delta=c.guardianGoalX-c.outer.position.x;
       c.currentThreatTarget=null;
-      if(ally){
-        const dz=ally.outer.position.z-c.outer.position.z;
-        if(Math.abs(dz)>1.25){
-          const step=Math.min(c.speed*dt,Math.abs(dz)-1.25);
-          c.outer.position.z=THREE.MathUtils.clamp(
-            c.outer.position.z+Math.sign(dz)*step,-MAX_Z,MAX_Z);
-          setAnim(c,summonWalkId(c),{fade:.16});
-        }else setAnim(c,'idle',{fade:.15});
+      if(Math.abs(delta)>.08){
+        c.outer.position.x=THREE.MathUtils.clamp(
+          c.outer.position.x+Math.sign(delta)*Math.min(c.speed*dt,Math.abs(delta)),
+          -MAX_X,MAX_X);
+        setAnim(c,summonWalkId(c),{fade:.16});
       }else setAnim(c,'idle',{fade:.15});
       continue;
     }
