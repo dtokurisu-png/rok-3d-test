@@ -71,9 +71,20 @@ export function createRivalCasterAI({
   const step=Math.min(d,Math.max(0,c.moveSpeed||3.8)*speedScale*dt);
   const nx=clamp(pos.x+dx/d*step,-bounds.x,bounds.x);
   const nz=clamp(pos.z+dz/d*step,-bounds.z,bounds.z);
+  // The destination controls translation, NOT where the caster looks.
+  // As with WASD mobility, walking backwards keeps the enemy in sight.
+  const opponents=getEnemies?.()||[];
+  const threat=nearest(pos,opponents).item;
+  const look=threat?.position||position;
+  const fx=look.x-pos.x,fz=look.z-pos.z;
+  const fl=Math.hypot(fx,fz);
+  const forward=fl>.01?(dx*fx+dz*fz)/(d*fl):d;
+  const lateral=fl>.01?(dx*fz-dz*fx)/(d*fl):0;
+  const gait=forward<-.35?'backward':
+   forward>.35?'forward':lateral>=0?'right':'left';
+  face?.(c,look);
   move?.(c,nx,nz);
-  face?.(c,position);
-  animate?.(c,Math.abs(dz)>.08?'forward':dx>=0?'right':'left');
+  animate?.(c,gait);
   return true;
  }
  function startCast(c,position,defensive,card=null){
