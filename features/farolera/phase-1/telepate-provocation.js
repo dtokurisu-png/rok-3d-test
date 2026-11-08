@@ -88,18 +88,18 @@ export function createTelepateAuraVisuals({THREE,root}){
  qctx.clearRect(0,0,128,128);
  qctx.font='bold 110px Arial';qctx.textAlign='center';
  qctx.textBaseline='middle';qctx.lineWidth=8;
- qctx.strokeStyle='#21335a';qctx.strokeText('?',64,65);
+ qctx.strokeStyle='#6b4c0b';qctx.strokeText('?',64,65);
  qctx.fillStyle='#ffffff';qctx.fillText('?',64,65);
  const qTexture=new THREE.CanvasTexture(qCanvas);
  function makeHead(unit){
   const group=new THREE.Group();
   group.name='ROK_Telepate_Mental_Status';
   const bubble=new THREE.Mesh(bubbleGeometry,new THREE.MeshBasicMaterial({
-   color:0x35d9ff,transparent:true,opacity:.21,depthWrite:false,
+   color:0xf2ce31,transparent:true,opacity:.21,depthWrite:false,
    blending:THREE.AdditiveBlending
   }));
   const wire=new THREE.Mesh(bubbleGeometry,new THREE.MeshBasicMaterial({
-   color:0x9c76f4,transparent:true,opacity:.14,wireframe:true,
+   color:0xffe570,transparent:true,opacity:.14,wireframe:true,
    depthWrite:false
   }));
   const question=new THREE.Sprite(new THREE.SpriteMaterial({
