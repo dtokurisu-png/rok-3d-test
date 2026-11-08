@@ -6558,8 +6558,11 @@ function chooseExperimentSummon(side,caster,available){
   u.side!==side&&canDamageTarget(u));
  const allies=[...cardSummons].filter(u=>u.side===side&&u.hp>0);
  if(!hasSummonRoom(side))return null;
- const legal=spellDeckForSide(side).flat().filter(card=>{
-  if(!card||card.cost>available)return false;
+ // Inspect every real spellbook page on every decision; only currently
+ // implemented, loaded summons are executable through autonomous casting.
+ // Equipment and spells are visible in the book but are NOT fake candidates.
+ const allCards=spellDeckForSide(side).flat().filter(card=>{
+  if(!card)return false;
   if(side==='enemy'){
    if(!chiaraSummonDefinitions[card.id])return false;
    return !!(card.id==='farolera'?
@@ -6567,14 +6570,21 @@ function chooseExperimentSummon(side,caster,available){
   }
   return !!liorenSummonModels.get(card.id)?.scene;
  });
+ const resource=combatHud.getResources(side,side==='enemy'?'water':'earth');
+ const opponentResources=combatHud.getResources(side==='enemy'?'ally':'enemy',
+  side==='enemy'?'earth':'water');
  const nearest=enemies.reduce((n,e)=>{
   const d=Math.hypot(e.outer.position.x-caster.outer.position.x,
    e.outer.position.z-caster.outer.position.z);
   return d<n?d:n;
  },Infinity);
- const ctx=planner.context({caster,enemies,element:available,allies,side});
- const selected=planner.select({context:ctx,cards:legal,available,
-  threat:nearest<6});
+ const ctx=planner.context({caster,enemies,element:available,
+  enemyElement:opponentResources?.available||0,allies,side});
+ const threat=nearest<6;
+ const capacity=Number(resource?.unlocked)||0;
+ if(planner.considerSaving({context:ctx,cards:allCards,available,capacity,threat}))
+  return null;
+ const selected=planner.select({context:ctx,cards:allCards,available,threat});
  if(!selected)return null;
  return {...selected.card,tacticalRole:selected.role,experimentContext:ctx};
 }
