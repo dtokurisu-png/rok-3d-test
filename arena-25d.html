@@ -3594,6 +3594,8 @@ function resetCombatant(c){
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
    c.semilleraLocomotion='out';c.semilleraTurn=null;
+   // Store the GLB's native facing; only walk #40 uses the opposite yaw.
+   c.semilleraModelYaw=c.model.rotation.y;
    c.semilleraClipWarning=false;
    c.semilleraFailedSource22=null;c.semilleraFailedSource21=null;
   }
@@ -3829,6 +3831,8 @@ function semilleraLocomotionReady(){
 function startSemilleraTurn(unit,returning=false){
  if(unit.cardId!=='semillera'||unit.stage!=='active'||
     !semilleraLocomotionReady())return false;
+ // Turning clip #39 uses the unmodified model orientation.
+ unit.model.rotation.y=unit.semilleraModelYaw;
  const clip=summonMoveClipMap.get('semillera:39');
  const action=unit.mixer.clipAction(clip);
  const previous=unit.animAction;
@@ -3875,8 +3879,10 @@ function stepSemilleraTurn(unit,dt){
   startSemilleraCrystalCast(unit);
  }else{
   unit.semilleraLocomotion='walk';
-  // Same principle as rival-caster mobility: clip controls only pose.
-  // Keep the completed turn's world orientation and play normal gait.
+  // The FBX #40 faces opposite to the desired walking heading.
+  // Flip ONLY the visual model while #40 plays, leaving the already
+  // completed outer 180° turn and world-space retreat untouched.
+  unit.model.rotation.y=unit.semilleraModelYaw+Math.PI;
   setAnim(unit,40,{fade:.08,force:true});
  }
 }
