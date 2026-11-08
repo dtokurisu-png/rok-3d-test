@@ -7483,7 +7483,12 @@ rivalAI=createRivalCasterAI({
  getResourceState:c=>({...combatHud.getResources(c.side,'water'),
   nextOrb:elementOrbs.getNextOrbForecast(2)}),
  getCastPlan:chiaraCastPlan,
- getStagingPosition:(c,card)=>card?.id==='telepate'||card?.id==='controladora'?{x:THREE.MathUtils.clamp(c.outer.position.x,-MAX_X+.5,MAX_X-.5),z:-Math.min(MAX_Z-2,10.5)}:null,
+ getStagingPosition:(c,card)=>{
+  if(!card)return null;
+  const depth=card.tacticalRole==='defense'?11.5:5.5;
+  return {x:THREE.MathUtils.clamp(c.outer.position.x,-MAX_X+.5,MAX_X-.5),
+   z:-Math.min(MAX_Z-1,depth)};
+ },
  bounds:{x:MAX_X,z:MAX_Z},
  settings:{idealPressureZ:-.85,attackRange:3,pickupRadius:3.65,
   territorialGrace:2.65,minimumSurvivalHp:2},
