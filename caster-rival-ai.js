@@ -219,7 +219,8 @@ export function createRivalCasterAI({
     advanceToward(c,staging,dt,1);
     return;
    }
-   if(startCast(c,{x:pos.x,z:pos.z},atRisk,planned))return;
+   if(startCast(c,{x:pos.x,z:pos.z},
+    planned.tacticalRole==='defense'||atRisk,planned))return;
   }
   // Enter enemy territory ONLY for a feasible orb. Once magnetized or
   // collected, immediately return to the enemy half of the arena.
@@ -279,7 +280,8 @@ export function createRivalCasterAI({
    if(pos.z<cfg.idealPressureZ-0.8&&!atRisk){
     state.mode='advance';advanceToward(c,objective,dt);return;
    }
-   if(startCast(c,{x:pos.x,z:pos.z},false,planned))return;
+   if(startCast(c,{x:pos.x,z:pos.z},
+    planned.tacticalRole==='defense',planned))return;
   }
   // No resource available: position for pressure while scanning orbs.
   if(!atRisk&&pos.z<-9){
