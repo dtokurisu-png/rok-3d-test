@@ -3593,8 +3593,7 @@ function resetCombatant(c){
   c.speed=shield?2.4:2.15;
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
-   c.semilleraArrived=false;c.semilleraArrival=null;c.semilleraArrivalWait=0;
-   c.semilleraDepartureTurned=false;c.semilleraDepartureTurn=null;
+   c.semilleraLocomotion='out';c.semilleraTurn=null;
    c.semilleraClipWarning=false;
    c.semilleraFailedSource22=null;c.semilleraFailedSource21=null;
   }
@@ -3807,81 +3806,76 @@ function reserveSemilleraFragment(crystal){
 const SEMILLERA_PERIOD=6;
 const SEMILLERA_PRE_RECALL_AGE=4.5;
 const SEMILLERA_RECALL_CAST_DURATION=1;
-const SEMILLERA_ARRIVAL_START=181/30,SEMILLERA_ARRIVAL_END=130/30;
-const SEMILLERA_ARRIVAL_DURATION=(181-130)/30;
-const SEMILLERA_DEPARTURE_TURN_DURATION=.45;
-// A visible, one-time orientation phase is required before walking.
-// The turn only rotates the scene group; it never plays a backward-walk
-// clip or advances the unit's position.
-function startSemilleraDepartureTurn(unit){
+// Semillera locomotion: 39 (frames 130→181) turns OUT, 40 walks
+// forward, 39 (frames 181→130) turns BACK. No simulated backward walk,
+// idle-rotation workaround, or independent turn timer.
+const SEMILLERA_TURN_FRAME_START=130;
+const SEMILLERA_TURN_FRAME_END=181;
+const SEMILLERA_TURN_FPS=30;
+const SEMILLERA_TURN_DURATION=
+ (SEMILLERA_TURN_FRAME_END-SEMILLERA_TURN_FRAME_START)/SEMILLERA_TURN_FPS;
+function semilleraRetreatZ(unit){
+ return unit.side==='ally'?MAX_Z:-MAX_Z;
+}
+function semilleraFacing(unit,towardRetreat){
+ return (unit.side==='ally')===(!!towardRetreat)?0:Math.PI;
+}
+function semilleraLocomotionReady(){
+ const turn=summonMoveClipMap.get('semillera:39');
+ const walk=summonMoveClipMap.get('semillera:40');
+ return !!(turn&&walk&&turn.duration>=
+  SEMILLERA_TURN_FRAME_END/SEMILLERA_TURN_FPS-.04);
+}
+function startSemilleraTurn(unit,returning=false){
  if(unit.cardId!=='semillera'||unit.stage!=='active'||
-    unit.semilleraDepartureTurned||
-    !summonMoveClipMap.has('semillera:40'))return false;
- const goal=unit.side==='ally'?0:Math.PI;
- const start=unit.outer.rotation.y;
- let delta=THREE.MathUtils.euclideanModulo(goal-start+Math.PI,Math.PI*2)-Math.PI;
- if(Math.abs(delta+Math.PI)<.0001)delta=-Math.PI;
- unit.semilleraDepartureTurn={elapsed:0,start,delta,goal};
- unit.stage='semilleraDepartureTurn';
- setAnim(unit,'idle',{fade:.12});
- return true;
-}
-function stepSemilleraDepartureTurn(unit,dt){
- const turn=unit.semilleraDepartureTurn;
- if(!turn)return;
- turn.elapsed=Math.min(SEMILLERA_DEPARTURE_TURN_DURATION,turn.elapsed+dt);
- const fraction=turn.elapsed/SEMILLERA_DEPARTURE_TURN_DURATION;
- const smooth=fraction*fraction*(3-2*fraction);
- unit.outer.rotation.y=turn.start+turn.delta*smooth;
- if(fraction>=1){
-  unit.outer.rotation.y=turn.goal;
-  unit.semilleraDepartureTurn=null;
-  unit.semilleraDepartureTurned=true;
-  unit.stage='active';
- }
-}
-// Semillera locomotion is exclusively clip 40. No extra turn/backward mixer.
-function startSemilleraArrival(unit){
- if(unit.cardId!=='semillera'||unit.stage!=='active'||unit.semilleraArrived)return false;
+    !semilleraLocomotionReady())return false;
  const clip=summonMoveClipMap.get('semillera:39');
- // If 39 is unavailable or too short, production must never get stuck.
- if(!clip||clip.duration<SEMILLERA_ARRIVAL_START-.04){
-  if(!unit.semilleraArrivalWarning){
-   console.warn('[R.O.K.] Semillera: esperando la animación 39 completa (fotogramas 181→130) antes de castear');
-   unit.semilleraArrivalWarning=true;
-  }
-  setAnim(unit,'idle',{fade:.15});return false;
- }
- const action=unit.mixer.clipAction(clip),previous=unit.animAction;
- // Do not pause the action: Three.AnimationMixer must evaluate the
- // reverse clip every frame. The full 181→130 window lasts 51/30 sec.
+ const action=unit.mixer.clipAction(clip);
+ const previous=unit.animAction;
  action.reset();action.enabled=true;action.setEffectiveWeight(1);
  action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
- action.time=SEMILLERA_ARRIVAL_START;
- action.play();action.paused=false;action.setEffectiveTimeScale(-1);
- if(previous&&previous!==action){previous.fadeOut(.14);action.fadeIn(.14);}
+ action.play();
+ // Sample the approved segment ourselves so both playback directions
+ // work even if AnimationMixer's negative-time clamp changes.
+ action.paused=true;
+ const beginning=(returning?SEMILLERA_TURN_FRAME_END:
+  SEMILLERA_TURN_FRAME_START)/SEMILLERA_TURN_FPS;
+ action.time=beginning;
+ if(previous&&previous!==action)previous.stop();
  unit.animAction=action;unit.animId=39;
- unit.semilleraArrival={action,time:0};
- unit.stage='semilleraArrival';
+ const from=semilleraFacing(unit,returning);
+ const to=semilleraFacing(unit,!returning);
+ unit.outer.rotation.y=from;
+ unit.semilleraTurn={action,elapsed:0,returning,from,to};
+ unit.stage='semilleraTurn';
  unit.mixer.update(0);
  return true;
 }
-function stepSemilleraArrival(unit,dt){
- const arrival=unit.semilleraArrival;
- if(!arrival)return;
- arrival.time=Math.min(SEMILLERA_ARRIVAL_DURATION,arrival.time+dt);
- const progress=arrival.time/SEMILLERA_ARRIVAL_DURATION;
- // The 39 clip owns the turning pose; do not mix a second scripted turn.
- arrival.action.time=Math.max(SEMILLERA_ARRIVAL_END,
-  Math.min(SEMILLERA_ARRIVAL_START,arrival.action.time));
- if(arrival.time>=SEMILLERA_ARRIVAL_DURATION){
-  arrival.action.time=SEMILLERA_ARRIVAL_END;
-  unit.mixer.update(0);
-  arrival.action.paused=true;
-  unit.outer.rotation.y=unit.side==='ally'?Math.PI:0;
-  unit.semilleraArrival=null;
-  unit.semilleraArrived=true;unit.stage='active';
+function stepSemilleraTurn(unit,dt){
+ const turn=unit.semilleraTurn;
+ if(!turn)return;
+ turn.elapsed=Math.min(SEMILLERA_TURN_DURATION,turn.elapsed+dt);
+ const fraction=turn.elapsed/SEMILLERA_TURN_DURATION;
+ const smooth=fraction*fraction*(3-2*fraction);
+ const first=SEMILLERA_TURN_FRAME_START/SEMILLERA_TURN_FPS;
+ const last=SEMILLERA_TURN_FRAME_END/SEMILLERA_TURN_FPS;
+ turn.action.time=turn.returning?
+  last-(last-first)*fraction:first+(last-first)*fraction;
+ // The same 39 animation supplies both turning poses; turning the
+ // world-space group aligns the resulting movement heading as well.
+ unit.outer.rotation.y=turn.from+(turn.to-turn.from)*smooth;
+ unit.mixer.update(0);
+ if(fraction<1)return;
+ turn.action.stop();
+ unit.outer.rotation.y=turn.to;
+ unit.semilleraTurn=null;
+ unit.stage='active';
+ if(turn.returning){
+  unit.semilleraLocomotion='done';
   startSemilleraCrystalCast(unit);
+ }else{
+  unit.semilleraLocomotion='walk';
+  setAnim(unit,40,{fade:.08,force:true});
  }
 }
 const SEMILLERA_FINISH_START=20/30;
@@ -5875,10 +5869,8 @@ function updateDuel(dt){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
       updateTeleportation(c,dt);
-    }else if(c.stage==='semilleraDepartureTurn'){
-      stepSemilleraDepartureTurn(c,dt);
-    }else if(c.stage==='semilleraArrival'){
-      stepSemilleraArrival(c,dt);
+    }else if(c.stage==='semilleraTurn'){
+      stepSemilleraTurn(c,dt);
     }else if(c.stage==='semilleraElementCast'){
       stepSemilleraCrystalCast(c,dt);
     }else if(c.stage==='semilleraRecallCast'){
@@ -5927,17 +5919,11 @@ function updateDuel(dt){
        }
        // Production is the cast itself: 5 s in clip 22, then 1 s
        // in clip 21. Both the animation and its HUD start together.
-       if(c.semilleraDepartureTurned&&
-          (c.side==='ally'?c.outer.position.z>=MAX_Z-.03:
-           c.outer.position.z<=-MAX_Z+.03)){
-        if(!c.semilleraArrived){
-          // Late downloads must not silently skip the approved arrival.
-          // Give #39 time to finish retargeting before the first crystal cycle.
-          if(!summonMoveClipMap.has('semillera:39')){
-           c.semilleraArrivalWait+=dt;
-           setAnim(c,'idle',{fade:.15});
-          }else startSemilleraArrival(c);
-         }else startSemilleraCrystalCast(c);
+       if(c.semilleraLocomotion==='walk'&&
+          Math.abs(c.outer.position.z-semilleraRetreatZ(c))<=.03){
+        startSemilleraTurn(c,true);
+       }else if(c.semilleraLocomotion==='done'){
+        startSemilleraCrystalCast(c);
        }
       }
       c.cooldown=Math.max(0,c.cooldown-dt);
@@ -5955,7 +5941,7 @@ function updateDuel(dt){
     }
     // Mantener el movimiento vertical de pies, rodillas y torso también
     // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
-    if(c.stage!=='casting'&&c.stage!=='semilleraDepartureTurn'&&c.stage!=='semilleraArrival'&&c.stage!=='semilleraElementCast'&&c.stage!=='semilleraRecallCast'&&c.stage!=='semilleraHealCharge'&&c.stage!=='semilleraHealReady'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
+    if(c.stage!=='casting'&&c.stage!=='semilleraTurn'&&c.stage!=='semilleraElementCast'&&c.stage!=='semilleraRecallCast'&&c.stage!=='semilleraHealCharge'&&c.stage!=='semilleraHealReady'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
     updateCastMarker(c);
     if(c.kind!=='archer'&&c.animId===12)liftWalkArm(c);
     if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!faroleraAbilityBridge.lanternDeployed(c)&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
@@ -6014,21 +6000,27 @@ function updateDuel(dt){
     }
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
-    if(c.cardId==='semillera'&&
-      (c.side==='ally'?c.outer.position.z<MAX_Z-.03:
-       c.outer.position.z> -MAX_Z+.03)){
-      // Never slide while clip 40 is loading, or move before facing
-      // the retreat direction. For the ally this is +Z; for enemy -Z.
-      if(!summonMoveClipMap.has('semillera:40')){
-       setAnim(c,'idle',{fade:.15});continue;
+    if(c.cardId==='semillera'&&c.semilleraLocomotion!=='done'){
+      // Do not move an inch until BOTH approved FBX clips are ready.
+      if(!semilleraLocomotionReady()){
+       setAnim(c,'idle',{fade:.12});continue;
       }
-      if(!c.semilleraDepartureTurned){
-       startSemilleraDepartureTurn(c);continue;
+      if(c.semilleraLocomotion==='out'){
+       startSemilleraTurn(c,false);continue;
       }
-      const direction=c.side==='ally'?1:-1;
-      c.outer.position.z=THREE.MathUtils.clamp(
-       c.outer.position.z+direction*c.speed*dt,-MAX_Z,MAX_Z);
-      setAnim(c,40,{fade:.16});continue;
+      if(c.semilleraLocomotion==='walk'){
+       const destination=semilleraRetreatZ(c);
+       const direction=c.side==='ally'?1:-1;
+       if(Math.abs(c.outer.position.z-destination)>.03){
+        c.outer.rotation.y=semilleraFacing(c,true);
+        c.outer.position.z=THREE.MathUtils.clamp(
+         c.outer.position.z+direction*c.speed*dt,-MAX_Z,MAX_Z);
+        setAnim(c,40,{fade:.08});continue;
+       }
+       c.outer.position.z=destination;
+       startSemilleraTurn(c,true);continue;
+      }
+      continue;
     }
     if(!target){setAnim(c,'idle',{fade:.15});continue;}
     // La Farolera aturdida sigue siendo un objetivo legal, incluso si el
