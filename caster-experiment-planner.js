@@ -11,7 +11,7 @@ const number=x=>Number.isFinite(Number(x))?Number(x):0;
 const safeKey=s=>String(s||'none').replace(/[^\w:|.-]/g,'_').slice(0,150);
 export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  const key='rok.'+id+'.experiments.v1';
- let data=empty(),pending=[],chosen=null,dirty=0;
+ let data=empty(),pending=[],chosen=null,saving=null,dirty=0;
  const neural=createCasterNeuralEvaluator(id);
  data.mode=initialMode;
  function load(input){
@@ -54,7 +54,7 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   data.mode=value==='normal'?'normal':'test';persist();
   return data.mode;
  }
- function context({caster,enemies=[],element=0,allies=[],side}){
+ function context({caster,enemies=[],element=0,enemyElement=0,allies=[],side}){
   const p=caster?.outer?.position||{x:0,z:0};
   const nearest=enemies.filter(e=>e?.outer&&e.hp>0).sort((a,b)=>
    Math.hypot(a.outer.position.x-p.x,a.outer.position.z-p.z)-
@@ -66,8 +66,13 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   const enemyHp=nearest?nearest.hp<=2?'fragile':nearest.hp<=5?'medium':'durable':'none';
   const ownUnits=allies.length>=3?'many':allies.length?'some':'none';
   const mana=element<1?'empty':element<2?'one':element<3?'two':element<5?'three-four':'five-plus';
+  const damage=number(nearest?.attackDamage)>=2?'high':'ordinary';
+  const protection=(number(nearest?.armorPhysical)+number(nearest?.armorMagical)+
+   number(nearest?.magicShieldHits)+number(nearest?.shield))>0?'protected':'unprotected';
+  const rivalMana=enemyElement>=3?'rich':enemyElement>=1?'ready':'empty';
+  const blocked=nearest?.duelOpponent?.side===side?'blocked':'unblocked';
   return safeKey([side||id,hp/max<=.35?'critical':hp/max<=.7?'hurt':'healthy',
-   threat,enemyId,enemyHp,ownUnits,mana].join('|'));
+   threat,enemyId,enemyHp,ownUnits,mana,damage,protection,rivalMana,blocked].join('|'));
  }
  const trialKey=(ctx,card,role='defense')=>safeKey(ctx+'|'+card+'|'+role);
  function row(ctx,card,role){return data.trials[trialKey(ctx,card,role)]||null;}
@@ -97,6 +102,32 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   chosen={context:ctx,card:winner.card.id,role:winner.role,at:Date.now()};
   return {card:winner.card,role:winner.role,trials:winner.n};
  }
+ // "Save instead of cost-one" is a REAL testable choice too.
+ // Never save in immediate danger or for a card above unlocked capacity.
+ // A waiting decision does not freeze the caster: the ordinary AI
+ // continues looking for resources, moving and defending.
+ function considerSaving({context:ctx,cards=[],available=0,capacity=0,threat=false}){
+  if(saving){
+   if(saving.context===ctx&&available<saving.cost&&saving.elapsed<7)return true;
+   if(available>=saving.cost)
+    observe(saving.context,saving.card,'economy',1.2,saving.cost);
+   else if(saving.elapsed>=7)
+    observe(saving.context,saving.card,'economy',-.8,saving.cost);
+   saving=null;
+  }
+  if(threat||available<1||data.mode!=='test')return false;
+  const later=cards.filter(c=>c?.id&&Number(c.cost)>available&&Number(c.cost)<=capacity)
+   .sort((a,b)=>a.cost-b.cost);
+  const affordable=cards.filter(c=>c?.id&&Number(c.cost)<=available);
+  if(!later.length||!affordable.length)return false;
+  const tried=affordable.some(card=>
+   (row(ctx,card.id,'defense')?.n||0)+(row(ctx,card.id,'offense')?.n||0)>0);
+  if(!tried)return false; // Initially try what can be cast now.
+  const goal=later.find(card=>(row(ctx,'save-for-'+card.id,'economy')?.n||0)===0);
+  if(!goal)return false;
+  saving={context:ctx,card:'save-for-'+goal.id,cost:Number(goal.cost),elapsed:0};
+  return true;
+ }
  function begin({context:ctx,card,role='defense',snapshot}){
   if(!card?.id)return false;
   pending.push({context:ctx,card:card.id,cost:number(card.cost),role,start:number(snapshot?.time),
@@ -105,6 +136,7 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   return true;
  }
  function evaluate(dt,snapshot){
+  if(saving)saving.elapsed+=Math.max(0,number(dt));
   for(let i=pending.length-1;i>=0;i--){
    const p=pending[i];p.elapsed+=Math.max(0,number(dt));
    if(p.elapsed<5)continue;
@@ -132,7 +164,10 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   r.last={reward:clamp(number(reward),-5,5),at:new Date().toISOString()};
   if(++dirty>=1)persist();
  }
- function finishMatch(){data.matches++;pending=[];persist();}
+ function finishMatch(){
+  if(saving){observe(saving.context,saving.card,'economy',-.5,saving.cost);saving=null;}
+  data.matches++;pending=[];persist();
+ }
  function exportJSON(){persist();return JSON.stringify({...data,
   network:neural.snapshot()},null,2);}
  function importJSON(raw){if(!load(typeof raw==='string'?JSON.parse(raw):raw))
@@ -142,7 +177,8 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   contexts:new Set(Object.keys(data.trials).map(k=>k.split('|').slice(0,7).join('|'))).size,
   experiments:Object.keys(data.trials).length,
   samples:Object.values(data.trials).reduce((n,r)=>n+r.n,0),
-  pending:pending.length,neuralExamples:neural.examples};}
- return {mode,setMode,context,select,begin,evaluate,observe,
+  pending:pending.length,savingFor:saving?.card||null,
+  neuralExamples:neural.examples};}
+ return {mode,setMode,context,select,considerSaving,begin,evaluate,observe,
   finishMatch,loadShared,exportJSON,importJSON,stats};
 }
