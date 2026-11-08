@@ -823,7 +823,7 @@ import {reduceModelTextureBudget} from './arena-asset-budget.js?v=2';
 import {createCasterMobility} from './caster-mobility.js?v=0.9.100';
 import {createArenaMatchGate} from './arena-match-gate.js?v=20261105-dom-earth-water-1';
 import {createArenaCombatHud} from './arena-combat-hud.js?v=20261107-extraction-1';
-import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semillera-one-orb-1';
+import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261107-fragment-expiry-2';
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-composite-22-21-2';
 import {createArenaCastFlyer} from './arena-cast-flyer.js?v=phase2-20261107-1';
@@ -3885,10 +3885,15 @@ function stepSemilleraCrystalCast(unit,dt){
  }
 }
 function updateSemilleraCrystals(dt){
+ const lifetime=elementOrbs.fragmentLifetime;
  const caster=casters.find(c=>c.side==='ally'&&c.stage==='active');
  for(let i=semilleraCrystals.length-1;i>=0;i--){
   const crystal=semilleraCrystals[i];crystal.age+=dt;
-  crystal.visual.update(dt);
+  // A fragment cannot be collected once its normal lifetime is exhausted.
+  if(crystal.age>=lifetime){
+   crystal.visual.dispose();semilleraCrystals.splice(i,1);continue;
+  }
+  crystal.visual.update(dt,crystal.age);
   if(!crystal.landed){
    crystal.flight=Math.min(1,crystal.flight+dt/.62);
    const t=crystal.flight;
@@ -3903,7 +3908,7 @@ function updateSemilleraCrystals(dt){
    at.x-crystal.visual.group.position.x,
    at.z-crystal.visual.group.position.z)<=1.4;
   if(collected)combatHud.collectFragment('ally','semillera');
-  if(collected||crystal.age>=30){
+  if(collected){
    crystal.visual.dispose();semilleraCrystals.splice(i,1);
   }
  }
@@ -4134,8 +4139,13 @@ function clearDeathFragments(){
  deathElementFragments.length=0;
 }
 function updateDeathFragments(dt){
+ const lifetime=elementOrbs.fragmentLifetime;
  for(let i=deathElementFragments.length-1;i>=0;i--){
-  const f=deathElementFragments[i];f.age+=dt;f.fx.update(dt);
+  const f=deathElementFragments[i];f.age+=dt;
+  if(f.age>=lifetime){
+   f.fx.dispose();deathElementFragments.splice(i,1);continue;
+  }
+  f.fx.update(dt,f.age);
   f.fx.group.position.y=.35+.09*Math.sin(f.age*3+f.phase);
   let collected=false;
   for(const caster of casters){
@@ -4145,7 +4155,7 @@ function updateDeathFragments(dt){
     if(combatHud.collectFragment(caster.side,'fallen-unit')){collected=true;break;}
    }
   }
-  if(collected||f.age>=20){
+  if(collected){
    f.fx.dispose();deathElementFragments.splice(i,1);
   }
  }
