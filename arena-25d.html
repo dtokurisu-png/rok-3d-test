@@ -3079,7 +3079,7 @@ function updateSummonGroundHuds(){
    const charges=Math.max(0,Number(c.magicShieldHits)||0);
    c.magicShieldFx.visible=charges>0&&c.stage==='active';
    if(c.magicShieldFx.visible){
-    c.magicShieldFx.material.opacity=.11+.1*Math.max(0,c.shieldPulse||0)+
+    c.magicShieldFx.material.opacity=.14+
      .025*Math.sin(performance.now()*.006);
    }
   }
