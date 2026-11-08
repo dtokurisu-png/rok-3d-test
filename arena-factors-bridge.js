@@ -28,6 +28,7 @@ const own=(cardId,side)=>({
  controladora:[] // Factor 'control' reserved; behavior not yet defined by its card.
 })[cardId]||[];
 export function createArenaFactorsBridge({onHeal=()=>{},onHealingPulse=()=>{},
+ onPsychicCastStart=()=>{},onPsychicRecharge=()=>{},onPsychicBlock=()=>{},
  onLoad=()=>{},onError=()=>{}}={}){
  let core=null,loading=null;
  const active=new Map();
@@ -35,6 +36,7 @@ export function createArenaFactorsBridge({onHeal=()=>{},onHealingPulse=()=>{},
  const seen=new WeakMap();
  const shields=new Map();
  const timedShields=new Map();
+ const psychicCooldowns=new Map();
  function load(){
   if(loading)return loading;
   loading=import(/* @vite-ignore */CORE_URL).then(module=>{
@@ -65,6 +67,8 @@ export function createArenaFactorsBridge({onHeal=()=>{},onHealingPulse=()=>{},
    const psychic=items.find(f=>f.factor==='escudo'&&
     f.semantic.category==='psiquico');
    timedShields.set(unit,psychic);
+   psychicCooldowns.delete(unit);
+   unit.rokPsychicCasting=false;
    unit.rokPsychicShieldActive=true;
    unit.rokPsychicShieldRemaining=psychic.state.remaining;
   }
@@ -122,6 +126,8 @@ export function createArenaFactorsBridge({onHeal=()=>{},onHealingPulse=()=>{},
    shield.state.remaining=shield.config.duration;
    shield.state.active=true;
    shield.state.elapsed=0;
+   psychicCooldowns.delete(unit);
+   unit.rokPsychicCasting=false;
   }
   unit.rokPsychicShieldActive=shield.state.active;
   unit.rokPsychicShieldRemaining=shield.state.remaining;
@@ -222,14 +228,38 @@ export function createArenaFactorsBridge({onHeal=()=>{},onHealingPulse=()=>{},
   for(const [unit,shield] of timedShields){
    if(!present.has(unit)||unit.hp<=0||
     ['dead','dying','vanishing'].includes(unit.stage)){
-    timedShields.delete(unit);
-    unit.rokPsychicShieldActive=false;
+    timedShields.delete(unit);psychicCooldowns.delete(unit);
+    unit.rokPsychicShieldActive=false;unit.rokPsychicCasting=false;
     continue;
    }
-   if(unit.stage==='active'&&shield.state.active)
+   if(unit.stage!=='active')continue;
+   if(shield.state.active){
     core.stepFactor(shield,dt);
-   unit.rokPsychicShieldActive=shield.state.active;
+    if(!shield.state.active){
+     psychicCooldowns.set(unit,{remaining:6,castStarted:false});
+     unit.rokPsychicCasting=false;
+    }
+   }else{
+    const cooldown=psychicCooldowns.get(unit)||{remaining:6,castStarted:false};
+    psychicCooldowns.set(unit,cooldown);
+    cooldown.remaining=Math.max(0,cooldown.remaining-dt);
+    if(!cooldown.castStarted&&cooldown.remaining<=4&&cooldown.remaining>0){
+     cooldown.castStarted=true;
+     unit.rokPsychicCasting=true;
+     onPsychicCastStart(unit);
+    }
+    if(cooldown.castStarted&&cooldown.remaining<=2)unit.rokPsychicCasting=false;
+    if(cooldown.remaining<=0){
+     shield.state.remaining=shield.config.duration;
+     shield.state.elapsed=0;shield.state.active=true;
+     psychicCooldowns.delete(unit);
+     unit.rokPsychicCasting=false;
+     onPsychicRecharge(unit);
+    }
+   }
+   unit.rokPsychicShieldActive=!!shield.state.active;
    unit.rokPsychicShieldRemaining=shield.state.remaining;
+   unit.rokPsychicCooldown=psychicCooldowns.get(unit)?.remaining||0;
   }
   for(const [unit] of shields){
    if(!present.has(unit)||unit.hp<=0||
@@ -272,7 +302,9 @@ export function createArenaFactorsBridge({onHeal=()=>{},onHealingPulse=()=>{},
   const shield=timedShields.get(unit);
   // Status timer/cooldown isn't active until its ability is separately
   // implemented; do not give Astarin an unearned permanent immunity.
-  return !!(shield&&unit.rokPsychicShieldActive&&core.factorBlocks(shield,event));
+  const blocked=!!(shield&&unit.rokPsychicShieldActive&&core.factorBlocks(shield,event));
+  if(blocked)onPsychicBlock(unit,event);
+  return blocked;
  }
  return {load,register,attachEquipment,tick,blocks,applyConfusion,resolveConfusion,
   absorbShieldDamage,refreshShield,refreshPsychicShield,refreshHealing,
