@@ -2,7 +2,7 @@
  * Opposite battlefield half from Chiara; no game engine ownership.
  */
 export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResources,
- getCards,canCast,cast,attack,guard,move,face,learning,bounds,positioning}){
+ getCards,canCast,cast,attack,guard,move,face,animate,learning,bounds,positioning}){
  const state={active:false,elapsed:0,casts:0,attacks:0,collects:0,casting:0,
   cooldown:0,attackCooldown:0,guardClock:0,guardRecovery:0,last:null,selected:null};
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -22,9 +22,20 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
   const p=c.outer.position,dx=target.x-p.x,dz=target.z-p.z;
   const d=Math.hypot(dx,dz);if(d<.13)return;
   const step=Math.min(d,(c.moveSpeed||3.8)*speed*dt);
+  // Face the closest enemy while retreating or strafing. Travel and
+  // visual heading are separate, just like manual caster mobility.
+  const enemy=nearest(p,getEnemies()).item;
+  const look=enemy?.position||target;
+  const fx=look.x-p.x,fz=look.z-p.z;
+  const fl=Math.hypot(fx,fz);
+  const forward=fl>.01?(dx*fx+dz*fz)/(d*fl):d;
+  const lateral=fl>.01?(dx*fz-dz*fx)/(d*fl):0;
+  const gait=forward<-.35?'backward':
+   forward>.35?'forward':lateral>=0?'right':'left';
+  face(c,look);
   move(c,clamp(p.x+dx/d*step,-bounds.x,bounds.x),
    clamp(p.z+dz/d*step,-bounds.z,bounds.z));
-  face(c,target);
+  animate?.(c,gait);
  }
  const context=(c,threat,amount,live)=>[
   c.hp<=3?'critical':c.hp<=7?'hurt':'healthy',
