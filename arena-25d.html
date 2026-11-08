@@ -6220,7 +6220,11 @@ function summonChiaraCard(caster,card){
  const z=THREE.MathUtils.clamp(Math.round(caster.outer.position.z+1),-HALF_D,-.5);
  const unit=createFighter(prototype.scene,prototype.idle,'enemy','mana');
  unit.cardId=card.id;unit.startX=x;unit.startZ=z;unit.endZ=z;
- unit.model.userData.baseScale=unit.model.scale.x;
+ // Telépata only: 25% larger visual GLB, with unchanged gameplay collider.
+ // baseScale is used by emergence/restoration, so keep the new size there.
+ const visualScale=card.id==='telepate'?1.25:1;
+ unit.model.userData.baseScale=unit.model.scale.x*visualScale;
+ unit.model.scale.setScalar(unit.model.userData.baseScale);
  resetCombatant(unit);
  makeNameplate(unit);
  cardSummons.add(unit);
