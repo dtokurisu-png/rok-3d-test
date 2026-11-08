@@ -3793,12 +3793,11 @@ function startSemilleraArrival(unit){
  const clip=summonMoveClipMap.get('semillera:39');
  // If 39 is unavailable or too short, production must never get stuck.
  if(!clip||clip.duration<SEMILLERA_ARRIVAL_START-.04){
-  unit.semilleraArrived=true;
   if(!unit.semilleraArrivalWarning){
-   console.warn('[R.O.K.] Semillera: 39 lacks frame 181; keeping crystal casting available');
+   console.warn('[R.O.K.] Semillera: esperando la animación 39 completa (fotogramas 181→130) antes de castear');
    unit.semilleraArrivalWarning=true;
   }
-  startSemilleraCrystalCast(unit);return false;
+  setAnim(unit,'idle',{fade:.15});return false;
  }
  const action=unit.mixer.clipAction(clip),previous=unit.animAction;
  // Do not pause the action: Three.AnimationMixer must evaluate the
@@ -5834,8 +5833,7 @@ function updateDuel(dt){
         if(!c.semilleraArrived){
           // Late downloads must not silently skip the approved arrival.
           // Give #39 time to finish retargeting before the first crystal cycle.
-          if(!summonMoveClipMap.has('semillera:39')&&
-             c.semilleraArrivalWait<8){
+          if(!summonMoveClipMap.has('semillera:39')){
            c.semilleraArrivalWait+=dt;
            setAnim(c,'idle',{fade:.15});
           }else startSemilleraArrival(c);
@@ -5917,6 +5915,12 @@ function updateDuel(dt){
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
     if(c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
+      // No mover físicamente mientras la animación 40 aún no esté lista:
+      // setAnim(40) retrocedería a idle y la Semillera se deslizaría.
+      if(!summonMoveClipMap.has('semillera:40')){
+       setAnim(c,'idle',{fade:.15});continue;
+      }
+      // Girar hacia el límite propio (+Z) antes de caminar hacia él.
       c.outer.rotation.y=0;
       c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
       setAnim(c,40,{fade:.16});continue;
