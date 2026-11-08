@@ -2780,53 +2780,94 @@ function updateStunHalo(c,dt){
 // casting mixers, shield shells and the target's combat action.
 const healingPulseFx=[];
 const healingAuraFx=[];
-function spawnHealingAuraPulseFx(source,radius=6){
+const healingAuraRings=new Map();
+const HEAL_AURA_RADIUS=5;
+// Soft green plus symbol, drawn once and shared by all healing particles.
+const healCrossCanvas=document.createElement('canvas');
+healCrossCanvas.width=64;healCrossCanvas.height=64;
+const healCrossCtx=healCrossCanvas.getContext('2d');
+healCrossCtx.fillStyle='#ffffff';
+healCrossCtx.beginPath();
+healCrossCtx.moveTo(25,5);healCrossCtx.lineTo(39,5);
+healCrossCtx.lineTo(39,25);healCrossCtx.lineTo(59,25);
+healCrossCtx.lineTo(59,39);healCrossCtx.lineTo(39,39);
+healCrossCtx.lineTo(39,59);healCrossCtx.lineTo(25,59);
+healCrossCtx.lineTo(25,39);healCrossCtx.lineTo(5,39);
+healCrossCtx.lineTo(5,25);healCrossCtx.lineTo(25,25);
+healCrossCtx.closePath();healCrossCtx.fill();
+const healCrossTexture=new THREE.CanvasTexture(healCrossCanvas);
+function updateHealingAuraRings(){
+ const live=new Set();
+ for(const c of combatants){
+  if(c.cardId!=='astarium'||c.hp<=0||c.stage!=='active')continue;
+  live.add(c);
+  let ring=healingAuraRings.get(c);
+  if(!ring){
+   const material=new THREE.MeshBasicMaterial({
+    color:0x53f58a,transparent:true,opacity:.35,
+    depthWrite:false,side:THREE.DoubleSide,
+    blending:THREE.AdditiveBlending});
+   ring=new THREE.Mesh(new THREE.RingGeometry(HEAL_AURA_RADIUS-.065,
+    HEAL_AURA_RADIUS+.035,80),material);
+   ring.rotation.x=-Math.PI/2;root.add(ring);healingAuraRings.set(c,ring);
+  }
+  ring.position.set(c.outer.position.x,.075,c.outer.position.z);
+  ring.material.opacity=.25+.09*Math.sin(performance.now()*.0027);
+ }
+ for(const [c,ring] of healingAuraRings){
+  if(live.has(c))continue;
+  root.remove(ring);ring.geometry.dispose();ring.material.dispose();
+  healingAuraRings.delete(c);
+ }
+}
+function spawnHealingAuraPulseFx(source,radius=HEAL_AURA_RADIUS){
  if(!source?.outer?.position||source.hp<=0)return;
  const group=new THREE.Group();
  group.position.set(source.outer.position.x,.095,source.outer.position.z);
  root.add(group);
  const material=new THREE.MeshBasicMaterial({
-  color:0x83ffad,transparent:true,opacity:.92,depthWrite:false,
+  color:0x69ff97,transparent:true,opacity:.8,depthWrite:false,
   side:THREE.DoubleSide,blending:THREE.AdditiveBlending
  });
  const ring=new THREE.Mesh(new THREE.RingGeometry(.94,1.055,48),material);
- ring.rotation.x=-Math.PI/2;ring.scale.setScalar(.45);
- group.add(ring);
+ ring.rotation.x=-Math.PI/2;ring.scale.setScalar(.45);group.add(ring);
  const glowMat=new THREE.SpriteMaterial({
-  map:glowTexture,color:0x83ffad,transparent:true,opacity:.76,
+  map:glowTexture,color:0x70ff9e,transparent:true,opacity:.65,
   depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending
  });
  const glow=new THREE.Sprite(glowMat);
  glow.position.y=1.7;glow.scale.set(.72,.72,1);group.add(glow);
  healingAuraFx.push({group,ring,material,glow,glowMat,
-  age:0,life:.85,radius:Math.max(1,Number(radius)||6)});
+  age:0,life:.85,radius:Math.max(1,Number(radius)||HEAL_AURA_RADIUS)});
 }
 function spawnHealingPulseFx(unit,source){
  if(!unit?.outer?.position)return;
- const base=unit.outer.position;
  const group=new THREE.Group();
- group.position.set(base.x,.4,base.z);root.add(group);
- const material=new THREE.SpriteMaterial({map:glowTexture,color:0x83ffad,
-  transparent:true,opacity:.85,depthWrite:false,blending:THREE.AdditiveBlending});
+ group.position.set(unit.outer.position.x,.25,unit.outer.position.z);root.add(group);
  const particles=[];
- for(let i=0;i<6;i++){
-  const spr=new THREE.Sprite(material);
-  const angle=i*Math.PI/3;
-  spr.position.set(.28*Math.cos(angle),.1+i*.07,.28*Math.sin(angle));
-  spr.scale.set(.18,.18,1);group.add(spr);
-  particles.push({spr,angle});
+ for(let i=0;i<9;i++){
+  const mat=new THREE.SpriteMaterial({
+   map:healCrossTexture,color:i%3===0?0xc9ffdb:0x58f594,
+   transparent:true,opacity:.5+(i%4)*.12,
+   depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending});
+  const spr=new THREE.Sprite(mat);
+  const angle=i*Math.PI*2/9;
+  spr.position.set(.20*Math.cos(angle),.25+(i%4)*.29,.20*Math.sin(angle));
+  const scale=.16+(i%3)*.085;
+  spr.scale.set(scale,scale,1);
+  group.add(spr);
+  particles.push({spr,angle,alpha:mat.opacity,speed:.50+(i%3)*.25});
  }
- healingPulseFx.push({group,material,particles,age:0,life:.7});
+ healingPulseFx.push({group,particles,age:0,life:1.05});
 }
 function updateHealingPulseFx(dt){
+ updateHealingAuraRings();
  for(let i=healingAuraFx.length-1;i>=0;i--){
   const fx=healingAuraFx[i];fx.age+=dt;
   const t=Math.min(1,fx.age/fx.life);
-  // Compact, legible signature on phones: an expanding ground ring and
-  // a green flash above the emitter. The visible ring is NOT a collider.
-  fx.ring.scale.setScalar(.45+1.5*t);
-  fx.material.opacity=.92*(1-t);
-  fx.glowMat.opacity=.78*(1-t);
+  fx.ring.scale.setScalar(.45+fx.radius*t);
+  fx.material.opacity=.8*(1-t);
+  fx.glowMat.opacity=.65*(1-t);
   fx.glow.scale.setScalar(.75+.5*t);
   if(t>=1){
    root.remove(fx.group);fx.ring.geometry.dispose();
@@ -2837,26 +2878,34 @@ function updateHealingPulseFx(dt){
  for(let i=healingPulseFx.length-1;i>=0;i--){
   const fx=healingPulseFx[i];fx.age+=dt;
   const progress=Math.min(1,fx.age/fx.life);
-  fx.material.opacity=.85*(1-progress);
   for(const p of fx.particles){
-   p.spr.position.y+=dt*.8;
-   p.spr.position.x+=dt*.25*Math.cos(p.angle);
-   p.spr.position.z+=dt*.25*Math.sin(p.angle);
+   p.spr.material.opacity=p.alpha*(1-progress);
+   p.spr.position.y+=dt*p.speed;
+   p.spr.position.x+=dt*.12*Math.cos(p.angle);
+   p.spr.position.z+=dt*.12*Math.sin(p.angle);
   }
   if(progress>=1){
-   root.remove(fx.group);fx.material.dispose();
+   root.remove(fx.group);
+   for(const p of fx.particles)p.spr.material.dispose();
    healingPulseFx.splice(i,1);
   }
  }
 }
 function clearHealingPulseFx(){
- for(const fx of healingPulseFx){root.remove(fx.group);fx.material.dispose();}
+ for(const fx of healingPulseFx){
+  root.remove(fx.group);
+  for(const p of fx.particles)p.spr.material.dispose();
+ }
  healingPulseFx.length=0;
  for(const fx of healingAuraFx){
   root.remove(fx.group);fx.ring.geometry.dispose();
   fx.material.dispose();fx.glowMat.dispose();
  }
  healingAuraFx.length=0;
+ for(const ring of healingAuraRings.values()){
+  root.remove(ring);ring.geometry.dispose();ring.material.dispose();
+ }
+ healingAuraRings.clear();
 }
 const floatingWords=[];
 function makeFloatingWord(c,word='ATURDIDO'){
