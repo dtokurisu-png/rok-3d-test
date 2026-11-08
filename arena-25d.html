@@ -583,6 +583,14 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
     <section id="chiaraLearningPanel" aria-label="Aprendizaje de Chiara" style="padding:12px;margin:8px 0;border:1px solid #278e93;border-radius:9px;background:#0b2732">
       <strong>🧠 Aprendizaje de Chiara y sus unidades</strong>
       <p id="chiaraLearningStats" role="status">Cargando memoria local…</p>
+      <label>Decisiones de cartas
+       <select id="chiaraExperimentMode"><option value="test">Prueba: explorar opciones nuevas</option>
+       <option value="normal">Normal: aplicar experiencias</option></select>
+      </label>
+      <p id="chiaraExperimentStats" role="status">Experimentos: preparando memoria…</p>
+      <div class="buttons"><button id="chiaraExperimentExport" type="button">Exportar experimentos</button>
+      <button id="chiaraExperimentImport" type="button">Importar experimentos</button>
+      <input id="chiaraExperimentFile" type="file" accept=".json,application/json" hidden></div>
       <p id="chiaraTacticStatus" style="font-size:11px;color:#a6ced0">Estrategia: esperando combate</p>
       <div class="buttons">
         <button id="chiaraLearningExport" type="button">Exportar aprendizaje de Chiara</button>
@@ -598,6 +606,14 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
        <input id="liorenTrainingToggle" type="checkbox"> Control autónomo y aprendizaje
       </label>
       <p id="liorenLearningStats" role="status">Memoria local independiente de Chiara</p>
+      <label>Decisiones de cartas
+       <select id="liorenExperimentMode"><option value="test">Prueba: explorar opciones nuevas</option>
+       <option value="normal">Normal: aplicar experiencias</option></select>
+      </label>
+      <p id="liorenExperimentStats" role="status">Experimentos: preparando memoria…</p>
+      <div class="buttons"><button id="liorenExperimentExport" type="button">Exportar experimentos</button>
+      <button id="liorenExperimentImport" type="button">Importar experimentos</button>
+      <input id="liorenExperimentFile" type="file" accept=".json,application/json" hidden></div>
       <p id="liorenTacticStatus" style="font-size:11px;color:#bbd3ba">Estrategia: control manual</p>
       <div class="buttons">
        <button id="liorenLearningExport" type="button">Exportar aprendizaje de Lioren</button>
@@ -832,6 +848,7 @@ import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261107-position-4';
 import {createChiaraLearning} from './chiara-learning.js?v=20261107-3';
+import {createCasterExperimentPlanner} from './caster-experiment-planner.js?v=20261108-1';
 import {createLiorenTrainingAI} from './lioren-training-ai.js?v=20261107-4';
 import {createCasterTacticalPositioning} from './caster-tactical-positioning.js?v=20261107-3';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
@@ -839,6 +856,47 @@ import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
 const qs=s=>document.querySelector(s);
 const chiaraLearning=createChiaraLearning();
 const liorenLearning=createChiaraLearning({storageKey:'rok.lioren.learning.v1'});
+// Experiments are separate from legacy positional Q-tables.
+const chiaraExperiments=createCasterExperimentPlanner({id:'chiara',storage:localStorage});
+const liorenExperiments=createCasterExperimentPlanner({id:'lioren',storage:localStorage});
+Promise.allSettled([
+ chiaraExperiments.loadShared('./assets/ai/chiara-experiments.json'),
+ liorenExperiments.loadShared('./assets/ai/lioren-experiments.json')
+]).then(()=>{refreshExperimentControls();});
+function refreshExperimentControls(){
+ for(const [id,planner] of [['chiara',chiaraExperiments],['lioren',liorenExperiments]]){
+  const control=qs('#'+id+'ExperimentMode');
+  if(control)control.value=planner.mode();
+  const stats=qs('#'+id+'ExperimentStats');
+  if(stats){const info=planner.stats();
+   stats.textContent=info.samples+' pruebas · '+info.experiments+
+    ' combinaciones registradas · '+info.contexts+' situaciones';}
+ }
+}
+for(const [id,planner] of [['chiara',chiaraExperiments],['lioren',liorenExperiments]]){
+ const selector=qs('#'+id+'ExperimentMode');
+ if(selector){selector.value=planner.mode();
+  selector.addEventListener('change',()=>{planner.setMode(selector.value);refreshExperimentControls();});}
+ const exportButton=qs('#'+id+'ExperimentExport');
+ if(exportButton)exportButton.onclick=()=>{
+  const blob=new Blob([planner.exportJSON()],{type:'application/json'});
+  const url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=id+'-experiments.json';link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+ };
+ const importButton=qs('#'+id+'ExperimentImport');
+ const fileInput=qs('#'+id+'ExperimentFile');
+ if(importButton&&fileInput){
+  importButton.onclick=()=>fileInput.click();
+  fileInput.onchange=async event=>{
+   const file=event.target.files?.[0];if(!file)return;
+   try{planner.importJSON(await file.text());refreshExperimentControls();}
+   catch(error){const status=qs('#'+id+'ExperimentStats');
+    if(status)status.textContent='Error: '+error.message;}
+   fileInput.value='';
+  };
+ }
+}
 const learningStats=()=>{
  const s=chiaraLearning.stats();
  qs('#chiaraLearningStats').textContent=
@@ -4327,17 +4385,17 @@ function resetDemoCombat(){
   // to prefer a different opening position instead of repeating the rush.
   if(rivalAI?.status?.elapsed>5){
    chiaraPositioning.finishMatch(casters.find(c=>c.side==='enemy')?.stage!=='defeated');
-   chiaraLearning.finishMatch();
+   chiaraLearning.finishMatch();chiaraExperiments.finishMatch();
   }
   if(liorenTrainingAI?.active&&liorenTrainingAI.status.elapsed>5){
    liorenPositioning.finishMatch(casters.find(c=>c.side==='ally')?.stage!=='defeated');
-   liorenLearning.finishMatch();
+   liorenLearning.finishMatch();liorenExperiments.finishMatch();
   }
   liorenTrainingAI?.reset();
   // A canceled training summon must not reserve the next round's slot.
   liorenAiCast.reserved=null;liorenAiCast.token=null;
   liorenAiCast.castUntil=0;liorenAiCast.attackUntil=0;
-  rivalAI?.reset();learningStats();liorenStats();
+  rivalAI?.reset();learningStats();liorenStats();refreshExperimentControls();
   rivalAction.attackUntil=0;rivalAction.castingUntil=0;rivalAction.reserved=null;
   rivalAction.flyerToken=null;
   guardHoldSeconds.ally=0;guardHoldSeconds.enemy=0;
@@ -6485,6 +6543,41 @@ const liorenSpellCards=[
  Array(9).fill(null),Array(9).fill(null)
 ];
 const spellDeckForSide=side=>side==='enemy'?spellCards:liorenSpellCards;
+function experimentSnapshot(side){
+ const c=casters.find(c=>c.side===side);
+ const allies=[...cardSummons].filter(u=>u.side===side&&u.hp>0);
+ const enemies=[...combatants,...casters].filter(u=>
+  u.side!==side&&canDamageTarget(u));
+ return {casterHp:c?.hp||0,enemyHp:enemies.reduce((n,u)=>n+u.hp,0),
+  allyCount:allies.length,enemyCount:enemies.length};
+}
+function chooseExperimentSummon(side,caster,available){
+ if(!caster)return null;
+ const planner=side==='enemy'?chiaraExperiments:liorenExperiments;
+ const enemies=[...combatants,...casters].filter(u=>
+  u.side!==side&&canDamageTarget(u));
+ const allies=[...cardSummons].filter(u=>u.side===side&&u.hp>0);
+ if(!hasSummonRoom(side))return null;
+ const legal=spellDeckForSide(side).flat().filter(card=>{
+  if(!card||card.cost>available)return false;
+  if(side==='enemy'){
+   if(!chiaraSummonDefinitions[card.id])return false;
+   return !!(card.id==='farolera'?
+    window.ROKSummonAssets?.farolera?.scene:chiaraSummonModels.get(card.id)?.scene);
+  }
+  return !!liorenSummonModels.get(card.id)?.scene;
+ });
+ const nearest=enemies.reduce((n,e)=>{
+  const d=Math.hypot(e.outer.position.x-caster.outer.position.x,
+   e.outer.position.z-caster.outer.position.z);
+  return d<n?d:n;
+ },Infinity);
+ const ctx=planner.context({caster,enemies,element:available,allies,side});
+ const selected=planner.select({context:ctx,cards:legal,available,
+  threat:nearest<6});
+ if(!selected)return null;
+ return {...selected.card,tacticalRole:selected.role,experimentContext:ctx};
+}
 const chiaraSummonDefinitions={
  farolera:{cost:1,hp:2,attack:1},
  telepate:{cost:3,hp:4,attack:2,file:'telepate agua 1.glb'},
@@ -7357,40 +7450,10 @@ const liorenPositioning=createCasterTacticalPositioning({
 });
 let tacticalUiClock=0;
 function chiaraCastPlan(caster,amount,resources={}){
- const live=[...cardSummons].filter(u=>u.side==='enemy'&&u.hp>0&&
-  !['dead','dying','vanishing'].includes(u.stage));
- const count=id=>live.filter(u=>u.cardId===id).length;
- const f=count('farolera'),t=count('telepate'),boss=count('controladora');
- if(live.length>=MAX_ACTIVE_SUMMONS_PER_SIDE)return null;
- const unlocked=Number(resources.unlocked)||0;
- const telepates=live.filter(u=>u.cardId==='telepate');
- const threatened=telepates.some(u=>u.hp/u.maxHp<=.75||
-  [...combatants,...casters].some(enemy=>enemy.side!==u.side&&
-   canDamageTarget(enemy)&&Math.hypot(enemy.outer.position.x-u.outer.position.x,
-    enemy.outer.position.z-u.outer.position.z)<6));
- const storageFull=unlocked>0&&amount>=unlocked-.05;
- let id=null;
- if(!t){
-  // RESTORED: keep Chiara's approved pre-Telépate economy intact.
-  // Deploy Faroleras while opening the first reservoirs, then save to
-  // summon the first Telépate. Do not apply the NEW support policy yet.
-  const fountain=resources.nextOrb||null;
-  const saveForThird=unlocked>=2&&unlocked<3&&amount>=2-.001&&
-   !!fountain?.halfElapsed;
-  const saveToRefillThree=unlocked>=3&&amount<3-.001;
-  if(saveForThird||saveToRefillThree)return null;
-  if(amount>=3)id='telepate';
-  else if(amount>=1&&f<4&&live.length<4)id='farolera';
- }else if(boss<1&&amount>=5){
-  id='controladora';
- }else if(f<2&&amount>=1&&(threatened||storageFull||f===0)){
-  id='farolera';
- }else if(t<2&&boss&&amount>=3&&f>=1)id='telepate';
- else if(storageFull&&f<3&&amount>=1)id='farolera';
- const def=chiaraSummonDefinitions[id];
- if(!def||amount<def.cost)return null;
- const model=id==='farolera'?window.ROKSummonAssets?.farolera:chiaraSummonModels.get(id);
- return model?.scene?{id,cost:def.cost,element:'water'}:null;
+ // Enumerate the REAL spellbook instead of a hard-coded summon order.
+ // The experiment planner only sees currently affordable, loaded,
+ // valid summons and can try a different response in each context.
+ return chooseExperimentSummon('enemy',caster,amount);
 }
 rivalAI=createRivalCasterAI({
  learning:chiaraLearning,positioning:chiaraPositioning,
@@ -7451,6 +7514,9 @@ rivalAI=createRivalCasterAI({
   if(!card||rivalAction.reserved||c.outer.position.z>=0||!hasSummonRoom(c.side)||
     !combatHud.spend(c.side,card.element,card.cost))return false;
   rivalAction.reserved=card;
+  if(card.experimentContext)chiaraExperiments.begin({
+   context:card.experimentContext,card,role:card.tacticalRole||'defense',
+   snapshot:experimentSnapshot('enemy')});
   rivalAction.flyerToken=castFlyer.begin('enemy',{name:card.name,element:card.element,
    duration:Math.max(.01,duration)});
   chiaraRig.shield(c,false);c.manualDefending=false;
@@ -7523,18 +7589,8 @@ liorenTrainingAI=createLiorenTrainingAI({
   const live=[...cardSummons].filter(u=>u.side==='ally'&&u.hp>0&&
    !['dead','dying','vanishing'].includes(u.stage));
   const plan=(available,unlocked,units,near)=>{
-   if(units.length>=MAX_ACTIVE_SUMMONS_PER_SIDE)return null;
-   const count=id=>units.filter(u=>u.cardId===id).length;
-   const seed=count('semillera'),warrior=count('kariona'),support=count('astarium');
-   let id=null;
-   // Grow Earth economy, then defend with warriors and diversify the deck.
-   if(seed<1&&available>=1)id='semillera';
-   else if(warrior<2&&available>=2)id='kariona';
-   else if(support<1&&available>=3)id='astarium';
-   else if(warrior<4&&available>=2)id='kariona';
-   else if(seed<2&&available>=1)id='semillera';
-   const card=liorenSpellCards[0].find(c=>c?.id===id);
-   return card&&liorenSummonModels.get(card.id)?.scene?card:null;
+   const caster=casters.find(c=>c.side==='ally'&&c.stage==='active');
+   return chooseExperimentSummon('ally',caster,available);
   };
   return {live,plan};
  },
@@ -7545,6 +7601,9 @@ liorenTrainingAI=createLiorenTrainingAI({
    if(liorenAiCast.reserved||!combatHud.spend('ally',card.element,card.cost))
     return false;
    liorenAiCast.reserved=card;
+   if(card.experimentContext)liorenExperiments.begin({
+    context:card.experimentContext,card,role:card.tacticalRole||'defense',
+    snapshot:experimentSnapshot('ally')});
    liorenAiCast.token=castFlyer.begin('ally',
     {name:card.name,element:card.element,duration:.5});
    const clip=c.model?.userData?.rokCast22Clip;
@@ -8168,6 +8227,9 @@ function loop(now){
    try{
     framePhase='guard-economy';updateGuardEconomy(dt);
     framePhase='combat-update';updateDuel(dt);
+    chiaraExperiments.evaluate(dt,experimentSnapshot('enemy'));
+    if(liorenTrainingAI?.active)
+     liorenExperiments.evaluate(dt,experimentSnapshot('ally'));
     framePhase='resource-hud';combatHud.advance(dt,casters);
     framePhase='element-orbs';elementOrbs.tick(dt);
     framePhase='chiara-ai';rivalAI?.step(dt);
