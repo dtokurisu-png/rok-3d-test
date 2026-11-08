@@ -7573,11 +7573,13 @@ liorenTrainingAI=createLiorenTrainingAI({
   liorenAiCast.castUntil=performance.now()+250;
   return success;
  },
- move:(c,x,z)=>{c.outer.position.x=x;c.outer.position.z=z;
-  if(performance.now()>liorenAiCast.castUntil)
-   casterCastLayers.movement(c,'forward');},
+ move:(c,x,z)=>{c.outer.position.x=x;c.outer.position.z=z;},
  face:(c,p)=>{const dx=p.x-c.outer.position.x,dz=p.z-c.outer.position.z;
   if(Math.hypot(dx,dz)>.01)c.outer.rotation.y=Math.atan2(dx,dz);},
+ animate:(c,kind)=>{
+  if(performance.now()>liorenAiCast.castUntil)
+   casterCastLayers.movement(c,kind);
+ },
  guard:on=>{
   const c=casters.find(u=>u.side==='ally'&&u.stage==='active');
   if(!c)return;
