@@ -3576,6 +3576,7 @@ function resetCombatant(c){
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
    c.semilleraArrived=false;c.semilleraArrival=null;c.semilleraArrivalWait=0;
+   c.semilleraDepartureTurned=false;c.semilleraDepartureTurn=null;
    c.semilleraClipWarning=false;
    c.semilleraFailedSource22=null;c.semilleraFailedSource21=null;
   }
@@ -3790,6 +3791,37 @@ const SEMILLERA_PRE_RECALL_AGE=4.5;
 const SEMILLERA_RECALL_CAST_DURATION=1;
 const SEMILLERA_ARRIVAL_START=181/30,SEMILLERA_ARRIVAL_END=130/30;
 const SEMILLERA_ARRIVAL_DURATION=(181-130)/30;
+const SEMILLERA_DEPARTURE_TURN_DURATION=.45;
+// A visible, one-time orientation phase is required before walking.
+// The turn only rotates the scene group; it never plays a backward-walk
+// clip or advances the unit's position.
+function startSemilleraDepartureTurn(unit){
+ if(unit.cardId!=='semillera'||unit.stage!=='active'||
+    unit.semilleraDepartureTurned||
+    !summonMoveClipMap.has('semillera:40'))return false;
+ const goal=unit.side==='ally'?0:Math.PI;
+ const start=unit.outer.rotation.y;
+ let delta=THREE.MathUtils.euclideanModulo(goal-start+Math.PI,Math.PI*2)-Math.PI;
+ if(Math.abs(delta+Math.PI)<.0001)delta=-Math.PI;
+ unit.semilleraDepartureTurn={elapsed:0,start,delta,goal};
+ unit.stage='semilleraDepartureTurn';
+ setAnim(unit,'idle',{fade:.12});
+ return true;
+}
+function stepSemilleraDepartureTurn(unit,dt){
+ const turn=unit.semilleraDepartureTurn;
+ if(!turn)return;
+ turn.elapsed=Math.min(SEMILLERA_DEPARTURE_TURN_DURATION,turn.elapsed+dt);
+ const fraction=turn.elapsed/SEMILLERA_DEPARTURE_TURN_DURATION;
+ const smooth=fraction*fraction*(3-2*fraction);
+ unit.outer.rotation.y=turn.start+turn.delta*smooth;
+ if(fraction>=1){
+  unit.outer.rotation.y=turn.goal;
+  unit.semilleraDepartureTurn=null;
+  unit.semilleraDepartureTurned=true;
+  unit.stage='active';
+ }
+}
 // Semillera locomotion is exclusively clip 40. No extra turn/backward mixer.
 function startSemilleraArrival(unit){
  if(unit.cardId!=='semillera'||unit.stage!=='active'||unit.semilleraArrived)return false;
@@ -3828,7 +3860,7 @@ function stepSemilleraArrival(unit,dt){
   arrival.action.time=SEMILLERA_ARRIVAL_END;
   unit.mixer.update(0);
   arrival.action.paused=true;
-  unit.outer.rotation.y=Math.PI;
+  unit.outer.rotation.y=unit.side==='ally'?Math.PI:0;
   unit.semilleraArrival=null;
   unit.semilleraArrived=true;unit.stage='active';
   startSemilleraCrystalCast(unit);
@@ -5825,6 +5857,8 @@ function updateDuel(dt){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
       updateTeleportation(c,dt);
+    }else if(c.stage==='semilleraDepartureTurn'){
+      stepSemilleraDepartureTurn(c,dt);
     }else if(c.stage==='semilleraArrival'){
       stepSemilleraArrival(c,dt);
     }else if(c.stage==='semilleraElementCast'){
@@ -5875,7 +5909,9 @@ function updateDuel(dt){
        }
        // Production is the cast itself: 5 s in clip 22, then 1 s
        // in clip 21. Both the animation and its HUD start together.
-       if(c.outer.position.z>=MAX_Z-.03){
+       if(c.semilleraDepartureTurned&&
+          (c.side==='ally'?c.outer.position.z>=MAX_Z-.03:
+           c.outer.position.z<=-MAX_Z+.03)){
         if(!c.semilleraArrived){
           // Late downloads must not silently skip the approved arrival.
           // Give #39 time to finish retargeting before the first crystal cycle.
@@ -5901,7 +5937,7 @@ function updateDuel(dt){
     }
     // Mantener el movimiento vertical de pies, rodillas y torso también
     // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
-    if(c.stage!=='casting'&&c.stage!=='semilleraArrival'&&c.stage!=='semilleraElementCast'&&c.stage!=='semilleraRecallCast'&&c.stage!=='semilleraHealCharge'&&c.stage!=='semilleraHealReady'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
+    if(c.stage!=='casting'&&c.stage!=='semilleraDepartureTurn'&&c.stage!=='semilleraArrival'&&c.stage!=='semilleraElementCast'&&c.stage!=='semilleraRecallCast'&&c.stage!=='semilleraHealCharge'&&c.stage!=='semilleraHealReady'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
     updateCastMarker(c);
     if(c.kind!=='archer'&&c.animId===12)liftWalkArm(c);
     if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!faroleraAbilityBridge.lanternDeployed(c)&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
@@ -5960,15 +5996,20 @@ function updateDuel(dt){
     }
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
-    if(c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
-      // No mover físicamente mientras la animación 40 aún no esté lista:
-      // setAnim(40) retrocedería a idle y la Semillera se deslizaría.
+    if(c.cardId==='semillera'&&
+      (c.side==='ally'?c.outer.position.z<MAX_Z-.03:
+       c.outer.position.z> -MAX_Z+.03)){
+      // Never slide while clip 40 is loading, or move before facing
+      // the retreat direction. For the ally this is +Z; for enemy -Z.
       if(!summonMoveClipMap.has('semillera:40')){
        setAnim(c,'idle',{fade:.15});continue;
       }
-      // Girar hacia el límite propio (+Z) antes de caminar hacia él.
-      c.outer.rotation.y=0;
-      c.outer.position.z=Math.min(MAX_Z,c.outer.position.z+c.speed*dt);
+      if(!c.semilleraDepartureTurned){
+       startSemilleraDepartureTurn(c);continue;
+      }
+      const direction=c.side==='ally'?1:-1;
+      c.outer.position.z=THREE.MathUtils.clamp(
+       c.outer.position.z+direction*c.speed*dt,-MAX_Z,MAX_Z);
       setAnim(c,40,{fade:.16});continue;
     }
     if(!target){setAnim(c,'idle',{fade:.15});continue;}
