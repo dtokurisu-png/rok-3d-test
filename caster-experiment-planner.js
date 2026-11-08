@@ -8,7 +8,7 @@ import {createCasterNeuralEvaluator} from './caster-neural-evaluator.js?v=202611
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const empty=()=>({schema:1,updatedAt:null,mode:'test',trials:{},matches:0});
 const number=x=>Number.isFinite(Number(x))?Number(x):0;
-const safeKey=s=>String(s||'none').replace(/[^\w:|.-]/g,'_').slice(0,150);
+const safeKey=s=>String(s||'none').replace(/[^\w:|.-]/g,'_').slice(0,210);
 export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  const key='rok.'+id+'.experiments.v1';
  let data=empty(),pending=[],chosen=null,saving=null,dirty=0;
@@ -51,7 +51,9 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  }
  const mode=()=>data.mode;
  function setMode(value){
-  data.mode=value==='normal'?'normal':'test';persist();
+  data.mode=value==='normal'?'normal':'test';
+  if(data.mode==='normal')saving=null;
+  persist();
   return data.mode;
  }
  function context({caster,enemies=[],element=0,enemyElement=0,allies=[],side}){
@@ -108,11 +110,12 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  // continues looking for resources, moving and defending.
  function considerSaving({context:ctx,cards=[],available=0,capacity=0,threat=false}){
   if(saving){
-   if(saving.context===ctx&&available<saving.cost&&saving.elapsed<7)return true;
+   // An immediate threat interrupts saving: defend or cast now.
+   if(!threat&&available<saving.cost&&saving.elapsed<7)return true;
    if(available>=saving.cost)
     observe(saving.context,saving.card,'economy',1.2,saving.cost);
-   else if(saving.elapsed>=7)
-    observe(saving.context,saving.card,'economy',-.8,saving.cost);
+   else
+    observe(saving.context,saving.card,'economy',threat?-.4:-.8,saving.cost);
    saving=null;
   }
   if(threat||available<1||data.mode!=='test')return false;
@@ -174,7 +177,7 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   throw Error('Memoria de experimentos incompatible');
   persist();return stats();}
  function stats(){return {mode:data.mode,matches:data.matches,
-  contexts:new Set(Object.keys(data.trials).map(k=>k.split('|').slice(0,7).join('|'))).size,
+  contexts:new Set(Object.keys(data.trials).map(k=>k.split('|').slice(0,-2).join('|'))).size,
   experiments:Object.keys(data.trials).length,
   samples:Object.values(data.trials).reduce((n,r)=>n+r.n,0),
   pending:pending.length,savingFor:saving?.card||null,
