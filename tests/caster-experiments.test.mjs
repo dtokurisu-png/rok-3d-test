@@ -97,6 +97,31 @@ test('successful summons are evaluated only after the observation window',()=>{
  assert.equal(learner.stats().pending,0);
 });
 
+test('with three affordable cards AI does not endlessly repeat cost three',()=>{
+ const learner=createCasterExperimentPlanner({id:'lioren-test-diversity',storage:storage()});
+ const options=[{id:'semillera',cost:1},{id:'kariona',cost:2},{id:'astarium',cost:3}];
+ const played=[];
+ for(let i=0;i<12;i++){
+  const chosen=learner.select({context:ctx,cards:options,available:3,threat:false});
+  played.push(chosen.card.id);
+  learner.begin({context:ctx,card:chosen.card,role:chosen.role,snapshot:{}});
+ }
+ assert.equal(new Set(played).size,3);
+ for(let i=2;i<played.length;i++)
+  assert.ok(!(played[i]===played[i-1]&&played[i]===played[i-2]));
+});
+test('an acquired expensive-card goal expires when casting stays impossible',()=>{
+ const learner=createCasterExperimentPlanner({id:'chiara-test-expiry',storage:storage()});
+ const options=[cheap,expensive];
+ for(let i=0;i<3;i++)learner.begin({context:ctx,card:cheap,role:'offense',snapshot:{}});
+ assert.equal(learner.considerSaving({context:ctx,cards:options,
+  available:2,capacity:3,threat:false}),true);
+ assert.equal(learner.considerSaving({context:ctx,cards:options,
+  available:3,capacity:3,threat:false}),false);
+ assert.equal(learner.stats().savingFor,'telepate');
+ learner.evaluate(6.2,{});
+ assert.equal(learner.stats().savingFor,null);
+});
 test('small neural evaluator learns outcomes and validates snapshots',()=>{
  const net=createCasterNeuralEvaluator('lioren-test');
  const before=net.predict(ctx,cheap,'defense');
