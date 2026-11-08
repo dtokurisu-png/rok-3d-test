@@ -812,7 +812,7 @@ body[data-rok-boot="loading"] #mobileMobaControls{visibility:hidden!important}
 <!-- JSZip is optional; never block the browser parser or first view. -->
 <script type="module">
 import * as THREE from 'three';
-import {stepTelepateProvocations,provocationSource,clearTelepateSource,createTelepateAuraVisuals} from './features/farolera/phase-1/telepate-provocation.js?v=20261107-action-10';
+import {stepTelepateProvocations,provocationSource,clearTelepateSource,createTelepateAuraVisuals} from './features/farolera/phase-1/telepate-provocation.js?v=20261107-psychic-yellow-11';
 import {createFaroleraArenaIntegration} from './features/farolera/phase-1/phase-8-arena-bridge.js?v=20261107-tactical-2';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
@@ -3004,7 +3004,7 @@ function createSummonGroundHud(c){
  if(c.cardId==='astarium'){
   shieldIcon.material.color.setHex(0xf2ce31);
   const bubble=new THREE.Mesh(new THREE.SphereGeometry(.95,22,16),
-   new THREE.MeshBasicMaterial({color:0xffdb4e,transparent:true,opacity:.14,
+   new THREE.MeshBasicMaterial({color:0xf2ce31,transparent:true,opacity:.14,
     depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.BackSide}));
   bubble.position.y=.9;c.outer.add(bubble);c.psychicShieldFx=bubble;
  }
