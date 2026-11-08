@@ -4050,6 +4050,100 @@ function stepSemilleraHealCharge(unit,dt){
  charge.ready=true;
  unit.stage='semilleraHealReady';
 }
+// Phase 4: a completed charge becomes one green homing heal projectile.
+// The healing value is computed at IMPACT, never on release.
+const semilleraHealProjectiles=[];
+function createSemilleraHealProjectile(source,target){
+ const origin=source.castHand?(
+  source.model.updateMatrixWorld(true),
+  source.castHand.getWorldPosition(new THREE.Vector3())):
+  new THREE.Vector3(source.outer.position.x,1.55,source.outer.position.z);
+ const group=new THREE.Group();group.position.copy(origin);root.add(group);
+ const core=new THREE.Mesh(new THREE.SphereGeometry(.24,16,12),
+  new THREE.MeshBasicMaterial({color:0x76ff9d,transparent:true,opacity:.93,
+   depthWrite:false,blending:THREE.AdditiveBlending}));
+ group.add(core);
+ const halo=new THREE.Sprite(new THREE.SpriteMaterial({
+  map:glowTexture,color:0x37ff78,transparent:true,opacity:.8,
+  blending:THREE.AdditiveBlending,depthWrite:false}));
+ halo.scale.set(.95,.95,1);group.add(halo);
+ const sparks=[];
+ for(let i=0;i<12;i++){
+  const spark=new THREE.Sprite(new THREE.SpriteMaterial({
+   map:glowTexture,color:i%3===0?0xdcffe1:0x4dff84,
+   transparent:true,opacity:.62,depthWrite:false,
+   blending:THREE.AdditiveBlending}));
+  spark.scale.set(.13,.13,1);group.add(spark);sparks.push(spark);
+ }
+ semilleraHealProjectiles.push({group,core,halo,sparks,source,target,age:0});
+}
+function disposeSemilleraHealProjectile(projectile){
+ projectile.group.parent?.remove(projectile.group);
+ projectile.core.geometry.dispose();projectile.core.material.dispose();
+ projectile.halo.material.dispose();
+ for(const spark of projectile.sparks)spark.material.dispose();
+}
+function clearSemilleraHealProjectiles(){
+ for(const projectile of semilleraHealProjectiles)
+  disposeSemilleraHealProjectile(projectile);
+ semilleraHealProjectiles.length=0;
+}
+function stepSemilleraHealProjectiles(dt){
+ for(let i=semilleraHealProjectiles.length-1;i>=0;i--){
+  const p=semilleraHealProjectiles[i];
+  p.age+=dt;
+  const target=p.target;
+  if(!target||target.hp<=0||target.stage==='defeated'||p.age>12){
+   disposeSemilleraHealProjectile(p);
+   semilleraHealProjectiles.splice(i,1);continue;
+  }
+  const destination=new THREE.Vector3(target.outer.position.x,1.25,
+   target.outer.position.z);
+  const delta=destination.sub(p.group.position);
+  const distance=delta.length();
+  const advance=Math.min(distance,dt*8.5);
+  if(distance>1e-6)p.group.position.addScaledVector(delta,advance/distance);
+  p.core.scale.setScalar(1+.16*Math.sin(p.age*19));
+  p.halo.material.opacity=.69+.17*Math.sin(p.age*11);
+  for(let j=0;j<p.sparks.length;j++){
+   const angle=j*2.39996+p.age*(3+j%3);
+   const radius=.20+.13*Math.sin(p.age*5+j);
+   const spark=p.sparks[j];
+   spark.position.set(radius*Math.cos(angle),
+    .17*Math.sin(p.age*8+j*1.8),radius*Math.sin(angle));
+   spark.material.opacity=.40+.30*Math.sin(p.age*8+j)**2;
+  }
+  if(distance<=.28||advance>=distance){
+   const missing=Math.max(0,target.maxHp-target.hp);
+   const heal=Math.min(missing,Math.ceil(missing/3));
+   if(heal>0){
+    target.hp=Math.min(target.maxHp,target.hp+heal);
+    makeFloatingWord(target,'SANACIÓN +'+heal);
+   }else makeFloatingWord(target,'SANACIÓN');
+   spawnHealingPulseFx(target,p.source);
+   disposeSemilleraHealProjectile(p);
+   semilleraHealProjectiles.splice(i,1);
+  }
+ }
+}
+function releaseSemilleraHealCharge(unit){
+ const state=unit.semilleraPassive;
+ if(unit.stage!=='semilleraHealReady'||!state?.healCharge?.ready)return;
+ const target=casters.find(c=>c.side===unit.side&&c.hp>0&&
+  c.stage==='active');
+ // If the allied caster is temporarily unavailable, hold the finished
+ // charge rather than losing five reserved crystals.
+ if(!target)return;
+ createSemilleraHealProjectile(unit,target);
+ for(const orb of state.orbit)orb.visual.dispose();
+ state.orbit.length=0;
+ disposeSemilleraHealChargeFx(unit);
+ state.healCharge=null;
+ if(unit.animAction)unit.animAction.paused=false;
+ unit.stage='active';
+ unit.crystalClock=0;
+ setAnim(unit,'idle',{fade:.16,force:true});
+}
 function updateSemilleraPassive(dt){
  for(const unit of combatants){
   if(unit.cardId!=='semillera'||!unit.semilleraPassive)continue;
@@ -4126,6 +4220,7 @@ function updateSemilleraCrystals(dt){
 function resetDemoCombat(){
    castFlyer.reset();
   clearHealingPulseFx();clearConfusionSelfSlashFx();
+  clearSemilleraHealProjectiles();
   telepateAuraVisuals.clear();
   for(const unit of combatants){
     unit.rokProvocation=null;unit.rokConfusion=null;unit.rokAuraClock=0;
@@ -5701,7 +5796,7 @@ function updateDuel(dt){
     }else if(c.stage==='semilleraHealCharge'){
       stepSemilleraHealCharge(c,dt);
     }else if(c.stage==='semilleraHealReady'){
-      // Phase 4 will consume this completed charge and launch the heal.
+      releaseSemilleraHealCharge(c);
     }else if(c.stage==='casting'){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
@@ -5861,6 +5956,7 @@ function updateDuel(dt){
   }
   updateSemilleraCrystals(dt);
   updateSemilleraPassive(dt);
+  stepSemilleraHealProjectiles(dt);
   updateSynthesisOrbs(dt);
   updateDeathFragments(dt);
   updateMagic(dt);
