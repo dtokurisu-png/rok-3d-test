@@ -4,6 +4,7 @@
  * normal mode exploits observed results, keeping a safe fallback.
  * Each caster retains its own independent local training memory.
  */
+import {createCasterNeuralEvaluator} from './caster-neural-evaluator.js?v=20261108-1';
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const empty=()=>({schema:1,updatedAt:null,mode:'test',trials:{},matches:0});
 const number=x=>Number.isFinite(Number(x))?Number(x):0;
@@ -11,6 +12,7 @@ const safeKey=s=>String(s||'none').replace(/[^\w:|.-]/g,'_').slice(0,150);
 export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  const key='rok.'+id+'.experiments.v1';
  let data=empty(),pending=[],chosen=null,dirty=0;
+ const neural=createCasterNeuralEvaluator(id);
  data.mode=initialMode;
  function load(input){
   if(!input||input.schema!==1||!input.trials||typeof input.trials!=='object')return false;
@@ -22,13 +24,16 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
    clean.trials[k]={n:clamp(number(v.n),0,100000),wins:clamp(number(v.wins),0,100000),
     score:clamp(number(v.score),-10,10),last:v.last||null};
   }
-  data=clean;return true;
+  data=clean;
+  if(input.network)neural.restore(input.network);
+  return true;
  }
  try{const raw=storage?.getItem(key);if(raw)load(JSON.parse(raw));}catch{}
  function persist(){
   try{
    data.updatedAt=new Date().toISOString();
-   storage?.setItem(key,JSON.stringify(data));dirty=0;return true;
+   storage?.setItem(key,JSON.stringify({...data,network:neural.snapshot()}));
+   dirty=0;return true;
   }catch{return false;}
  }
  async function loadShared(url){
@@ -77,9 +82,13 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
    // a known successful answer. No forced repeats of a single card.
    const explore=1/Math.sqrt(n+1);
    const base=(card.id===preferred?.id?.id||card.id===preferred?.id)?0.15:0;
+   // In normal mode, generalize from similar situations through the
+   // neural evaluator, but give direct evidence increasing precedence.
+   const neuralScore=neural.predict(ctx,card,role);
    const score=data.mode==='test'?
     -n*2+success*.16+base+(role==='defense'&&threat?.2:0):
-    success*(n/(n+3))+base+(role==='defense'&&threat?.4:0)+explore*.12;
+    success*(n/(n+3))+neuralScore*1.25*(3/(n+3))+
+    base+(role==='defense'&&threat?.4:0)+explore*.12;
    return {card,role,n,score};
   }));
   candidates.sort((a,b)=>b.score-a.score||
@@ -90,7 +99,7 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  }
  function begin({context:ctx,card,role='defense',snapshot}){
   if(!card?.id)return false;
-  pending.push({context:ctx,card:card.id,role,start:number(snapshot?.time),
+  pending.push({context:ctx,card:card.id,cost:number(card.cost),role,start:number(snapshot?.time),
    snapshot,elapsed:0});
   if(pending.length>24)pending.shift();
   return true;
@@ -109,21 +118,23 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
    const damageAvoided=prevented===0&&number(before.enemyCount)>0?.5:0;
    const score=clamp(inflicted*.7+enemyDelta*1.5+alliesDelta*.3+
     damageAvoided-prevented*1.8,-5,5);
-   observe(p.context,p.card,p.role,score);
+   observe(p.context,p.card,p.role,score,p.cost);
    pending.splice(i,1);
   }
  }
- function observe(ctx,card,role,reward){
+ function observe(ctx,card,role,reward,cost=1){
   const k=trialKey(ctx,card,role),r=data.trials[k]||
    (data.trials[k]={n:0,wins:0,score:0,last:null});
   r.n++;r.score=clamp(r.score+(clamp(number(reward),-5,5)-r.score)/
    Math.min(30,r.n),-10,10);
   if(reward>0)r.wins++;
+  neural.train(ctx,{id:card,cost},role,reward);
   r.last={reward:clamp(number(reward),-5,5),at:new Date().toISOString()};
   if(++dirty>=1)persist();
  }
  function finishMatch(){data.matches++;pending=[];persist();}
- function exportJSON(){persist();return JSON.stringify(data,null,2);}
+ function exportJSON(){persist();return JSON.stringify({...data,
+  network:neural.snapshot()},null,2);}
  function importJSON(raw){if(!load(typeof raw==='string'?JSON.parse(raw):raw))
   throw Error('Memoria de experimentos incompatible');
   persist();return stats();}
@@ -131,7 +142,7 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   contexts:new Set(Object.keys(data.trials).map(k=>k.split('|').slice(0,7).join('|'))).size,
   experiments:Object.keys(data.trials).length,
   samples:Object.values(data.trials).reduce((n,r)=>n+r.n,0),
-  pending:pending.length};}
+  pending:pending.length,neuralExamples:neural.examples};}
  return {mode,setMode,context,select,begin,evaluate,observe,
   finishMatch,loadShared,exportJSON,importJSON,stats};
 }
