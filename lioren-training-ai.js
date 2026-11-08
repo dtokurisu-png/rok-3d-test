@@ -79,7 +79,8 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
   const resources=getResources()||{},available=Number(resources.available)||0;
   const unlocked=Number(resources.unlocked)||0;
   const enemies=getEnemies(),near=nearest(c.outer.position,enemies);
-  const allies=getCards().live;
+  const cards=getCards(),allies=cards.live;
+  const planned=cards.plan(available,unlocked,allies,near);
   const suggested=positioning?.tick({caster:c,enemies,resources:available,
    casts:state.casts,allies:allies.length,dt,
    mission:available>=1?'cast':'collect'});
@@ -100,7 +101,15 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
    return priority(a.target)-priority(b.target)||
     distance(c.outer.position,a.position)-distance(c.outer.position,b.position);
   });
-  if(inRange.length&&state.attackCooldown===0){
+  const protectedByAlly=inRange.some(e=>
+   e.target?.duelOpponent?.side===c.side&&
+   (Number(e.target.hp)||99)>1);
+  // Use allied interception time to prepare an affordable card.
+  // Finish a one-shot enemy directly instead of delaying for another cast.
+  const finishable=inRange.some(e=>(Number(e.target.hp)||99)<=1);
+  const exploitCover=protectedByAlly&&!finishable&&planned&&
+   available>=planned.cost;
+  if(inRange.length&&state.attackCooldown===0&&!exploitCover){
    const enemy=inRange[0];
    if(state.guardClock>0){state.guardClock=0;guard(false);}
    face(c,enemy.position);
@@ -123,13 +132,14 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
     z:clamp(Math.max(11,p.z+1.5,safe?.z??0),.5,bounds.z)},dt);
    if(threat)blockThreat();
   }else{
-   const plan=getCards().plan(available,unlocked,allies,near);
+   const plan=planned;
    // Spawn roles need different safe territory depth. Semillera stays in
    // rear support; combat summons can be deployed a little farther forward.
    // Never walk toward a staging point if that lane is under enemy pressure.
    // Defensive experiments deploy in the rearguard; offensive ones
    // test a forward position while remaining on our own half.
    const stagingDepth=plan?.id==='semillera'?10:
+    plan?.tacticalRole==='support'?10.5:
     plan?.tacticalRole==='defense'?11:6;
    const staging={x:c.outer.position.x,z:stagingDepth};
    const shouldStage=!!plan&&c.outer.position.z<stagingDepth-.3&&
