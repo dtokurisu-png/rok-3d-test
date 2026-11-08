@@ -6609,8 +6609,14 @@ function ensureLiorenSummonModel(id){
     if(item.id===39&&clip.duration<181/30-.04)
      throw Error('La animación 39 no llega al fotograma 181');
     summonMoveClipMap.set(item.cardId+':'+item.id,clip);
-    if(item.cardId==='semillera'&&item.id===39)
-     normalizeSemilleraLocomotionYaw(model.scene);
+    if(item.cardId==='semillera'&&item.id===39){
+     try{normalizeSemilleraLocomotionYaw(model.scene);}
+     catch(error){
+      // An unnormalized turn would visually undo the walking direction.
+      summonMoveClipMap.delete('semillera:39');
+      throw error;
+     }
+    }
     // Refresh currently walking units when the new clip is first ready.
     for(const unit of combatants)if(unit.cardId===item.cardId&&
       unit.stage==='active'&&unit.animId===12&&item.id!==39)
