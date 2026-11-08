@@ -961,9 +961,8 @@ const arenaFactors=createArenaFactorsBridge({
   spawnHealingPulseFx(unit,source);
  },
  onPsychicCastStart:unit=>{
-  // Two-second defensive chant; guardian remains stationary and non-offensive.
-  const clip=getCombatClip(unit,2);
-  setAnim(unit,2,{once:true,speed:clip?.duration?clip.duration/2:1,fade:.16,force:true});
+  // Reuse the existing 22 -> 21 composite caster sequence, not attack 02.
+  startAstariumShieldCast(unit);
  },
  onPsychicRecharge:unit=>{
   makeFloatingWord(unit,'ESCUDO PSÍQUICO');
@@ -3546,6 +3545,7 @@ function resetCombatant(c){
   c.deathResourceDropped=false;
   c.guardianSeenZ=null;c.guardianIntercepted=null;
   c.guardianGoalX=undefined;c.guardianPause=0;
+  c.guardianShieldCast=null;
   c.currentThreatTarget=null;
   c.armorPhysical=c.cardId==='kariona'?1:0;
   c.armorMagical=0;
@@ -3784,6 +3784,57 @@ function playSemilleraAction(unit,clip,speed=1,startTime=0){
  if(previous&&previous!==action){previous.fadeOut(.12);action.fadeIn(.12);}
  unit.animAction=action;unit.animId='semillera-element';
  return action;
+}
+// Astarium's non-offensive protective cast: same caster 22 -> 21
+// clips already used by Semillera, retargeted to her own GLB.
+function astariumShieldClips(unit){
+ const ally=casters.find(c=>c.side==='ally');
+ const source22=ally?.model?.userData?.rokCast22Clip;
+ const source21=ally?.model?.userData?.rokCast21Clip;
+ if(!ally?.model||!source22||!source21||
+    source21.duration<=SEMILLERA_FINISH_START+.01)return null;
+ if(unit.guardianShieldClips?.source22===source22&&
+    unit.guardianShieldClips?.source21===source21)
+  return unit.guardianShieldClips;
+ if(unit.guardianShieldFailed22===source22&&
+    unit.guardianShieldFailed21===source21)return null;
+ try{
+  const source=cloneSkinned(ally.model);
+  const first=THREE.AnimationUtils.subclip(source22,'Astarium_Cast_22',0,48,30);
+  const prep=adaptAnimationFBX(source,first,unit.model,'Astarium_Shield_Prep_22');
+  const finish=adaptAnimationFBX(source,source21,unit.model,'Astarium_Shield_Finish_21');
+  if(!prep.tracks.length||!finish.tracks.length)return null;
+  unit.guardianShieldClips={source22,source21,prep,finish};
+  return unit.guardianShieldClips;
+ }catch(error){
+  unit.guardianShieldFailed22=source22;
+  unit.guardianShieldFailed21=source21;
+  console.warn('[R.O.K.] Casteo compuesto de Astarium no disponible:',error);
+  return null;
+ }
+}
+function startAstariumShieldCast(unit){
+ if(unit.cardId!=='astarium'||unit.stage!=='active')return false;
+ const clips=astariumShieldClips(unit);
+ if(!clips)return false;
+ unit.guardianShieldCast={clips,time:0,phase:'prepare'};
+ playSemilleraAction(unit,clips.prep,clips.prep.duration/1.3);
+ unit.animId='astarium-shield-cast';
+ return true;
+}
+function stepAstariumShieldCast(unit,dt){
+ const cast=unit.guardianShieldCast;
+ if(!cast)return;
+ cast.time+=dt;
+ if(cast.phase==='prepare'&&cast.time>=1.3){
+  cast.phase='finish';cast.time=Math.max(0,cast.time-1.3);
+  const remaining=cast.clips.finish.duration-SEMILLERA_FINISH_START;
+  playSemilleraAction(unit,cast.clips.finish,remaining/.7,SEMILLERA_FINISH_START);
+  unit.animId='astarium-shield-cast';
+ }else if(cast.phase==='finish'&&cast.time>=.7){
+  unit.guardianShieldCast=null;
+  setAnim(unit,'idle',{fade:.16,force:true});
+ }
 }
 function startSemilleraCrystalCast(unit){
  if(unit.cardId!=='semillera'||unit.stage!=='active'||unit.crystalCast)return false;
@@ -5328,6 +5379,7 @@ function updateDuel(dt){
     if(c.stage==='active'&&c.animAction?.paused&&c.animId!=='idle')
       c.animAction.paused=false;
     c.mixer.update(dt);
+    if(c.cardId==='astarium')stepAstariumShieldCast(c,dt);
     if(c.stage==='confusedAction')stepConfusedAction(c,dt);
     if(c.stage==='intro'){
       c.introT=Math.min(1.4,c.introT+dt);
