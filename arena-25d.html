@@ -3546,6 +3546,8 @@ function resetCombatant(c){
   c.guardianSeenZ=null;c.guardianIntercepted=null;
   c.guardianGoalX=undefined;c.guardianPause=0;
   c.guardianShieldCast=null;
+  // A summoned Semillera owns its own five-fragment reserve for this life.
+  c.semilleraPassive=c.cardId==='semillera'?{pending:[],orbit:[]}:null;
   c.currentThreatTarget=null;
   c.armorPhysical=c.cardId==='kariona'?1:0;
   c.armorMagical=0;
@@ -3689,6 +3691,21 @@ function verifyCleanMatchBoundary(){
 // Cast 22 (frames 0..48 over 9s), then 21 (from frame 20 over 1s).
 // Exactly ONE miniature orb is released on the final frame of clip 21.
 const semilleraCrystals=[];
+// Phase 1: establish fragment ownership and a per-Semillera expiry ledger.
+// Visual recovery, orbit and healing will be connected in later phases.
+const SEMILLERA_PASSIVE_TARGET=5;
+function registerExpiredSemilleraFragment(crystal){
+ const owner=crystal.source;
+ if(!owner||owner.cardId!=='semillera'||owner.hp<=0||
+    !cardSummons.has(owner)||
+    ['dying','vanishing','dead','restoring'].includes(owner.stage))return false;
+ const state=owner.semilleraPassive;
+ if(!state||state.pending.length+state.orbit.length>=SEMILLERA_PASSIVE_TARGET)return false;
+ // Retain only the location, not the disposed render resources.
+ state.pending.push({x:crystal.visual.group.position.x,
+  y:crystal.visual.group.position.y,z:crystal.visual.group.position.z});
+ return true;
+}
 const SEMILLERA_PERIOD=10;
 const SEMILLERA_ARRIVAL_START=181/30,SEMILLERA_ARRIVAL_END=130/30;
 const SEMILLERA_ARRIVAL_DURATION=(181-130)/30;
@@ -3858,7 +3875,7 @@ function emitSemilleraCrystal(source){
   THREE.MathUtils.clamp(source.outer.position.z-2.3,-MAX_Z,MAX_Z));
  const visual=elementOrbs.createFragmentVisual();
  visual.group.position.copy(origin);
- semilleraCrystals.push({visual,origin,destination,flight:0,age:0,landed:false});
+ semilleraCrystals.push({visual,origin,destination,source,flight:0,age:0,landed:false});
  return true;
 }
 function stepSemilleraCrystalCast(unit,dt){
@@ -3891,6 +3908,7 @@ function updateSemilleraCrystals(dt){
   const crystal=semilleraCrystals[i];crystal.age+=dt;
   // A fragment cannot be collected once its normal lifetime is exhausted.
   if(crystal.age>=lifetime){
+   registerExpiredSemilleraFragment(crystal);
    crystal.visual.dispose();semilleraCrystals.splice(i,1);continue;
   }
   crystal.visual.update(dt,crystal.age);
