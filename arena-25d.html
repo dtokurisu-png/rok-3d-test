@@ -3547,7 +3547,9 @@ function resetCombatant(c){
   c.guardianGoalX=undefined;c.guardianPause=0;
   c.guardianShieldCast=null;
   // A summoned Semillera owns its own five-fragment reserve for this life.
-  c.semilleraPassive=c.cardId==='semillera'?{pending:[],orbit:[]}:null;
+  if(c.semilleraPassive)clearSemilleraPassive(c);
+  c.semilleraPassive=c.cardId==='semillera'?
+   {pending:[],orbit:[],retrieving:null,cast:null,elapsed:0}:null;
   c.currentThreatTarget=null;
   c.armorPhysical=c.cardId==='kariona'?1:0;
   c.armorMagical=0;
@@ -3614,6 +3616,7 @@ function resetCombatant(c){
 // Remove them together with the unit, including their own materials; shared
 // textures/geometries remain owned by the arena.
 function disposeCardSummon(c){
+ clearSemilleraPassive(c);
  telepateAuraVisuals.remove(c);
  clearTelepateSource(combatants,c);
  faroleraAbilityBridge.remove(c);
@@ -3691,19 +3694,34 @@ function verifyCleanMatchBoundary(){
 // Cast 22 (frames 0..48 over 9s), then 21 (from frame 20 over 1s).
 // Exactly ONE miniature orb is released on the final frame of clip 21.
 const semilleraCrystals=[];
-// Phase 1: establish fragment ownership and a per-Semillera expiry ledger.
-// Visual recovery, orbit and healing will be connected in later phases.
+// Phase 2: the same five small visuals remain alive throughout recall and orbit.
+// A unit owns its own queue. No healing or five-fragment trigger yet.
 const SEMILLERA_PASSIVE_TARGET=5;
+const SEMILLERA_RECALL_DURATION=.85;
+function clearSemilleraPassive(unit){
+ const state=unit?.semilleraPassive;
+ if(!state)return;
+ for(const item of [...state.pending,...state.orbit]){
+  item.visual?.dispose();
+ }
+ if(state.retrieving)state.retrieving.visual?.dispose();
+ state.pending.length=0;state.orbit.length=0;state.retrieving=null;
+ state.cast=null;
+}
 function registerExpiredSemilleraFragment(crystal){
  const owner=crystal.source;
  if(!owner||owner.cardId!=='semillera'||owner.hp<=0||
     !cardSummons.has(owner)||
     ['dying','vanishing','dead','restoring'].includes(owner.stage))return false;
  const state=owner.semilleraPassive;
- if(!state||state.pending.length+state.orbit.length>=SEMILLERA_PASSIVE_TARGET)return false;
- // Retain only the location, not the disposed render resources.
- state.pending.push({x:crystal.visual.group.position.x,
-  y:crystal.visual.group.position.y,z:crystal.visual.group.position.z});
+ if(!state||state.pending.length+state.orbit.length+
+    (state.retrieving?1:0)>=SEMILLERA_PASSIVE_TARGET)return false;
+ // Transfer ownership of the ORIGINAL rendered crystal. Keep it visible,
+ // but remove it from normal pickups and normal lifetime processing.
+ crystal.visual.update(0,0);
+ state.pending.push({visual:crystal.visual,owner,
+  x:crystal.visual.group.position.x,y:crystal.visual.group.position.y,
+  z:crystal.visual.group.position.z});
  return true;
 }
 const SEMILLERA_PERIOD=10;
@@ -3758,6 +3776,8 @@ const SEMILLERA_FINISH_START=20/30;
 function clearSemilleraCrystals(){
  for(const crystal of semilleraCrystals)crystal.visual.dispose();
  semilleraCrystals.length=0;
+ for(const unit of combatants)
+  if(unit.cardId==='semillera')clearSemilleraPassive(unit);
 }
 function semilleraSourceClips(unit){
  // Both clips are the very same ones already loaded for the ally caster.
@@ -3901,6 +3921,83 @@ function stepSemilleraCrystalCast(unit,dt){
   setAnim(unit,'idle',{fade:.16,force:true});
  }
 }
+// Only the finishing segment of clip 21 is used for recovery.
+// A generated fragment and a recovered one never share an action owner.
+function startSemilleraRecall(unit){
+ const state=unit.semilleraPassive;
+ if(!state?.pending.length||state.cast||state.retrieving||
+    unit.stage!=='active')return false;
+ const clips=semilleraSourceClips(unit);
+ if(!clips?.finish||clips.finish.duration<=SEMILLERA_FINISH_START)return false;
+ state.cast={elapsed:0,duration:Math.max(.22,
+  clips.finish.duration-SEMILLERA_FINISH_START)};
+ unit.stage='semilleraRecallCast';
+ playSemilleraAction(unit,clips.finish,1,SEMILLERA_FINISH_START);
+ unit.animId='semillera-recall';
+ return true;
+}
+function stepSemilleraRecall(unit,dt){
+ const state=unit.semilleraPassive,cast=state?.cast;
+ if(!cast)return;
+ cast.elapsed+=dt;
+ if(cast.elapsed<cast.duration)return;
+ const action=unit.animAction;
+ if(action){
+  action.time=Math.max(0,action.getClip().duration-.0001);
+  unit.mixer.update(0);
+ }
+ state.cast=null;
+ const item=state.pending.shift();
+ if(item){
+  // A crystal only starts moving at the EXACT end of clip 21.
+  item.flight=0;
+  item.start=item.visual.group.position.clone();
+  state.retrieving=item;
+ }
+ unit.stage='active';setAnim(unit,'idle',{fade:.16,force:true});
+}
+function updateSemilleraPassive(dt){
+ for(const unit of combatants){
+  if(unit.cardId!=='semillera'||!unit.semilleraPassive)continue;
+  const state=unit.semilleraPassive;
+  if(unit.hp<=0||['dying','vanishing','dead','restoring'].includes(unit.stage)){
+   clearSemilleraPassive(unit);continue;
+  }
+  state.elapsed+=dt;
+  const item=state.retrieving;
+  if(item){
+   item.flight=Math.min(1,item.flight+dt/SEMILLERA_RECALL_DURATION);
+   const t=item.flight;
+   const target=new THREE.Vector3(unit.outer.position.x,1.32,
+    unit.outer.position.z);
+   const smooth=t*t*(3-2*t);
+   item.visual.group.position.lerpVectors(item.start,target,smooth);
+   item.visual.group.position.y+=.30*Math.sin(Math.PI*t);
+   item.visual.update(dt,0);
+   if(t>=1){
+    item.seed=state.elapsed+state.orbit.length*1.41;
+    item.slot=state.orbit.length;
+    state.orbit.push(item);
+    state.retrieving=null;
+   }
+  }
+  for(let i=0;i<state.orbit.length;i++){
+   const orb=state.orbit[i];
+   // Independent floating trajectories, not a uniform circular loop.
+   // Distinct fixed anchors and mixed-frequency oscillations keep the
+   // five crystals organically suspended around their own Semillera.
+   const anchorX=[-.68,.62,-.35,.83,-.08][i];
+   const anchorY=[1.62,1.87,1.31,1.49,2.02][i];
+   const anchorZ=[.29,-.37,-.66,.54,.06][i];
+   const t=state.elapsed+orb.seed;
+   orb.visual.group.position.set(
+    unit.outer.position.x+anchorX+.16*Math.sin(t*1.21+i*.63),
+    anchorY+.15*Math.sin(t*1.83+i*1.39),
+    unit.outer.position.z+anchorZ+.15*Math.sin(t*.97+i*.77));
+   orb.visual.update(dt,0);
+  }
+ }
+}
 function updateSemilleraCrystals(dt){
  const lifetime=elementOrbs.fragmentLifetime;
  const caster=casters.find(c=>c.side==='ally'&&c.stage==='active');
@@ -3908,8 +4005,8 @@ function updateSemilleraCrystals(dt){
   const crystal=semilleraCrystals[i];crystal.age+=dt;
   // A fragment cannot be collected once its normal lifetime is exhausted.
   if(crystal.age>=lifetime){
-   registerExpiredSemilleraFragment(crystal);
-   crystal.visual.dispose();semilleraCrystals.splice(i,1);continue;
+   if(!registerExpiredSemilleraFragment(crystal))crystal.visual.dispose();
+   semilleraCrystals.splice(i,1);continue;
   }
   crystal.visual.update(dt,crystal.age);
   if(!crystal.landed){
@@ -4180,6 +4277,7 @@ function updateDeathFragments(dt){
 }
 function beginDeath(c){
   if(c.stage==='dying'||c.stage==='vanishing'||c.stage==='dead'||c.stage==='restoring')return;
+  clearSemilleraPassive(c);
   c.pendingRestore=false;
   c.restorationHp=null;
   if(c.rokConfusedAction)endConfusedAction(c,'death');
@@ -5503,6 +5601,8 @@ function updateDuel(dt){
       stepSemilleraArrival(c,dt);
     }else if(c.stage==='semilleraElementCast'){
       stepSemilleraCrystalCast(c,dt);
+    }else if(c.stage==='semilleraRecallCast'){
+      stepSemilleraRecall(c,dt);
     }else if(c.stage==='casting'){
       c.mixer.timeScale=1;
       updateRestorationFx(c,dt,12);
@@ -5529,6 +5629,9 @@ function updateDuel(dt){
     }
     if(c.stage==='active'){
       if(c.cardId==='semillera'&&!c.crystalCast){
+       // Recovery has priority between completed production cycles.
+       if(c.semilleraPassive?.pending.length&&
+          startSemilleraRecall(c))continue;
        // Production is the cast itself: 9 s in clip 22, then 1 s
        // in clip 21. Both the animation and its HUD start together.
        if(c.outer.position.z>=MAX_Z-.03){
@@ -5558,7 +5661,7 @@ function updateDuel(dt){
     }
     // Mantener el movimiento vertical de pies, rodillas y torso también
     // dentro de la arena cuando se ejecutan los FBX adaptados en el visor.
-    if(c.stage!=='casting'&&c.stage!=='semilleraArrival'&&c.stage!=='semilleraElementCast'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
+    if(c.stage!=='casting'&&c.stage!=='semilleraArrival'&&c.stage!=='semilleraElementCast'&&c.stage!=='semilleraRecallCast'&&c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging')followGround(c,dt);
     updateCastMarker(c);
     if(c.kind!=='archer'&&c.animId===12)liftWalkArm(c);
     if(c.stage!=='vanishing'&&c.stage!=='dead'&&c.stage!=='summonCasting'&&c.stage!=='summonEmerging'&&!faroleraAbilityBridge.lanternDeployed(c)&&!(c.stage==='restoring'&&(c.restorationPhase==='dissolve'||c.restorationPhase==='travel'||c.restorationPhase==='rise')))updateLamp(c,dt,0);
@@ -5656,6 +5759,7 @@ function updateDuel(dt){
     }
   }
   updateSemilleraCrystals(dt);
+  updateSemilleraPassive(dt);
   updateSynthesisOrbs(dt);
   updateDeathFragments(dt);
   updateMagic(dt);
