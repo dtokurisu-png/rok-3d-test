@@ -3594,6 +3594,7 @@ function resetCombatant(c){
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
    c.semilleraLocomotion='out';c.semilleraTurn=null;
+   c.semilleraWalkFacing=null;
    c.semilleraClipWarning=false;
    c.semilleraFailedSource22=null;c.semilleraFailedSource21=null;
   }
@@ -3871,9 +3872,13 @@ function stepSemilleraTurn(unit,dt){
  unit.semilleraTurn=null;
  unit.stage='active';
  if(turn.returning){
+  unit.semilleraWalkFacing=null;
   unit.semilleraLocomotion='done';
   startSemilleraCrystalCast(unit);
  }else{
+  // Retain the exact world-facing angle reached by the departure turn.
+  // Animation 40 changes the walk pose, NEVER the character's heading.
+  unit.semilleraWalkFacing=unit.outer.rotation.y;
   unit.semilleraLocomotion='walk';
   setAnim(unit,40,{fade:.08,force:true});
  }
@@ -6012,7 +6017,10 @@ function updateDuel(dt){
        const destination=semilleraRetreatZ(c);
        const direction=c.side==='ally'?1:-1;
        if(Math.abs(c.outer.position.z-destination)>.03){
-        c.outer.rotation.y=semilleraFacing(c,true);
+        // Do not reorient the model during walking. Its final turn
+        // orientation is locked until the arrival animation 39 begins.
+        if(c.semilleraWalkFacing!==null)
+         c.outer.rotation.y=c.semilleraWalkFacing;
         c.outer.position.z=THREE.MathUtils.clamp(
          c.outer.position.z+direction*c.speed*dt,-MAX_Z,MAX_Z);
         setAnim(c,40,{fade:.08});continue;
