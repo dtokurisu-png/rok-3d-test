@@ -6553,6 +6553,44 @@ function ensureLiorenSummonModel(id){
   {id:38,cardId:'kariona',path:'animations/Catwalk Walk Forward HighKnees.fbx'},
   {id:41,cardId:'telepate',path:'animations/Walking.fbx'}
  ];
+ // The imported Mixamo clips include their own Hips yaw. Without
+ // normalization, #39 turns the skeleton AND the outer group turns it
+ // another 180 degrees; switching to #40 then appears to flip it back.
+ // Preserve tilt, lean and gait, but assign one common Hips heading to
+ // both clips. Only the Semillera outer group controls world-space yaw.
+ function normalizeSemilleraLocomotionYaw(model){
+  const turn=summonMoveClipMap.get('semillera:39');
+  const walk=summonMoveClipMap.get('semillera:40');
+  if(!turn||!walk)return false;
+  const hipsTrack=clip=>clip.tracks.find(track=>
+   track.name.endsWith('.quaternion')&&
+   boneKey(track.name.slice(0,-'.quaternion'.length))==='hips');
+  const turnHips=hipsTrack(turn),walkHips=hipsTrack(walk);
+  if(!turnHips||!walkHips)throw Error('Semillera 39/40: no se encontró Hips.quaternion');
+  const skeleton=findSkeletonForAnimation(model);
+  const hips=skeleton?.bones.find(b=>boneKey(b.name)==='hips');
+  if(!hips)throw Error('Semillera: hueso Hips de referencia ausente');
+  // Swing-twist decomposition about the upright (Y) axis. Keep the
+  // non-yaw component of every pose and use the rest-pose yaw in both.
+  const rest=hips.quaternion;
+  const baseline=new THREE.Quaternion(0,rest.y,0,rest.w);
+  if(baseline.lengthSq()<1e-8)baseline.identity();
+  else baseline.normalize();
+  const q=new THREE.Quaternion(),yaw=new THREE.Quaternion();
+  const swing=new THREE.Quaternion();
+  for(const track of [walkHips,turnHips]){
+   for(let i=0;i<track.times.length;i++){
+    q.fromArray(track.values,i*4).normalize();
+    yaw.set(0,q.y,0,q.w);
+    if(yaw.lengthSq()<1e-8)yaw.identity();
+    else yaw.normalize();
+    swing.copy(yaw).invert().multiply(q);
+    q.copy(baseline).multiply(swing).normalize();
+    q.toArray(track.values,i*4);
+   }
+  }
+  return true;
+ }
  let summonWalkLoadStarted=false;
  async function preloadApprovedSummonWalks(){
   if(summonWalkLoadStarted)return;
@@ -6571,6 +6609,8 @@ function ensureLiorenSummonModel(id){
     if(item.id===39&&clip.duration<181/30-.04)
      throw Error('La animación 39 no llega al fotograma 181');
     summonMoveClipMap.set(item.cardId+':'+item.id,clip);
+    if(item.cardId==='semillera'&&item.id===39)
+     normalizeSemilleraLocomotionYaw(model.scene);
     // Refresh currently walking units when the new clip is first ready.
     for(const unit of combatants)if(unit.cardId===item.cardId&&
       unit.stage==='active'&&unit.animId===12&&item.id!==39)
