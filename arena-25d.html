@@ -4071,18 +4071,21 @@ function updateCast(c,dt){
     c.mixer.update(0); // Muestra el fotograma inmediatamente.
     if(c.kind==='archer')applyArcherAttackArms(c);
   }
-  const priority=selectCombatTarget(c);
+  const redirected=c.rokConfusedAction?.outcome==='ally'?
+    c.rokConfusedAction.victim:null;
+  const priority=redirected||selectCombatTarget(c);
   // A casting summon can only acquire a target physically in its range.
   // The rival caster may be a navigation goal, never a long-distance shot.
   const inCastRange=priority&&Math.hypot(
     priority.outer.position.x-c.outer.position.x,
     priority.outer.position.z-c.outer.position.z)<=c.range+.005;
   c.castTarget=inCastRange&&canDamageTarget(priority)&&
-    canAttackSummonTarget(c,priority)?priority:null;
+    (redirected===priority||canAttackSummonTarget(c,priority))?priority:null;
   if(!c.castFired&&c.castT>=pre){
     c.castFired=true;
     if(c.castMarker)c.castMarker.marker.visible=false;
-    if(canDamageTarget(c.castTarget)&&canAttackSummonTarget(c,c.castTarget)){
+    if(canDamageTarget(c.castTarget)&&
+       (redirected===c.castTarget||canAttackSummonTarget(c,c.castTarget))){
       if(c.kind==='archer'||c.cardId==='kariona')launchArrow(c,c.castTarget);
       else launchSpell(c,c.castTarget);
     }
@@ -4094,6 +4097,10 @@ function updateCast(c,dt){
     if(c.animAction)c.animAction.paused=false;
     c.stage='active';c.castTarget=null;c.castClip=null;c.cooldown=0;
     setAnim(c,'idle',{fade:.12});
+    if(c.rokConfusedAction?.outcome==='ally'){
+      endConfusedAction(c,'friendly-attack');
+      if(c.hp>0)requestVictoriousRestoration(c);
+    }
   }
 }
 
@@ -4565,13 +4572,15 @@ function tryEvasion(target,attacker,impactCell){
 // al llegar al objetivo. Las ondas conservan los candidatos permitidos
 // al lanzar, por lo que no atraviesan duelos ajenos posteriores.
 function captureCommittedShot(attacker){
+  if(attacker.rokConfusedAction?.outcome==='ally')
+    return new Set([attacker.rokConfusedAction.victim]);
   return new Set([...combatants,...casters].filter(target=>
     target.side!==attacker.side&&canDamageTarget(target)&&
     canAttackSummonTarget(attacker,target)));
 }
 function canResolveCommittedShot(m,target){
   return !!m.committedTargets?.has(target)&&
-    target.side!==m.attacker.side&&canDamageTarget(target);
+    (m.confusedFriendly||target.side!==m.attacker.side)&&canDamageTarget(target);
 }
 function incomingCommittedProjectile(target){
   const targetCell=worldToCell(target.outer.position.x,target.outer.position.z);
@@ -4813,6 +4822,7 @@ function launchArrow(attacker,target){
   const distance=Math.hypot(from.x-aim.x,from.z-aim.z);
   missiles.push({group,core:null,halo:null,target,attacker,
     committedTargets:captureCommittedShot(attacker),
+    confusedFriendly:attacker.rokConfusedAction?.outcome==='ally',
     committedDamage:attacker.attackDamage,
     fromX:from.x,fromY:from.y,fromZ:from.z,
     aimX:aim.x,aimZ:aim.z,impactCell:cell,age:0,
@@ -4845,6 +4855,7 @@ function launchSpell(attacker,target,{manualCasterShot=false}={}){
   const distance=Math.hypot(fromX-impact.x,fromZ-impact.z);
   missiles.push({group,core,halo,target,attacker,fromX,fromY,fromZ,
     committedTargets:captureCommittedShot(attacker),
+    confusedFriendly:attacker.rokConfusedAction?.outcome==='ally',
     committedDamage:attacker.attackDamage,
     manualCasterShot,
     aimX:impact.x,aimZ:impact.z,impactCell:cell,age:0,
@@ -5238,22 +5249,17 @@ function endConfusedAction(attacker,result='completed'){
 function finishConfusedAttack(attacker){
  const order=attacker?.rokConfusedAction;
  if(!order||order.phase!=='impact')return;
- const victim=order.victim;
  order.phase='recover';order.time=0;
+ // Only self-confusion uses this staged psychic impact. Friendly fire goes
+ // through startCast/updateCast and the actual arrows or spells.
+ if(order.outcome!=='self')return;
  const amount=Math.max(1,Number(attacker.attackDamage??attacker.attack??1));
- if(victim&&canDamageTarget(victim)){
-  // A committed confusion attack is permitted to hit self or allies,
-  // without changing allegiance or bypassing armor/shield.
-  damage(victim,amount,attacker,{committed:true});
-  // Show a visible psychic impact even when a shield absorbs the strike.
-  spawnImpact(victim.outer.position.x,victim.outer.position.z,false,true);
-  makeFloatingWord(victim,'¡GOLPE!');
-  // damage() supplies the normal additive hit pose when HP is reduced.
-  // If a shield intercepted it, still play a visible reaction once.
-  if(victim.hp>0&&!(victim.hitLeft>0))beginHit(victim);
+ if(canDamageTarget(attacker)){
+  damage(attacker,amount,attacker,{committed:true});
+  spawnImpact(attacker.outer.position.x,attacker.outer.position.z,false,true);
+  makeFloatingWord(attacker,'¡AUTOATAQUE!');
+  if(attacker.hp>0)beginHit(attacker);
  }
- makeFloatingWord(attacker,order.outcome==='self'?'CONFUSIÓN · AUTOATAQUE':
-  'CONFUSIÓN · ALIADO');
 }
 function stepConfusedAction(attacker,dt){
  const order=attacker.rokConfusedAction;
@@ -5265,7 +5271,7 @@ function stepConfusedAction(attacker,dt){
  if(order.phase==='approach'){
   let victim=order.victim;
   if(order.outcome==='ally'&&(!victim||victim===attacker||victim.hp<=0||
-   !canDamageTarget(victim)||victim.side!==attacker.side)){
+    !canDamageTarget(victim)||victim.side!==attacker.side)){
    const allies=combatants.filter(unit=>unit!==attacker&&
     unit.side===attacker.side&&canDamageTarget(unit));
    allies.sort((a,b)=>Math.hypot(a.outer.position.x-attacker.outer.position.x,
@@ -5274,33 +5280,52 @@ function stepConfusedAction(attacker,dt){
     b.outer.position.z-attacker.outer.position.z));
    victim=allies[0]||attacker;order.victim=victim;
   }
-  // If all companions died or the path is impassable, execute a self-hit
-  // instead of leaving a permanent, non-resolving confusion state.
   if(victim===attacker||order.age>12){
    order.victim=attacker;order.outcome='self';
-  }else{
-   faceTarget(attacker,victim);
-   const dx=victim.outer.position.x-attacker.outer.position.x;
-   const dz=victim.outer.position.z-attacker.outer.position.z;
-   const distance=Math.hypot(dx,dz);
-   if(distance>1.15){
-    moveSummonAvoidingBodies(attacker,dx,dz,
-     Math.min(Math.max(1.5,attacker.speed||2.15)*dt,distance-1.1));
-    setAnim(attacker,summonWalkId(attacker),{fade:.13});
-    return;
+   order.phase='selfPause';order.time=0;
+   setAnim(attacker,'idle',{fade:.16});
+   makeFloatingWord(attacker,'¡CONFUSIÓN!');
+   return;
+  }
+  faceTarget(attacker,victim);
+  const dx=victim.outer.position.x-attacker.outer.position.x;
+  const dz=victim.outer.position.z-attacker.outer.position.z;
+  const distance=Math.hypot(dx,dz);
+  if(distance>attacker.range+.005){
+   moveSummonAvoidingBodies(attacker,dx,dz,
+    Math.min(Math.max(1.5,attacker.speed||2.15)*dt,
+     distance-attacker.range));
+   setAnim(attacker,summonWalkId(attacker),{fade:.13});
+   return;
+  }
+  // The native attack owns the exact clip, release timing and projectile.
+  order.phase='nativeCast';order.time=0;
+  makeFloatingWord(attacker,'¡ALIADO!');
+  startCast(attacker,victim);
+ }else if(order.phase==='selfPause'){
+  order.time+=dt;
+  if(order.time>=.55){
+   order.phase='selfHits';order.time=0;order.hits=0;
+   setAnim(attacker,2,{once:true,fade:.12,force:true});
+   makeFloatingWord(attacker,'¡AUTOATAQUE!');
+  }
+ }else if(order.phase==='selfHits'){
+  order.time+=dt;
+  // Three visually separated psychic slashes; only the final hit deals HP
+  // damage, so the unit's normal attack value is applied exactly once.
+  while(order.hits<3&&order.time>=.28*(order.hits+1)){
+   order.hits++;
+   spawnImpact(attacker.outer.position.x,attacker.outer.position.z,false,true);
+   if(order.hits===3){
+    order.phase='impact';
+    finishConfusedAttack(attacker);
+    break;
    }
   }
-  order.phase='windup';order.time=0;
-  faceTarget(attacker,order.victim===attacker?order.source:order.victim);
-  setAnim(attacker,2,{once:true,fade:.1,force:true});
-  makeFloatingWord(attacker,order.outcome==='self'?'¡AUTOATAQUE!':'¡ALIADO!');
- }else if(order.phase==='windup'){
-  order.time+=dt;
-  if(order.time>=.45){order.phase='impact';finishConfusedAttack(attacker);}
  }else if(order.phase==='recover'){
   order.time+=dt;
-  if(order.time>=.4){
-   endConfusedAction(attacker,'attack-resolved');
+  if(order.time>=.85){
+   endConfusedAction(attacker,'self-attack-resolved');
    if(attacker.hp>0){
     attacker.stage='active';
     attacker.cooldown=Math.max(attacker.cooldown,.55);
