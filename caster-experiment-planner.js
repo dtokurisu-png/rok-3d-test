@@ -12,7 +12,7 @@ const safeKey=s=>String(s||'none').replace(/[^\w:|.-]/g,'_').slice(0,210);
 export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  const key='rok.'+id+'.experiments.v1';
  let data=empty(),pending=[],chosen=null,saving=null,readyGoal=null,recent=[],dirty=0;
- let usedCards=new Map();
+ let usedCards=new Map(),confirmedCasts={};
  const neural=createCasterNeuralEvaluator(id);
  data.mode=initialMode;
  function load(input){
@@ -27,6 +27,11 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   }
   data=clean;
   usedCards=new Map();
+  confirmedCasts={};
+  if(input.castCounts&&typeof input.castCounts==='object')
+   for(const [name,count] of Object.entries(input.castCounts).slice(0,80))
+    if(/^[\w.-]{1,80}$/.test(name))
+     confirmedCasts[name]=clamp(number(count),0,1000000);
   for(const [name,trial] of Object.entries(data.trials)){
    const parts=name.split('|'),role=parts[parts.length-1];
    if(role==='economy')continue;
@@ -40,7 +45,8 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  function persist(){
   try{
    data.updatedAt=new Date().toISOString();
-   storage?.setItem(key,JSON.stringify({...data,network:neural.snapshot()}));
+   storage?.setItem(key,JSON.stringify({...data,castCounts:confirmedCasts,
+    network:neural.snapshot()}));
    dirty=0;return true;
   }catch{return false;}
  }
@@ -169,6 +175,8 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  function begin({context:ctx,card,role='defense',snapshot}){
   if(!card?.id)return false;
   if(readyGoal&&(readyGoal.id===card.id||readyGoal.id===identifier(card)))readyGoal=null;
+  confirmedCasts[card.id]=(confirmedCasts[card.id]||0)+1;
+  persist();
   pending.push({context:ctx,card:card.experimentId||card.id,
    cost:number(card.cost),role,start:number(snapshot?.time),
    snapshot,elapsed:0});
@@ -232,7 +240,7 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   data.matches++;pending=[];recent=[];persist();
  }
  function exportJSON(){persist();return JSON.stringify({...data,
-  network:neural.snapshot()},null,2);}
+  castCounts:confirmedCasts,network:neural.snapshot()},null,2);}
  function importJSON(raw){if(!load(typeof raw==='string'?JSON.parse(raw):raw))
   throw Error('Memoria de experimentos incompatible');
   persist();return stats();}
@@ -242,6 +250,7 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   samples:Object.values(data.trials).reduce((n,r)=>n+r.n,0),
   pending:pending.length,savingFor:saving?.id||readyGoal?.id||null,
   cardsUsed:Object.fromEntries(usedCards),
+  confirmedCasts:{...confirmedCasts},
   distinctCards:[...usedCards].filter(([,n])=>n>0).length,
   neuralExamples:neural.examples};}
  return {mode,setMode,context,select,considerSaving,begin,evaluate,observe,
