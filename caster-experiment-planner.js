@@ -11,7 +11,7 @@ const number=x=>Number.isFinite(Number(x))?Number(x):0;
 const safeKey=s=>String(s||'none').replace(/[^\w:|.-]/g,'_').slice(0,210);
 export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  const key='rok.'+id+'.experiments.v1';
- let data=empty(),pending=[],chosen=null,saving=null,dirty=0;
+ let data=empty(),pending=[],chosen=null,saving=null,recent=[],dirty=0;
  const neural=createCasterNeuralEvaluator(id);
  data.mode=initialMode;
  function load(input){
@@ -170,12 +170,30 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
    Math.min(30,r.n),-10,10);
   if(reward>0)r.wins++;
   neural.train(ctx,{id:card,cost},role,reward);
+  recent.push({context:ctx,card,role,cost});
+  if(recent.length>16)recent.shift();
   r.last={reward:clamp(number(reward),-5,5),at:new Date().toISOString()};
   if(++dirty>=1)persist();
  }
- function finishMatch(){
-  if(saving){observe(saving.context,saving.card,'economy',-.5,saving.cost);saving=null;}
-  data.matches++;pending=[];persist();
+ function finishMatch(won=null){
+  // A win or loss corrects misleading five-second outcomes. A manual
+  // restart with no defeated caster remains an unlabeled match.
+  if(won===true||won===false){
+   const latest=recent.slice(-5);
+   const adjustment=won?.6:-.9;
+   for(let i=0;i<latest.length;i++){
+    const entry=latest[i];
+    observe(entry.context,entry.card,entry.role,
+     adjustment*(i+1)/latest.length,entry.cost);
+   }
+   for(const trial of pending)
+    observe(trial.context,trial.card,trial.role,won?.35:-1.2,trial.cost);
+  }
+  if(saving){
+   observe(saving.context,saving.card,'economy',won===false?-.8:0,saving.cost);
+   saving=null;
+  }
+  data.matches++;pending=[];recent=[];persist();
  }
  function exportJSON(){persist();return JSON.stringify({...data,
   network:neural.snapshot()},null,2);}
