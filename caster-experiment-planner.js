@@ -11,7 +11,7 @@ const number=x=>Number.isFinite(Number(x))?Number(x):0;
 const safeKey=s=>String(s||'none').replace(/[^\w:|.-]/g,'_').slice(0,210);
 export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  const key='rok.'+id+'.experiments.v1';
- let data=empty(),pending=[],chosen=null,saving=null,recent=[],dirty=0;
+ let data=empty(),pending=[],chosen=null,saving=null,readyGoal=null,recent=[],dirty=0;
  const neural=createCasterNeuralEvaluator(id);
  data.mode=initialMode;
  function load(input){
@@ -52,7 +52,7 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  const mode=()=>data.mode;
  function setMode(value){
   data.mode=value==='normal'?'normal':'test';
-  if(data.mode==='normal')saving=null;
+  if(data.mode==='normal'){saving=null;readyGoal=null;}
   persist();
   return data.mode;
  }
@@ -78,66 +78,99 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  }
  const trialKey=(ctx,card,role='defense')=>safeKey(ctx+'|'+card+'|'+role);
  function row(ctx,card,role){return data.trials[trialKey(ctx,card,role)]||null;}
+ // Count completed, actual card uses across ALL contexts. A new HP,
+ // position or elemental amount must not reset exploration to cost-one.
+ function completed(cardId){
+  let total=0;
+  for(const [key,row] of Object.entries(data.trials)){
+   const parts=key.split('|'),role=parts[parts.length-1];
+   if(role==='economy')continue; // A saving intention is NOT a cast.
+   const action=parts[parts.length-2];
+   if(action===cardId||action.startsWith(cardId+'@')||
+      action.startsWith(cardId+'_'))total+=number(row.n);
+  }
+  return total;
+ }
+ const identifier=c=>c.experimentId||c.id;
  function select({context:ctx,cards=[],available=0,threat=false,preferred=null}){
   const possible=cards.filter(c=>c&&c.id&&number(c.cost)<=available&&c.legal!==false);
   if(!possible.length){chosen=null;return null;}
   const roles=threat?['defense','offense']:['offense','defense'];
-  const candidates=possible.flatMap(card=>
+  // A completed saving plan gets the next cast slot. Without this, once
+  // three elements are collected a newly different context picks cost one.
+  const scheduled=readyGoal&&!threat?
+   possible.find(c=>identifier(c)===readyGoal.id||c.id===readyGoal.id):null;
+  const pool=scheduled?[scheduled]:possible;
+  const candidates=pool.flatMap(card=>
    (card.type==='equipment'||card.type==='spell'?['support']:roles).map(role=>{
-   const candidateId=card.experimentId||card.id;
-   const r=row(ctx,candidateId,role),n=r?.n||0;
-   const success=r?.score||0;
-   // Exploration samples each feasible, untested option before repeating
-   // a known successful answer. No forced repeats of a single card.
-   const explore=1/Math.sqrt(n+1);
-   const base=(card.id===preferred?.id?.id||card.id===preferred?.id)?0.15:0;
-   // In normal mode, generalize from similar situations through the
-   // neural evaluator, but give direct evidence increasing precedence.
+   const candidateId=identifier(card);
+   const r=row(ctx,candidateId,role),n=r?.n||0,success=r?.score||0;
+   const global=completed(card.id);
    const neuralScore=neural.predict(ctx,card,role);
+   // Global card variety dominates context-specific novelty in test mode.
+   // Situations refine the chosen card, never trap the AI at cost one.
    const score=data.mode==='test'?
-    -n*2+success*.16+base+(role==='defense'&&threat?.2:0):
+    -Math.log2(1+global)*3-n*.2+success*.08+
+      (role==='defense'&&threat?.2:0):
     success*(n/(n+3))+neuralScore*1.25*(3/(n+3))+
-    base+(role==='defense'&&threat?.4:0)+explore*.12;
+    (role==='defense'&&threat?.4:0)+.12/Math.sqrt(n+1);
    return {card,role,n,score};
   }));
   candidates.sort((a,b)=>b.score-a.score||
    a.card.cost-b.card.cost||a.card.id.localeCompare(b.card.id));
   const winner=candidates[0];
-  chosen={context:ctx,card:winner.card.experimentId||winner.card.id,
-   role:winner.role,at:Date.now()};
+  chosen={context:ctx,card:identifier(winner.card),role:winner.role,at:Date.now()};
   return {card:winner.card,role:winner.role,trials:winner.n};
  }
- // "Save instead of cost-one" is a REAL testable choice too.
- // Never save in immediate danger or for a card above unlocked capacity.
- // A waiting decision does not freeze the caster: the ordinary AI
- // continues looking for resources, moving and defending.
+ // A cost-two/three/five experiment is an independent strategic choice,
+ // not a reward granted only after thousands of cost-one contexts.
+ // Keep that goal through changing positions/element levels.
  function considerSaving({context:ctx,cards=[],available=0,capacity=0,threat=false}){
-  if(saving){
-   // An immediate threat interrupts saving: defend or cast now.
-   if(!threat&&available<saving.cost&&saving.elapsed<7)return true;
-   if(available>=saving.cost)
-    observe(saving.context,saving.card,'economy',1.2,saving.cost);
-   else
-    observe(saving.context,saving.card,'economy',threat?-.4:-.8,saving.cost);
-   saving=null;
+  if(data.mode!=='test'){saving=null;readyGoal=null;return false;}
+  const options=cards.filter(c=>c?.id&&c.legal!==false);
+  if(!options.length){saving=null;readyGoal=null;return false;}
+  if(readyGoal){
+   if(options.some(c=>identifier(c)===readyGoal.id||c.id===readyGoal.id))
+    return false; // selection now gives this card priority
+   readyGoal=null; // the target became invalid
   }
-  if(threat||available<1||data.mode!=='test')return false;
-  const later=cards.filter(c=>c?.id&&Number(c.cost)>available&&Number(c.cost)<=capacity)
-   .sort((a,b)=>a.cost-b.cost);
-  const affordable=cards.filter(c=>c?.id&&Number(c.cost)<=available);
-  if(!later.length||!affordable.length)return false;
-  const tried=affordable.some(card=>
-   (row(ctx,card.experimentId||card.id,'defense')?.n||0)+
-   (row(ctx,card.experimentId||card.id,'offense')?.n||0)+
-   (row(ctx,card.experimentId||card.id,'support')?.n||0)>0);
-  if(!tried)return false; // Initially try what can be cast now.
-  const goal=later.find(card=>(row(ctx,'save-for-'+card.id,'economy')?.n||0)===0);
-  if(!goal)return false;
-  saving={context:ctx,card:'save-for-'+goal.id,cost:Number(goal.cost),elapsed:0};
+  if(saving){
+   const goal=options.find(c=>identifier(c)===saving.id||c.id===saving.id);
+   if(!goal){saving=null;return false;}
+   if(available>=number(goal.cost)){
+    readyGoal={id:saving.id};
+    saving=null;
+    return false; // do not mark success until the REAL cast resolves
+   }
+   if(threat){
+    // Threat can interrupt savings temporarily. Don't log a fake failed
+    // experiment and don't erase a strategic goal after one frame.
+    return false;
+   }
+   if(saving.elapsed<65)return true;
+   // A genuine timeout is an abandoned plan, not a completed cast.
+   saving=null;return false;
+  }
+  if(threat||available<.99)return false;
+  const cheap=options.filter(c=>number(c.cost)<=available);
+  const dear=options.filter(c=>number(c.cost)>available);
+  if(!cheap.length||!dear.length)return false;
+  // Prioritize diversification by what has actually been cast, not the
+  // number of contexts or the number of saving attempts.
+  dear.sort((a,b)=>completed(a.id)-completed(b.id)||
+   number(a.cost)-number(b.cost)||a.id.localeCompare(b.id));
+  const goal=dear[0];
+  const cheapMin=Math.min(...cheap.map(c=>completed(c.id)));
+  const costlyCount=completed(goal.id);
+  // During the first safe opening, after one real cheap cast, train a
+  // higher-cost card. No per-context prerequisite.
+  if(cheapMin<=costlyCount||cheapMin===0)return false;
+  saving={context:ctx,id:identifier(goal),cost:number(goal.cost),elapsed:0};
   return true;
  }
  function begin({context:ctx,card,role='defense',snapshot}){
   if(!card?.id)return false;
+  if(readyGoal&&(readyGoal.id===card.id||readyGoal.id===identifier(card)))readyGoal=null;
   pending.push({context:ctx,card:card.experimentId||card.id,
    cost:number(card.cost),role,start:number(snapshot?.time),
    snapshot,elapsed:0});
@@ -193,10 +226,7 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
    for(const trial of pending)
     observe(trial.context,trial.card,trial.role,won?.35:-1.2,trial.cost);
   }
-  if(saving){
-   observe(saving.context,saving.card,'economy',won===false?-.8:0,saving.cost);
-   saving=null;
-  }
+  saving=null;readyGoal=null;
   data.matches++;pending=[];recent=[];persist();
  }
  function exportJSON(){persist();return JSON.stringify({...data,
@@ -208,7 +238,7 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   contexts:new Set(Object.keys(data.trials).map(k=>k.split('|').slice(0,-2).join('|'))).size,
   experiments:Object.keys(data.trials).length,
   samples:Object.values(data.trials).reduce((n,r)=>n+r.n,0),
-  pending:pending.length,savingFor:saving?.card||null,
+  pending:pending.length,savingFor:saving?.id||readyGoal?.id||null,
   neuralExamples:neural.examples};}
  return {mode,setMode,context,select,considerSaving,begin,evaluate,observe,
   finishMatch,loadShared,exportJSON,importJSON,stats};
