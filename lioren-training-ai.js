@@ -4,7 +4,7 @@
 export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResources,
  getCards,canCast,cast,attack,guard,move,face,learning,bounds,positioning}){
  const state={active:false,elapsed:0,casts:0,attacks:0,collects:0,casting:0,
-  cooldown:0,attackCooldown:0,guardClock:0,last:null,selected:null};
+  cooldown:0,attackCooldown:0,guardClock:0,guardRecovery:0,last:null,selected:null};
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
  const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
  const nearest=(p,all)=>all.reduce((a,b)=>distance(p,b.position)<a.d?
@@ -12,7 +12,7 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
  function reset(){
   if(state.selected)state.selected=null;
   state.elapsed=0;state.casts=0;state.attacks=0;state.collects=0;
-  state.casting=0;state.cooldown=0;state.attackCooldown=0;state.guardClock=0;
+  state.casting=0;state.cooldown=0;state.attackCooldown=0;state.guardClock=0;state.guardRecovery=0;
   state.last=null;positioning?.reset();
   guard(false);
  }
@@ -50,7 +50,13 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
   state.cooldown=Math.max(0,state.cooldown-dt);
   state.attackCooldown=Math.max(0,state.attackCooldown-dt);
   state.guardClock=Math.max(0,state.guardClock-dt);
+  state.guardRecovery=Math.max(0,state.guardRecovery-dt);
   if(!state.guardClock)guard(false);
+  const blockThreat=()=>{
+   if(state.guardClock>0||state.guardRecovery>0)return false;
+   guard(true);state.guardClock=.45;state.guardRecovery=1.55;
+   return true;
+  };
   if(state.casting>0){
    state.casting=Math.max(0,state.casting-dt);
    if(state.casting===0&&state.selected){
@@ -71,6 +77,28 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
   const ctx=context(c,threat,available,allies.length);
   let action='position';
   const healthRatio=c.hp/Math.max(1,c.maxHp||12);
+  // A reachable summon, especially one that can die in 1–2 hits, has
+  // priority over gathering, guard loops, retreat and formation staging.
+  // This mirrors Chiara's defensive combat response.
+  const inRange=enemies.filter(enemy=>enemy?.target&&
+   distance(c.outer.position,enemy.position)<=
+    (c.attackRange||3)+.1);
+  inRange.sort((a,b)=>{
+   const priority=t=>t?.role==='summon'?
+    ((Number(t.hp)||99)<=2?0:1):2;
+   return priority(a.target)-priority(b.target)||
+    distance(c.outer.position,a.position)-distance(c.outer.position,b.position);
+  });
+  if(inRange.length&&state.attackCooldown===0){
+   const enemy=inRange[0];
+   if(state.guardClock>0){state.guardClock=0;guard(false);}
+   face(c,enemy.position);
+   if(attack(c,enemy.target)){
+    state.attacks++;state.attackCooldown=1.15;
+    observe(c,ctx,'attack',available,allies.length);
+    return;
+   }
+  }
   // Casters never enter the opponent's half to gather: Lioren is +Z.
   if(c.outer.position.z<.45){
    action='retreat';
@@ -82,7 +110,7 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
    advance(c,{x:safe?.x??clamp(p.x+(p.x>=enemy.x?2:-2),-bounds.x,bounds.x),
     // Under sustained pressure NEVER walk toward the enemy to retreat.
     z:clamp(Math.max(11,p.z+1.5,safe?.z??0),.5,bounds.z)},dt);
-   if(state.guardClock===0){guard(true);state.guardClock=.45;}
+   if(threat)blockThreat();
   }else{
    const plan=getCards().plan(available,unlocked,allies,near);
    // Spawn roles need different safe territory depth. Semillera stays in
@@ -130,7 +158,9 @@ export function createLiorenTrainingAI({getCaster,getOrbs,getEnemies,getResource
      if(attack(c,near.item.target)){state.attacks++;state.attackCooldown=1.15;}
      action='attack';
     }else if(near.item&&threat){
-     face(c,near.item.position);guard(true);state.guardClock=.45;action='guard';
+     face(c,near.item.position);
+     if(blockThreat())action='guard';
+     else action='position';
     }else{
      // No unprompted march to Z=5. Choose a defensible lane and learn
      // whether holding or flanking worked in this tactical situation.
