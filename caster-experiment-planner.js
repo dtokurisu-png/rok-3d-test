@@ -156,8 +156,12 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
    const inflicted=Math.max(0,number(before.enemyHp)-number(after.enemyHp));
    const alliesDelta=number(after.allyCount)-number(before.allyCount);
    const enemyDelta=number(before.enemyCount)-number(after.enemyCount);
+   const armorGain=Math.max(0,number(after.allyArmor)-number(before.allyArmor));
+   const vitalityGain=Math.max(0,number(after.allyMaxHp)-number(before.allyMaxHp));
+   const reservoirGain=Math.max(0,number(after.capacity)-number(before.capacity));
    const damageAvoided=prevented===0&&number(before.enemyCount)>0?.5:0;
    const score=clamp(inflicted*.7+enemyDelta*1.5+alliesDelta*.3+
+    armorGain*.35+vitalityGain*.65+reservoirGain*1.3+
     damageAvoided-prevented*1.8,-5,5);
    observe(p.context,p.card,p.role,score,p.cost);
    pending.splice(i,1);
