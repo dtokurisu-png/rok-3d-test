@@ -3000,6 +3000,14 @@ function createSummonGroundHud(c){
   depthTest:false,toneMapped:false}));
  manaIcon.scale.set(.19,.19,1);manaIcon.renderOrder=20;manaSlot.add(manaIcon);
  manaSlot.visible=false;
+ // Cariona's three-hit magical shield is cyan, matching its magic HUD arc.
+ // The visual belongs to the summoned unit, not its collider or damage rules.
+ if(c.cardId==='kariona'&&!c.magicShieldFx){
+  const shell=new THREE.Mesh(new THREE.SphereGeometry(.95,22,16),
+   new THREE.MeshBasicMaterial({color:0x79e9ff,transparent:true,opacity:.15,
+    depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.BackSide}));
+  shell.position.y=.9;c.outer.add(shell);c.magicShieldFx=shell;
+ }
  // Astarin's shield is psychic (yellow); its 10 marks are seconds, not HP.
  if(c.cardId==='astarium'){
   shieldIcon.material.color.setHex(0xf2ce31);
@@ -3057,6 +3065,7 @@ function updateSummonGroundHuds(){
   h.group.visible=!!c.outer&&c.stage!=='dead'&&c.stage!=='vanishing'&&
    c.stage!=='summonCasting'&&c.stage!=='dying'&&c.stage!=='intro';
   if(c.psychicShieldFx&&!h.group.visible)c.psychicShieldFx.visible=false;
+  if(c.magicShieldFx&&!h.group.visible)c.magicShieldFx.visible=false;
   if(!h.group.visible)continue;
   h.group.position.set(c.outer.position.x,c.outer.position.y+.10,c.outer.position.z);
   // Camera-facing at all times, independent of the summon model's rotation.
@@ -3066,6 +3075,14 @@ function updateSummonGroundHuds(){
   // as the main life (-.19) and attack (+.19) icons. Never offset by side.
   h.secondaryIcons.position.set(0,0,0);
   const hasArmor=c.cardId==='kariona';
+  if(c.magicShieldFx){
+   const charges=Math.max(0,Number(c.magicShieldHits)||0);
+   c.magicShieldFx.visible=charges>0&&c.stage==='active';
+   if(c.magicShieldFx.visible){
+    c.magicShieldFx.material.opacity=.11+.1*Math.max(0,c.shieldPulse||0)+
+     .025*Math.sin(performance.now()*.006);
+   }
+  }
   const psychic=c.cardId==='astarium';
   const hasShield=psychic||hasArmor||Number(c.shieldMax)>0;
   const hasMana=Number(c.maxMana)>0;
@@ -3515,6 +3532,7 @@ function disposeCardSummon(c){
  c.stunHalo?.group?.traverse(node=>node.material?.dispose?.());
  if(c.shieldShell){c.shieldShell.geometry?.dispose?.();c.shieldShell.material?.dispose?.();}
  if(c.psychicShieldFx){c.psychicShieldFx.geometry?.dispose?.();c.psychicShieldFx.material?.dispose?.();}
+ if(c.magicShieldFx){c.magicShieldFx.geometry?.dispose?.();c.magicShieldFx.material?.dispose?.();}
  const indicator=summonEdgeMarkers.get(c);
  indicator?.node.remove();summonEdgeMarkers.delete(c);
  // Do not destroy cached/shared source geometries or textures.
