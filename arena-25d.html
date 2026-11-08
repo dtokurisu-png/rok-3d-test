@@ -3972,6 +3972,7 @@ function resetDemoCombat(){
   // Card equipment is a per-match consumable; the next match starts fresh.
   resetOakArmor();
   clearSemilleraCrystals();
+  clearSynthesisOrbs();synthesisSpell.used=0;synthesisSpell.pending=false;
   clearDeathFragments();
   // Card-generated units are NOT initial units: discard on match reset.
   for(const c of cardSummons){
@@ -5627,6 +5628,7 @@ function updateDuel(dt){
     }
   }
   updateSemilleraCrystals(dt);
+  updateSynthesisOrbs(dt);
   updateDeathFragments(dt);
   updateMagic(dt);
   // El orden del bucle ya no determina quién sobrevive: esperar hasta
@@ -6034,7 +6036,9 @@ const liorenSpellCards=[
   {id:'ancient-oak-armor',name:'Armadura de Roble Antiguo',type:'equipment',
    element:'earth',cost:4,recraftCost:2,slot:'body',requiredQuality:'warrior',
    portrait:'./assets/ui/armadura-roble-antiguo.webp'},
-  null,null,null,null,null],
+  {id:'elemental-synthesis',name:'Síntesis Elemental',type:'spell',
+   element:'earth',cost:3,consumable:true,maxUses:3,portrait:null},
+  null,null,null,null],
  Array(9).fill(null),Array(9).fill(null)
 ];
 const spellDeckForSide=side=>side==='enemy'?spellCards:liorenSpellCards;
@@ -6140,6 +6144,52 @@ function ensureLiorenSummonModel(id){
   }
  }
  const spellbook={page:0,rapid:new Map(),targetingEquipment:false};
+const synthesisSpell={used:0,pending:false,max:3};
+const synthesisOrbs=[];
+function emitSynthesisOrb(caster){
+ if(!caster?.outer||synthesisOrbs.length>=3)return false;
+ // Reuse the precise same crystallized elemental visual as Semillera.
+ const visual=elementOrbs.createFragmentVisual();
+ const hand=caster.castHand;
+ caster.model.updateMatrixWorld(true);
+ const origin=hand?hand.getWorldPosition(new THREE.Vector3()):
+  new THREE.Vector3(caster.outer.position.x,1.1,caster.outer.position.z);
+ const destination=new THREE.Vector3(
+  THREE.MathUtils.clamp(caster.outer.position.x,-MAX_X,MAX_X),.33,
+  THREE.MathUtils.clamp(caster.outer.position.z-1.25,-MAX_Z,MAX_Z));
+ visual.group.position.copy(origin);
+ synthesisOrbs.push({visual,origin,destination,flight:0,age:0,landed:false});
+ return true;
+}
+function updateSynthesisOrbs(dt){
+ const caster=casters.find(c=>c.side==='ally'&&c.stage==='active');
+ for(let i=synthesisOrbs.length-1;i>=0;i--){
+  const orb=synthesisOrbs[i];orb.age+=dt;orb.visual.update(dt);
+  if(!orb.landed){
+   orb.flight=Math.min(1,orb.flight+dt/.62);
+   orb.visual.group.position.lerpVectors(orb.origin,orb.destination,orb.flight);
+   orb.visual.group.position.y+=.45*Math.sin(Math.PI*orb.flight);
+   if(orb.flight>=1)orb.landed=true;
+  }else orb.visual.group.position.y=.33+.05*Math.sin(orb.age*3);
+  const at=caster?.outer?.position;
+  const collected=orb.landed&&at&&Math.hypot(
+   at.x-orb.visual.group.position.x,
+   at.z-orb.visual.group.position.z)<=1.4;
+  if(collected){
+   const gained=combatHud.collectOrb('ally');
+   spellStatus(gained?'Síntesis Elemental: +1 elemento completo.':
+    'No hay espacio para un elemento nuevo.');
+  }
+  if(collected||orb.age>=30){
+   orb.visual.dispose();synthesisOrbs.splice(i,1);
+  }
+ }
+}
+function clearSynthesisOrbs(){
+ for(const orb of synthesisOrbs)orb.visual.dispose();
+ synthesisOrbs.length=0;
+}
+
 const oakArmor={state:'ready',holder:null};
 const MELANIDE_CARDS=new Set(['semillera','kariona','astarium']);
 const availableMelanideTargets=()=>[...cardSummons].filter(c=>
@@ -6412,10 +6462,14 @@ function renderSpellbook(){
   if(card?.race==='melanide')button.classList.add('rokEarthCardArt');
   if(card?.id==='ancient-oak-armor')button.classList.add('rokEarthEquipmentCard');
   const oak=card?.id==='ancient-oak-armor';
-  button.disabled=!card||(oak&&['equipped','casting','loading'].includes(oakArmor.state));
+  const synthesis=card?.id==='elemental-synthesis';
+  button.disabled=!card||(oak&&['equipped','casting','loading'].includes(oakArmor.state))||
+   (synthesis&&synthesisSpell.used>=synthesisSpell.max);
   const cardCost=oak&&oakArmor.state==='broken'?card.recraftCost:card?.cost;
   button.setAttribute('aria-label',card?'Casilla '+(i+1)+': '+card.name+
-   ', costo '+cardCost+(oak?' · '+oakArmor.state:''):'Casilla '+(i+1)+': vacía');
+   ', costo '+cardCost+(oak?' · '+oakArmor.state:'')+
+   (synthesis?' · usos restantes '+(synthesisSpell.max-synthesisSpell.used):''):
+   'Casilla '+(i+1)+': vacía');
   // Visual slots contain ONLY the card art; keypad mapping remains accessible.
   if(card){
    if(card.portrait){
@@ -6437,6 +6491,13 @@ function renderSpellbook(){
      button.append(insignia);
      button.title=card.name+' · Raza Melánide';
     }
+   }
+   if(synthesis&&!card.portrait){
+    // Clearly marked temporary text art, not an invented illustration.
+    const pending=document.createElement('span');
+    pending.className='rokSpellName';pending.textContent=card.name;
+    pending.title='Ilustración pendiente · '+(synthesisSpell.max-synthesisSpell.used)+' usos disponibles';
+    button.append(pending);
    }
    // Water summons still need a visible card image while their unique
    // illustrations are pending. Use the existing water card artwork,
@@ -6588,6 +6649,57 @@ function selectSpellCard(index){
   spellbook.targetingEquipment=true;renderSpellbook();
   updateOakTargetMarkers();
   spellStatus('Selecciona una Cariona guerrera para equipar la armadura.');
+  return;
+ }
+ if(card.id==='elemental-synthesis'){
+  if(caster.side!=='ally'||synthesisSpell.used>=synthesisSpell.max||
+     synthesisSpell.pending){
+   spellStatus('Síntesis Elemental: máximo tres usos por partida.');return;
+  }
+  const resource=combatHud.getResources('ally','earth');
+  if(resource.unlocked>=30){
+   spellStatus('Ya alcanzaste el máximo de 30 elementos.');return;
+  }
+  if(!caster.model?.userData?.rokCast22Clip||
+     !caster.model?.userData?.rokCast21Clip){
+   spellStatus('Preparando animaciones de casteo 22 y 21.');
+   casterMovement.prepareCardCast();return;
+  }
+  if(!combatHud.spend('ally','earth',card.cost)){
+   spellStatus('Necesitas 3 elementos de Tierra.');return;
+  }
+  synthesisSpell.pending=true;
+  let token=null;
+  const started=casterMovement.startCardCast({
+   cost:card.cost,
+   onRelease:activeCaster=>{
+    castFlyer.release('ally',token);
+    synthesisSpell.pending=false;
+    if(emitSynthesisOrb(activeCaster)){
+     synthesisSpell.used++;
+     spellStatus('Síntesis Elemental: elemento generado · '+
+      (synthesisSpell.max-synthesisSpell.used)+' usos restantes.');
+    }else{
+     combatHud.refund('ally','earth',card.cost);
+     spellStatus('No se generó el elemento; coste devuelto.');
+    }
+    renderSpellbook();
+   },
+   onCancel:()=>{
+    castFlyer.cancel('ally',token);
+    synthesisSpell.pending=false;
+    combatHud.refund('ally','earth',card.cost);
+   }
+  });
+  if(!started){
+   synthesisSpell.pending=false;
+   combatHud.refund('ally','earth',card.cost);
+   spellStatus('Casteo no iniciado; coste devuelto.');return;
+  }
+  token=castFlyer.begin('ally',{name:card.name,element:'earth',
+   duration:cardCastPreparationSeconds(card.cost)});
+  spellbook.page=0;renderSpellbook();
+  spellStatus('Casteando Síntesis Elemental · 3 Tierra.');
   return;
  }
  if(!hasSummonRoom(caster.side)||
