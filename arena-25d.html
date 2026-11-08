@@ -848,7 +848,7 @@ import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261108-experiments-2';
 import {createChiaraLearning} from './chiara-learning.js?v=20261107-3';
-import {createCasterExperimentPlanner} from './caster-experiment-planner.js?v=20261108-experiments-3';
+import {createCasterExperimentPlanner} from './caster-experiment-planner.js?v=20261108-experiments-4';
 import {createLiorenTrainingAI} from './lioren-training-ai.js?v=20261108-experiments-2';
 import {createCasterTacticalPositioning} from './caster-tactical-positioning.js?v=20261107-3';
 import {arenaCharacterArt} from './arena-character-art.js?v=0.9.80';
@@ -872,13 +872,18 @@ function refreshExperimentControls(){
   if(control)control.value=planner.mode();
   const stats=qs('#'+id+'ExperimentStats');
   if(stats){const info=planner.stats();
-   const castSummary=Object.entries(info.cardsUsed||{})
+   const history=Object.entries(info.cardsUsed||{})
     .sort((a,b)=>b[1]-a[1])
     .map(([card,count])=>card+': '+count).join(' · ');
-   stats.textContent=info.samples+' pruebas · '+info.experiments+
-    ' combinaciones · '+info.distinctCards+' cartas diferentes · '+
-    (castSummary||'ningún casteo observado')+
-    (info.savingFor?' · Ahorrando para '+info.savingFor:'');}
+   const confirmed=Object.entries(info.confirmedCasts||{})
+    .sort((a,b)=>b[1]-a[1])
+    .map(([card,count])=>card+': '+count).join(' · ');
+   stats.textContent=info.samples+' evaluaciones históricas · '+
+    info.experiments+' combinaciones · '+info.distinctCards+
+    ' tipos con experiencias · Confirmados desde esta revisión: '+
+    (confirmed||'ninguno todavía')+
+    (info.savingFor?' · Objetivo: '+info.savingFor:'')+
+    (history?' · Historial evaluado: '+history:'');}
  }
 }
 for(const [id,planner] of [['chiara',chiaraExperiments],['lioren',liorenExperiments]]){
