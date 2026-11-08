@@ -82,8 +82,10 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   const possible=cards.filter(c=>c&&c.id&&number(c.cost)<=available&&c.legal!==false);
   if(!possible.length){chosen=null;return null;}
   const roles=threat?['defense','offense']:['offense','defense'];
-  const candidates=possible.flatMap(card=>roles.map(role=>{
-   const r=row(ctx,card.id,role),n=r?.n||0;
+  const candidates=possible.flatMap(card=>
+   (card.type==='equipment'||card.type==='spell'?['support']:roles).map(role=>{
+   const candidateId=card.experimentId||card.id;
+   const r=row(ctx,candidateId,role),n=r?.n||0;
    const success=r?.score||0;
    // Exploration samples each feasible, untested option before repeating
    // a known successful answer. No forced repeats of a single card.
@@ -101,7 +103,8 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   candidates.sort((a,b)=>b.score-a.score||
    a.card.cost-b.card.cost||a.card.id.localeCompare(b.card.id));
   const winner=candidates[0];
-  chosen={context:ctx,card:winner.card.id,role:winner.role,at:Date.now()};
+  chosen={context:ctx,card:winner.card.experimentId||winner.card.id,
+   role:winner.role,at:Date.now()};
   return {card:winner.card,role:winner.role,trials:winner.n};
  }
  // "Save instead of cost-one" is a REAL testable choice too.
@@ -124,7 +127,9 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
   const affordable=cards.filter(c=>c?.id&&Number(c.cost)<=available);
   if(!later.length||!affordable.length)return false;
   const tried=affordable.some(card=>
-   (row(ctx,card.id,'defense')?.n||0)+(row(ctx,card.id,'offense')?.n||0)>0);
+   (row(ctx,card.experimentId||card.id,'defense')?.n||0)+
+   (row(ctx,card.experimentId||card.id,'offense')?.n||0)+
+   (row(ctx,card.experimentId||card.id,'support')?.n||0)>0);
   if(!tried)return false; // Initially try what can be cast now.
   const goal=later.find(card=>(row(ctx,'save-for-'+card.id,'economy')?.n||0)===0);
   if(!goal)return false;
@@ -133,7 +138,8 @@ export function createCasterExperimentPlanner({id,storage,initialMode='test'}){
  }
  function begin({context:ctx,card,role='defense',snapshot}){
   if(!card?.id)return false;
-  pending.push({context:ctx,card:card.id,cost:number(card.cost),role,start:number(snapshot?.time),
+  pending.push({context:ctx,card:card.experimentId||card.id,
+   cost:number(card.cost),role,start:number(snapshot?.time),
    snapshot,elapsed:0});
   if(pending.length>24)pending.shift();
   return true;
