@@ -3776,9 +3776,11 @@ function registerExpiredSemilleraFragment(crystal){
  const state=owner.semilleraPassive;
  if(!state||state.pending.length+state.orbit.length+
     (state.retrieving?1:0)>=SEMILLERA_PASSIVE_TARGET)return false;
- // Transfer ownership of the ORIGINAL rendered crystal. Keep it visible,
- // but remove it from normal pickups and normal lifetime processing.
- crystal.visual.update(0,0);
+ // Transfer the original fragment to the pending recovery queue, but
+ // preserve its fully expired visual state. Resetting its age to zero here
+ // resurrected a motionless, bright sprite on the floor after expiration.
+ // The visual becomes visible again only when its retrieval actually starts.
+ crystal.visual.update(0,elementOrbs.fragmentLifetime);
  state.pending.push({visual:crystal.visual,owner,
   x:crystal.visual.group.position.x,y:crystal.visual.group.position.y,
   z:crystal.visual.group.position.z});
