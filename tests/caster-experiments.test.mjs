@@ -12,22 +12,12 @@ const ctx='enemy|healthy|near|kariona|fragile|none|one|high|unprotected|ready|un
 const cheap={id:'farolera',cost:1,legal:true};
 const expensive={id:'telepate',cost:3,legal:true};
 
-test('test mode prioritizes a distinct card over repeated context variations',()=>{
+test('training compares currently affordable cards without forced savings',()=>{
  const learner=createCasterExperimentPlanner({id:'chiara-test-1',storage:storage()});
- const first=learner.select({context:ctx,cards:[cheap,expensive],available:1,threat:true});
- assert.equal(first.card.id,'farolera');
- learner.observe(ctx,first.card.id,first.role,3,1);
- // Context variations are not prerequisites for trying a higher-cost card.
- const variant=ctx.replace('|near|','|far|');
- assert.equal(learner.considerSaving({context:variant,cards:[cheap,expensive],
-  available:1,capacity:1,threat:false}),true);
- assert.equal(learner.stats().savingFor,'telepate');
- assert.equal(learner.considerSaving({context:variant,cards:[cheap,expensive],
-  available:2,capacity:2,threat:false}),true);
- assert.equal(learner.considerSaving({context:variant,cards:[cheap,expensive],
-  available:3,capacity:3,threat:false}),false);
- const second=learner.select({context:variant,cards:[cheap,expensive],available:3,threat:false});
- assert.equal(second.card.id,'telepate');
+ const pick=learner.select({context:ctx,cards:[cheap,expensive],available:1,threat:true});
+ assert.equal(pick.card.id,'farolera');
+ assert.equal(learner.considerSaving({context:ctx,cards:[cheap,expensive],
+  available:1,capacity:1,threat:false}),false);
 });
 test('neural weights and direct trial evidence survive reload and normal mode',()=>{
  const memory=storage();
@@ -49,27 +39,33 @@ test('cannot invent a cast when no legal affordable card exists',()=>{
  assert.equal(learner.select({context:ctx,cards:[{...cheap,legal:false}],available:1}),null);
 });
 
-test('saving plan survives danger and must not count as a successful cast',()=>{
+test('saving is short, requires unlocked capacity and a recently completed cast',()=>{
  const learner=createCasterExperimentPlanner({id:'chiara-test-4',storage:storage()});
- learner.observe(ctx,'farolera','defense',1,1);
- const before=learner.stats().samples;
+ learner.begin({context:ctx,card:cheap,role:'offense',snapshot:{}});
+ learner.begin({context:ctx,card:cheap,role:'defense',snapshot:{}});
+ learner.begin({context:ctx,card:cheap,role:'offense',snapshot:{}});
  assert.equal(learner.considerSaving({context:ctx,cards:[cheap,expensive],
-  available:1,capacity:1,threat:false}),true);
+  available:1,capacity:1,threat:false}),false);
+ // A 3-cost card is not 1 resource away from a caster with only 1.
+ assert.equal(learner.considerSaving({context:ctx,cards:[cheap,expensive],
+  available:1,capacity:5,threat:false}),false);
+ assert.equal(learner.considerSaving({context:ctx,cards:[cheap,expensive],
+  available:2,capacity:3,threat:false}),true);
  assert.equal(learner.stats().savingFor,'telepate');
+ learner.evaluate(8.1,{});
  assert.equal(learner.considerSaving({context:ctx,cards:[cheap,expensive],
-  available:1,capacity:1,threat:true}),false);
- assert.equal(learner.stats().savingFor,'telepate');
- assert.equal(learner.stats().samples,before);
- assert.equal(learner.considerSaving({context:ctx,cards:[cheap,expensive],
-  available:1,capacity:2,threat:false}),true);
- assert.equal(learner.considerSaving({context:ctx,cards:[cheap,expensive],
-  available:3,capacity:3,threat:false}),false);
- const picked=learner.select({context:ctx,cards:[cheap,expensive],available:3,threat:false});
- assert.equal(picked.card.id,'telepate');
- learner.begin({context:ctx,card:picked.card,role:picked.role,
-  snapshot:{casterHp:10,enemyHp:10,allyCount:1,enemyCount:1}});
+  available:2,capacity:3,threat:false}),false);
  assert.equal(learner.stats().savingFor,null);
- assert.equal(learner.stats().samples,before);
+ assert.ok(learner.stats().saveCooldown>0);
+});
+test('threat interrupts an affordable saving plan immediately',()=>{
+ const learner=createCasterExperimentPlanner({id:'chiara-test-8',storage:storage()});
+ for(let i=0;i<3;i++)learner.begin({context:ctx,card:cheap,role:'offense',snapshot:{}});
+ assert.equal(learner.considerSaving({context:ctx,cards:[cheap,expensive],
+  available:2,capacity:3,threat:false}),true);
+ assert.equal(learner.considerSaving({context:ctx,cards:[cheap,expensive],
+  available:2,capacity:3,threat:true}),false);
+ assert.equal(learner.stats().savingFor,null);
 });
 test('training memory with hundreds of cost-one casts still chooses untried cost-three card',()=>{
  const learner=createCasterExperimentPlanner({id:'chiara-test-6',storage:storage()});
