@@ -7529,9 +7529,8 @@ rivalAI=createRivalCasterAI({
   if(!card||rivalAction.reserved||c.outer.position.z>=0||!hasSummonRoom(c.side)||
     !combatHud.spend(c.side,card.element,card.cost))return false;
   rivalAction.reserved=card;
-  if(card.experimentContext)chiaraExperiments.begin({
-   context:card.experimentContext,card,role:card.tacticalRole||'defense',
-   snapshot:experimentSnapshot('enemy')});
+  if(card.experimentContext)
+   card.experimentBefore=experimentSnapshot('enemy');
   rivalAction.flyerToken=castFlyer.begin('enemy',{name:card.name,element:card.element,
    duration:Math.max(.01,duration)});
   chiaraRig.shield(c,false);c.manualDefending=false;
@@ -7556,8 +7555,12 @@ rivalAI=createRivalCasterAI({
   castFlyer.release('enemy',rivalAction.flyerToken);
   rivalAction.flyerToken=null;
   if(!charged)return;
-  if(c.stage!=='active'||!summonChiaraCard(c,charged))
-   combatHud.refund(c.side,charged.element,charged.cost);
+  const success=c.stage==='active'&&summonChiaraCard(c,charged);
+  if(!success)combatHud.refund(c.side,charged.element,charged.cost);
+  else if(charged.experimentContext)chiaraExperiments.begin({
+   context:charged.experimentContext,card:charged,
+   role:charged.tacticalRole||'defense',
+   snapshot:charged.experimentBefore});
   const finish=c.model?.userData?.rokCast21Clip;
   if(finish&&finish.duration>20/30){
    if(chiaraRig.upper(c,'card-finish',finish,1,{startTime:20/30,transition:true}))
@@ -7616,9 +7619,8 @@ liorenTrainingAI=createLiorenTrainingAI({
    if(liorenAiCast.reserved||!combatHud.spend('ally',card.element,card.cost))
     return false;
    liorenAiCast.reserved=card;
-   if(card.experimentContext)liorenExperiments.begin({
-    context:card.experimentContext,card,role:card.tacticalRole||'defense',
-    snapshot:experimentSnapshot('ally')});
+   if(card.experimentContext)
+    card.experimentBefore=experimentSnapshot('ally');
    liorenAiCast.token=castFlyer.begin('ally',
     {name:card.name,element:card.element,duration:.5});
    const clip=c.model?.userData?.rokCast22Clip;
@@ -7639,6 +7641,10 @@ liorenTrainingAI=createLiorenTrainingAI({
   if(!reserved)return false;
   const success=c.stage==='active'&&summonLiorenCard(c,reserved);
   if(!success)combatHud.refund('ally',reserved.element,reserved.cost);
+  else if(reserved.experimentContext)liorenExperiments.begin({
+   context:reserved.experimentContext,card:reserved,
+   role:reserved.tacticalRole||'defense',
+   snapshot:reserved.experimentBefore});
   const finish=c.model?.userData?.rokCast21Clip;
   if(finish&&finish.duration>20/30)
    casterCastLayers.upper(c,'card-finish',finish,1,
