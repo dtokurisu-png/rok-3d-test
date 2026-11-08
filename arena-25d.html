@@ -3768,7 +3768,7 @@ function clearSemilleraPassive(unit){
  state.pending.length=0;state.orbit.length=0;state.retrieving=null;
  state.cast=null;
 }
-function registerExpiredSemilleraFragment(crystal){
+function reserveSemilleraFragment(crystal){
  const owner=crystal.source;
  if(!owner||owner.cardId!=='semillera'||owner.hp<=0||
     !cardSummons.has(owner)||
@@ -3776,17 +3776,18 @@ function registerExpiredSemilleraFragment(crystal){
  const state=owner.semilleraPassive;
  if(!state||state.pending.length+state.orbit.length+
     (state.retrieving?1:0)>=SEMILLERA_PASSIVE_TARGET)return false;
- // Transfer the original fragment to the pending recovery queue, but
- // preserve its fully expired visual state. Resetting its age to zero here
- // resurrected a motionless, bright sprite on the floor after expiration.
- // The visual becomes visible again only when its retrieval actually starts.
- crystal.visual.update(0,elementOrbs.fragmentLifetime);
- state.pending.push({visual:crystal.visual,owner,
+ // Reserve a still-visible, uncollected fragment well before it expires.
+ // Never reset its age: keep the original visual and real lifetime.
+ state.pending.push({visual:crystal.visual,owner,age:crystal.age,
+  waitTime:0,
   x:crystal.visual.group.position.x,y:crystal.visual.group.position.y,
   z:crystal.visual.group.position.z});
  return true;
 }
-const SEMILLERA_PERIOD=10;
+// Six-second generation leaves time to recover a live fragment (10 s lifetime).
+const SEMILLERA_PERIOD=6;
+const SEMILLERA_PRE_RECALL_AGE=4.5;
+const SEMILLERA_RECALL_CAST_DURATION=1;
 const SEMILLERA_ARRIVAL_START=181/30,SEMILLERA_ARRIVAL_END=130/30;
 const SEMILLERA_ARRIVAL_DURATION=(181-130)/30;
 // Semillera locomotion is exclusively clip 40. No extra turn/backward mixer.
@@ -3939,11 +3940,11 @@ function startSemilleraCrystalCast(unit){
  const clips=semilleraSourceClips(unit);
  if(!clips)return false; // Do not fake a cast with no animation.
  unit.crystalClock=0;
- unit.crystalCast={clips,phase:'prepare',time:0,duration:9,
+ unit.crystalCast={clips,phase:'prepare',time:0,duration:SEMILLERA_PERIOD-1,
   finishDuration:1};
  unit.stage='semilleraElementCast';
- // Stretch the complete first composite clip to exactly nine seconds.
- playSemilleraAction(unit,clips.prep,clips.prep.duration/9);
+ // Finish the preparation in five seconds without truncating the animation.
+ playSemilleraAction(unit,clips.prep,clips.prep.duration/(SEMILLERA_PERIOD-1));
  return true;
 }
 function emitSemilleraCrystal(source){
@@ -3964,11 +3965,11 @@ function stepSemilleraCrystalCast(unit,dt){
  if(!cast||unit.stage!=='semilleraElementCast')return;
  cast.time+=dt;
  unit.crystalClock=Math.min(SEMILLERA_PERIOD,
-  (cast.phase==='prepare'?0:9)+cast.time);
+  (cast.phase==='prepare'?0:SEMILLERA_PERIOD-1)+cast.time);
  if(cast.phase==='prepare'&&cast.time>=cast.duration){
   cast.phase='finish';cast.time=Math.max(0,cast.time-cast.duration);
-  unit.crystalClock=Math.min(10,9+cast.time);
-  // Only after the ninth second, continue from frame 20 of clip 21.
+  unit.crystalClock=Math.min(SEMILLERA_PERIOD,SEMILLERA_PERIOD-1+cast.time);
+  // After preparation, continue from frame 20 of clip 21.
   const remaining=cast.clips.finish.duration-SEMILLERA_FINISH_START;
   playSemilleraAction(unit,cast.clips.finish,remaining/cast.finishDuration,SEMILLERA_FINISH_START);
  }else if(cast.phase==='finish'&&cast.time>=cast.finishDuration){
@@ -3990,10 +3991,13 @@ function startSemilleraRecall(unit){
     unit.stage!=='active')return false;
  const clips=semilleraSourceClips(unit);
  if(!clips?.finish||clips.finish.duration<=SEMILLERA_FINISH_START)return false;
- state.cast={elapsed:0,duration:Math.max(.22,
-  clips.finish.duration-SEMILLERA_FINISH_START)};
+ state.cast={elapsed:0,duration:SEMILLERA_RECALL_CAST_DURATION};
  unit.stage='semilleraRecallCast';
- playSemilleraAction(unit,clips.finish,1,SEMILLERA_FINISH_START);
+ // Use all frames of the final segment, at a one-second playback duration,
+ // so the movement ends before the still-live fragment's expiry.
+ playSemilleraAction(unit,clips.finish,
+  (clips.finish.duration-SEMILLERA_FINISH_START)/
+   SEMILLERA_RECALL_CAST_DURATION,SEMILLERA_FINISH_START);
  unit.animId='semillera-recall';
  return true;
 }
@@ -4175,6 +4179,17 @@ function updateSemilleraPassive(dt){
    clearSemilleraPassive(unit);continue;
   }
   state.elapsed+=dt;
+  // Pending fragments remain at their genuine age, rather than becoming
+  // resurrected floor sprites. If casting is unavailable, expire normally.
+  for(let i=state.pending.length-1;i>=0;i--){
+   const pending=state.pending[i];
+   pending.waitTime+=dt;
+   const age=pending.age+pending.waitTime;
+   if(age>=elementOrbs.fragmentLifetime){
+    pending.visual.dispose();
+    state.pending.splice(i,1);
+   }else pending.visual.update(dt,age);
+  }
   if(state.healCharge)updateSemilleraHealChargeFx(unit,dt);
   const item=state.retrieving;
   if(item){
@@ -4208,10 +4223,9 @@ function updateSemilleraCrystals(dt){
  const caster=casters.find(c=>c.side==='ally'&&c.stage==='active');
  for(let i=semilleraCrystals.length-1;i>=0;i--){
   const crystal=semilleraCrystals[i];crystal.age+=dt;
-  // A fragment cannot be collected once its normal lifetime is exhausted.
+  // An expired fragment disappears normally; it can NEVER be recalled.
   if(crystal.age>=lifetime){
-   if(!registerExpiredSemilleraFragment(crystal))crystal.visual.dispose();
-   semilleraCrystals.splice(i,1);continue;
+   crystal.visual.dispose();semilleraCrystals.splice(i,1);continue;
   }
   crystal.visual.update(dt,crystal.age);
   if(!crystal.landed){
@@ -4230,6 +4244,10 @@ function updateSemilleraCrystals(dt){
   if(collected)combatHud.collectFragment('ally','semillera');
   if(collected){
    crystal.visual.dispose();semilleraCrystals.splice(i,1);
+  }else if(crystal.landed&&crystal.age>=SEMILLERA_PRE_RECALL_AGE&&
+    reserveSemilleraFragment(crystal)){
+   // Transfer to Semillera's queue while the original is still visible.
+   semilleraCrystals.splice(i,1);
   }
  }
 }
@@ -5844,7 +5862,7 @@ function updateDuel(dt){
        // Recovery has priority between completed production cycles.
        if(c.semilleraPassive?.pending.length&&
           startSemilleraRecall(c))continue;
-       // Production is the cast itself: 9 s in clip 22, then 1 s
+       // Production is the cast itself: 5 s in clip 22, then 1 s
        // in clip 21. Both the animation and its HUD start together.
        if(c.outer.position.z>=MAX_Z-.03){
         if(!c.semilleraArrived){
