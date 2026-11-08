@@ -13,11 +13,11 @@ export function createRivalCasterAI({
   pickupRadius:3.65,interceptRange:4.1,threatRange:5.1,
   idealPressureZ:-.85,attackRange:3,castCooldown:1.1,
   territorialGrace:2.65,returnMargin:.35,minimumSurvivalHp:2,
-  attackCooldown:1.1,guardDuration:.5,decisionInterval:.15,
+  attackCooldown:1.1,guardDuration:.45,guardRecovery:1.1,decisionInterval:.15,
   ...settings
  };
  const state={mode:'collect',target:null,elapsed:0,decision:0,
-  castCooldown:0,attackCooldown:0,guardLeft:0,castLeft:0,castTarget:null,castCard:null,
+  castCooldown:0,attackCooldown:0,guardLeft:0,guardRecovery:0,castLeft:0,castTarget:null,castCard:null,
   castDone:false,casting:false,castDefensive:false,incursion:false,records:{collectedAttempts:0,casts:0,attacks:0}};
  let learningClock=0,previous=null;
  const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -48,7 +48,7 @@ export function createRivalCasterAI({
  const current=()=>getCaster?.();
  function reset(){
   state.mode='collect';state.target=null;state.elapsed=0;state.decision=0;
-  state.castCooldown=0;state.attackCooldown=0;state.guardLeft=0;
+  state.castCooldown=0;state.attackCooldown=0;state.guardLeft=0;state.guardRecovery=0;
   state.castLeft=0;state.castTarget=null;state.castCard=null;state.castDone=false;state.casting=false;
   state.castDefensive=false;state.incursion=false;
   previous=null;learningClock=0;positioning?.reset();
@@ -117,6 +117,7 @@ export function createRivalCasterAI({
   state.elapsed+=dt;
   state.castCooldown=Math.max(0,state.castCooldown-dt);
   state.attackCooldown=Math.max(0,state.attackCooldown-dt);
+  state.guardRecovery=Math.max(0,state.guardRecovery-dt);
   if(state.guardLeft>0){
    state.guardLeft=Math.max(0,state.guardLeft-dt);
    if(!state.guardLeft)guard?.(false);
@@ -161,6 +162,34 @@ export function createRivalCasterAI({
    (tactical?.danger||0)>.2;
   const context=bucket(c,atRisk,amount);
   learn(c,context,amount,dt);
+  // Combat response precedes economy: an exposed low-HP summon must not
+  // survive because the caster kept collecting or refreshing its guard.
+  const inRange=opponents.filter(enemy=>enemy?.target&&
+   distance(pos,enemy.position)<=cfg.attackRange+.1);
+  inRange.sort((a,b)=>{
+   const ta=a.target,tb=b.target;
+   const priority=t=>t?.role==='summon'?
+    ((Number(t.hp)||99)<=2?0:1):2;
+   return priority(ta)-priority(tb)||
+    distance(pos,a.position)-distance(pos,b.position);
+  });
+  const dangerTarget=inRange[0];
+  if(dangerTarget&&state.attackCooldown<=0){
+   if(state.guardLeft>0){state.guardLeft=0;guard?.(false);}
+   face?.(c,dangerTarget.position);
+   if(attack?.(c,dangerTarget.target)){
+    state.mode='attack';state.attackCooldown=cfg.attackCooldown;
+    state.records.attacks++;
+    return;
+   }
+  }
+  const blockIncoming=()=>{
+   if(!incoming.length||state.guardLeft>0||state.guardRecovery>0)return;
+   guard?.(true);
+   state.guardLeft=cfg.guardDuration;
+   state.guardRecovery=cfg.guardDuration+cfg.guardRecovery;
+  };
+
   // The economic plan has priority when a card is affordable: do not
   // endlessly chase orbs while waiting to cast an already available unit.
   const planned=getCastPlan?.(c,amount,resources)||null;
@@ -207,9 +236,7 @@ export function createRivalCasterAI({
   if(canPursue&&!unsafePickup){
    state.mode='collect';
    state.target=orbs.item.id??null;
-   if(incoming.length&&state.guardLeft<=0){
-    guard?.(true);state.guardLeft=cfg.guardDuration;
-   }
+   blockIncoming();
    const target=orbs.item.position;
    const pickup=Math.max(.5,Number(orbs.item.pickupRadius)||cfg.pickupRadius);
    const safeCollectPosition={x:target.x,z:Math.min(target.z,
@@ -227,13 +254,11 @@ export function createRivalCasterAI({
    const away=pos.x-nearby.item.position.x;
    advanceToward(c,tactical?.target||{x:clamp(pos.x+(away>=0?2:-2),-bounds.x,bounds.x),
     z:Math.min(-6,pos.z-1.5)},dt);
-   if(incoming.length&&state.guardLeft<=0){guard?.(true);state.guardLeft=cfg.guardDuration;}
+   blockIncoming();
    return;
   }
   // Survival and guard remain active while saving resources.
-  if(incoming.length&&state.guardLeft<=0){
-   guard?.(true);state.guardLeft=cfg.guardDuration;
-  }
+  blockIncoming();
   // Offensive summon: approach the player half of the map, but never
   // enter hostile territory solely to reach the ideal cast point.
   const objective=tactical?.target||
