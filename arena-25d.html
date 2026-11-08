@@ -827,7 +827,7 @@ import {createArenaElementOrbs} from './arena-element-orbs.js?v=20261106-semille
 import {createCasterLayerSystem} from './caster-animation-layers.js?v=0.9.100';
 import {createChiaraVisualRig} from './chiara-visual-rig.js?v=20261107-composite-22-21-2';
 import {createArenaCastFlyer} from './arena-cast-flyer.js?v=phase2-20261107-1';
-import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-healing-9';
+import {createArenaFactorsBridge} from './arena-factors-bridge.js?v=20261107-healing-visible-10';
 import {createCasterRangeIndicator} from './caster-range-indicator.js';
 import {createCasterMovementLoader} from './caster-movement-loader.js?v=0.9.112';
 import {createRivalCasterAI} from './caster-rival-ai.js?v=20261107-position-4';
@@ -959,6 +959,15 @@ const arenaFactors=createArenaFactorsBridge({
   unit.hp=resolution.next;
   makeFloatingWord(unit,'SANACIÓN +'+resolution.healed);
   spawnHealingPulseFx(unit,source);
+ },
+ onHealingPulse:(source,event)=>{
+  // Astarin's passive aura must be visible even if all nearby allies
+  // are at full health. Failures in visual FX cannot stop actual healing.
+  try{spawnHealingAuraPulseFx(source,event.radius);}
+  catch(error){if(!spawnHealingAuraPulseFx.warned){
+   console.warn('[R.O.K.] Visual de Sanación:',error);
+   spawnHealingAuraPulseFx.warned=true;
+  }}
  },
  onLoad:()=>{
   const status=qs('#factorCoreStatus');
@@ -2770,6 +2779,28 @@ function updateStunHalo(c,dt){
 // Healing is a non-damaging luminous pulse. Independent from hit overlays,
 // casting mixers, shield shells and the target's combat action.
 const healingPulseFx=[];
+const healingAuraFx=[];
+function spawnHealingAuraPulseFx(source,radius=6){
+ if(!source?.outer?.position||source.hp<=0)return;
+ const group=new THREE.Group();
+ group.position.set(source.outer.position.x,.095,source.outer.position.z);
+ root.add(group);
+ const material=new THREE.MeshBasicMaterial({
+  color:0x83ffad,transparent:true,opacity:.92,depthWrite:false,
+  side:THREE.DoubleSide,blending:THREE.AdditiveBlending
+ });
+ const ring=new THREE.Mesh(new THREE.RingGeometry(.94,1.055,48),material);
+ ring.rotation.x=-Math.PI/2;ring.scale.setScalar(.45);
+ group.add(ring);
+ const glowMat=new THREE.SpriteMaterial({
+  map:glowTexture,color:0x83ffad,transparent:true,opacity:.76,
+  depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending
+ });
+ const glow=new THREE.Sprite(glowMat);
+ glow.position.y=1.7;glow.scale.set(.72,.72,1);group.add(glow);
+ healingAuraFx.push({group,ring,material,glow,glowMat,
+  age:0,life:.85,radius:Math.max(1,Number(radius)||6)});
+}
 function spawnHealingPulseFx(unit,source){
  if(!unit?.outer?.position)return;
  const base=unit.outer.position;
@@ -2788,6 +2819,21 @@ function spawnHealingPulseFx(unit,source){
  healingPulseFx.push({group,material,particles,age:0,life:.7});
 }
 function updateHealingPulseFx(dt){
+ for(let i=healingAuraFx.length-1;i>=0;i--){
+  const fx=healingAuraFx[i];fx.age+=dt;
+  const t=Math.min(1,fx.age/fx.life);
+  // Compact, legible signature on phones: an expanding ground ring and
+  // a green flash above the emitter. The visible ring is NOT a collider.
+  fx.ring.scale.setScalar(.45+1.5*t);
+  fx.material.opacity=.92*(1-t);
+  fx.glowMat.opacity=.78*(1-t);
+  fx.glow.scale.setScalar(.75+.5*t);
+  if(t>=1){
+   root.remove(fx.group);fx.ring.geometry.dispose();
+   fx.material.dispose();fx.glowMat.dispose();
+   healingAuraFx.splice(i,1);
+  }
+ }
  for(let i=healingPulseFx.length-1;i>=0;i--){
   const fx=healingPulseFx[i];fx.age+=dt;
   const progress=Math.min(1,fx.age/fx.life);
@@ -2806,6 +2852,11 @@ function updateHealingPulseFx(dt){
 function clearHealingPulseFx(){
  for(const fx of healingPulseFx){root.remove(fx.group);fx.material.dispose();}
  healingPulseFx.length=0;
+ for(const fx of healingAuraFx){
+  root.remove(fx.group);fx.ring.geometry.dispose();
+  fx.material.dispose();fx.glowMat.dispose();
+ }
+ healingAuraFx.length=0;
 }
 const floatingWords=[];
 function makeFloatingWord(c,word='ATURDIDO'){
