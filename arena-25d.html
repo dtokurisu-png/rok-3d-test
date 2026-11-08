@@ -4208,6 +4208,10 @@ function updateSemilleraPassive(dt){
     item.slot=state.orbit.length;
     state.orbit.push(item);
     state.retrieving=null;
+    // The fifth recovered crystal immediately triggers healing. Do not
+    // wait for another production cycle or an additional fragment.
+    if(state.orbit.length===SEMILLERA_PASSIVE_TARGET&&
+       unit.stage==='active')startSemilleraHealCharge(unit);
    }
   }
   for(let i=0;i<state.orbit.length;i++){
@@ -5862,6 +5866,13 @@ function updateDuel(dt){
        // Recovery has priority between completed production cycles.
        if(c.semilleraPassive?.pending.length&&
           startSemilleraRecall(c))continue;
+       // Never begin the next six-second production while a recovered
+       // fragment is still travelling. This otherwise causes a sixth
+       // creation cast to run after the fifth has been collected.
+       if(c.semilleraPassive?.retrieving||
+          c.semilleraPassive?.pending.length){
+        setAnim(c,'idle',{fade:.15});continue;
+       }
        // Production is the cast itself: 5 s in clip 22, then 1 s
        // in clip 21. Both the animation and its HUD start together.
        if(c.outer.position.z>=MAX_Z-.03){
