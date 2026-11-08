@@ -1033,9 +1033,9 @@ function resolveCombatantOverlaps(){
    const wb=b.role==='caster'&&a.role!=='caster'?0:1;
    const total=wa+wb||1;
    const shift=Math.min(.5,minimum-dist+.003);
-   pa.x=THREE.MathUtils.clamp(pa.x-nx*shift*wa/total,-MAX_X,MAX_X);
+   if(a.cardId!=='astarium')pa.x=THREE.MathUtils.clamp(pa.x-nx*shift*wa/total,-MAX_X,MAX_X);
    pa.z=THREE.MathUtils.clamp(pa.z-nz*shift*wa/total,-MAX_Z,MAX_Z);
-   pb.x=THREE.MathUtils.clamp(pb.x+nx*shift*wb/total,-MAX_X,MAX_X);
+   if(b.cardId!=='astarium')pb.x=THREE.MathUtils.clamp(pb.x+nx*shift*wb/total,-MAX_X,MAX_X);
    pb.z=THREE.MathUtils.clamp(pb.z+nz*shift*wb/total,-MAX_Z,MAX_Z);
   }
   if(!corrected)break;
@@ -2419,7 +2419,7 @@ function canAttackSummonTarget(attacker,target){
  // Sin un rival a rango, avanzar hacia el caster enemigo, SIN reservar ni
  // perseguir una invocación remota que acaba de aparecer.
 function selectCombatTarget(c){
-  if(!c||c.role!=='summon'||!canDamageTarget(c))return null;
+  if(!c||c.role!=='summon'||c.cardId==='astarium'||!canDamageTarget(c))return null;
   const enemyCaster=casters.find(other=>other.side!==c.side&&canDamageTarget(other));
   if(!enemyCaster)return null;
   const distanceTo=other=>Math.hypot(
@@ -3492,7 +3492,7 @@ function resetCombatant(c){
   c.magicShieldMax=c.cardId==='kariona'?3:0;
   c.magicShieldHits=c.magicShieldMax;
   c.range=c.cardId==='semillera'?3:(archer?ATTACK_PROFILES.archer.range:shield?3:5);
-  c.attackDamage=(c.cardId==='kariona'||c.cardId==='astarium')?1:(c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1)));
+  c.attackDamage=c.cardId==='astarium'?0:c.cardId==='kariona'?1:(c.cardId==='semillera'?1:(chiaraSummonDefinitions[c.cardId]?.attack??(archer?ATTACK_PROFILES.archer.damage:shield?2:1)));
   c.speed=shield?2.4:2.15;
   if(c.cardId==='semillera'){
    c.crystalClock=0;c.crystalHudFlash=0;c.crystalCast=null;c.semilleraClips=null;
@@ -5351,6 +5351,30 @@ function updateDuel(dt){
   if(!casterLost())for(const c of combatants){
     if(c.stage!=='active'||c.rokConfusion||faroleraAbilityBridge.immobilized(c))continue;
     if(c.cardId==='farolera'&&faroleraAbilityBridge.escort(c,dt))continue;
+    // Guardian: fixed deployment X, Z movement exclusively for nearby allies.
+    if(c.cardId==='astarium'){
+      c.outer.position.x=c.startX;
+      const nearAllies=combatants.filter(other=>other!==c&&
+        other.side===c.side&&other.hp>0&&other.role==='summon'&&
+        !['dead','dying','vanishing','restoring'].includes(other.stage)&&
+        Math.hypot(other.outer.position.x-c.startX,
+          other.outer.position.z-c.outer.position.z)<=6);
+      nearAllies.sort((a,b)=>
+        Math.hypot(a.outer.position.x-c.startX,a.outer.position.z-c.outer.position.z)-
+        Math.hypot(b.outer.position.x-c.startX,b.outer.position.z-c.outer.position.z));
+      const ally=nearAllies[0];
+      c.currentThreatTarget=null;
+      if(ally){
+        const dz=ally.outer.position.z-c.outer.position.z;
+        if(Math.abs(dz)>1.25){
+          const step=Math.min(c.speed*dt,Math.abs(dz)-1.25);
+          c.outer.position.z=THREE.MathUtils.clamp(
+            c.outer.position.z+Math.sign(dz)*step,-MAX_Z,MAX_Z);
+          setAnim(c,summonWalkId(c),{fade:.16});
+        }else setAnim(c,'idle',{fade:.15});
+      }else setAnim(c,'idle',{fade:.15});
+      continue;
+    }
     const target=selectCombatTarget(c);
     c.currentThreatTarget=target;
     if(c.cardId==='semillera'&&c.outer.position.z<MAX_Z-.03){
@@ -5795,7 +5819,7 @@ const liorenSpellCards=[
   {id:'kariona',name:'Cariona',race:'melanide',type:'invocation',
    element:'earth',cost:2,qualities:['warrior'],portrait:'./assets/kariona.png'},
   {id:'astarium',name:'Amor de Astarin',race:'melanide',type:'invocation',
-   element:'earth',cost:3,portrait:'./assets/amor%20de%20astarium%20.png'},
+   element:'earth',cost:3,qualities:['guardian'],portrait:'./assets/amor%20de%20astarium%20.png'},
   {id:'ancient-oak-armor',name:'Armadura de Roble Antiguo',type:'equipment',
    element:'earth',cost:4,recraftCost:2,slot:'body',requiredQuality:'warrior',
    portrait:'./assets/ui/armadura-roble-antiguo.webp'},
