@@ -859,7 +859,7 @@ const liorenLearning=createChiaraLearning({storageKey:'rok.lioren.learning.v1'})
 // Experiments are separate from legacy positional Q-tables.
 const chiaraExperiments=createCasterExperimentPlanner({id:'chiara',storage:localStorage});
 const liorenExperiments=createCasterExperimentPlanner({id:'lioren',storage:localStorage});
-Promise.allSettled([
+const experimentMemoryReady=Promise.allSettled([
  chiaraExperiments.loadShared('./assets/ai/chiara-experiments.json'),
  liorenExperiments.loadShared('./assets/ai/lioren-experiments.json')
 ]).then(()=>{refreshExperimentControls();});
@@ -6316,6 +6316,12 @@ void (async()=>{
   ]);
   qs('#modelStatus').textContent='Lioren y Chiara listos · Farolera solo como invocación';
   qs('#repeat').disabled=false;qs('#pause').disabled=false;
+  // Read both local memories immediately and complete their shared-file
+  // bootstrap during the preparation phase, before enabling AI combat.
+  // Do not freeze offline matches if remote memory files are unreachable.
+  await Promise.race([experimentMemoryReady,
+   new Promise(resolve=>setTimeout(resolve,4000))]);
+  refreshExperimentControls();
   // The preparation interface was shown before downloading models.
   playing=false;
   matchGate.setCoreReady();
