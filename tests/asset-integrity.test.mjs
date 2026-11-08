@@ -24,10 +24,16 @@ test('all registered canonical assets are present and match original Git blob SH
   }
 });
 
-test('binary 3D files no longer clutter the repository root',async()=>{
+test('root-level imported 3D files are not mistaken for canonical manifest assets',async()=>{
+  // Newly uploaded GLB/FBX files may be staged at repository root before
+  // being registered in assets/. They must not invalidate canonical integrity.
   const names=await readdir(root);
-  const legacy=names.filter(name=>/\.(glb|fbx|zip)$/i.test(name));
-  assert.deepEqual(legacy,[]);
+  const imported=names.filter(name=>/\.(glb|fbx|zip)$/i.test(name));
+  const canonical=new Set(manifest.assets.map(asset=>asset.path));
+  for(const name of imported){
+    assert.ok(!canonical.has(name),'Unexpected canonical root asset: '+name);
+    assert.ok((await stat(path(name))).size>0,'Empty imported asset: '+name);
+  }
 });
 
 test('each active animation in manifest points to an existing canonical FBX',async()=>{
@@ -67,12 +73,16 @@ test('shared editor model library points to canonical GLBs and excludes reserved
     assert.equal(model.enabledInSceneEditor,model.category==='prop',model.id);
     await stat(path(model.path));
   }
-  const [assetEditor,sceneEditor,script]=await Promise.all([
+  const [assetEditor,sceneEditor,assetScript,sceneScript]=await Promise.all([
     readFile(path('asset-editor.html'),'utf8'),
     readFile(path('scene-editor.html'),'utf8'),
-    readFile(path('model-library.js'),'utf8')
+    readFile(path('asset-editor.js'),'utf8'),
+    readFile(path('scene-editor.js'),'utf8')
   ]);
-  assert.match(assetEditor,/model-library\.js/);
-  assert.match(sceneEditor,/model-library\.js/);
-  assert.match(script,/enabledInSceneEditor/);
+  // The studio now uses its dedicated editor modules, both reading the
+  // canonical JSON manifest; model-library.js is a legacy unused widget.
+  assert.match(assetEditor,/asset-editor\.js/);
+  assert.match(sceneEditor,/scene-editor\.js/);
+  assert.match(assetScript,/assets\/manifests\/model-library\.json/);
+  assert.match(sceneScript,/assets\/manifests\/model-library\.json/);
 });
