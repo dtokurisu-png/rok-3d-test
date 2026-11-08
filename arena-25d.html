@@ -4385,11 +4385,19 @@ function resetDemoCombat(){
   // to prefer a different opening position instead of repeating the rush.
   if(rivalAI?.status?.elapsed>5){
    chiaraPositioning.finishMatch(casters.find(c=>c.side==='enemy')?.stage!=='defeated');
-   chiaraLearning.finishMatch();chiaraExperiments.finishMatch();
+   chiaraLearning.finishMatch();
+   const chiaraDefeated=casters.find(c=>c.side==='enemy')?.stage==='defeated';
+   const liorenDefeated=casters.find(c=>c.side==='ally')?.stage==='defeated';
+   chiaraExperiments.finishMatch(chiaraDefeated===liorenDefeated?
+    null:!chiaraDefeated);
   }
   if(liorenTrainingAI?.active&&liorenTrainingAI.status.elapsed>5){
    liorenPositioning.finishMatch(casters.find(c=>c.side==='ally')?.stage!=='defeated');
-   liorenLearning.finishMatch();liorenExperiments.finishMatch();
+   liorenLearning.finishMatch();
+   const chiaraDefeated=casters.find(c=>c.side==='enemy')?.stage==='defeated';
+   const liorenDefeated=casters.find(c=>c.side==='ally')?.stage==='defeated';
+   liorenExperiments.finishMatch(chiaraDefeated===liorenDefeated?
+    null:!liorenDefeated);
   }
   liorenTrainingAI?.reset();
   // A canceled training summon must not reserve the next round's slot.
@@ -8311,7 +8319,7 @@ function loop(now){
     framePhase='lioren-ai';liorenTrainingAI?.step(dt);
     tacticalUiClock+=dt;
     if(tacticalUiClock>=3){
-     tacticalUiClock=0;learningStats();liorenStats();
+     tacticalUiClock=0;learningStats();liorenStats();refreshExperimentControls();
      const names={hold:'mantener posición segura',retreat:'replegarse',
       advance:'avanzar con precaución','flank-left':'rodear por la izquierda',
       'flank-right':'rodear por la derecha'};
